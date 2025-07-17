@@ -8,8 +8,7 @@ const yMd = 'yyyy-MM-dd';
 /// home menu
 /// ------------------------------------------------------------------------
 const kMenuHome = 'Home';
-const kMenuFixMetadata = 'Fix Metadata';
-const kMenuFiles = 'Files';
+const kMenuSearch = 'Search';
 const kMenuExplore = 'Explore';
 const kMenuSetting = 'Settings';
 

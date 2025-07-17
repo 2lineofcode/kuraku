@@ -6,8 +6,7 @@ class PageSettingsController extends GetxController {
   final appSetting = Get.find<AppSettingService>();
 
   @override
-  void onInit() {
-    //
+  Future<void> onInit() async {
     super.onInit();
   }
 }

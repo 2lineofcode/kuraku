@@ -14,11 +14,6 @@ mixin AppColor {
   static Color get footerPrimary => Get.isDarkMode ? Color.fromARGB(255, 18, 15, 22) : Vx.neutral300;
   static Color get emptyStatePrimary => Get.isDarkMode ? Vx.neutral800 : Vx.neutral200;
 
-  /// calender
-  static Color get calendarTodayColor => Get.isDarkMode ? Vx.neutral700 : Vx.neutral200;
-  static Color get calendarSelectedColor => Get.isDarkMode ? Vx.blue500 : Vx.blue200;
-  static Color get calendarWeekEndColor => Get.isDarkMode ? Vx.red200 : Vx.red400;
-
   /// menu
   static Color get sideMenuSelected => Get.isDarkMode ? const Color(0xff231B4D) : Vx.blue200;
   static Color get menuSelected => Get.isDarkMode ? Colors.blue : Colors.white;

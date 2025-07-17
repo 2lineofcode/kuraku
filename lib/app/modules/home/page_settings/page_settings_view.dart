@@ -17,7 +17,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
           onPressed: () {
             HelperOpener.openFolder(controller.appSetting.appDir.path);
           },
-        )
+        ),
       ],
     ).scrollVertical();
   }

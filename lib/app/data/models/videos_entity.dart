@@ -89,7 +89,7 @@ class Videos {
     series = json['series'] ?? '';
     screenshot = json['screenshot'] == null || (json['screenshot'] as String).isEmpty ? null : List<String>.from(jsonDecode(json['screenshot']));
     viewCount = json['view_count'] ?? 0;
-    site = json['site'] ?? 0.0;
+    site = json['site'] ?? '';
   }
 
   Map<String, dynamic> toJson() {
@@ -173,13 +173,17 @@ class VideoCategory {
 class VideoActress {
   num? id;
   String? nameRomaji;
+  String? nameKanji;
+  String? nameKana;
   String? imageUrl;
 
-  VideoActress({this.id, this.nameRomaji, this.imageUrl});
+  VideoActress({this.id, this.nameRomaji, this.nameKanji, this.nameKana, this.imageUrl});
 
   VideoActress.fromJson(Map<String, dynamic> json) {
     id = json['id'] ?? 0;
     nameRomaji = json['name_romaji'] ?? '';
+    nameKanji = json['name_kanji'] ?? '';
+    nameKana = json['name_kana'] ?? '';
     imageUrl = json['image_url'] ?? '';
   }
 
@@ -187,6 +191,8 @@ class VideoActress {
     final data = <String, dynamic>{};
     data['id'] = id;
     data['name_romaji'] = nameRomaji;
+    data['name_kanji'] = nameKanji;
+    data['name_kana'] = nameKana;
     data['image_url'] = imageUrl;
     return data;
   }

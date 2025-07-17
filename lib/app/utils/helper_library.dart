@@ -6,17 +6,18 @@ import 'package:overlayment/overlayment.dart';
 import 'package:uuid/v4.dart';
 
 import '../core/app_color.dart';
-import '../models/library_entity.dart';
-import '../models/videos_entity.dart';
+import '../data/database/db_library.dart';
+import '../data/database/db_r18.dart';
+import '../data/database/db_videos.dart';
+import '../data/models/library_entity.dart';
+import '../data/models/videos_entity.dart';
 import '../modules/home/home_controller.dart';
-import '../repository/local/db_library.dart';
-import '../repository/local/db_r18.dart';
-import '../repository/local/db_videos.dart';
 import 'helper_file_picker.dart';
 import 'helper_misc.dart';
 import 'helper_opener.dart';
+import 'helper_toast.dart';
 
-mixin HelperOverlay {
+mixin HelperLibrary {
   static final _homeController = Get.find<HomeController>();
 
   static Future<void> openMenuLibrary(List<Library> library) async {
@@ -40,7 +41,7 @@ mixin HelperOverlay {
                 icon: Icon(CupertinoIcons.refresh, size: 18),
                 onPressed: () {
                   Overlayment.dismissLast();
-                  // processReloadAllVideoDB(library);
+                  doRescanAllVideoFromLibrary(library);
                 },
               ),
               IconButton(
@@ -53,30 +54,47 @@ mixin HelperOverlay {
             ],
           ),
           Divider(),
-          ListView.separated(
-            itemCount: library.length,
-            separatorBuilder: (context, index) => Divider(),
-            itemBuilder: (context, index) {
-              final item = library[index];
-              return HStack([
-                VStack([
-                  'ⵌ ${item.alias}'.text.ellipsis.make(),
-                  '${HelperMisc.getLastSegments(item.rootFolder!)}'.text.size(10).minFontSize(10).neutral500.make(),
-                ]).expand(),
-                IconButton(
-                  onPressed: () => HelperOpener.openFolder(item.rootFolder ?? ''),
-                  icon: Icon(CupertinoIcons.folder, size: 18),
-                ),
-                Container(
-                  decoration: ExDecorator.box(borderRadius: 90, fillColor: Vx.red500, borderColor: Vx.red500),
-                  child: ' ${item.totalVideo} '.text.size(11).minFontSize(11).make(),
-                )
-              ]).onInkTap(() async {
-                await Overlayment.dismissLast();
-                dialogAddorEditLibrary(library: item);
-              });
-            },
-          ).expand(),
+          library.isEmpty
+              ? ExUiErrorOrEmpty(
+                  illustration: Icon(CupertinoIcons.lab_flask_solid),
+                  title: 'No Data',
+                  message: 'No Library Found, Please Add New Library by Click Button `+`',
+                ).expand()
+              : ListView.separated(
+                  itemCount: library.length,
+                  separatorBuilder: (context, index) => Divider(),
+                  itemBuilder: (context, index) {
+                    final item = library[index];
+                    return HStack([
+                      VStack([
+                        HStack([
+                          'ⵌ ${item.alias}'.text.ellipsis.make().pOnly(right: 8),
+                          Container(
+                            decoration: ExDecorator.box(borderRadius: 90, fillColor: AppColor.sideMenuPrimary),
+                            child: ' ${item.totalVideo} '.text.size(9).minFontSize(9).make(),
+                          ),
+                        ]),
+                        '${HelperMisc.getLastSegments(item.rootFolder!)}'.text.size(10).minFontSize(10).neutral500.make(),
+                      ]).expand(),
+                      IconButton(
+                        onPressed: () async => {
+                          await Overlayment.dismissLast(),
+                          doRescanVideoFromLibrary(item),
+                        },
+                        icon: Icon(CupertinoIcons.refresh, size: 16),
+                        tooltip: 'Rescan Folder `${item.alias}`',
+                      ),
+                      IconButton(
+                        onPressed: () => HelperOpener.openFolder(item.rootFolder ?? ''),
+                        icon: Icon(CupertinoIcons.folder, size: 16),
+                        tooltip: 'Open Folder `${item.alias}`',
+                      ),
+                    ]).onInkTap(() async {
+                      await Overlayment.dismissLast();
+                      dialogAddorEditLibrary(library: item);
+                    });
+                  },
+                ).expand(),
           Divider().pSymmetric(v: 4),
           HStack([
             Spacer(),
@@ -90,7 +108,7 @@ mixin HelperOverlay {
     );
   }
 
-  static void dialogAddorEditLibrary({Library? library}) {
+  static void dialogAddorEditLibrary({Library? library, bool isFromDrop = false}) {
     final tfAlias = TextEditingController(text: library?.alias);
     final tfRootPath = TextEditingController(text: library?.rootFolder);
     final librarySelected = Library().obs;
@@ -98,10 +116,18 @@ mixin HelperOverlay {
     final totalVideo = 0.obs;
 
     ExAlert.adaptive(
-      title: Text(
-        library != null ? 'ⵌ ${library.alias}' : 'ⵌ Add to Library',
-        style: TextStyle(fontWeight: FontWeight.bold),
-        textAlign: TextAlign.left,
+      isDismissible: false,
+      icon: 'aa'.text.make(),
+      title: HStack(
+        [
+          Text(
+            library != null ? 'ⵌ ${library.alias}' : 'ⵌ Add to Library',
+            style: TextStyle(fontWeight: FontWeight.bold),
+            textAlign: TextAlign.left,
+          ),
+          Spacer(),
+          ExCloseButton(),
+        ],
       ).pOnly(bottom: 16),
       content: VStack(
         [
@@ -139,12 +165,12 @@ mixin HelperOverlay {
         ],
       ),
       actions: [
-        if (library != null) ...[
+        if (library != null && !isFromDrop) ...[
           CupertinoDialogAction(
             child: Text('Delete', style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () {
               DBLibrary.delete(library);
-              processDeleteVideoDB(library);
+              doDeleteVideoFromLibrary(library);
               Get.back();
             },
           ),
@@ -158,15 +184,23 @@ mixin HelperOverlay {
             if (library != null) {
               library.alias = tfAlias.text;
               library.rootFolder = tfRootPath.text;
-              await DBLibrary.update(library);
-              Get.back();
+
+              if (isFromDrop) {
+                Get.back();
+                await DBLibrary.add(library);
+                await doAddorEditVideoFromLibrary(library);
+              } else {
+                Get.back();
+                await DBLibrary.update(library);
+              }
               return;
             }
 
             // add mode
+            librarySelected.value.alias = tfAlias.text;
             await DBLibrary.add(librarySelected.value);
             Get.back();
-            await processAddorEditVideoToDB(librarySelected.value);
+            await doAddorEditVideoFromLibrary(librarySelected.value);
           },
         ),
       ],
@@ -174,9 +208,9 @@ mixin HelperOverlay {
   }
 
   // ** MAIN PROCESS
-  static Future<void> processAddorEditVideoToDB(Library library) async {
+  static Future<void> doAddorEditVideoFromLibrary(Library library) async {
     if (library.videos == null || library.videos!.isEmpty) {
-      _homeController.footerSum.value = 'Iddle';
+      _homeController.footerSum.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
       return;
     }
 
@@ -186,7 +220,6 @@ mixin HelperOverlay {
       final videoCode = HelperMisc.getVideoCode(HelperMisc.getLastPath(video));
 
       if (videoCode != '') {
-
         final dataVideo = await DBR18.getVideo(videoCode);
         final dataCategory = await DBR18.getCategory(videoCode);
         final dataActress = await DBR18.getActress(videoCode);
@@ -207,16 +240,18 @@ mixin HelperOverlay {
         newVideo.videoPath = video;
         newVideo.category = dataCategory.map((e) => VideoCategory.fromJson(e)).toList();
         newVideo.actress = dataActress.map((e) => VideoActress.fromJson(e)).toList();
-        newVideo.durationFormated = HelperMisc.durationFormat(newVideo.duration ?? 0);
+        newVideo.durationFormated = HelperMisc.durationFormat0(newVideo.duration ?? 0);
         newVideo.releaseDateFormated = newVideo.releaseDate?.reformatDate(from: 'yyyy-MM-dd', to: 'MMM dd, yyyy');
         newVideo.director = dataDirector?['name_romaji'] ?? '';
+        newVideo.fanArt = '${dataVideo['fan_art'].toString().removeLast(2)}pl';
+        newVideo.poster = '${dataVideo['poster'].toString().removeLast(2)}ps';
 
         if (dataVideo['sslast'] != null) {
           final ss = <String>[];
           final n = dataVideo['sslast'].toString().split('-').last;
           for (var i = 0; i < int.parse(n); i++) {
-            final filename = '${dataVideo['ssfirst']}'.removeLast(1);
-            ss.add('$filename${i + 1}.jpg');
+            final filename = '${dataVideo['ssfirst']}'.removeLast(2);
+            ss.add('${filename}jp-${i + 1}');
           }
           newVideo.screenshot = ss;
 
@@ -238,28 +273,57 @@ mixin HelperOverlay {
     }
 
     _homeController.footerSum.value = '◎ Commit ${library.videos!.length} Videos';
-    await 1.seconds.delay();
-    _homeController.footerSum.value = 'Iddle';
+    await 300.milliseconds.delay();
+    _homeController.footerSum.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
   }
 
-  static Future<void> processDeleteVideoDB(Library library) async {
+  static Future<void> doDeleteVideoFromLibrary(Library library) async {
     await DBVideos.deleteByRootPath(library.rootFolder ?? '');
     await DBLibrary.delete(library);
     _homeController.footerSum.value = '${await DBVideos.getCount()} Videos';
   }
 
-  // static Future<void> processReloadAllVideoDB(List<Library> libraries) async {
-  //   // @step: delete all video
-  //   homeController.footerSum.value = '◎ Delete All Video';
-  //   await 1.seconds.delay();
-  //   await DBVideo.deleteAllVideos();
-  //   homeController.footerSum.value = '◎ Re scan all video from library';
-  //   await 1.seconds.delay();
-  //   // @step: re scan all video from library
-  //   for (var i = 0; i < libraries.length; i++) {
-  //     final library = libraries[i];
-  //     await processAddorEditVideoToDB(library);
-  //   }
-  //   homeController.footerSum.value = '${await DBVideo.countAllVideo()} Videos';
-  // }
+  static Future<void> doRescanVideoFromLibrary(Library library) async {
+    _homeController.footerSum.value = '◎ Rescanning...';
+    await DBVideos.deleteByRootPath(library.rootFolder ?? '');
+    _homeController.footerSum.value = '◎ Deleting...';
+
+    await HelperFilePicker.scanFolderAndSubFolder(library.rootFolder ?? '').then((newLibrary) async {
+      if (newLibrary == null) return;
+      newLibrary.id = library.id;
+      newLibrary.alias = newLibrary.rootFolder?.getLastPath();
+      await DBLibrary.update(newLibrary);
+      await doAddorEditVideoFromLibrary(newLibrary);
+    }).catchError((e) {
+      HelperToast.error('Could not access folder ${library.rootFolder}', duration: 3.seconds);
+    });
+  }
+
+  static Future<void> doRescanAllVideoFromLibrary(List<Library> libraries) async {
+    if (libraries.isEmpty) return;
+
+    _homeController.footerSum.value = '◎ Rescanning...';
+    final tempListLibrary = libraries;
+
+    for (int index = 0; index < libraries.length; index++) {
+      final library = libraries[index];
+
+      await DBVideos.deleteByRootPath(library.rootFolder ?? '');
+      _homeController.footerSum.value = '◎ Deleting...';
+    }
+
+    for (int index = 0; index < tempListLibrary.length; index++) {
+      final library = tempListLibrary[index];
+      await HelperFilePicker.scanFolderAndSubFolder(library.rootFolder ?? '').then((newLibrary) async {
+        if (newLibrary != null) {
+          newLibrary.alias = newLibrary.rootFolder?.getLastPath();
+          newLibrary.id = library.id;
+          await DBLibrary.update(newLibrary);
+          await doAddorEditVideoFromLibrary(newLibrary);
+        }
+      }).catchError((e) {
+        HelperToast.error('Could not access folder ${library.rootFolder}', duration: 3.seconds);
+      });
+    }
+  }
 }

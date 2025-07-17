@@ -10,7 +10,6 @@ dependencies:
   # core
   get: ^4.7.2
   get_storage: ^2.1.1
-  # sembast: ^3.8.4
   path: ^1.9.1
   path_provider: ^2.1.5
   sqflite: ^2.4.2
@@ -27,27 +26,29 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_svg: ^2.0.17
   grouped_list: ^6.0.0
-  custom_radio_grouped_button: ^2.2.1
   window_manager: ^0.4.3
   animated_text_kit: ^4.2.3
   flutter_popup: ^3.3.4
-  flutter_iconpicker_plus: ^3.2.3
   lottie: ^3.3.1
-  animated_icon: ^0.0.9
   glassmorphism_ui: ^0.3.0
   overlayment: ^0.2.1
+  cached_network_image: ^3.4.1
+  zoom_hover_pinch_image: ^1.0.4
 
   # picker
-  hsv_color_pickers: ^0.4.0
-  flutter_colorpicker: ^1.1.0
   file_picker: ^9.0.2
 
   # utils
   intl: ^0.20.2
   uuid: ^4.5.1
-  csv: ^6.0.0
   package_info_plus: ^8.3.0
   url_launcher: ^6.3.1
+  super_drag_and_drop: ^0.9.1
+  hotkey_manager: ^0.2.3
+  toastification: ^3.0.3
+  ffmpeg_kit_flutter_new: ^2.0.0
+  video_compress: ^3.1.4
+  kana_kit: ^2.1.1
 
   flutter:
     sdk: flutter

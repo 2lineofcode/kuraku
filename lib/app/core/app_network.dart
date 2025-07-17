@@ -19,7 +19,7 @@ mixin Api {
   );
 
   static final _dio = Dio(
-    BaseOptions(baseUrl: Env.apiUrl, connectTimeout: 15.seconds, receiveTimeout: 15.seconds),
+    BaseOptions(baseUrl: Env.apiUrl, connectTimeout: 30.seconds, receiveTimeout: 30.seconds),
   )..interceptors.addAll([
       DioCacheInterceptor(options: _option),
       LogInterceptor(),
@@ -83,10 +83,11 @@ class LogInterceptor extends Interceptor {
     }
 
     if (diff < 900) {
-      // final getCode = response.requestOptions.uri.toString().split('?code=').last;
-      // print('$getCode >> Load from Cache');
+      final getCode = response.requestOptions.uri.toString().split('?code=').last;
+      print('$getCode >> Load from Cache');
     } else {
-      print('${response.requestOptions.uri} | ${response.statusCode} | $diff ms', name: response.requestOptions.method);
+      final diffToSecond = diff / 1000;
+      print('${response.requestOptions.uri} | ${response.statusCode} | $diffToSecond ms', name: response.requestOptions.method);
     }
     super.onResponse(response, handler);
   }

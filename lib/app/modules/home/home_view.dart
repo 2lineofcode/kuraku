@@ -1,32 +1,46 @@
+
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../../core/app_color.dart';
 import '../../core/const.dart';
 import '../widgets/widgets.dart';
 import 'home_controller.dart';
 import 'page_explore/page_explore_view.dart';
-import 'page_files/page_files_view.dart';
 import 'page_home/page_home_view.dart';
-import 'page_library/page_library_view.dart';
+import 'page_search/page_search_controller.dart';
+import 'page_search/page_search_view.dart';
 import 'page_settings/page_settings_view.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
   @override
   Widget build(BuildContext context) {
-    return MyLayout(
-      appBarTitle: appBarTitle(),
-      appBarLeading: appBarLeading().pOnly(right: 8),
-      isShowAppBarLeading: false,
-      appBarAction: appBarAction(),
-      sideMenuContent: sideMenuContent(),
-      sideMenuWidth: 180,
-      bodyContent: Obx(() => bodyContent().p8()),
-      footerContent: footerContent(),
-      floatingActionButton: floatingActionButton(),
+    return DropRegion(
+      formats: Formats.standardFormats,
+      hitTestBehavior: HitTestBehavior.opaque,
+      onDropOver: (event) {
+        if (event.session.allowedOperations.contains(DropOperation.copy)) {
+          return DropOperation.copy;
+        } else {
+          return DropOperation.none;
+        }
+      },
+      onPerformDrop: controller.onDropEvent,
+      child: MyLayout(
+        appBarTitle: appBarTitle(),
+        appBarLeading: appBarLeading().pOnly(right: 8),
+        isShowAppBarLeading: false,
+        appBarAction: appBarAction(),
+        sideMenuContent: sideMenuContent(),
+        sideMenuWidth: 180,
+        bodyContent: Obx(() => bodyContent().p8()),
+        footerContent: footerContent(),
+        floatingActionButton: floatingActionButton(),
+      ),
     );
   }
 
@@ -42,6 +56,11 @@ class HomeView extends GetView<HomeController> {
     return HStack(
       [
         IconButton(
+          icon: Icon(CupertinoIcons.refresh, size: 18),
+          onPressed: () => controller.onRefreshAllContent(),
+          tooltip: 'Refresh All Content',
+        ).p8(),
+        IconButton(
           icon: Icon(CupertinoIcons.collections, size: 18),
           onPressed: () => controller.onOpenLibrary(),
           tooltip: 'Library',
@@ -52,10 +71,9 @@ class HomeView extends GetView<HomeController> {
 
   Widget sideMenuContent() {
     final menuList = <Map<String, dynamic>>[
-      {'icon': CupertinoIcons.play_rectangle, 'name': kMenuHome},
-      {'icon': CupertinoIcons.doc_text_viewfinder, 'name': kMenuFixMetadata},
-      {'icon': CupertinoIcons.rectangle_on_rectangle_angled, 'name': kMenuFiles},
-      {'icon': CupertinoIcons.flame, 'name': kMenuExplore},
+      {'icon': CupertinoIcons.suit_diamond, 'name': kMenuHome},
+      {'icon': CupertinoIcons.doc_text_search, 'name': kMenuSearch},
+      {'icon': CupertinoIcons.rectangle_on_rectangle_angled, 'name': kMenuExplore},
       {'icon': CupertinoIcons.gear_big, 'name': kMenuSetting},
     ];
     return ListView.builder(
@@ -86,10 +104,9 @@ class HomeView extends GetView<HomeController> {
     switch (controller.currentMenuSelected.value) {
       case kMenuHome:
         return controller.obx((state) => PageHomeView());
-      case kMenuFixMetadata:
-        return controller.obx((state) => PageLibraryView());
-      case kMenuFiles:
-        return controller.obx((state) => PageFilesView());
+      case kMenuSearch:
+        Get.find<PageSearchController>().fnSearch.requestFocus();
+        return controller.obx((state) => PageSearchView());
       case kMenuExplore:
         return controller.obx((state) => PageExploreView());
       case kMenuSetting:

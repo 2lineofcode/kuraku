@@ -1,17 +1,18 @@
 import 'package:get/get.dart';
 
-import '../../models/library_entity.dart';
+import '../models/library_entity.dart';
 import 'db_init.dart';
 
 mixin DBLibrary {
-  static final _db = Get.find<DB>().dbMain;
+  static final _db = Get.find<DBService>().dbMain;
   static final _tableName = 'Library';
 
   static Future<bool> _validation(Library library) async {
-    final checkRootFolder = await getByRootFolder(library.rootFolder ?? '');
-    if (checkRootFolder.isNotEmpty) {
-      return false;
-    }
+    final isDuplicateRootFolder = await getByRootFolder(library.rootFolder ?? '');
+
+    if (library.id == null) return false;
+    if (library.alias == null) return false;
+    if (isDuplicateRootFolder.isNotEmpty) return false;
 
     return true;
   }

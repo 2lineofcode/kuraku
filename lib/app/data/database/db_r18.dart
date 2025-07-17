@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'db_init.dart';
 
 mixin DBR18 {
-  static final _db = Get.find<DB>().dbR18;
+  static final _db = Get.find<DBService>().dbR18;
 
   static Future<Map<String, dynamic>?> getVideo(String code) async {
     final List<Map<String, dynamic>> maps = await _db.rawQuery('''

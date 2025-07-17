@@ -1,32 +1,26 @@
 import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
 
-import '../../../models/videos_entity.dart';
-import '../../../repository/local/db_r18.dart';
-import '../../../repository/network/repo_javit.dart';
-import '../../../utils/helper_misc.dart';
+import '../../../data/api/api_javit.dart';
+import '../../../data/models/videos_entity.dart';
 
 class PageHomeController extends GetxController {
-  final repo = Get.find<RepoJavit>();
+  final repo = Get.find<ApiJavit>();
   final videos = <Videos>[].obs;
+  final category = <VideoCategory>[].obs;
+  final actress = <VideoActress>[].obs;
+
+// const kanaKit = KanaKit();
 
   @override
-  void onInit() {
+  Future<void> onInit() async {
     //
     super.onInit();
   }
 
-  Future<void> buttonClick() async {
+  Future<void> testt() async {
     Stopwatch stopwatch = Stopwatch()..start();
-
     // here
-
-
-    // logJson(dataVideo['ssfirst']);
-    // logJson(dataVideo['sslast']);
-    // logJson(newVideo.toJson());
-    // logS(newVideo.category?[0].category);
-
 
     // ...
     stopwatch.stop();

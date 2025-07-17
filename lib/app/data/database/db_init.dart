@@ -7,7 +7,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../core/app_logging.dart';
 
-class DB extends GetxService {
+class DBService extends GetxService {
   late Database dbMain;
   late Database dbR18;
 
@@ -57,7 +57,7 @@ class DB extends GetxService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 20250715,
       onConfigure: _onConfigure,
       onOpen: (db) async {
         AppLog.log('== R18 Database (r18.db) opened (version: ${await db.getVersion()}) ==');

@@ -1,8 +1,9 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:uuid/v4.dart';
 
-import '../models/library_entity.dart';
+import '../data/models/library_entity.dart';
 import 'helper_misc.dart';
 
 mixin HelperFilePicker {
@@ -17,9 +18,7 @@ mixin HelperFilePicker {
       // Filter semua subfolder
       List<Directory> subfolders = files
           .where((file) {
-            if (file is Directory) {
-              return true;
-            }
+            if (file is Directory) return true;
             return false;
           })
           .map((e) => e as Directory)
@@ -28,6 +27,8 @@ mixin HelperFilePicker {
       // Filter video files
       final videoFiles = files.where((file) {
         if (file is File) {
+          // filter minimum filesize > 10MB
+          if (file.lengthSync() < 10 * 1024 * 1024) return false;
           String extension = file.path.split('.').last.toLowerCase();
           return ['mp4', 'mkv', 'avi', 'mov'].contains(extension);
         }
@@ -35,7 +36,7 @@ mixin HelperFilePicker {
       }).toList();
 
       final item = Library(
-        id: HelperMisc.generateID(),
+        id: UuidV4().generate(),
         totalVideo: videoFiles.length,
         alias: HelperMisc.getLastPath(selectedDirectory),
         rootFolder: selectedDirectory,
@@ -56,9 +57,7 @@ mixin HelperFilePicker {
     // Filter semua subfolder
     List<Directory> subfolders = files
         .where((file) {
-          if (file is Directory) {
-            return true;
-          }
+          if (file is Directory) return true;
           return false;
         })
         .map((e) => e as Directory)
@@ -67,6 +66,7 @@ mixin HelperFilePicker {
     // Filter video files
     List<FileSystemEntity> videoFiles = files.where((file) {
       if (file is File) {
+        if (file.lengthSync() < 10 * 1024 * 1024) return false;
         String extension = file.path.split('.').last.toLowerCase();
         return ['mp4', 'mkv', 'avi', 'mov'].contains(extension);
       }
@@ -74,7 +74,7 @@ mixin HelperFilePicker {
     }).toList();
 
     final item = Library(
-      id: HelperMisc.generateID(),
+      id: UuidV4().generate(),
       totalVideo: videoFiles.length,
       rootFolder: path,
       subFolder: subfolders.map((e) => e.path).toList(),
