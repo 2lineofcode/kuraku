@@ -1,0 +1,38 @@
+{
+    "files.exclude": {
+        "**/.git": false,
+        "**/.svn": false,
+        "**/.hg": false,
+        "**/.DS_Store": false,
+        "**/Thumbs.db": false,
+        "**/CVS": false,
+        ".idea": false,
+        ".dart_**": false,
+        ".firebase": false,
+        ".flutter-**": false,
+        "linux": false,
+        "android": false,
+        "windows": false,
+        "macos": false,
+        "ios": false,
+        "web": false,
+        "build": false,
+        "supabase": false,
+        "*.iml": false
+    },
+    "explorerExclude.backup": {},
+    "dart.lineLength": 200,
+    "workbench.editor.enablePreview": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll": "explicit"
+    },
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.expand": false,
+    "explorer.fileNesting.patterns": {
+        "pubspec.yaml": "pubspec.lock,pubspec_overrides.yaml,.packages,.flutter-plugins,.flutter-plugins-dependencies,.metadata, analysis_options.yaml, flutter_launcher_icons.yaml, devtools_options.yaml",
+        "README.md": "README.md, supabase_local.md",
+        "*.dart": "${capture}.g.dart",
+        "firebase.json": "firebase.json, .firebaserc",
+        ".env": ".env, .env.dev, .env.local, .env.staging, .env.prod, env.g.dart",
+    },
+}

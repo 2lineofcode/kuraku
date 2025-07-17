@@ -1,0 +1,23 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - lib/*.g.dart*
+
+  errors:
+    todo: ignore
+
+linter:
+  rules:
+    avoid_function_literals_in_foreach_calls: false
+    avoid_print: false
+    constant_identifier_names: false
+    curly_braces_in_flow_control_structures: false
+    no_leading_underscores_for_local_identifiers: false
+    prefer_const_constructors: false
+    prefer_const_literals_to_create_immutables: false
+    prefer_relative_imports: true
+    prefer_single_quotes: true
+    unnecessary_string_interpolations: false
+    directives_ordering: true
+    unawaited_futures: true

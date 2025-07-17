@@ -1,0 +1,68 @@
+name: javit
+description: "A new Flutter project."
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.3
+
+dependencies:
+  # core
+  get: ^4.7.2
+  get_storage: ^2.1.1
+  # sembast: ^3.8.4
+  path: ^1.9.1
+  path_provider: ^2.1.5
+  sqflite: ^2.4.2
+
+  # dio
+  dio: ^5.8.0+1
+  dio_cache_interceptor: ^3.5.1
+  dio_cache_interceptor_hive_store: ^4.0.0
+  pretty_dio_logger: ^1.4.0
+  dio_smart_retry: ^7.0.1
+
+  # ui
+  ex_kit: ^0.7.0
+  cupertino_icons: ^1.0.8
+  flutter_svg: ^2.0.17
+  grouped_list: ^6.0.0
+  custom_radio_grouped_button: ^2.2.1
+  window_manager: ^0.4.3
+  animated_text_kit: ^4.2.3
+  flutter_popup: ^3.3.4
+  flutter_iconpicker_plus: ^3.2.3
+  lottie: ^3.3.1
+  animated_icon: ^0.0.9
+  glassmorphism_ui: ^0.3.0
+  overlayment: ^0.2.1
+
+  # picker
+  hsv_color_pickers: ^0.4.0
+  flutter_colorpicker: ^1.1.0
+  file_picker: ^9.0.2
+
+  # utils
+  intl: ^0.20.2
+  uuid: ^4.5.1
+  csv: ^6.0.0
+  package_info_plus: ^8.3.0
+  url_launcher: ^6.3.1
+
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  enven: ^1.2.1
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+  - assets/r18.db
+
+get_cli:
+  sub_folder: false
