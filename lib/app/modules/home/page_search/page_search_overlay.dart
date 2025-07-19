@@ -11,6 +11,7 @@ import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
+import '../page_home/page_home_controller.dart';
 import 'page_search_controller.dart';
 
 mixin PageSearchOverlay {
@@ -59,30 +60,41 @@ mixin PageSearchOverlay {
                     Spacer(),
                     // play
                     Container(
-                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.sideMenuPrimary, borderWidth: 1),
+                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                       child: IconButton(
                         icon: Icon(CupertinoIcons.play, size: 16),
                         onPressed: () => {
                           Overlayment.dismissLast(),
-                          DBVideos.updateViewCount(video),
-                          HelperOpener.openFile(video.videoPath ?? ''),
+                          HelperOpener.openFile(video),
                         },
                       ),
                     ).pOnly(right: 8),
 
                     // add to favorite
-                    Container(
-                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.sideMenuPrimary, borderWidth: 1),
-                      child: IconButton(
-                        icon: Icon(CupertinoIcons.star, size: 16),
-                        onPressed: () => {},
-                      ),
-                    ).pOnly(right: 8),
+                    GetBuilder<PageSearchController>(
+                      init: _controller,
+                      builder: (b) => Container(
+                        decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
+                        child: IconButton(
+                          icon: video.isFavorite == 1 ? Icon(CupertinoIcons.star_fill, size: 16, color: Vx.orange500) : Icon(CupertinoIcons.star, size: 16, color: null),
+                          onPressed: () {
+                            final current = video.isFavorite ?? 0;
+                            if (current == 1) {
+                              DBVideos.removeFromFavorite(video);
+                            } else {
+                              DBVideos.addToFavorite(video);
+                            }
+                            Get.find<PageHomeController>().getListFavorite();
+                            b.update();
+                          },
+                        ),
+                      ).pOnly(right: 8),
+                    ),
 
                     // renew metadata
                     video.videoCode?.isNotBlank ?? false
                         ? Container(
-                            decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.sideMenuPrimary, borderWidth: 1),
+                            decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                             child: IconButton(
                               icon: Icon(CupertinoIcons.refresh, size: 16),
                               onPressed: () => _controller.renewMetadata(video),
@@ -91,7 +103,7 @@ mixin PageSearchOverlay {
                         : 0.heightBox,
 
                     Container(
-                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.sideMenuPrimary, borderWidth: 1),
+                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                       child: IconButton(
                         icon: Icon(CupertinoIcons.folder, size: 16),
                         onPressed: () => HelperOpener.openFolderFromFile(video.videoPath ?? ''),
@@ -106,7 +118,7 @@ mixin PageSearchOverlay {
                 Container(
                   width: double.infinity,
                   constraints: BoxConstraints(minHeight: 100, maxHeight: 300),
-                  decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.sideMenuPrimary, borderWidth: 1),
+                  decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                   child: VStack([
                     HStack([
                       Icon(CupertinoIcons.chevron_left_slash_chevron_right, size: 16).pOnly(right: 8),

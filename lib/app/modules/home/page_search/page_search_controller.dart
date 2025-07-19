@@ -22,9 +22,10 @@ class PageSearchController extends GetxController {
   final viewModeSelected = ''.obs; // grid | list
 
   final videos = <Videos>[].obs;
-  final Map<String, Uint8List> _thumbnailCache = {};
 
   final api = Get.find<ApiJavit>();
+  final Map<String, Uint8List> _thumbnailCache = {};
+
   @override
   Future<void> onInit() async {
     super.onInit();
@@ -82,7 +83,6 @@ class PageSearchController extends GetxController {
       DBVideos.update(newVideos);
       HelperToast.success('${newVideos.videoCode} metadata updated');
       Get.find<HomeController>().onRefreshAllContent();
-    
     }).catchError((e) {
       ExLoading.dismiss();
       HelperToast.error(e.toString());
@@ -125,19 +125,12 @@ class PageSearchController extends GetxController {
   }
 
   Future<Uint8List?> getThumbnail(String videopath) async {
-    if (_thumbnailCache.containsKey(videopath)) {
-      return _thumbnailCache[videopath];
-    }
-
+    if (_thumbnailCache.containsKey(videopath)) return _thumbnailCache[videopath];
     try {
       final uint8list = await VideoCompress.getByteThumbnail(videopath, quality: 10, position: 10);
-
-      if (uint8list != null) {
-        _thumbnailCache[videopath] = uint8list;
-      }
+      if (uint8list != null) _thumbnailCache[videopath] = uint8list;
       return uint8list;
-    } catch (e) {
-      print('Error fetching thumbnail for path $videopath: $e');
+    } catch (_) {
       return null;
     }
   }

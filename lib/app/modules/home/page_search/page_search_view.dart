@@ -43,10 +43,10 @@ class PageSearchView extends GetView<PageSearchController> {
         Obx(
           () => controller.videos.isEmpty
               ? ExUiErrorOrEmpty(
-                illustration: Icon(CupertinoIcons.lab_flask_solid, size: 32),
-                title: 'No Data Found',
-                message: 'No Result Found, as you searched for "${controller.tecSearch.text}"\nor Add some video to your library first.',
-              ).expand()
+                  illustration: Icon(CupertinoIcons.lab_flask_solid, size: 32),
+                  title: 'No Data Found',
+                  message: 'No Result Found, as you searched for "${controller.tecSearch.text}"\nor Add some video to your library first.',
+                ).expand()
               : controller.viewModeSelected.value == 'grid'
                   ? modeGridView().expand()
                   : modeListView().expand(),
@@ -66,7 +66,7 @@ class PageSearchView extends GetView<PageSearchController> {
         final item = controller.videos[index];
         if (item.poster == null || item.poster == '') {
           return Container(
-            color: AppColor.sideMenuPrimary,
+            color: AppColor.container,
             child: FutureBuilder(
               future: controller.getThumbnail(item.videoPath ?? ''),
               builder: (context, snapshot) {
@@ -74,8 +74,8 @@ class PageSearchView extends GetView<PageSearchController> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return HStack([
                     Icon(CupertinoIcons.photo, size: 64).wh(180, 120).color(Vx.neutral900),
-                    '${item.videoCode}'.text.size(12).bold.ellipsis.make().pSymmetric(h: 8),
-                    '${item.title}'.text.size(11).minFontSize(11).ellipsis.make().pSymmetric(h: 8),
+                    '${item.videoCode}'.text.size(12).bold.ellipsis.make().pSymmetric(h: 8).pOnly(right: 12),
+                    '${item.title}'.text.size(11).minFontSize(11).ellipsis.make().pSymmetric(h: 8).pOnly(right: 12),
                     4.heightBox,
                   ]);
                 }
@@ -83,7 +83,7 @@ class PageSearchView extends GetView<PageSearchController> {
                 // thumbanail -> success
                 return snapshot.hasData
                     ? Container(
-                        color: AppColor.sideMenuPrimary,
+                        color: AppColor.container,
                         child: HStack([
                           Image.memory(
                             snapshot.data!,
@@ -92,8 +92,8 @@ class PageSearchView extends GetView<PageSearchController> {
                             fit: BoxFit.fitHeight,
                           ).pOnly().color(Vx.neutral900).pOnly(right: 8),
                           VStack([
-                            '${item.title}'.text.size(14).bold.ellipsis.make().pOnly(bottom: 8),
-                            '${item.title}'.text.size(11).maxLines(3).ellipsis.minFontSize(11).make().pOnly(bottom: 12),
+                            '${item.title.maxWords(1)}'.text.size(14).bold.ellipsis.make().pOnly(bottom: 8, right: 12),
+                            '${item.title}'.text.size(11).maxLines(3).ellipsis.minFontSize(11).make().pOnly(bottom: 12, right: 12),
                             HStack([
                               Icon(CupertinoIcons.time, size: 12).pOnly(right: 4, top: 2),
                               '${item.duration}'.text.size(10).minFontSize(10).make(),
@@ -114,15 +114,17 @@ class PageSearchView extends GetView<PageSearchController> {
         } else {
           // fanart
           return Container(
-            color: AppColor.sideMenuPrimary,
+            color: AppColor.container,
             child: HStack([
               CachedNetworkImage(
                 imageUrl: '${item.fanArt?.imgUrl()}',
-                fit: BoxFit.fill,
+                width: 180,
+                height: 120,
+                fit: BoxFit.fitHeight,
               ).pOnly(right: 8),
               VStack([
-                '${item.videoCode}'.text.size(14).bold.ellipsis.make().pOnly(bottom: 8),
-                '${item.title}'.text.size(11).maxLines(3).ellipsis.minFontSize(11).make().pOnly(bottom: 12),
+                '${item.videoCode}'.text.size(14).bold.ellipsis.make().pOnly(bottom: 8, right: 12),
+                '${item.title}'.text.size(11).maxLines(3).ellipsis.minFontSize(11).make().pOnly(bottom: 12, right: 12),
                 HStack([
                   Icon(CupertinoIcons.time, size: 12).pOnly(right: 4, top: 2),
                   '${item.duration}'.text.size(10).minFontSize(10).make(),
@@ -155,7 +157,7 @@ class PageSearchView extends GetView<PageSearchController> {
 
         if (item.poster == null || item.poster == '') {
           return Container(
-            color: AppColor.sideMenuPrimary,
+            color: AppColor.container,
             child: FutureBuilder(
               future: controller.getThumbnail(item.videoPath ?? ''),
               builder: (context, snapshot) {
@@ -184,7 +186,7 @@ class PageSearchView extends GetView<PageSearchController> {
           ).cornerRadius(8);
         } else {
           return Container(
-            color: AppColor.sideMenuPrimary,
+            color: AppColor.container,
             child: VStack([
               CachedNetworkImage(
                 imageUrl: '${item.poster?.imgUrl()}',

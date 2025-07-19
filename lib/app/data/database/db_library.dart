@@ -1,5 +1,8 @@
+import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
+import 'package:uuid/v4.dart';
 
+import '../../utils/helper_toast.dart';
 import '../models/library_entity.dart';
 import 'db_init.dart';
 
@@ -9,21 +12,22 @@ mixin DBLibrary {
 
   static Future<bool> _validation(Library library) async {
     final isDuplicateRootFolder = await getByRootFolder(library.rootFolder ?? '');
-
-    if (library.id == null) return false;
-    if (library.alias == null) return false;
     if (isDuplicateRootFolder.isNotEmpty) return false;
 
     return true;
   }
 
   static Future<void> add(Library library) async {
+    library.id = UuidV4().generate();
+    library.createdAt = DateTime.now().toStringEx();
+    library.updatedAt = DateTime.now().toStringEx();
     final isOK = await _validation(library);
     if (isOK) await _db.insert(_tableName, library.toJson());
+    else await HelperToast.error('Failed, duplicate root folder');
   }
 
   static Future<void> update(Library library) async {
-    await _validation(library);
+    library.updatedAt = DateTime.now().toStringEx();
     await _db.update(_tableName, library.toJson(), where: 'id = ?', whereArgs: [library.id]);
   }
 
@@ -50,4 +54,7 @@ mixin DBLibrary {
     final List<Map<String, dynamic>> maps = await _db.query(_tableName);
     return maps.length;
   }
+
+  static Future<void> deleteAll() async => await _db.delete(_tableName);
+
 }

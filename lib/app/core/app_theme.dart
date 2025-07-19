@@ -2,7 +2,6 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import 'app_color.dart';
 import 'app_setting.dart';
 import 'const.dart';
 
@@ -15,26 +14,12 @@ mixin AppTheme {
       iconTheme: IconThemeData(color: Colors.white),
       titleTextStyle: TextStyle(color: Colors.white),
     ),
-    tabBarTheme: TabBarThemeData(
-      indicatorColor: AppColor.noteColor,
-      labelColor: AppColor.textReverse,
-      labelStyle: TextStyle(fontSize: 13),
-      unselectedLabelColor: Vx.neutral400,
-      unselectedLabelStyle: TextStyle(fontSize: 13),
-    ),
-    dividerColor: AppColor.neutral,
+    dividerColor: Vx.neutral500,
   );
 
   /// * dark
   static final dark = ThemeData.dark(useMaterial3: true).copyWith(
-    tabBarTheme: TabBarThemeData(
-      indicatorColor: AppColor.noteColor,
-      labelColor: AppColor.textReverse,
-      labelStyle: TextStyle(fontSize: 13),
-      unselectedLabelColor: Vx.neutral400,
-      unselectedLabelStyle: TextStyle(fontSize: 13),
-    ),
-    dividerColor: AppColor.neutral,
+    dividerColor: Vx.neutral500,
   );
 
   /// load theme

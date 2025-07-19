@@ -6,6 +6,11 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../../core/app_logging.dart';
+import 'db_history.dart';
+import 'db_library.dart';
+import 'db_playlist.dart';
+import 'db_relapse.dart';
+import 'db_videos.dart';
 
 class DBService extends GetxService {
   late Database dbMain;
@@ -35,7 +40,7 @@ class DBService extends GetxService {
 
   Future<Database> _initializeR18Database() async {
     var databasesPath = await getDatabasesPath();
-    var path = join(databasesPath, 'r18.db'); // Nama database R18 di perangkat
+    var path = join(databasesPath, 'r18.db');
     await Directory(databasesPath).create(recursive: true);
 
     bool dbExists = await databaseExists(path);
@@ -82,11 +87,12 @@ class DBService extends GetxService {
         alias                       TEXT,
         root_folder                 TEXT,
         sub_folder                  TEXT, -- Stored as JSON string
-        videos                      TEXT -- Stored as JSON string
+        videos                      TEXT, -- Stored as JSON string
+        created_at                  TEXT,
+        updated_at                  TEXT
       )
     ''');
 
-    
     // Create Videos table
     // Note: 'actors', 'genre', 'screenshot' will be stored as TEXT (JSON string)
     await db.execute('''
@@ -115,13 +121,65 @@ class DBService extends GetxService {
         series                           TEXT,
         screenshot                       TEXT, -- Stored as JSON string
         view_count                       INTEGER,
-        site                             TEXT
+        site                             TEXT,
+        is_favorite                      INTEGER,
+        created_at                       TEXT,
+        updated_at                       TEXT
+      )
+    ''');
+
+    // Create History table
+    await db.execute('''
+      CREATE TABLE History (
+        id                          TEXT PRIMARY KEY,
+        video                       TEXT, -- json
+        created_at                  TEXT,
+        updated_at                  TEXT
+      )
+    ''');
+
+    // Create PlaylistHeader table
+    await db.execute('''
+      CREATE TABLE PlaylistHeader (
+        id                          TEXT PRIMARY KEY,
+        name                        TEXT,
+        created_at                  TEXT,
+        updated_at                  TEXT
+      )
+    ''');
+
+    // Create PlaylistItem table
+    await db.execute('''
+      CREATE TABLE PlaylistItem (
+        id                          TEXT PRIMARY KEY,
+        header_id                   TEXT,
+        video                       TEXT, -- json
+        created_at                  TEXT,
+        updated_at                  TEXT
+      )
+    ''');
+
+    // Create Relapse table
+    await db.execute('''
+      CREATE TABLE Relapse (
+        id                          TEXT PRIMARY KEY,
+        date                        TEXT,
+        created_at                  TEXT,
+        updated_at                  TEXT
       )
     ''');
   }
 
   Database get mainDatabase => dbMain;
   Database get r18Database => dbR18;
+
+  Future<void> deleteAllData() async {
+    await DBLibrary.deleteAll();
+    await DBVideos.deleteAll();
+    await DBHistory.deleteAll();
+    await DBPlaylist.deleteAll();
+    await DBRelapse.deleteAll();
+  }
 
   Future<void> close() async {
     await dbMain.close();

@@ -3,21 +3,20 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
-import 'package:uuid/v4.dart';
 
-import '../core/app_color.dart';
-import '../data/database/db_library.dart';
-import '../data/database/db_r18.dart';
-import '../data/database/db_videos.dart';
-import '../data/models/library_entity.dart';
-import '../data/models/videos_entity.dart';
-import '../modules/home/home_controller.dart';
-import 'helper_file_picker.dart';
-import 'helper_misc.dart';
-import 'helper_opener.dart';
-import 'helper_toast.dart';
+import '../../core/app_color.dart';
+import '../../data/database/db_library.dart';
+import '../../data/database/db_r18.dart';
+import '../../data/database/db_videos.dart';
+import '../../data/models/library_entity.dart';
+import '../../data/models/videos_entity.dart';
+import '../../utils/helper_file_picker.dart';
+import '../../utils/helper_misc.dart';
+import '../../utils/helper_opener.dart';
+import '../../utils/helper_toast.dart';
+import 'home_controller.dart';
 
-mixin HelperLibrary {
+mixin HomeLibrary {
   static final _homeController = Get.find<HomeController>();
 
   static Future<void> openMenuLibrary(List<Library> library) async {
@@ -48,7 +47,7 @@ mixin HelperLibrary {
                 icon: Icon(CupertinoIcons.add, size: 18),
                 onPressed: () {
                   Overlayment.dismissLast();
-                  dialogAddorEditLibrary();
+                  openDialogAddorEditLibrary();
                 },
               ),
             ],
@@ -70,7 +69,7 @@ mixin HelperLibrary {
                         HStack([
                           'ⵌ ${item.alias}'.text.ellipsis.make().pOnly(right: 8),
                           Container(
-                            decoration: ExDecorator.box(borderRadius: 90, fillColor: AppColor.sideMenuPrimary),
+                            decoration: ExDecorator.box(borderRadius: 90, fillColor: AppColor.container),
                             child: ' ${item.totalVideo} '.text.size(9).minFontSize(9).make(),
                           ),
                         ]),
@@ -91,7 +90,7 @@ mixin HelperLibrary {
                       ),
                     ]).onInkTap(() async {
                       await Overlayment.dismissLast();
-                      dialogAddorEditLibrary(library: item);
+                      await openDialogAddorEditLibrary(library: item);
                     });
                   },
                 ).expand(),
@@ -108,7 +107,7 @@ mixin HelperLibrary {
     );
   }
 
-  static void dialogAddorEditLibrary({Library? library, bool isFromDrop = false}) {
+  static Future<void> openDialogAddorEditLibrary({Library? library, bool isFromDrop = false}) async {
     final tfAlias = TextEditingController(text: library?.alias);
     final tfRootPath = TextEditingController(text: library?.rootFolder);
     final librarySelected = Library().obs;
@@ -136,7 +135,7 @@ mixin HelperLibrary {
             controller: tfRootPath,
             placeholder: '<Select Path>',
             placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
-            prefix: Icon(CupertinoIcons.folder, size: 16, color: AppColor.textReverse).pOnly(left: 8),
+            prefix: Icon(CupertinoIcons.folder, size: 16).pOnly(left: 8),
             style: TextStyle(fontSize: 13, color: Vx.neutral500),
             onTap: () async {
               if (isClicked.value) return;
@@ -158,8 +157,8 @@ mixin HelperLibrary {
             controller: tfAlias,
             placeholder: 'Alias',
             placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
-            prefix: Icon(CupertinoIcons.number_square, size: 16, color: AppColor.textReverse).pOnly(left: 8),
-            style: TextStyle(fontSize: 13, color: AppColor.textReverse),
+            prefix: Icon(CupertinoIcons.number_square, size: 16).pOnly(left: 8),
+            style: TextStyle(fontSize: 13, color: Vx.white),
           ).pOnly(bottom: 16),
           Obx(() => totalVideo.value != 0 ? Text('Total Video: ${totalVideo.value}') : 0.heightBox),
         ],
@@ -210,7 +209,7 @@ mixin HelperLibrary {
   // ** MAIN PROCESS
   static Future<void> doAddorEditVideoFromLibrary(Library library) async {
     if (library.videos == null || library.videos!.isEmpty) {
-      _homeController.footerSum.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
+      await _homeController.onRefreshAllContent();
       return;
     }
 
@@ -229,7 +228,6 @@ mixin HelperLibrary {
           final newVideo = Videos();
           newVideo.rootPath = library.rootFolder ?? '';
           newVideo.videoPath = video;
-          newVideo.id = UuidV4().generate();
           newVideo.title = video.getFileName().noExt();
           await DBVideos.add(newVideo);
           continue;
@@ -265,7 +263,6 @@ mixin HelperLibrary {
         final newVideo = Videos();
         newVideo.rootPath = library.rootFolder ?? '';
         newVideo.videoPath = video;
-        newVideo.id = UuidV4().generate();
         newVideo.title = video.getFileName().noExt();
         await DBVideos.add(newVideo);
         _homeController.footerSum.value = '◎ Inserting non metadata: $videoCode';
@@ -274,13 +271,13 @@ mixin HelperLibrary {
 
     _homeController.footerSum.value = '◎ Commit ${library.videos!.length} Videos';
     await 300.milliseconds.delay();
-    _homeController.footerSum.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
+    await _homeController.onRefreshAllContent();
   }
 
   static Future<void> doDeleteVideoFromLibrary(Library library) async {
     await DBVideos.deleteByRootPath(library.rootFolder ?? '');
     await DBLibrary.delete(library);
-    _homeController.footerSum.value = '${await DBVideos.getCount()} Videos';
+    await _homeController.onRefreshAllContent();
   }
 
   static Future<void> doRescanVideoFromLibrary(Library library) async {

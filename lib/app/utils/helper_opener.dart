@@ -1,7 +1,11 @@
 import 'dart:io';
 
+import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../data/database/db_videos.dart';
+import '../data/models/videos_entity.dart';
+import '../modules/home/page_home/page_home_controller.dart';
 import 'helper_toast.dart';
 
 mixin HelperOpener {
@@ -15,11 +19,14 @@ mixin HelperOpener {
     }
   }
 
-  static Future<void> openFile(String path) async {
-    final Uri uri = Uri.file(path);
+  static Future<void> openFile(Videos video) async {
+    final Uri uri = Uri.file(video.videoPath ?? '');
 
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
+      await DBVideos.updateViewCount(video);
+      await Get.find<PageHomeController>().getListTop10Watch();
+
     } else {
       await HelperToast.error('Could not open file');
     }

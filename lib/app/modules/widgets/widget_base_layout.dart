@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:glassmorphism_ui/glassmorphism_ui.dart';
+
 import '../../core/app_color.dart';
 
 class MyLayout extends StatelessWidget {
@@ -76,7 +77,6 @@ class MyLayout extends StatelessWidget {
 
   Widget sideMenu() {
     return GlassContainer(
-      color: AppColor.sideMenuPrimary,
       borderRadius: BorderRadius.all(Radius.circular(0)),
       border: Border.all(color: Colors.transparent),
       blur: 50,
@@ -99,7 +99,7 @@ class MyLayout extends StatelessWidget {
 
   Widget myAppBarDesktop() {
     return AppBar(
-      backgroundColor: AppColor.appbarPrimary,
+      backgroundColor: AppColor.appBar,
       title: appBarTitle,
       centerTitle: false,
       leading: isShowAppBarLeading == true
@@ -120,7 +120,7 @@ class MyLayout extends StatelessWidget {
   Widget footer() {
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(color: footerColor ?? AppColor.footerPrimary),
+      decoration: BoxDecoration(color: footerColor ?? AppColor.footer),
       child: Padding(
         padding: !kIsWeb && Platform.isIOS ? EdgeInsets.only(bottom: 20, right: 8, left: 8) : EdgeInsets.all(0),
         child: footerContent,

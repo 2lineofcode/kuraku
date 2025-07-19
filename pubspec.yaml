@@ -24,6 +24,7 @@ dependencies:
   # ui
   ex_kit: ^0.7.0
   cupertino_icons: ^1.0.8
+  iconify_flutter_plus: ^1.0.4
   flutter_svg: ^2.0.17
   grouped_list: ^6.0.0
   window_manager: ^0.4.3

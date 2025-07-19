@@ -78,7 +78,7 @@ class PageExploreView extends GetView<PageExploreController> {
                                     ],
                                     // name
                                     '${item.name} (${item.videos?.length})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
-                                  ]).color(item == controller.oListSelected.value ? Vx.violet500.withAlpha(50) : Colors.transparent),
+                                  ]).color(item == controller.oListSelected.value ? AppColor.selected : Colors.transparent),
                                 ),
                               );
                             },
@@ -87,7 +87,7 @@ class PageExploreView extends GetView<PageExploreController> {
                 ],
               ),
             ),
-            Container(height: double.infinity, color: AppColor.sideMenuPrimary).w(1).pSymmetric(h: 8),
+            Container(height: double.infinity, color: AppColor.container).w(1).pSymmetric(h: 8),
             Container(
               height: double.infinity,
               color: Colors.transparent,
@@ -107,14 +107,35 @@ class PageExploreView extends GetView<PageExploreController> {
                           itemBuilder: (context, index) {
                             final item = controller.vList[index];
                             return Container(
-                              color: AppColor.sideMenuPrimary,
+                              color: AppColor.container,
                               child: VStack([
-                                CachedNetworkImage(
-                                  imageUrl: '${item.poster?.imgUrl()}',
-                                  height: 180,
-                                  width: double.infinity,
-                                  fit: BoxFit.fitWidth,
-                                ),
+                                // CachedNetworkImage(
+                                //   imageUrl: '${item.poster?.imgUrl()}',
+                                //   height: 180,
+                                //   width: double.infinity,
+                                //   fit: BoxFit.fitWidth,
+                                // ),
+
+                                if (item.poster == null || item.poster == '') ...[
+                                  FutureBuilder(
+                                    future: controller.getThumbnail(item.videoPath ?? ''),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState == ConnectionState.waiting) {
+                                        return Icon(CupertinoIcons.photo, size: 64).centered().color(Vx.neutral900);
+                                      }
+                                      return snapshot.hasData ? Image.memory(snapshot.data!, fit: BoxFit.cover, width: double.infinity, height: 180) : 0.heightBox;
+                                    },
+                                  ),
+                                ] else ...[
+                                  CachedNetworkImage(
+                                    imageUrl: '${item.poster?.imgUrl()}',
+                                    width: double.infinity,
+                                    height: 180,
+                                    fit: BoxFit.fitHeight,
+                                  ),
+                                ],
+
+                                // ~~~
                                 4.heightBox,
                                 '${item.videoCode}'.text.size(12).bold.ellipsis.makeCentered().pSymmetric(h: 8),
                                 '${item.title}'.text.size(11).minFontSize(11).ellipsis.makeCentered().pSymmetric(h: 8),

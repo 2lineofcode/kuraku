@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+
+import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
+import 'package:video_compress/video_compress.dart';
 
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
@@ -9,11 +13,14 @@ class PageExploreController extends GetxController {
   final filterType = <String>[
     'Actress',
     'Category',
+    'Path',
     'Label',
-    'Studio',
     'Series',
+    'Studio',
     'Director',
   ];
+
+  final Map<String, Uint8List> _thumbnailCache = {};
 
   final filterTypeSelected = 'Actress'.obs;
   final tecSearch = TextEditingController();
@@ -32,7 +39,6 @@ class PageExploreController extends GetxController {
     await 10.milliseconds.delay();
     phSearchText.value = 'Search (${oList.length})...';
   }
-
 
   void onOListSearch(String s) {
     final query = s.toLowerCase();
@@ -55,12 +61,27 @@ class PageExploreController extends GetxController {
     vList.clear();
     filterTypeSelected.value = filterType[idx];
     switch (filterType[idx]) {
-      case 'Actress': await getActressList(); break;
-      case 'Category': await getCategoryList(); break;
-      case 'Studio': await getStudioList(); break;
-      case 'Label': await getLabelList(); break;
-      case 'Series': await getSeriesList(); break;
-      case 'Director': await getDirectorList(); break;
+      case 'Actress':
+        await getActressList();
+        break;
+      case 'Category':
+        await getCategoryList();
+        break;
+      case 'Path':
+        await getPathList();
+        break;
+      case 'Label':
+        await getLabelList();
+        break;
+      case 'Series':
+        await getSeriesList();
+        break;
+      case 'Studio':
+        await getStudioList();
+        break;
+      case 'Director':
+        await getDirectorList();
+        break;
     }
     await 10.milliseconds.delay();
     phSearchText.value = 'Search (${oList.length})...';
@@ -99,12 +120,12 @@ class PageExploreController extends GetxController {
   }
 
   // ────────────────────────────────────────────────────────────────
-  Future<void> getStudioList() async {
+  Future<void> getPathList() async {
     oList.clear();
-    await DBVideos.getAllStudio().then((studio) async {
-      for (var i = 0; i < studio.length; i++) {
-        await DBVideos.getVideoByStudio(studio[i]).then((v) {
-          oList.add(OListModel(id: i, name: studio[i], imgUrl: null, videos: v));
+    await DBVideos.getAllVideoPath().then((videoPath) async {
+      for (var i = 0; i < videoPath.length; i++) {
+        await DBVideos.getVideoByVideoPath(videoPath[i]).then((v) {
+          oList.add(OListModel(id: i, name: videoPath[i], imgUrl: null, videos: v));
         });
       }
       oListFiltered.assignAll(oList);
@@ -138,6 +159,19 @@ class PageExploreController extends GetxController {
   }
 
   // ────────────────────────────────────────────────────────────────
+  Future<void> getStudioList() async {
+    oList.clear();
+    await DBVideos.getAllStudio().then((studio) async {
+      for (var i = 0; i < studio.length; i++) {
+        await DBVideos.getVideoByStudio(studio[i]).then((v) {
+          oList.add(OListModel(id: i, name: studio[i], imgUrl: null, videos: v));
+        });
+      }
+      oListFiltered.assignAll(oList);
+    });
+  }
+
+  // ────────────────────────────────────────────────────────────────
   Future<void> getDirectorList() async {
     oList.clear();
     await DBVideos.getAllDirector().then((director) async {
@@ -148,6 +182,20 @@ class PageExploreController extends GetxController {
       }
       oListFiltered.assignAll(oList);
     });
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // ⵌ helper
+  // ────────────────────────────────────────────────────────────────
+  Future<Uint8List?> getThumbnail(String videopath) async {
+    if (_thumbnailCache.containsKey(videopath)) return _thumbnailCache[videopath];
+    try {
+      final uint8list = await VideoCompress.getByteThumbnail(videopath, quality: 10, position: 10);
+      if (uint8list != null) _thumbnailCache[videopath] = uint8list;
+      return uint8list;
+    } catch (_) {
+      return null;
+    }
   }
 }
 

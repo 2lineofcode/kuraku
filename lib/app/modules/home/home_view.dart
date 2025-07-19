@@ -9,6 +9,7 @@ import '../../core/app_color.dart';
 import '../../core/const.dart';
 import '../widgets/widgets.dart';
 import 'home_controller.dart';
+import 'home_relapse.dart';
 import 'page_explore/page_explore_view.dart';
 import 'page_home/page_home_view.dart';
 import 'page_search/page_search_controller.dart';
@@ -59,12 +60,17 @@ class HomeView extends GetView<HomeController> {
           icon: Icon(CupertinoIcons.refresh, size: 18),
           onPressed: () => controller.onRefreshAllContent(),
           tooltip: 'Refresh All Content',
-        ).p8(),
+        ),
+        IconButton(
+          icon: Icon(CupertinoIcons.thermometer, size: 18),
+          onPressed: () => HomeRelapse.openMenuRelapse(),
+          tooltip: 'Relapse :(',
+        ),
         IconButton(
           icon: Icon(CupertinoIcons.collections, size: 18),
           onPressed: () => controller.onOpenLibrary(),
           tooltip: 'Library',
-        ).p8(),
+        ),
       ],
     );
   }
@@ -86,7 +92,7 @@ class HomeView extends GetView<HomeController> {
             onTap: () => controller.onMenuChange(item['name']),
             child: Container(
               decoration: ExDecorator.box(
-                fillColor: item['name'] == controller.currentMenuSelected.value ? AppColor.sideMenuSelected : Colors.transparent,
+                fillColor: item['name'] == controller.currentMenuSelected.value ? AppColor.selected : Colors.transparent,
                 borderColor: Colors.transparent,
               ),
               child: HStack([

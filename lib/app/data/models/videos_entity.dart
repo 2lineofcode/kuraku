@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:ex_kit/ex.dart';
+
 /// *
 /// * JSON Source: {"video_id":"eyan00181","video_code_id":"eyan00181","video_code":"EYAN-181","title":"My Older Stepsister Is A Young Mother In Her Breastfeeding Period While In Our Parents' Home. Live Version. Mina Kitano","title_ja":"姉はヤンママ授乳中in実家 実写版 北野未奈","description":"null","fan_art":"https://pics.dmm.co.jp/digital/video/eyan00181/eyan00181pl.jpg","poster":"https://pics.dmm.co.jp/digital/video/eyan00181/eyan00181ps.jpg","trailer":"https://cc3001.dmm.co.jp/litevideo/freepv/e/eya/eyan00181/eyan00181_mhb_w.mp4","actress":[{"cast_id":1068671,"cast_names":"Mina Kitano","cast_image":"https://pics.dmm.co.jp/mono/actjpgs/kitano_mina.jpg"}],"genre":["Married Woman"],"release_date":"2022-05-17","release_date_formated":"May 17, 2022","duration":121,"duration_formated":"2 hrs 1 min","studio":"E-BODY","label":"Wives of Hanasagari","director":"Kitorune Kawaguchi","series":"null","screenshot":["https://pics.dmm.co.jp/digital/video/eyan00181/eyan00181jp-1.jpg"],"view_count":121,"score":3.3}
 /// * Code generated: https://2lineofcode.github.io/json_to_dart2023
@@ -33,6 +35,9 @@ class Videos {
   String? series;
   List<String>? screenshot;
   String? site;
+  int? isFavorite = 0;
+  String? createdAt;
+  String? updatedAt;
 
   Videos({
     this.rootPath,
@@ -60,6 +65,9 @@ class Videos {
     this.series,
     this.screenshot,
     this.site,
+    this.isFavorite,
+    this.createdAt,
+    this.updatedAt
   });
 
   Videos.fromJson(Map<String, dynamic> json) {
@@ -90,6 +98,9 @@ class Videos {
     screenshot = json['screenshot'] == null || (json['screenshot'] as String).isEmpty ? null : List<String>.from(jsonDecode(json['screenshot']));
     viewCount = json['view_count'] ?? 0;
     site = json['site'] ?? '';
+    isFavorite = json['is_favorite'] ?? 0;
+    createdAt = json['created_at'] ?? '';
+    updatedAt = json['updated_at'] ?? '';
   }
 
   Map<String, dynamic> toJson() {
@@ -137,6 +148,9 @@ class Videos {
 
     data['view_count'] = viewCount;
     data['site'] = site;
+    data['is_favorite'] = isFavorite;
+    data['created_at'] = createdAt ?? DateTime.now().toStringEx();
+    data['updated_at'] = updatedAt ?? DateTime.now().toStringEx();
     return data;
   }
 

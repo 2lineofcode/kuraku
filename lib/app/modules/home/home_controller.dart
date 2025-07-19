@@ -10,8 +10,8 @@ import '../../data/database/db_library.dart';
 import '../../data/database/db_videos.dart';
 import '../../data/models/library_entity.dart';
 import '../../utils/helper_file_picker.dart';
-import '../../utils/helper_library.dart';
 import '../../utils/helper_misc.dart';
+import 'home_library.dart';
 import 'page_explore/page_explore_controller.dart';
 import 'page_home/page_home_controller.dart';
 import 'page_search/page_search_controller.dart';
@@ -25,17 +25,14 @@ class HomeController extends GetxController with StateMixin {
   @override
   Future<void> onInit() async {
     super.onInit();
-
     currentMenuSelected.value = kMenuHome;
-
-    footerSum.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
-
+    await onRefreshAllContent();
     change(200, status: RxStatus.success());
   }
 
   void onOpenLibrary() async {
     library.value = await DBLibrary.getAll();
-    await HelperLibrary.openMenuLibrary(library);
+    await HomeLibrary.openMenuLibrary(library);
   }
 
   Future<void> onRefreshAllContent() async {
@@ -65,7 +62,7 @@ class HomeController extends GetxController with StateMixin {
         final newLibrary = await HelperFilePicker.scanFolderAndSubFolder(_path);
         newLibrary?.alias = newLibrary.rootFolder?.getLastPath();
 
-        HelperLibrary.dialogAddorEditLibrary(library: newLibrary, isFromDrop: true);
+        await HomeLibrary.openDialogAddorEditLibrary(library: newLibrary, isFromDrop: true);
       }
     });
   }

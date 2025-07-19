@@ -1,8 +1,6 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:uuid/v4.dart';
-
 import '../data/models/library_entity.dart';
 import 'helper_misc.dart';
 
@@ -36,7 +34,6 @@ mixin HelperFilePicker {
       }).toList();
 
       final item = Library(
-        id: UuidV4().generate(),
         totalVideo: videoFiles.length,
         alias: HelperMisc.getLastPath(selectedDirectory),
         rootFolder: selectedDirectory,
@@ -74,7 +71,6 @@ mixin HelperFilePicker {
     }).toList();
 
     final item = Library(
-      id: UuidV4().generate(),
       totalVideo: videoFiles.length,
       rootFolder: path,
       subFolder: subfolders.map((e) => e.path).toList(),

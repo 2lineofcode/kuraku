@@ -37,4 +37,38 @@ mixin HelperToast {
       style: ToastificationStyle.flatColored,
     );
   }
+
+  static Future<void> info(
+    String? message, {
+    String? title = 'Info',
+    Duration duration = const Duration(seconds: 2),
+    Alignment? alignment,
+  }) async {
+    toastification.show(
+      context: Get.context,
+      type: ToastificationType.info,
+      title: '$message'.text.size(12).make(),
+      animationDuration: 200.milliseconds,
+      autoCloseDuration: duration,
+      alignment: alignment,
+      style: ToastificationStyle.flatColored,
+    );
+  }
+
+  static Future<void> warn(
+    String? message, {
+    String? title = 'Warning',
+    Duration duration = const Duration(seconds: 2),
+    Alignment? alignment,
+  }) async {
+    toastification.show(
+      context: Get.context,
+      type: ToastificationType.warning,
+      title: '$message'.text.size(12).make(),
+      animationDuration: 200.milliseconds,
+      autoCloseDuration: duration,
+      alignment: alignment,
+      style: ToastificationStyle.flatColored,
+    );
+  }
 }

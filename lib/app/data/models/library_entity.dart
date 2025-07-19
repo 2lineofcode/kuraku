@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:ex_kit/ex.dart';
+
 /// *
 /// * JSON Source: {"id":"","total_video":4,"root_folder":"","sub_folder":["a"],"videos":["a"]}
 /// * Code generated: https://2lineofcode.github.io/json_to_dart2023
@@ -11,6 +13,9 @@ class Library {
   String? rootFolder;
   List<String>? subFolder;
   List<String>? videos;
+  String? createdAt;
+  String? updatedAt;
+
 
   Library({
     this.id,
@@ -19,6 +24,8 @@ class Library {
     this.rootFolder,
     this.subFolder,
     this.videos,
+    this.createdAt,
+    this.updatedAt
   });
 
   Library.fromJson(Map<String, dynamic> json) {
@@ -28,6 +35,8 @@ class Library {
     rootFolder = json['root_folder'] ?? '';
     subFolder = json['sub_folder'] == null || (json['sub_folder'] as String).isEmpty ? null : List<String>.from(jsonDecode(json['sub_folder']));
     videos = json['videos'] == null || (json['videos'] as String).isEmpty ? null : List<String>.from(jsonDecode(json['videos']));
+    createdAt = json['created_at'] ?? '';
+    updatedAt = json['updated_at'] ?? '';
   }
 
   Map<String, dynamic> toJson() {
@@ -46,6 +55,8 @@ class Library {
     } else {
       data['videos'] = null;
     }
+    data['created_at'] = createdAt ?? DateTime.now().toStringEx();
+    data['updated_at'] = updatedAt ?? DateTime.now().toStringEx();
     return data;
   }
 

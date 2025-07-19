@@ -1,5 +1,6 @@
 import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
+import 'package:uuid/v4.dart';
 
 import '../models/videos_entity.dart';
 import 'db_init.dart';
@@ -11,19 +12,19 @@ mixin DBVideos {
   static Future<bool> _validation(Videos videos) async {
     final isDuplicateVideoPath = await getByVideoPath(videos.videoPath ?? '');
     if (isDuplicateVideoPath.isNotEmpty) return false;
-
-    // final isDuplicateVideoCode = await getByCode(videos.videoCode ?? '');
-    // if (isDuplicateVideoCode.isNotEmpty) return false;
-
     return true;
   }
 
   static Future<void> add(Videos videos) async {
+    videos.id = UuidV4().generate();
+    videos.createdAt = DateTime.now().toStringEx();
+    videos.updatedAt = DateTime.now().toStringEx();
     final isOK = await _validation(videos);
     if (isOK) await _db.insert(_tableName, videos.toJson());
   }
 
   static Future<void> update(Videos videos) async {
+    videos.updatedAt = DateTime.now().toStringEx();
     await _db.update(_tableName, videos.toJson(), where: 'id = ?', whereArgs: [videos.id]);
   }
 
@@ -35,9 +36,13 @@ mixin DBVideos {
     await _db.delete(_tableName, where: 'root_path = ?', whereArgs: [rootPath]);
   }
 
-  static Future<List<Videos>> getAll() async {
-    final List<Map<String, dynamic>> maps = await _db.query(_tableName);
-    return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
+  static Future<List<Videos>> getAll({String? where, List<Object?>? whereArgs}) async {
+    try {
+      final List<Map<String, dynamic>> maps = await _db.query(_tableName, where: where, whereArgs: whereArgs);
+      return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
+    } catch (e) {
+      throw Exception('${e.toString()}');
+    }
   }
 
   static Future<List<Videos>> getByID(String id) async {
@@ -76,8 +81,22 @@ mixin DBVideos {
     await _db.update(_tableName, upd.toJson(), where: 'id = ?', whereArgs: [video.id]);
   }
 
+  static Future<void> addToFavorite(Videos video) async {
+    final upd = video;
+    upd.isFavorite = 1;
+    await _db.update(_tableName, upd.toJson(), where: 'id = ?', whereArgs: [video.id]);
+  }
+
+  static Future<void> removeFromFavorite(Videos video) async {
+    final upd = video;
+    upd.isFavorite = 0;
+    await _db.update(_tableName, upd.toJson(), where: 'id = ?', whereArgs: [video.id]);
+  }
+
   // ────────────────────────────────────────────────────────────────
   // ⵌ helper
+
+  static Future<void> deleteAll() async => await _db.delete(_tableName);
 
   // Category ────────────────────────────────────────────────────────────────
   static Future<List<VideoCategory>> getAllCategories() async {
@@ -257,6 +276,39 @@ mixin DBVideos {
         if (item.director.isNotEmptyAndNotNull) {
           for (int i = 0; i < item.director!.length; i++) {
             if (item.director == director) output.add(item);
+          }
+        }
+      }
+    });
+    output.unique((e) => e.videoPath);
+    return output;
+  }
+
+  // Video Path ────────────────────────────────────────────────────────────────
+  static Future<List<String>> getAllVideoPath() async {
+    final vPath = <String>[];
+    await getAll().then((video) {
+      for (final item in video) {
+        if (item.videoPath.isNotEmptyAndNotNull) {
+          for (int i = 0; i < item.videoPath!.length; i++) {
+            final part = item.videoPath!.split('/');
+            final vpath = part[part.length - 2];
+            vPath.add(vpath.capitalized);
+          }
+        }
+      }
+    });
+    vPath.unique((e) => e);
+    return vPath;
+  }
+
+  static Future<List<Videos>> getVideoByVideoPath(String path) async {
+    final output = <Videos>[];
+    await getAll().then((video) {
+      for (final item in video) {
+        if (item.videoPath.isNotEmptyAndNotNull) {
+          for (int i = 0; i < item.videoPath!.length; i++) {
+            if (item.videoPath!.toLowerCase().contains(path.toLowerCase())) output.add(item);
           }
         }
       }
