@@ -1,23 +1,30 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ex_kit/ex.dart';
+import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:zoom_hover_pinch_image/zoom_hover_pinch_image.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/const.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
+import '../../../utils/helper_toast.dart';
+import '../../widgets/widget_thumbnail.dart';
+import '../home_controller.dart';
+import '../page_explore/page_explore_controller.dart';
 import '../page_home/page_home_controller.dart';
 import 'page_search_controller.dart';
 
 mixin PageSearchOverlay {
   static Future<void> onItemTap(Videos video) async {
     final _controller = Get.find<PageSearchController>();
-    final _mediaInfo = await _controller.getMediaInfo(video.videoPath ?? '');
+    final _mediaInfo = <String>[].obs;
 
     // open overlay
     await Overlayment.show(
@@ -36,20 +43,19 @@ mixin PageSearchOverlay {
               width: double.infinity,
               height: 200,
               color: Vx.neutral900,
-              child: video.fanArt.isBlank ?? true
-                  ? FutureBuilder(
-                      future: _controller.getThumbnail(video.videoPath ?? ''),
-                      builder: (context, snapshot) {
-                        return snapshot.hasData ? Image.memory(snapshot.data!, fit: BoxFit.cover, width: double.infinity) : 0.heightBox;
-                      },
-                    )
-                  : CachedNetworkImage(
-                      imageUrl: '${video.fanArt?.imgUrl()}',
-                    ).onInkTap(() => _openScreenshot(video)),
+              child: ExThumbnailV(
+                imageUrl: video.fanArt,
+                videoPath: video.videoPath,
+                width: double.infinity,
+                height: 200,
+                fitMemory: BoxFit.fitHeight,
+              ).color(AppColor.selected).onInkTap(() => _openScreenshot(video)),
             ),
             VStack(
               [
-                '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().pSymmetric(v: 8),
+                '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
+                  HelperMisc.copyToClipboard(video.videoCode ?? '');
+                }).pSymmetric(v: 8),
                 '${video.title}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(3).ellipsis.makeCentered(),
 
                 ExDivider().pSymmetric(v: 16),
@@ -130,7 +136,16 @@ mixin PageSearchOverlay {
                       'Actress:'.text.size(12).bold.make().pOnly(bottom: 4),
                       Wrap(children: [
                         for (int i = 0; i < video.actress!.length; i++) ...[
-                          '${video.actress?[i].nameRomaji}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(right: 8),
+                          '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}'
+                              .text
+                              .neutral300
+                              .underline
+                              .size(11)
+                              .minFontSize(11)
+                              .make()
+                              .tooltip(video.actress?[i].nameRomaji == '' ? '${KanaKit().toRomaji(video.actress?[i].nameKana ?? '')}' : '')
+                              .onInkTap(() async => await _onItemActressClick(video, i))
+                              .pOnly(right: 8),
                         ],
                       ]).pOnly(bottom: 16),
                     ],
@@ -140,7 +155,9 @@ mixin PageSearchOverlay {
                       'Category:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                       Wrap(children: [
                         for (int i = 0; i < video.category!.length; i++) ...[
-                          '${video.category?[i].category}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(right: 8),
+                          '${video.category?[i].category}'.text.neutral300.underline.size(11).minFontSize(11).make().onInkTap(() async {
+                            await _onItemCategoryClick(video, i);
+                          }).pOnly(right: 8),
                         ],
                       ]).pOnly(bottom: 16),
                     ],
@@ -181,19 +198,32 @@ mixin PageSearchOverlay {
                       '${video.series}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
                     ],
 
-                    // resolution
-                    'Res:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                    '${_mediaInfo[0]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                    // ~
+                    GetBuilder(
+                      init: _controller,
+                      builder: (_) => _mediaInfo.isNotEmpty
+                          ? VStack([
+                              // resolution
+                              'Res:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                              '${_mediaInfo[0]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
 
-                    // filesize
-                    'File Size:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                    '${_mediaInfo[2]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                              // filesize
+                              'File Size:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                              '${_mediaInfo[2]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
 
-                    // duration (non jav)
-                    if (video.duration == 0) ...[
-                      'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                      '${_mediaInfo[3]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-                    ],
+                              // duration (non jav)
+                              if (video.duration == 0) ...[
+                                'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                                '${_mediaInfo[3]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                              ],
+                            ])
+                          : VStack([
+                              'Get More Info'.text.blue300.size(12).underline.make().onInkTap(() async {
+                                _mediaInfo.value = await _getMediaInfo(video.videoPath ?? '');
+                                if (_mediaInfo.length > 2) _controller.update();
+                              }).pOnly(bottom: 16),
+                            ]),
+                    ),
 
                     // Path
                     'Path:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
@@ -209,6 +239,8 @@ mixin PageSearchOverlay {
   }
 
   static Future<void> _openScreenshot(Videos video) async {
+    if (video.screenshot.isEmptyOrNull) return;
+
     await Overlayment.show(
       context: Get.context,
       OverPanel(
@@ -276,4 +308,45 @@ mixin PageSearchOverlay {
   //     ),
   //   );
   // }
+
+  static Future<void> _onItemActressClick(Videos video, int index) async {
+    final name = '${video.actress?[index].nameRomaji == '' ? '${video.actress?[index].nameKana}' : '${video.actress?[index].nameRomaji}'}';
+    await Get.find<HomeController>().onMenuChange(kMenuExplore);
+    final exploreC = Get.find<PageExploreController>();
+    await exploreC.onFilterByChange('Actress');
+    exploreC.tecSearch.text = name;
+    exploreC.onOListSearch(name);
+    await exploreC.onOListTap(exploreC.oListFiltered[0]);
+    await Overlayment.dismissLast();
+  }
+
+  static Future<void> _onItemCategoryClick(Videos video, int index) async {
+    final name = '${video.category?[index].category}';
+    await Get.find<HomeController>().onMenuChange(kMenuExplore);
+    final exploreC = Get.find<PageExploreController>();
+    await exploreC.onFilterByChange('Category');
+    exploreC.tecSearch.text = name;
+    exploreC.onOListSearch(name);
+    await exploreC.onOListTap(exploreC.oListFiltered[0]);
+    await Overlayment.dismissLast();
+  }
+
+  static Future<List<String>> _getMediaInfo(String path) async {
+    final output = <String>[];
+    ExLoading.show(paddingSymmetric: 240);
+    await FFprobeKit.getMediaInformation(path).then((value) async {
+      ExLoading.dismiss();
+      final medinfo = value.getMediaInformation();
+      final stream = value.getMediaInformation()?.getStreams().first;
+      output.add('${stream?.getWidth()}x${stream?.getHeight()}'); // -- [0] width x height
+      output.add('${stream?.getHeight()}p'); // -- [1] resolution
+      output.add('${int.parse(medinfo!.getSize()!).toFileSize()}'); // -- [2] file size
+      output.add('${HelperMisc.durationFormat2(num.parse(medinfo.getFormatProperties()!['duration'].toString()))}'); // -- [3] duration
+    }).catchError((e) {
+      ExLoading.dismiss();
+      HelperToast.error('Could not get media info, please check file path, $path');
+    });
+
+    return output;
+  }
 }

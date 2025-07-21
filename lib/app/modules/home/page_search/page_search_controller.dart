@@ -1,18 +1,14 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:ex_kit/ex.dart';
-import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
-import 'package:video_compress/video_compress.dart';
 
 import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
-import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_toast.dart';
 import '../home_controller.dart';
 
@@ -24,11 +20,11 @@ class PageSearchController extends GetxController {
   final videos = <Videos>[].obs;
 
   final api = Get.find<ApiJavit>();
-  final Map<String, Uint8List> _thumbnailCache = {};
 
   @override
   Future<void> onInit() async {
     super.onInit();
+    logS('page search ==> onInit called');
     viewModeSelected.value = 'grid';
     videos.value = await DBVideos.getAll();
   }
@@ -46,16 +42,24 @@ class PageSearchController extends GetxController {
       newVideos.fanArt = resp['fan_art'].replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '') ?? '';
       newVideos.poster = resp['poster'].replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '') ?? '';
       newVideos.trailer = resp['trailer'];
-      newVideos.site = 'FANZA';
+      newVideos.site = 'R18';
 
-      newVideos.actress = <VideoActress>[];
-      for (var i = 0; i < resp['actors'].length; i++) {
-        newVideos.actress?.add(VideoActress(
-          id: resp['actors'][i]['cast_id'],
-          nameRomaji: resp['actors'][i]['cast_names'],
-          imageUrl: resp['actors'][i]['cast_image'],
-        ));
+      if (videos.actress != null) {
+        for (var i = 0; i < videos.actress!.length; i++) {
+          if (videos.actress![i].imageUrl == '') {
+            HelperToast.warn('konstol');
+          }
+        }
       }
+
+      // newVideos.actress = <VideoActress>[];
+      // for (var i = 0; i < resp['actors'].length; i++) {
+      //   newVideos.actress?.add(VideoActress(
+      //     id: resp['actors'][i]['cast_id'],
+      //     nameRomaji: resp['actors'][i]['cast_names'],
+      //     imageUrl: resp['actors'][i]['cast_image'],
+      //   ));
+      // }
 
       newVideos.category = <VideoCategory>[];
       for (var i = 0; i < resp['genre'].length; i++) {
@@ -82,30 +86,11 @@ class PageSearchController extends GetxController {
       }
       DBVideos.update(newVideos);
       HelperToast.success('${newVideos.videoCode} metadata updated');
-      Get.find<HomeController>().onRefreshAllContent();
+      Get.find<HomeController>().onRefreshAllContent(); // FIXME
     }).catchError((e) {
       ExLoading.dismiss();
       HelperToast.error(e.toString());
     });
-  }
-
-  Future<List<String>> getMediaInfo(String path) async {
-    final output = <String>[];
-    ExLoading.show(paddingSymmetric: 240);
-    await FFprobeKit.getMediaInformation(path).then((value) async {
-      ExLoading.dismiss();
-      final medinfo = value.getMediaInformation();
-      final stream = value.getMediaInformation()?.getStreams().first;
-      output.add('${stream?.getWidth()}x${stream?.getHeight()}'); // -- [0] width x height
-      output.add('${stream?.getHeight()}p'); // -- [1] resolution
-      output.add('${int.parse(medinfo!.getSize()!).toFileSize()}'); // -- [2] file size
-      output.add('${HelperMisc.durationFormat2(num.parse(medinfo.getFormatProperties()!['duration'].toString()))}'); // -- [3] duration
-    }).catchError((e) {
-      ExLoading.dismiss();
-      HelperToast.error(e.toString());
-    });
-
-    return output;
   }
 
   Future<void> onSearch() async {
@@ -122,16 +107,5 @@ class PageSearchController extends GetxController {
     tecSearch.text = '';
     videos.value = await DBVideos.getAll();
     fnSearch.requestFocus();
-  }
-
-  Future<Uint8List?> getThumbnail(String videopath) async {
-    if (_thumbnailCache.containsKey(videopath)) return _thumbnailCache[videopath];
-    try {
-      final uint8list = await VideoCompress.getByteThumbnail(videopath, quality: 10, position: 10);
-      if (uint8list != null) _thumbnailCache[videopath] = uint8list;
-      return uint8list;
-    } catch (_) {
-      return null;
-    }
   }
 }

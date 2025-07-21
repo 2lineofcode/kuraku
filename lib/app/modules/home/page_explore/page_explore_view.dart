@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -6,8 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/app_color.dart';
-import '../../../utils/helper_misc.dart';
-import '../page_search/page_search_overlay.dart';
+import '../../widgets/widget_thumbnail.dart';
 import 'page_explore_controller.dart';
 
 class PageExploreView extends GetView<PageExploreController> {
@@ -28,7 +26,7 @@ class PageExploreView extends GetView<PageExploreController> {
                 labelSize: 12,
                 labelColor: controller.filterTypeSelected.value == controller.filterType[index] ? Vx.white : Vx.neutral600,
                 borderColor: controller.filterTypeSelected.value == controller.filterType[index] ? Vx.white : Vx.neutral600,
-                onPressed: () => controller.onFilterByChange(index),
+                onPressed: () => controller.onFilterByChange(controller.filterType[index]),
               ).pOnly(right: 8),
             );
           },
@@ -77,7 +75,7 @@ class PageExploreView extends GetView<PageExploreController> {
                                       ),
                                     ],
                                     // name
-                                    '${item.name} (${item.videos?.length})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
+                                    '${item.name} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
                                   ]).color(item == controller.oListSelected.value ? AppColor.selected : Colors.transparent),
                                 ),
                               );
@@ -99,49 +97,30 @@ class PageExploreView extends GetView<PageExploreController> {
                       : GridView.builder(
                           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
-                            childAspectRatio: 0.6,
+                            childAspectRatio: 0.65,
                             mainAxisSpacing: 8,
                             crossAxisSpacing: 8,
                           ),
                           itemCount: controller.vList.length,
                           itemBuilder: (context, index) {
-                            final item = controller.vList[index];
+                            final video = controller.vList[index];
                             return Container(
                               color: AppColor.container,
-                              child: VStack([
-                                // CachedNetworkImage(
-                                //   imageUrl: '${item.poster?.imgUrl()}',
-                                //   height: 180,
-                                //   width: double.infinity,
-                                //   fit: BoxFit.fitWidth,
-                                // ),
-
-                                if (item.poster == null || item.poster == '') ...[
-                                  FutureBuilder(
-                                    future: controller.getThumbnail(item.videoPath ?? ''),
-                                    builder: (context, snapshot) {
-                                      if (snapshot.connectionState == ConnectionState.waiting) {
-                                        return Icon(CupertinoIcons.photo, size: 64).centered().color(Vx.neutral900);
-                                      }
-                                      return snapshot.hasData ? Image.memory(snapshot.data!, fit: BoxFit.cover, width: double.infinity, height: 180) : 0.heightBox;
-                                    },
-                                  ),
-                                ] else ...[
-                                  CachedNetworkImage(
-                                    imageUrl: '${item.poster?.imgUrl()}',
-                                    width: double.infinity,
-                                    height: 180,
-                                    fit: BoxFit.fitHeight,
-                                  ),
-                                ],
-
-                                // ~~~
-                                4.heightBox,
-                                '${item.videoCode}'.text.size(12).bold.ellipsis.makeCentered().pSymmetric(h: 8),
-                                '${item.title}'.text.size(11).minFontSize(11).ellipsis.makeCentered().pSymmetric(h: 8),
-                                4.heightBox,
+                              child: ZStack([
+                                ExThumbnailV(
+                                  imageUrl: video.poster,
+                                  videoPath: video.videoPath,
+                                  width: 140,
+                                  height: 200,
+                                ),
+                                Container(
+                                  color: Vx.black.withAlpha(150),
+                                  height: 20,
+                                  width: 140,
+                                  child: '${video.videoCode == '' ? video.title?.maxChars(10) : video.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
+                                ).positioned(bottom: 0),
                               ]),
-                            ).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(item));
+                            ).cornerRadius(8).onInkTap(() => controller.onVListTap(video));
                           },
                         ).expand(),
                 ),

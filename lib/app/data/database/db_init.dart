@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -15,16 +14,17 @@ import 'db_videos.dart';
 class DBService extends GetxService {
   late Database dbMain;
   late Database dbR18;
+  late String databasesPath;
 
   @override
   Future<void> onInit() async {
     super.onInit();
+    databasesPath = await getDatabasesPath();
     dbMain = await _initializeDatabase();
     dbR18 = await _initializeR18Database();
   }
 
   Future<Database> _initializeDatabase() async {
-    var databasesPath = await getDatabasesPath();
     var path = join(databasesPath, 'javit.db');
     await Directory(databasesPath).create(recursive: true);
     return await openDatabase(
@@ -39,27 +39,8 @@ class DBService extends GetxService {
   }
 
   Future<Database> _initializeR18Database() async {
-    var databasesPath = await getDatabasesPath();
     var path = join(databasesPath, 'r18.db');
     await Directory(databasesPath).create(recursive: true);
-
-    bool dbExists = await databaseExists(path);
-
-    if (!dbExists) {
-      AppLog.log('== R18 Database (r18.db) does not exist, copying from assets ==');
-      try {
-        await Directory(dirname(path)).create(recursive: true);
-      } catch (_) {}
-
-      // Load database from assets
-      ByteData data = await rootBundle.load(join('assets', 'r18.db'));
-      List<int> bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-
-      // Write the copied data to the local database file
-      await File(path).writeAsBytes(bytes, flush: true);
-      AppLog.log('== R18 Database copied from assets successfully ==');
-    }
-
     return await openDatabase(
       path,
       version: 20250715,
@@ -98,7 +79,7 @@ class DBService extends GetxService {
     await db.execute('''
       CREATE TABLE Videos (
         id                               TEXT PRIMARY KEY,
-        root_path                        TEXT,
+        root_path                        TEXT, 
         video_path                       TEXT,
         poster_path                      TEXT,
         cover_path                       TEXT,
@@ -117,7 +98,7 @@ class DBService extends GetxService {
         duration_formated                TEXT,
         studio                           TEXT,
         label                            TEXT,
-        director                         TEXT,
+        director                         TEXT, -- NOT NULL DEFAULT '',
         series                           TEXT,
         screenshot                       TEXT, -- Stored as JSON string
         view_count                       INTEGER,
@@ -127,6 +108,18 @@ class DBService extends GetxService {
         updated_at                       TEXT
       )
     ''');
+
+    await db.execute('CREATE INDEX idx_video_path ON Videos(video_path);');
+    await db.execute('CREATE INDEX idx_video_code ON Videos(video_code);');
+    await db.execute('CREATE INDEX idx_title ON Videos(title);');
+    await db.execute('CREATE INDEX idx_actress ON Videos(actress);');
+    await db.execute('CREATE INDEX idx_category ON Videos(category);');
+    await db.execute('CREATE INDEX idx_release_date ON Videos(release_date);');
+    await db.execute('CREATE INDEX idx_duration ON Videos(duration);');
+    await db.execute('CREATE INDEX idx_studio ON Videos(studio);');
+    await db.execute('CREATE INDEX idx_label ON Videos(label);');
+    await db.execute('CREATE INDEX idx_director ON Videos(director);');
+    await db.execute('CREATE INDEX idx_series ON Videos(series);');
 
     // Create History table
     await db.execute('''

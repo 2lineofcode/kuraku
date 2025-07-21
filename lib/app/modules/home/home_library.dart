@@ -209,7 +209,6 @@ mixin HomeLibrary {
   // ** MAIN PROCESS
   static Future<void> doAddorEditVideoFromLibrary(Library library) async {
     if (library.videos == null || library.videos!.isEmpty) {
-      await _homeController.onRefreshAllContent();
       return;
     }
 
@@ -241,15 +240,22 @@ mixin HomeLibrary {
         newVideo.durationFormated = HelperMisc.durationFormat0(newVideo.duration ?? 0);
         newVideo.releaseDateFormated = newVideo.releaseDate?.reformatDate(from: 'yyyy-MM-dd', to: 'MMM dd, yyyy');
         newVideo.director = dataDirector?['name_romaji'] ?? '';
-        newVideo.fanArt = '${dataVideo['fan_art'].toString().removeLast(2)}pl';
-        newVideo.poster = '${dataVideo['poster'].toString().removeLast(2)}ps';
+        newVideo.fanArt = '${dataVideo['fan_art']}';
+        newVideo.poster = '${dataVideo['poster']}';
 
         if (dataVideo['sslast'] != null) {
           final ss = <String>[];
           final n = dataVideo['sslast'].toString().split('-').last;
           for (var i = 0; i < int.parse(n); i++) {
-            final filename = '${dataVideo['ssfirst']}'.removeLast(2);
-            ss.add('${filename}jp-${i + 1}');
+            final filename = '${dataVideo['ssfirst']}';
+
+            if (!filename.contains('jp-')) {
+              final part = filename.allBefore('-');
+              final prefix = '${part}jp-${i + 1}';
+              ss.add(prefix);
+            } else {
+              ss.add(filename);
+            }
           }
           newVideo.screenshot = ss;
 

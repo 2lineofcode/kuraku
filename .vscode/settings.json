@@ -16,7 +16,7 @@
         "macos": true,
         "ios": true,
         "web": true,
-        "build": true,
+        "build": false,
         "supabase": true,
         "*.iml": true
     },

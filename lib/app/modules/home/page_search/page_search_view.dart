@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -6,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/app_color.dart';
-import '../../../utils/helper_misc.dart';
+import '../../widgets/widget_thumbnail.dart';
 import 'page_search_controller.dart';
 import 'page_search_overlay.dart';
 
@@ -63,82 +62,39 @@ class PageSearchView extends GetView<PageSearchController> {
       itemCount: controller.videos.length,
       separatorBuilder: (context, index) => 12.heightBox,
       itemBuilder: (context, index) {
-        final item = controller.videos[index];
-        if (item.poster == null || item.poster == '') {
-          return Container(
-            color: AppColor.container,
-            child: FutureBuilder(
-              future: controller.getThumbnail(item.videoPath ?? ''),
-              builder: (context, snapshot) {
-                // thumbanail -> failed
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return HStack([
-                    Icon(CupertinoIcons.photo, size: 64).wh(180, 120).color(Vx.neutral900),
-                    '${item.videoCode}'.text.size(12).bold.ellipsis.make().pSymmetric(h: 8).pOnly(right: 12),
-                    '${item.title}'.text.size(11).minFontSize(11).ellipsis.make().pSymmetric(h: 8).pOnly(right: 12),
-                    4.heightBox,
-                  ]);
-                }
-
-                // thumbanail -> success
-                return snapshot.hasData
-                    ? Container(
-                        color: AppColor.container,
-                        child: HStack([
-                          Image.memory(
-                            snapshot.data!,
-                            width: 180,
-                            height: 120,
-                            fit: BoxFit.fitHeight,
-                          ).pOnly().color(Vx.neutral900).pOnly(right: 8),
-                          VStack([
-                            '${item.title.maxWords(1)}'.text.size(14).bold.ellipsis.make().pOnly(bottom: 8, right: 12),
-                            '${item.title}'.text.size(11).maxLines(3).ellipsis.minFontSize(11).make().pOnly(bottom: 12, right: 12),
-                            HStack([
-                              Icon(CupertinoIcons.time, size: 12).pOnly(right: 4, top: 2),
-                              '${item.duration}'.text.size(10).minFontSize(10).make(),
-                              12.widthBox,
-                              Icon(CupertinoIcons.calendar, size: 12).pOnly(right: 4, top: 2),
-                              '${item.releaseDate}'.text.size(10).minFontSize(10).make(),
-                              12.widthBox,
-                              Icon(CupertinoIcons.circle, size: 12).pOnly(right: 4, top: 2),
-                              '${item.label}'.text.size(10).minFontSize(10).make(),
-                            ]),
-                          ]).expand(),
-                        ]),
-                      ).wh(150, 120).cornerRadius(8)
-                    : 0.heightBox;
-              },
-            ),
-          ).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(item));
-        } else {
-          // fanart
-          return Container(
-            color: AppColor.container,
-            child: HStack([
-              CachedNetworkImage(
-                imageUrl: '${item.fanArt?.imgUrl()}',
-                width: 180,
+        final video = controller.videos[index];
+        return Container(
+          color: AppColor.container,
+          child: HStack(
+            crossAlignment: CrossAxisAlignment.start,
+            alignment: MainAxisAlignment.start,
+            [
+              ExThumbnailV(
+                imageUrl: video.fanArt,
+                videoPath: video.videoPath,
+                width: 200,
                 height: 120,
-                fit: BoxFit.fitHeight,
-              ).pOnly(right: 8),
+                fitUrl: BoxFit.cover,
+              ).pOnly(right: 12),
               VStack([
-                '${item.videoCode}'.text.size(14).bold.ellipsis.make().pOnly(bottom: 8, right: 12),
-                '${item.title}'.text.size(11).maxLines(3).ellipsis.minFontSize(11).make().pOnly(bottom: 12, right: 12),
+                '${video.videoCode == '' ? video.title?.maxWords(5) : video.videoCode}'.text.bold.ellipsis.make().pSymmetric(v: 8),
+                '${video.title}'.text.xs.maxLines(3).ellipsis.make(),
+                Spacer(),
                 HStack([
-                  Icon(CupertinoIcons.time, size: 12).pOnly(right: 4, top: 2),
-                  '${item.duration}'.text.size(10).minFontSize(10).make(),
-                  12.widthBox,
-                  Icon(CupertinoIcons.calendar, size: 12).pOnly(right: 4, top: 2),
-                  '${item.releaseDate}'.text.size(10).minFontSize(10).make(),
-                  12.widthBox,
-                  Icon(CupertinoIcons.circle, size: 12).pOnly(right: 4, top: 2),
-                  '${item.label}'.text.size(10).minFontSize(10).make(),
-                ]),
-              ]).expand(),
-            ]),
-          ).wh(150, 120).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(item));
-        }
+                  if (video.releaseDate != '') ...[
+                    Icon(CupertinoIcons.calendar, size: 12).pOnly(right: 4),
+                    '${video.releaseDateFormated}'.text.size(11).minFontSize(11).make().pOnly(right: 12),
+                  ],
+
+                  if (video.releaseDate != '') ...[
+                    Icon(CupertinoIcons.circle, size: 12).pOnly(right: 4),
+                    '${video.label}'.text.size(11).minFontSize(11).make().pOnly(right: 12),
+                  ],
+                ]).pOnly(bottom: 8),
+              ]).pOnly(right: 12).expand(),
+            ],
+          ),
+        ).wh(200, 120).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(video));
       },
     );
   }
@@ -153,52 +109,24 @@ class PageSearchView extends GetView<PageSearchController> {
         mainAxisSpacing: 8,
       ),
       itemBuilder: (context, index) {
-        final item = controller.videos[index];
-
-        if (item.poster == null || item.poster == '') {
-          return Container(
-            color: AppColor.container,
-            child: FutureBuilder(
-              future: controller.getThumbnail(item.videoPath ?? ''),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
-                    child: VStack([
-                      Icon(CupertinoIcons.photo, size: 64).centered().color(Vx.neutral900).expand(),
-                      '${item.title.maxWords(1)}'.text.size(12).bold.ellipsis.makeCentered().pSymmetric(h: 8),
-                      '${item.title}'.text.size(11).minFontSize(11).ellipsis.makeCentered().pSymmetric(h: 8),
-                      4.heightBox,
-                    ]).onInkTap(() => PageSearchOverlay.onItemTap(item)),
-                  );
-                }
-
-                return snapshot.hasData
-                    ? VStack([
-                        Image.memory(snapshot.data!, fit: BoxFit.cover, width: double.infinity).expand(),
-                        4.heightBox,
-                        '${item.title.maxWords(1)}'.text.size(12).bold.ellipsis.makeCentered().pSymmetric(h: 8),
-                        '${item.title}'.text.size(11).minFontSize(11).ellipsis.makeCentered().pSymmetric(h: 8),
-                        4.heightBox,
-                      ]).onInkTap(() => PageSearchOverlay.onItemTap(item))
-                    : 0.heightBox;
-              },
+        final video = controller.videos[index];
+        return Container(
+          color: AppColor.container,
+          child: ZStack([
+            ExThumbnailV(
+              imageUrl: video.poster,
+              videoPath: video.videoPath,
+              width: 120,
+              height: 200,
             ),
-          ).cornerRadius(8);
-        } else {
-          return Container(
-            color: AppColor.container,
-            child: VStack([
-              CachedNetworkImage(
-                imageUrl: '${item.poster?.imgUrl()}',
-                fit: BoxFit.fill,
-              ).expand(),
-              4.heightBox,
-              '${item.videoCode}'.text.size(12).bold.ellipsis.makeCentered().pSymmetric(h: 8),
-              '${item.title}'.text.size(11).minFontSize(11).ellipsis.makeCentered().pSymmetric(h: 8),
-              4.heightBox,
-            ]),
-          ).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(item));
-        }
+            Container(
+              color: Vx.black.withAlpha(150),
+              height: 20,
+              width: 120,
+              child: '${video.videoCode == '' ? video.title?.maxChars(10) : video.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
+            ).positioned(bottom: 0),
+          ]),
+        ).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(video));
       },
     );
   }

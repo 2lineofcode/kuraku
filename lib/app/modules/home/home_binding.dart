@@ -12,10 +12,10 @@ class HomeBinding extends Bindings {
   void dependencies() {
     Get.lazyPut<ApiJavit>(() => ApiJavit());
 
-    Get.lazyPut<PageHomeController>(() => PageHomeController());
-    Get.lazyPut<PageSearchController>(() => PageSearchController());
-    Get.lazyPut<PageExploreController>(() => PageExploreController());
-    Get.lazyPut<PageSettingsController>(() => PageSettingsController());
+    Get.put<PageSettingsController>(PageSettingsController());
+    Get.put<PageExploreController>(PageExploreController());
+    Get.put<PageSearchController>(PageSearchController());
+    Get.put<PageHomeController>(PageHomeController());
 
     Get.lazyPut<HomeController>(() => HomeController());
   }

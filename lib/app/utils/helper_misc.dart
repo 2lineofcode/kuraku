@@ -1,13 +1,16 @@
+import 'package:flutter/services.dart';
+
 import '../../env.g.dart';
+import 'helper_toast.dart';
 
 mixin HelperMisc {
   static String getLastPath(String path) => path.split('/').last;
 
-  static String getLastSegments(String path, {n = 4}) {
-    List<String> segments = path.split('/');
-    if (segments.length > n) {
-      segments = segments.sublist(segments.length - 4);
-    }
+  static String getLastSegments(String path, {int n = 4}) {
+    if (path.isEmpty) return '';
+    List<String> segments = path.split('/').where((s) => s.isNotEmpty).toList();
+    if (segments.length <= n) return path;
+    segments = segments.sublist(segments.length - n);
     return '.../${segments.join('/')}';
   }
 
@@ -82,6 +85,15 @@ mixin HelperMisc {
     if (parts.isEmpty) return '0 detik';
 
     return parts.join(', ');
+  }
+
+
+  static void copyToClipboard(String? text) {
+    if (text == null) return;
+
+    final data = ClipboardData(text: text);
+    Clipboard.setData(data);
+    HelperToast.info('$text Copied to clipboard');
   }
 }
 

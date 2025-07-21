@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:ex_kit/ex.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
@@ -25,8 +26,9 @@ class HomeController extends GetxController with StateMixin {
   @override
   Future<void> onInit() async {
     super.onInit();
+    logS('home ==> onInit called');
     currentMenuSelected.value = kMenuHome;
-    await onRefreshAllContent();
+    footerSum.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
     change(200, status: RxStatus.success());
   }
 
@@ -36,12 +38,29 @@ class HomeController extends GetxController with StateMixin {
   }
 
   Future<void> onRefreshAllContent() async {
-    footerSum.value = 'Refreshing...';
-    await Get.find<PageHomeController>().onInit();
-    await Get.find<PageSearchController>().onInit();
-    await Get.find<PageExploreController>().onInit();
-    await Get.find<PageSettingsController>().onInit();
-    footerSum.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
+    try {
+      footerSum.value = 'Refreshing...';
+      await Get.find<PageHomeController>().onInit();
+      await Get.find<PageSearchController>().onInit();
+      await Get.find<PageExploreController>().onInit();
+      await Get.find<PageSettingsController>().onInit();
+      footerSum.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
+    } catch (e) {
+      // footerSum.value = 'Error: $e';
+      ExAlert.adaptive(
+        title: Text('Ups'),
+        content: Text('${e.toString()}'),
+        actions: [
+          CupertinoDialogAction(
+            child: Text('Refresh', style: TextStyle(color: Vx.red500, fontSize: 13)),
+            onPressed: () {
+              onRefreshAllContent();
+              Get.back();
+            },
+          ),
+        ],
+      );
+    }
   }
 
   Future<void> onMenuChange(String menu) async {

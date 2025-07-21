@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -6,7 +5,7 @@ import 'package:get/get.dart';
 
 import '../../../core/app_color.dart';
 import '../../../data/models/videos_entity.dart';
-import '../../../utils/helper_misc.dart';
+import '../../widgets/widgets.dart';
 import '../page_search/page_search_overlay.dart';
 import 'page_home_controller.dart';
 
@@ -16,11 +15,6 @@ class PageHomeView extends GetView<PageHomeController> {
   Widget build(BuildContext context) {
     return VStack(
       [
-        ExButtonElevated(
-          label: 'Delete all data',
-          onPressed: () => controller.test(),
-        ),
-
         // New Release
         HStack([
           'New Release'.text.size(12).make(),
@@ -117,28 +111,12 @@ class PageHomeView extends GetView<PageHomeController> {
     return Container(
       color: AppColor.container,
       child: ZStack([
-        if (video.poster == null || video.poster == '') ...[
-          FutureBuilder(
-            future: controller.getThumbnail(video.videoPath ?? ''),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Icon(
-                  CupertinoIcons.photo,
-                  size: 32,
-                ).wh(200, 120).color(Vx.neutral900);
-              }
-
-              return snapshot.hasData ? Image.memory(snapshot.data!, fit: BoxFit.cover, width: 200, height: 120) : 0.heightBox;
-            },
-          ),
-        ] else ...[
-          CachedNetworkImage(
-            imageUrl: '${video.fanArt?.imgUrl()}',
-            width: 200,
-            height: 120,
-            fit: BoxFit.fitWidth,
-          ),
-        ],
+        ExThumbnailV(
+          imageUrl: video.fanArt,
+          videoPath: video.videoPath,
+          width: 200,
+          height: 120,
+        ),
         Container(
           color: Vx.black.withAlpha(150),
           height: 20,
@@ -153,25 +131,12 @@ class PageHomeView extends GetView<PageHomeController> {
     return Container(
       color: AppColor.container,
       child: ZStack([
-        if (video.poster == null || video.poster == '') ...[
-          FutureBuilder(
-            future: controller.getThumbnail(video.videoPath ?? ''),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Icon(CupertinoIcons.photo, size: 64).centered().color(Vx.neutral900);
-              }
-
-              return snapshot.hasData ? Image.memory(snapshot.data!, fit: BoxFit.cover, width: 120, height: 200) : 0.heightBox;
-            },
-          ),
-        ] else ...[
-          CachedNetworkImage(
-            imageUrl: '${video.poster?.imgUrl()}',
-            width: 120,
-            height: 200,
-            fit: BoxFit.fitHeight,
-          ),
-        ],
+        ExThumbnailV(
+          imageUrl: video.poster,
+          videoPath: video.videoPath,
+          width: 120,
+          height: 200,
+        ),
         showViewCount ? ' View: ${video.viewCount}'.text.size(10).minFontSize(10).make().wh(63, 17).color(Vx.black.withAlpha(150)).positioned() : 0.heightBox,
         Container(
           color: Vx.black.withAlpha(150),

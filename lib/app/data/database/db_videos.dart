@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
+import 'package:path/path.dart' as p;
 import 'package:uuid/v4.dart';
 
 import '../models/videos_entity.dart';
@@ -38,7 +41,35 @@ mixin DBVideos {
 
   static Future<List<Videos>> getAll({String? where, List<Object?>? whereArgs}) async {
     try {
-      final List<Map<String, dynamic>> maps = await _db.query(_tableName, where: where, whereArgs: whereArgs);
+      final maps = await _db.query(_tableName, where: where, whereArgs: whereArgs);
+      return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
+    } catch (e) {
+      throw Exception('${e.toString()}');
+    }
+  }
+
+  static Future<List<Videos>> getAllLike(String column, String like) async {
+    try {
+      final maps = await _db.rawQuery('''
+        SELECT * FROM $_tableName
+        WHERE 1=1
+        AND $column LIKE '%$like%'
+      ''');
+
+      return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
+    } catch (e) {
+      throw Exception('${e.toString()}');
+    }
+  }
+
+  static Future<List<Videos>> getAllVideoPath(String column, String like) async {
+    try {
+      final maps = await _db.rawQuery('''
+        SELECT * FROM Videos
+        WHERE $column 
+        LIKE '$like%' AND $column NOT LIKE '$like/%/%';
+      ''');
+
       return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
     } catch (e) {
       throw Exception('${e.toString()}');
@@ -46,17 +77,17 @@ mixin DBVideos {
   }
 
   static Future<List<Videos>> getByID(String id) async {
-    final List<Map<String, dynamic>> maps = await _db.query(_tableName, where: 'id = ?', whereArgs: [id]);
+    final maps = await _db.query(_tableName, where: 'id = ?', whereArgs: [id]);
     return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
   }
 
   static Future<List<Videos>> getByCode(String code) async {
-    final List<Map<String, dynamic>> maps = await _db.query(_tableName, where: 'video_code = ?', whereArgs: [code]);
+    final maps = await _db.query(_tableName, where: 'video_code = ?', whereArgs: [code]);
     return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
   }
 
   static Future<List<Videos>> search(String s) async {
-    final List<Map<String, dynamic>> maps = await _db.rawQuery('''
+    final maps = await _db.rawQuery('''
       SELECT * FROM $_tableName 
       WHERE 1=1
         AND video_code LIKE '%$s%'
@@ -66,12 +97,12 @@ mixin DBVideos {
   }
 
   static Future<List<Videos>> getByVideoPath(String videoPath) async {
-    final List<Map<String, dynamic>> maps = await _db.query(_tableName, where: 'video_path = ?', whereArgs: [videoPath]);
+    final maps = await _db.query(_tableName, where: 'video_path = ?', whereArgs: [videoPath]);
     return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
   }
 
   static Future<int> getCount() async {
-    final List<Map<String, dynamic>> maps = await _db.query(_tableName);
+    final maps = await _db.query(_tableName);
     return maps.length;
   }
 
@@ -95,225 +126,200 @@ mixin DBVideos {
 
   // ────────────────────────────────────────────────────────────────
   // ⵌ helper
-
   static Future<void> deleteAll() async => await _db.delete(_tableName);
 
   // Category ────────────────────────────────────────────────────────────────
-  static Future<List<VideoCategory>> getAllCategories() async {
-    final category = <VideoCategory>[];
-    await getAll().then((video) {
-      for (final item in video) {
-        if (!item.category.isEmptyOrNull) {
-          for (int i = 0; i < item.category!.length; i++) {
-            category.add(item.category![i]);
-          }
-        }
-      }
-    });
-    category.unique((e) => e.id);
-    return category;
-  }
+  static Future<List<Map<String, dynamic>>> getAllCategoryWithCount() async {
+    final categoryIdToCount = {};
+    final uniqueCategory = {};
 
-  static Future<List<Videos>> getVideoByCategories(num catId) async {
-    final output = <Videos>[];
-    await getAll().then((video) {
-      for (final item in video) {
-        if (!item.category.isEmptyOrNull) {
-          for (int i = 0; i < item.category!.length; i++) {
-            if (item.category![i].id == catId) output.add(item);
+    final rawData = await _db.rawQuery('SELECT category FROM $_tableName');
+
+    for (var row in rawData) {
+      final categoryString = row['category'] as String?;
+
+      if (categoryString != null && categoryString.isNotEmpty) {
+        try {
+          final categoryJson = jsonDecode(categoryString);
+          final Set<String> categoryInThisVideo = {};
+
+          for (var categoryMap in categoryJson) {
+            if (categoryMap is Map<String, dynamic>) {
+              final currentCategory = VideoCategory.fromJson(categoryMap);
+              if (currentCategory.category != null) {
+                uniqueCategory.putIfAbsent(currentCategory.category!, () => currentCategory);
+
+                if (!categoryInThisVideo.contains(currentCategory.category!)) {
+                  categoryIdToCount[currentCategory.category!] = (categoryIdToCount[currentCategory.category!] ?? 0) + 1;
+                  categoryInThisVideo.add(currentCategory.category!);
+                }
+              }
+            }
           }
+        } catch (e) {
+          print('Error parsing category JSON: $e for string: $categoryString');
         }
       }
+    }
+
+    final result = <Map<String, dynamic>>[];
+    uniqueCategory.forEach((id, col) {
+      result.add({
+        'id': col.id,
+        'name': col.category,
+        'count': categoryIdToCount[id] ?? 0,
+      });
     });
-    output.unique((e) => e.videoPath);
-    return output;
+    result.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+    return result;
   }
 
   // Actress ────────────────────────────────────────────────────────────────
-  static Future<List<VideoActress>> getAllActress() async {
-    final actress = <VideoActress>[];
-    await getAll().then((video) {
-      for (final item in video) {
-        if (!item.actress.isEmptyOrNull) {
-          for (int i = 0; i < item.actress!.length; i++) {
-            actress.add(item.actress![i]);
-          }
-        }
-      }
-    });
-    actress.unique((e) => e.id);
-    return actress;
-  }
+  static Future<List<Map<String, dynamic>>> getAllActressWithCount() async {
+    final actressIdToCount = {};
+    final uniqueActresses = {};
 
-  static Future<List<Videos>> getVideoByActress(num actressId) async {
-    final output = <Videos>[];
-    await getAll().then((video) {
-      for (final item in video) {
-        if (!item.actress.isEmptyOrNull) {
-          for (int i = 0; i < item.actress!.length; i++) {
-            if (item.actress![i].id == actressId) output.add(item);
+    final rawData = await _db.rawQuery('SELECT actress FROM $_tableName');
+
+    for (var row in rawData) {
+      final actressString = row['actress'] as String?;
+
+      if (actressString != null && actressString.isNotEmpty) {
+        try {
+          final actressesJson = jsonDecode(actressString);
+          final Set<num> actressesInThisVideo = {};
+
+          for (var actressMap in actressesJson) {
+            if (actressMap is Map<String, dynamic>) {
+              final currentActress = VideoActress.fromJson(actressMap);
+              if (currentActress.id != null) {
+                uniqueActresses.putIfAbsent(currentActress.id!, () => currentActress);
+
+                if (!actressesInThisVideo.contains(currentActress.id!)) {
+                  actressIdToCount[currentActress.id!] = (actressIdToCount[currentActress.id!] ?? 0) + 1;
+                  actressesInThisVideo.add(currentActress.id!);
+                }
+              }
+            }
           }
+        } catch (e) {
+          print('Error parsing actress JSON: $e for string: $actressString');
         }
       }
+    }
+
+    final result = <Map<String, dynamic>>[];
+    uniqueActresses.forEach((id, col) {
+      result.add({
+        'id': col.id,
+        'nameRomaji': col.nameRomaji,
+        'nameKanji': col.nameKanji,
+        'nameKana': col.nameKana,
+        'imageUrl': col.imageUrl,
+        'count': actressIdToCount[id] ?? 0,
+      });
     });
-    output.unique((e) => e.videoPath);
-    return output;
+
+    result.sort((a, b) => (a['nameRomaji'] as String).compareTo(b['nameRomaji'] as String));
+    return result;
   }
 
   // Studio ────────────────────────────────────────────────────────────────
-  static Future<List<String>> getAllStudio() async {
-    final studio = <String>[];
-    await getAll().then((video) {
-      for (final item in video) {
-        if (item.studio.isNotEmptyAndNotNull) {
-          for (int i = 0; i < item.studio!.length; i++) {
-            studio.add(item.studio!);
-          }
-        }
-      }
-    });
-    studio.unique((e) => e);
-    return studio;
-  }
+  static Future<List<Map<String, dynamic>>> getAllStudioWithCount() async {
+    final rawMaps = await _db.rawQuery('''
+      SELECT DISTINCT studio AS name, COUNT(studio) AS count
+      FROM Videos
+      WHERE studio IS NOT NULL AND studio != ''
+      GROUP BY studio;
+    ''');
 
-  static Future<List<Videos>> getVideoByStudio(String studio) async {
-    final output = <Videos>[];
-    await getAll().then((video) {
-      for (final item in video) {
-        if (item.studio.isNotEmptyAndNotNull) {
-          for (int i = 0; i < item.studio!.length; i++) {
-            if (item.studio == studio) output.add(item);
-          }
-        }
-      }
-    });
-    output.unique((e) => e.videoPath);
-    return output;
+    final maps = List<Map<String, dynamic>>.from(rawMaps);
+    maps.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+    return maps;
   }
 
   // Label ────────────────────────────────────────────────────────────────
-  static Future<List<String>> getAllLabel() async {
-    final label = <String>[];
-    await getAll().then((video) {
-      for (final item in video) {
-        if (item.label.isNotEmptyAndNotNull) {
-          for (int i = 0; i < item.label!.length; i++) {
-            label.add(item.label!);
-          }
-        }
-      }
-    });
-    label.unique((e) => e);
-    return label;
-  }
+  static Future<List<Map<String, dynamic>>> getAllLabelWithCount() async {
+    final rawMaps = await _db.rawQuery('''
+      SELECT DISTINCT label AS name, COUNT(label) AS count
+      FROM Videos
+      WHERE label IS NOT NULL AND label != ''
+      GROUP BY label;
+    ''');
 
-  static Future<List<Videos>> getVideoByLabel(String label) async {
-    final output = <Videos>[];
-    await getAll().then((video) {
-      for (final item in video) {
-        if (item.label.isNotEmptyAndNotNull) {
-          for (int i = 0; i < item.label!.length; i++) {
-            if (item.label == label) output.add(item);
-          }
-        }
-      }
-    });
-    output.unique((e) => e.videoPath);
-    return output;
+    final maps = List<Map<String, dynamic>>.from(rawMaps);
+    maps.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+    return maps;
   }
 
   // Series ────────────────────────────────────────────────────────────────
-  static Future<List<String>> getAllSeries() async {
-    final series = <String>[];
-    await getAll().then((video) {
-      for (final item in video) {
-        if (item.series.isNotEmptyAndNotNull) {
-          for (int i = 0; i < item.series!.length; i++) {
-            series.add(item.series!);
-          }
-        }
-      }
-    });
-    series.unique((e) => e);
-    return series;
-  }
-
-  static Future<List<Videos>> getVideoBySeries(String series) async {
-    final output = <Videos>[];
-    await getAll().then((video) {
-      for (final item in video) {
-        if (item.series.isNotEmptyAndNotNull) {
-          for (int i = 0; i < item.series!.length; i++) {
-            if (item.series == series) output.add(item);
-          }
-        }
-      }
-    });
-    output.unique((e) => e.videoPath);
-    return output;
+  static Future<List<Map<String, dynamic>>> getAllSeriesWithCount() async {
+    final rawMaps = await _db.rawQuery('''
+      SELECT DISTINCT series AS name, COUNT(series) AS count
+      FROM Videos
+      WHERE series IS NOT NULL AND series != ''
+      GROUP BY series;
+    ''');
+    final maps = List<Map<String, dynamic>>.from(rawMaps);
+    maps.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+    return maps;
   }
 
   // Director ────────────────────────────────────────────────────────────────
-  static Future<List<String>> getAllDirector() async {
-    final director = <String>[];
-    await getAll().then((video) {
-      for (final item in video) {
-        if (item.director.isNotEmptyAndNotNull) {
-          for (int i = 0; i < item.director!.length; i++) {
-            director.add(item.director!);
-          }
-        }
-      }
-    });
-    director.unique((e) => e);
-    return director;
-  }
+  static Future<List<Map<String, dynamic>>> getAllDirectorWithCount() async {
+    final rawMaps = await _db.rawQuery('''
+      SELECT DISTINCT director AS name, COUNT(director) AS count
+      FROM Videos
+      WHERE director IS NOT NULL AND director != ''
+      GROUP BY director;
+    ''');
 
-  static Future<List<Videos>> getVideoByDirector(String director) async {
-    final output = <Videos>[];
-    await getAll().then((video) {
-      for (final item in video) {
-        if (item.director.isNotEmptyAndNotNull) {
-          for (int i = 0; i < item.director!.length; i++) {
-            if (item.director == director) output.add(item);
-          }
-        }
-      }
-    });
-    output.unique((e) => e.videoPath);
-    return output;
+    final maps = List<Map<String, dynamic>>.from(rawMaps);
+    maps.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+    return maps;
   }
 
   // Video Path ────────────────────────────────────────────────────────────────
-  static Future<List<String>> getAllVideoPath() async {
-    final vPath = <String>[];
-    await getAll().then((video) {
-      for (final item in video) {
-        if (item.videoPath.isNotEmptyAndNotNull) {
-          for (int i = 0; i < item.videoPath!.length; i++) {
-            final part = item.videoPath!.split('/');
-            final vpath = part[part.length - 2];
-            vPath.add(vpath.capitalized);
-          }
-        }
+  static Future<List<Map<String, dynamic>>> getAllPathWithCount() async {
+    final rawData = await _db.rawQuery('SELECT video_path FROM $_tableName');
+    final Map<String, int> directoryCounts = {};
+    for (var row in rawData) {
+      final String? videoPath = row['video_path'] as String?;
+      if (videoPath != null && videoPath.isNotEmpty) {
+        String directory = p.dirname(videoPath);
+        directoryCounts[directory] = (directoryCounts[directory] ?? 0) + 1;
       }
+    }
+
+    final result = <Map<String, dynamic>>[];
+    directoryCounts.forEach((directory, count) {
+      result.add({
+        'name': directory,
+        'count': count,
+      });
     });
-    vPath.unique((e) => e);
-    return vPath;
+
+    result.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+    return result;
   }
 
-  static Future<List<Videos>> getVideoByVideoPath(String path) async {
-    final output = <Videos>[];
-    await getAll().then((video) {
-      for (final item in video) {
-        if (item.videoPath.isNotEmptyAndNotNull) {
-          for (int i = 0; i < item.videoPath!.length; i++) {
-            if (item.videoPath!.toLowerCase().contains(path.toLowerCase())) output.add(item);
-          }
-        }
-      }
-    });
-    output.unique((e) => e.videoPath);
-    return output;
+  // ReleaseYear ────────────────────────────────────────────────────────────────
+  static Future<List<Map<String, dynamic>>> getAllReleaseYearWithCount() async {
+    final rawMaps = await _db.rawQuery('''
+      SELECT
+        STRFTIME('%Y', release_date) AS name,
+        COUNT(*) AS count
+      FROM Videos
+      WHERE
+        release_date IS NOT NULL AND release_date != ''
+      GROUP BY
+        STRFTIME('%Y', release_date)
+      ORDER BY
+        name DESC
+      ;
+    ''');
+
+    final maps = List<Map<String, dynamic>>.from(rawMaps);
+    return maps;
   }
 }
