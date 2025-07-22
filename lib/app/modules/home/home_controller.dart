@@ -19,16 +19,18 @@ import 'page_search/page_search_controller.dart';
 import 'page_settings/page_settings_controller.dart';
 
 class HomeController extends GetxController with StateMixin {
-  final currentMenuSelected = '...'.obs;
-  final footerSum = ''.obs;
+  final currentMenuSelected = kMenuHome.obs;
+  final loadingText = 'Please wait...'.obs;
+  final footerText = ''.obs;
   final library = <Library>[].obs;
 
   @override
   Future<void> onInit() async {
     super.onInit();
-    logS('home ==> onInit called');
-    currentMenuSelected.value = kMenuHome;
-    footerSum.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
+    change(200, status: RxStatus.loading());
+    logS('root home ==> onInit called');
+
+    footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
     change(200, status: RxStatus.success());
   }
 
@@ -39,12 +41,14 @@ class HomeController extends GetxController with StateMixin {
 
   Future<void> onRefreshAllContent() async {
     try {
-      footerSum.value = 'Refreshing...';
+      footerText.value = 'Refreshing...';
+      // await onInit();
       await Get.find<PageHomeController>().onInit();
       await Get.find<PageSearchController>().onInit();
       await Get.find<PageExploreController>().onInit();
       await Get.find<PageSettingsController>().onInit();
-      footerSum.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
+      footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
+      change(200, status: RxStatus.success());
     } catch (e) {
       // footerSum.value = 'Error: $e';
       ExAlert.adaptive(

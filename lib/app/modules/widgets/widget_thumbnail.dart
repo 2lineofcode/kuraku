@@ -6,18 +6,18 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:video_compress/video_compress.dart';
 
 import '../../core/app_color.dart';
+import '../../core/app_setting.dart';
 import '../../utils/helper_misc.dart';
 
 class ExThumbnailC extends GetxController {
   final Map<String, Uint8List> _thumbnailCache = {};
 
   Future<String> _getThumbnailDirectory() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final thumbDir = p.join(directory.path, 'video_thumbnails');
+    final appPath = Get.find<AppSettingService>().appDir.path;
+    final thumbDir = p.join(appPath, 'video_thumbnails');
     await Directory(thumbDir).create(recursive: true);
     return thumbDir;
   }

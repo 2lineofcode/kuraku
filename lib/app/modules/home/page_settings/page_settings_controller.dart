@@ -1,4 +1,5 @@
 import 'package:ex_kit/ex.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:sqflite/sqlite_api.dart';
 
@@ -29,8 +30,45 @@ class PageSettingsController extends GetxController {
     r18Version.value = await Get.find<DBService>().dbR18.getVersion();
   }
 
+  Future<void> onResetRelapse() async {
+    await _openDialogConfirm(
+      onYes: () async {
+        await DBRelapse.deleteAll();
+        Get.back();
+      },
+    );
+  }
+
   Future<void> onResetAll() async {
-    await Get.find<DBService>().deleteAllData();
-    await Get.find<HomeController>().onRefreshAllContent();
+    await _openDialogConfirm(
+      onYes: () async {
+        await Get.find<DBService>().deleteAllData();
+        await Get.find<HomeController>().onRefreshAllContent();
+        Get.back();
+      },
+    );
+  }
+
+  Future<void> _openDialogConfirm({
+    void Function()? onYes,
+    String? title,
+    String? message,
+  }) async {
+    ExAlert.adaptive(
+      title: Text(title ?? 'Are you sure?', style: TextStyle(fontSize: 14)),
+      content: message != null ? Text(message, style: TextStyle(fontSize: 12)).pOnly(top: 8) : null,
+      actions: [
+        CupertinoDialogAction(
+          onPressed: onYes,
+          child: Text('Yes', style: TextStyle(color: Vx.red500, fontSize: 13)),
+        ),
+        CupertinoDialogAction(
+          child: Text('No', style: TextStyle(fontSize: 13)),
+          onPressed: () {
+            Get.back();
+          },
+        ),
+      ],
+    );
   }
 }

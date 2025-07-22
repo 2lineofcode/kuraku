@@ -35,25 +35,32 @@ mixin DBVideos {
     await _db.delete(_tableName, where: 'id = ?', whereArgs: [videos.id]);
   }
 
+  static Future<void> deleteByVideoPath(String videoPath) async {
+    await _db.delete(_tableName, where: 'video_path = ?', whereArgs: [videoPath]);
+  }
+
   static Future<void> deleteByRootPath(String rootPath) async {
     await _db.delete(_tableName, where: 'root_path = ?', whereArgs: [rootPath]);
   }
 
-  static Future<List<Videos>> getAll({String? where, List<Object?>? whereArgs}) async {
+  static Future<List<Videos>> getAll({String? where, List<Object?>? whereArgs, int? limit}) async {
     try {
-      final maps = await _db.query(_tableName, where: where, whereArgs: whereArgs);
+      final maps = await _db.query(_tableName, where: where, whereArgs: whereArgs, limit: limit);
       return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
     } catch (e) {
       throw Exception('${e.toString()}');
     }
   }
 
-  static Future<List<Videos>> getAllLike(String column, String like) async {
+  static Future<List<Videos>> getAllLike(String column, String like, {String? jsonObject}) async {
+    var part = '';
+    if (jsonObject != null) part = '"$jsonObject":"';
+
     try {
       final maps = await _db.rawQuery('''
         SELECT * FROM $_tableName
         WHERE 1=1
-        AND $column LIKE '%$like%'
+        AND $column LIKE '%$part$like%'
       ''');
 
       return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
@@ -92,6 +99,7 @@ mixin DBVideos {
       WHERE 1=1
         AND video_code LIKE '%$s%'
         OR title LIKE '%$s%'
+        OR video_path LIKE '%$s%'
     ''', [s]);
     return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
   }

@@ -55,6 +55,7 @@ mixin PageSearchOverlay {
               [
                 '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
                   HelperMisc.copyToClipboard(video.videoCode ?? '');
+                  HelperToast.info('${video.videoCode} Copied to clipboard');
                 }).pSymmetric(v: 8),
                 '${video.title}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(3).ellipsis.makeCentered(),
 
@@ -123,7 +124,7 @@ mixin PageSearchOverlay {
                 // metadata
                 Container(
                   width: double.infinity,
-                  constraints: BoxConstraints(minHeight: 100, maxHeight: 300),
+                  constraints: BoxConstraints(minHeight: 100, maxHeight: 268),
                   decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                   child: VStack([
                     HStack([
@@ -162,6 +163,14 @@ mixin PageSearchOverlay {
                       ]).pOnly(bottom: 16),
                     ],
 
+                    // series
+                    if (!video.series.isEmptyOrNull) ...[
+                      'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                      '${video.series}'.text.underline.neutral300.size(11).minFontSize(11).make().onInkTap(() async {
+                        await _onItemSeriesClick(video);
+                      }).pOnly(bottom: 16),
+                    ],
+
                     // release date
                     if (!video.releaseDate.isEmptyOrNull) ...[
                       'Release Date:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
@@ -190,12 +199,6 @@ mixin PageSearchOverlay {
                     if (!video.director.isEmptyOrNull) ...[
                       'Director:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                       '${video.director}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-                    ],
-
-                    // series
-                    if (!video.series.isEmptyOrNull) ...[
-                      'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                      '${video.series}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
                     ],
 
                     // ~
@@ -239,13 +242,11 @@ mixin PageSearchOverlay {
   }
 
   static Future<void> _openScreenshot(Videos video) async {
-    if (video.screenshot.isEmptyOrNull) return;
-
     await Overlayment.show(
       context: Get.context,
       OverPanel(
         alignment: Alignment.topLeft,
-        width: 400,
+        width: video.screenshot.isEmptyOrNull ? Get.width * 90 / 100 : 400,
         height: double.infinity,
         animation: OverSlideAnimation(
           beginAlignment: Alignment.centerLeft,
@@ -254,35 +255,45 @@ mixin PageSearchOverlay {
         ),
         child: VStack(
           [
-            for (int i = 0; i < video.screenshot!.length; i++) ...[
-              CachedNetworkImage(
-                imageUrl: '${video.screenshot?[i].imgUrl()}',
-              ).onInkTap(() {
-                Overlayment.show(
-                  context: Get.context,
-                  OverPanel(
-                    alignment: Alignment.center,
-                    width: Get.width * 90 / 100,
-                    height: Get.height * 90 / 100,
-                    child: ZStack([
-                      Zoom(
-                        width: Get.width * 90 / 100,
-                        height: Get.height * 90 / 100,
-                        child: CachedNetworkImage(
+            if (video.screenshot.isEmptyOrNull) ...[
+              ExThumbnailV(
+                imageUrl: '',
+                videoPath: video.videoPath,
+                width: Get.width,
+                height: Get.height,
+                fitMemory: BoxFit.fitHeight,
+              ),
+            ] else ...[
+              for (int i = 0; i < video.screenshot!.length; i++) ...[
+                CachedNetworkImage(
+                  imageUrl: '${video.screenshot?[i].imgUrl()}',
+                ).onInkTap(() {
+                  Overlayment.show(
+                    context: Get.context,
+                    OverPanel(
+                      alignment: Alignment.center,
+                      width: Get.width * 90 / 100,
+                      height: Get.height * 90 / 100,
+                      child: ZStack([
+                        Zoom(
                           width: Get.width * 90 / 100,
                           height: Get.height * 90 / 100,
-                          imageUrl: '${video.screenshot?[i].imgUrl()}',
-                          fit: BoxFit.contain,
+                          child: CachedNetworkImage(
+                            width: Get.width * 90 / 100,
+                            height: Get.height * 90 / 100,
+                            imageUrl: '${video.screenshot?[i].imgUrl()}',
+                            fit: BoxFit.contain,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () => Overlayment.dismissLast(),
-                        icon: Icon(CupertinoIcons.clear),
-                      ).positioned(right: 16, top: 24),
-                    ]),
-                  ),
-                );
-              }),
+                        IconButton(
+                          onPressed: () => Overlayment.dismissLast(),
+                          icon: Icon(CupertinoIcons.clear),
+                        ).positioned(right: 16, top: 24),
+                      ]),
+                    ),
+                  );
+                }),
+              ],
             ],
           ],
         ).scrollVertical(),
@@ -325,6 +336,17 @@ mixin PageSearchOverlay {
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
     await exploreC.onFilterByChange('Category');
+    exploreC.tecSearch.text = name;
+    exploreC.onOListSearch(name);
+    await exploreC.onOListTap(exploreC.oListFiltered[0]);
+    await Overlayment.dismissLast();
+  }
+
+  static Future<void> _onItemSeriesClick(Videos video) async {
+    final name = '${video.series}';
+    await Get.find<HomeController>().onMenuChange(kMenuExplore);
+    final exploreC = Get.find<PageExploreController>();
+    await exploreC.onFilterByChange('Series');
     exploreC.tecSearch.text = name;
     exploreC.onOListSearch(name);
     await exploreC.onOListTap(exploreC.oListFiltered[0]);

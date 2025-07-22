@@ -1,7 +1,6 @@
 import 'package:flutter/services.dart';
 
 import '../../env.g.dart';
-import 'helper_toast.dart';
 
 mixin HelperMisc {
   static String getLastPath(String path) => path.split('/').last;
@@ -87,13 +86,35 @@ mixin HelperMisc {
     return parts.join(', ');
   }
 
-
   static void copyToClipboard(String? text) {
     if (text == null) return;
 
     final data = ClipboardData(text: text);
     Clipboard.setData(data);
-    HelperToast.info('$text Copied to clipboard');
+  }
+
+  static Future<String?> decensor(String? s) async {
+    if (s == null) return null;
+    String resultString = s;
+
+    try {
+      String fileContent = await rootBundle.loadString('assets/decensor.csv');
+      List<String> lines = fileContent.split('\n');
+
+      for (String line in lines) {
+        String trimmedLine = line.trim();
+        if (trimmedLine.isEmpty) continue;
+
+        List<String> rowDecensor = trimmedLine.split(',');
+        if (rowDecensor.length == 2) {
+          resultString = resultString.replaceAll(rowDecensor[0], rowDecensor[1]);
+        }
+      }
+    } catch (e) {
+      print('Error reading decensor.csv from assets: $e');
+    }
+
+    return resultString;
   }
 }
 

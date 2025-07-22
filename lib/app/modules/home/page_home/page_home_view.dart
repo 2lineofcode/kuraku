@@ -45,7 +45,7 @@ class PageHomeView extends GetView<PageHomeController> {
             icon: Icon(CupertinoIcons.refresh, size: 16),
             onPressed: () => controller.getListTop10Watch(),
           ),
-        ]).pOnly(bottom: 8, top: 8),
+        ]).pSymmetric(v: 12),
         Obx(
           () => controller.listTop10Watch.isEmpty
               ? buildLayoutEmptyPoster()
@@ -67,7 +67,7 @@ class PageHomeView extends GetView<PageHomeController> {
             icon: Icon(CupertinoIcons.refresh, size: 16),
             onPressed: () => controller.getListFavorite(),
           ),
-        ]).pOnly(bottom: 8, top: 8),
+        ]).pSymmetric(v: 12),
         Obx(
           () => controller.listFavorite.isEmpty
               ? buildLayoutEmptyPoster()
@@ -81,25 +81,60 @@ class PageHomeView extends GetView<PageHomeController> {
                 ).wh(double.infinity, 200),
         ),
 
-        // Featured Actress
+        // playlist ~
+        VStack(
+          [
+            HStack([
+              'Playlist'.text.bold.size(12).make(),
+              Spacer(),
+              IconButton(
+                icon: Icon(CupertinoIcons.refresh, size: 16),
+                onPressed: () => controller.getListRandom(),
+              ),
+              IconButton(
+                icon: Icon(CupertinoIcons.add, size: 16),
+                onPressed: () => controller.addOrEditPlaylist(),
+              ),
+            ]).pSymmetric(v: 12),
+            Obx(
+              () => ListView.builder(
+                itemCount: controller.listPlaylistHeader.length,
+                scrollDirection: Axis.horizontal,
+                itemBuilder: (context, index) {
+                  final item = controller.listPlaylistHeader[index];
+                  return Container(
+                    height: 70,
+                    width: 150,
+                    color: AppColor.selected,
+                    child: ZStack([
+                      '${item.name}'.text.ellipsis.bold.make().positioned(bottom: 0, right: 0),
+                    ]).p12(),
+                  ).onInkTap(() => controller.addOrEditPlaylist(header: item)).cornerRadius(8).pOnly(right: 12);
+                },
+              ).wh(double.infinity, 70),
+            ),
+          ],
+        ).hide(),
+
+        // Random Videos
         HStack([
-          'Featured Actress'.text.size(12).make(),
+          'Video Maybe you like'.text.size(12).make(),
           Spacer(),
           IconButton(
             icon: Icon(CupertinoIcons.refresh, size: 16),
-            onPressed: () {},
+            onPressed: () => controller.getListRandom(),
           ),
-        ]).pOnly(bottom: 8, top: 8),
-        ListView.builder(
-          itemCount: 5,
-          scrollDirection: Axis.horizontal,
-          itemBuilder: (context, index) {
-            return Container(
-              width: 120,
-              color: AppColor.container,
-            ).cornerRadius(8).pOnly(left: 4, right: 4);
-          },
-        ).wh(double.infinity, 200),
+        ]).pSymmetric(v: 12),
+        Obx(
+          () => ListView.builder(
+            itemCount: controller.listRandom.length,
+            scrollDirection: Axis.horizontal,
+            itemBuilder: (context, index) {
+              final video = controller.listRandom[index];
+              return buildLayoutPoster(video, showViewCount: false);
+            },
+          ).wh(double.infinity, 200),
+        ),
       ],
     ).scrollVertical();
   }
@@ -116,6 +151,8 @@ class PageHomeView extends GetView<PageHomeController> {
           videoPath: video.videoPath,
           width: 200,
           height: 120,
+          fitUrl: BoxFit.cover,
+          fitMemory: BoxFit.fitWidth,
         ),
         Container(
           color: Vx.black.withAlpha(150),

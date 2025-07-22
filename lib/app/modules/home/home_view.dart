@@ -1,4 +1,3 @@
-
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -38,7 +37,12 @@ class HomeView extends GetView<HomeController> {
         appBarAction: appBarAction(),
         sideMenuContent: sideMenuContent(),
         sideMenuWidth: 180,
-        bodyContent: Obx(() => bodyContent().p8()),
+        bodyContent: controller.obx(
+          (_) => Obx(() => bodyContent().p8()),
+          onLoading: ExUiLoading(
+            message: Obx(() => '${controller.loadingText}'.text.makeCentered()),
+          ),
+        ),
         footerContent: footerContent(),
         floatingActionButton: floatingActionButton(),
       ),
@@ -125,7 +129,7 @@ class HomeView extends GetView<HomeController> {
   Widget footerContent() {
     return HStack([
       Spacer(),
-      Obx(() => '${controller.footerSum}'.text.bold.size(11).make()),
+      Obx(() => '${controller.footerText}'.text.bold.size(11).make()),
     ]).p12();
   }
 

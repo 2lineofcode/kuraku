@@ -7,7 +7,7 @@ mixin HelperToast {
   static Future<void> error(
     String? message, {
     String? title = 'Ups',
-    Duration duration = const Duration(seconds: 1),
+    Duration duration = const Duration(seconds: 2),
     Alignment? alignment,
   }) async {
     toastification.show(
@@ -20,6 +20,7 @@ mixin HelperToast {
       style: ToastificationStyle.flatColored,
       showProgressBar: true,
       pauseOnHover: true,
+      closeOnClick: true,
     );
   }
 
@@ -37,6 +38,9 @@ mixin HelperToast {
       autoCloseDuration: duration,
       alignment: alignment,
       style: ToastificationStyle.flatColored,
+      showProgressBar: true,
+      pauseOnHover: true,
+      closeOnClick: true,
     );
   }
 
@@ -54,6 +58,9 @@ mixin HelperToast {
       autoCloseDuration: duration,
       alignment: alignment,
       style: ToastificationStyle.flatColored,
+      showProgressBar: true,
+      pauseOnHover: true,
+      closeOnClick: true,
     );
   }
 
@@ -71,6 +78,9 @@ mixin HelperToast {
       autoCloseDuration: duration,
       alignment: alignment,
       style: ToastificationStyle.flatColored,
+      showProgressBar: true,
+      pauseOnHover: true,
+      closeOnClick: true,
     );
   }
 }

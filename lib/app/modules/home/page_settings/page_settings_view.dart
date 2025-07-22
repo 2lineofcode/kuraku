@@ -5,7 +5,9 @@ import 'package:get/get.dart';
 
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
-import '../../../data/database/db_relapse.dart';
+import '../../../core/app_network.dart';
+import '../../../data/database/db_init.dart';
+import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
 import 'page_settings_controller.dart';
 
@@ -75,24 +77,35 @@ class PageSettingsView extends GetView<PageSettingsController> {
                     children: [
                       ExButtonOutline(
                         label: 'Go App Folder',
-                        borderColor: AppColor.selected,
+                        borderColor: Vx.green500,
+                        labelColor: Vx.green500,
                         labelSize: 12,
                         height: 38,
                         onPressed: () => HelperOpener.openFolder(controller.appSetting.appDir.path),
                       ),
                       ExButtonOutline(
-                        label: 'Reset Relapse',
-                        borderColor: AppColor.selected,
+                        label: '🔄 Relapse',
+                        borderColor: Vx.randomPrimaryColor,
+                        labelColor: Vx.randomPrimaryColor,
                         labelSize: 12,
                         height: 38,
-                        onPressed: () => DBRelapse.deleteAll(),
-                      ),
+                        onPressed: () => controller.onResetRelapse(),
+                      ).hide(),
                       ExButtonOutline(
-                        label: 'Reset All',
-                        borderColor: AppColor.selected,
+                        label: 'Delete All Data',
+                        borderColor: Vx.red500,
+                        labelColor: Vx.red500,
                         labelSize: 12,
                         height: 38,
                         onPressed: () => controller.onResetAll(),
+                      ),
+                      ExButtonOutline(
+                        label: 'Vacum DB',
+                        borderColor: Vx.orange500,
+                        labelColor: Vx.orange500,
+                        labelSize: 12,
+                        height: 38,
+                        onPressed: () => Get.find<DBService>().vacumDB(),
                       ),
                     ],
                   )
@@ -104,7 +117,34 @@ class PageSettingsView extends GetView<PageSettingsController> {
           alignment: MainAxisAlignment.start,
         ).pOnly(bottom: 24),
 
-        'asdkjak'.text.size(12).make(),
+        // @DEBUG
+        VStack(
+          [
+            ExButtonElevated(
+              label: 'TEST',
+              onPressed: () async {
+                // @@@@ TEST
+                ExLoading.show(paddingSymmetric: 200);
+                await Api.get('https://njavtv.com/en/EYAN-182').then((s) {
+                  ExLoading.dismiss();
+                  HelperMisc.copyToClipboard(s.toString());
+                  print(s);
+                }).catchError((e) {
+                  print(e);
+                  ExLoading.dismiss();
+                });
+
+                // await DBR18.getAllVideosByCategory('1100').then((s) {
+                //   print(s);
+                // });
+
+                // await cmd.run('''
+                //   ffmpeg
+                // ''');
+              },
+            )
+          ],
+        ),
       ],
     ).scrollVertical();
   }

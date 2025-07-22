@@ -24,13 +24,10 @@ dependencies:
   # ui
   ex_kit: ^0.7.0
   cupertino_icons: ^1.0.8
-  iconify_flutter_plus: ^1.0.4
   flutter_svg: ^2.0.17
   grouped_list: ^6.0.0
   window_manager: ^0.4.3
-  animated_text_kit: ^4.2.3
   flutter_popup: ^3.3.4
-  lottie: ^3.3.1
   glassmorphism_ui: ^0.3.0
   overlayment: ^0.2.1
   cached_network_image: ^3.4.1
@@ -42,14 +39,14 @@ dependencies:
   # utils
   intl: ^0.20.2
   uuid: ^4.5.1
-  package_info_plus: ^8.3.0
   url_launcher: ^6.3.1
   super_drag_and_drop: ^0.9.1
   hotkey_manager: ^0.2.3
   toastification: ^3.0.3
   ffmpeg_kit_flutter_new: ^2.0.0
-  video_compress: ^3.1.4            # ?
+  video_compress: ^3.1.4
   kana_kit: ^2.1.1
+  process_run: ^1.2.4
 
   flutter:
     sdk: flutter
@@ -64,7 +61,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-  - assets/__final_script.py
+  - assets/psql2sqlite.py
+  - assets/decensor.csv
 
 get_cli:
   sub_folder: false

@@ -25,3 +25,4 @@ const kProviderJavIndo = 'javindo';
 /// ------------------------------------------------------------------------
 const kIsDarkMode = 'isDarkMode';
 const kCurrentLanguage = 'kCurrentLanguage';
+const kLastOpenApp = 'kLastOpenApp';

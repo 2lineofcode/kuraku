@@ -19,6 +19,7 @@ class PageSearchView extends GetView<PageSearchController> {
           CupertinoTextField(
             controller: controller.tecSearch,
             focusNode: controller.fnSearch,
+            clearButtonMode: OverlayVisibilityMode.editing,
             placeholder: 'EYAN-181',
             style: TextStyle(color: Vx.white, fontSize: 14),
             onSubmitted: (value) {
@@ -47,7 +48,7 @@ class PageSearchView extends GetView<PageSearchController> {
                   message: 'No Result Found, as you searched for "${controller.tecSearch.text}"\nor Add some video to your library first.',
                 ).expand()
               : controller.viewModeSelected.value == 'grid'
-                  ? modeGridView().expand()
+                  ? modeWrapView().expand()
                   : modeListView().expand(),
         ),
       ],
@@ -85,10 +86,9 @@ class PageSearchView extends GetView<PageSearchController> {
                     Icon(CupertinoIcons.calendar, size: 12).pOnly(right: 4),
                     '${video.releaseDateFormated}'.text.size(11).minFontSize(11).make().pOnly(right: 12),
                   ],
-
-                  if (video.releaseDate != '') ...[
-                    Icon(CupertinoIcons.circle, size: 12).pOnly(right: 4),
-                    '${video.label}'.text.size(11).minFontSize(11).make().pOnly(right: 12),
+                  if (video.series != '') ...[
+                    Icon(CupertinoIcons.circle, size: 12, color: Vx.purple300).pOnly(right: 4),
+                    '${video.series}'.text.size(11).purple300.ellipsis.minFontSize(11).make().pOnly(right: 12).expand(),
                   ],
                 ]).pOnly(bottom: 8),
               ]).pOnly(right: 12).expand(),
@@ -99,36 +99,32 @@ class PageSearchView extends GetView<PageSearchController> {
     );
   }
 
-  Widget modeGridView() {
-    return GridView.builder(
-      itemCount: controller.videos.length,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        childAspectRatio: 0.55,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
-      itemBuilder: (context, index) {
-        final video = controller.videos[index];
-        return Container(
-          color: AppColor.container,
-          child: ZStack([
-            ExThumbnailV(
-              imageUrl: video.poster,
-              videoPath: video.videoPath,
-              width: 120,
-              height: 200,
-            ),
-            Container(
-              color: Vx.black.withAlpha(150),
-              height: 20,
-              width: 120,
-              child: '${video.videoCode == '' ? video.title?.maxChars(10) : video.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
-            ).positioned(bottom: 0),
-          ]),
-        ).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(video));
-      },
-    );
+  Widget modeWrapView() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 12,
+      children: [
+        for (int i = 0; i < controller.videos.length; i++) ...[
+          Container(
+            color: AppColor.container,
+            child: ZStack([
+              ExThumbnailV(
+                imageUrl: controller.videos[i].poster,
+                videoPath: controller.videos[i].videoPath,
+                width: 120,
+                height: 200,
+              ).wh(120, 200),
+              Container(
+                color: Vx.black.withAlpha(150),
+                width: 120,
+                height: 20,
+                child: '${controller.videos[i].videoCode == '' ? controller.videos[i].title?.maxChars(10) : controller.videos[i].videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
+              ).positioned(bottom: 0),
+            ]),
+          ).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(controller.videos[i])),
+        ],
+      ],
+    ).scrollVertical();
   }
 }
 

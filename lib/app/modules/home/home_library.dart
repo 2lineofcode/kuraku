@@ -214,7 +214,11 @@ mixin HomeLibrary {
 
     for (int index = 0; index < library.videos!.length; index++) {
       final video = library.videos![index];
-      _homeController.footerSum.value = '◎ ${index + 1} of ${library.videos!.length}';
+      _homeController.footerText.value = '◎ ${index + 1} of ${library.videos!.length}';
+
+      _homeController.change(200, status: RxStatus.loading());
+      _homeController.loadingText.value = 'Progress: ${index + 1} of ${library.videos!.length} (${((index + 1) * 100 / library.videos!.length).toInt()}%)';
+
       final videoCode = HelperMisc.getVideoCode(HelperMisc.getLastPath(video));
 
       if (videoCode != '') {
@@ -254,13 +258,15 @@ mixin HomeLibrary {
               final prefix = '${part}jp-${i + 1}';
               ss.add(prefix);
             } else {
-              ss.add(filename);
+              final part = filename.removeLast(1);
+              final prefix = '$part${i + 1}';
+              ss.add(prefix);
             }
           }
           newVideo.screenshot = ss;
 
           await DBVideos.add(newVideo);
-          _homeController.footerSum.value = '◎ Inserting: $videoCode';
+          _homeController.footerText.value = '◎ Inserting: $videoCode';
         }
       }
 
@@ -271,12 +277,12 @@ mixin HomeLibrary {
         newVideo.videoPath = video;
         newVideo.title = video.getFileName().noExt();
         await DBVideos.add(newVideo);
-        _homeController.footerSum.value = '◎ Inserting non metadata: $videoCode';
+        _homeController.footerText.value = '◎ Inserting non metadata: $videoCode';
       }
     }
 
-    _homeController.footerSum.value = '◎ Commit ${library.videos!.length} Videos';
-    await 300.milliseconds.delay();
+    _homeController.footerText.value = '◎ Commit ${library.videos!.length} Videos';
+    await 100.milliseconds.delay();
     await _homeController.onRefreshAllContent();
   }
 
@@ -287,46 +293,53 @@ mixin HomeLibrary {
   }
 
   static Future<void> doRescanVideoFromLibrary(Library library) async {
-    _homeController.footerSum.value = '◎ Rescanning...';
-    await DBVideos.deleteByRootPath(library.rootFolder ?? '');
-    _homeController.footerSum.value = '◎ Deleting...';
+    try {
+      final oldData = library;
+      final newData = await HelperFilePicker.scanFolderAndSubFolder(library.rootFolder ?? '');
 
-    await HelperFilePicker.scanFolderAndSubFolder(library.rootFolder ?? '').then((newLibrary) async {
-      if (newLibrary == null) return;
-      newLibrary.id = library.id;
-      newLibrary.alias = newLibrary.rootFolder?.getLastPath();
-      await DBLibrary.update(newLibrary);
-      await doAddorEditVideoFromLibrary(newLibrary);
-    }).catchError((e) {
-      HelperToast.error('Could not access folder ${library.rootFolder}', duration: 3.seconds);
-    });
+      final pathToAdd = <String>[];
+      final pathToDelete = <String>[];
+
+      for (final newVideo in newData!.videos ?? []) {
+        if (oldData.videos == null || !oldData.videos!.contains(newVideo)) {
+          pathToAdd.add(newVideo);
+        }
+      }
+
+      for (final oldVideo in oldData.videos ?? []) {
+        if (newData.videos == null || !newData.videos!.contains(oldVideo)) {
+          pathToDelete.add(oldVideo);
+        }
+      }
+
+      // update library
+      oldData.totalVideo = newData.totalVideo;
+      oldData.videos = newData.videos;
+      await DBLibrary.update(oldData);
+
+      if (pathToAdd.isNotEmpty) {
+        await doAddorEditVideoFromLibrary(oldData);
+        await HelperToast.info('${library.alias} | Added ${pathToAdd.length} videos');
+      }
+
+      if (pathToDelete.isNotEmpty) {
+        for (var i = 0; i < pathToDelete.length; i++) {
+          await DBVideos.deleteByVideoPath(pathToDelete[i]);
+        }
+        await HelperToast.info('${library.alias} | Deleted ${pathToDelete.length} videos');
+        await Get.find<HomeController>().onRefreshAllContent();
+      }
+    } catch (e) {
+      // await HelperToast.error(e.toString());
+    }
   }
 
   static Future<void> doRescanAllVideoFromLibrary(List<Library> libraries) async {
     if (libraries.isEmpty) return;
-
-    _homeController.footerSum.value = '◎ Rescanning...';
-    final tempListLibrary = libraries;
-
-    for (int index = 0; index < libraries.length; index++) {
-      final library = libraries[index];
-
-      await DBVideos.deleteByRootPath(library.rootFolder ?? '');
-      _homeController.footerSum.value = '◎ Deleting...';
+    _homeController.footerText.value = '◎ Rescanning...';
+    for (final library in libraries) {
+      await doRescanVideoFromLibrary(library);
     }
-
-    for (int index = 0; index < tempListLibrary.length; index++) {
-      final library = tempListLibrary[index];
-      await HelperFilePicker.scanFolderAndSubFolder(library.rootFolder ?? '').then((newLibrary) async {
-        if (newLibrary != null) {
-          newLibrary.alias = newLibrary.rootFolder?.getLastPath();
-          newLibrary.id = library.id;
-          await DBLibrary.update(newLibrary);
-          await doAddorEditVideoFromLibrary(newLibrary);
-        }
-      }).catchError((e) {
-        HelperToast.error('Could not access folder ${library.rootFolder}', duration: 3.seconds);
-      });
-    }
+    _homeController.footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
   }
 }

@@ -1,4 +1,3 @@
-import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -14,13 +13,22 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await hotKeyManager.unregisterAll();
 
-  /// local storage
-  await GetStorage.init();
+  /// makesure `AppSettingService` already initialized
+  await Get.putAsync(() async {
+    final service = AppSettingService();
+    await service.onInit();
+    return service;
+  }, permanent: true);
 
-  /// app setting
-  Get.put<AppSettingService>(AppSettingService(), permanent: true, builder: () => AppSettingService());
-  Get.put<DBService>(DBService(), permanent: true, builder: () => DBService());
-  await 1.seconds.delay(); // put delay for init all service ~
+  // makesure `DBService` already initialized
+  await Get.putAsync(() async {
+    final service = DBService();
+    await service.onInit();
+    return service;
+  }, permanent: true);
+
+  // local storage
+  await GetStorage.init(Env.appName);
 
   runApp(JavIt());
 }

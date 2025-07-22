@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:ex_kit/ex.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -16,7 +15,7 @@ import '../modules/home/home_controller.dart';
 import 'const.dart';
 
 /// handy call sharedpref
-final pref = GetStorage();
+final pref = GetStorage(Env.appName);
 
 class AppSettingService extends GetxService {
   late Directory appDir;
@@ -26,30 +25,29 @@ class AppSettingService extends GetxService {
     super.onInit();
     appDir = await getApplicationDocumentsDirectory();
     await checkAndApplyDefaultAppConfig();
-    await initForDesktop();
+    await setupDesktop();
     await hotkey();
   }
 
-  /// ------------------------------------------------------------------------
-  /// ! setup default app config [for new user]
-  /// ------------------------------------------------------------------------
+  // ────────────────────────────────────────────────────────────────
+  // ⵌ checkAndApplyDefaultAppConfig
+  // ────────────────────────────────────────────────────────────────
   Future<void> checkAndApplyDefaultAppConfig() async {
-    if (!pref.hasData(kIsDarkMode)) {
-      await pref.write(kIsDarkMode, true);
-      logI('-- CONFIG CREATED --');
-    }
+    await pref.writeIfNull(kIsDarkMode, true);
+    await pref.writeIfNull(kCurrentLanguage, 'en');
+    logI('-- CONFIG LOADED --');
   }
 
-  /// ------------------------------------------------------------------------
-  /// ! initForDesktop
-  /// ------------------------------------------------------------------------
-  Future<void> initForDesktop() async {
-    final idealSize = Size(690, 700);
+  // ────────────────────────────────────────────────────────────────
+  // ⵌ setup layout desktop
+  // ────────────────────────────────────────────────────────────────
+  Future<void> setupDesktop() async {
+    final idealSize = Size(702, 650);
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = WindowOptions(
       title: Env.appName,
       size: idealSize,
-      minimumSize: kReleaseMode ? idealSize : null,
+      minimumSize: idealSize,
       maximumSize: Platform.isWindows ? idealSize : null,
       titleBarStyle: Platform.isMacOS ? TitleBarStyle.hidden : TitleBarStyle.normal,
       alwaysOnTop: Platform.isWindows ? true : false,
@@ -63,11 +61,15 @@ class AppSettingService extends GetxService {
     });
   }
 
+  // ────────────────────────────────────────────────────────────────
+  // ⵌ hotkey
+  // ────────────────────────────────────────────────────────────────
   Future<void> hotkey() async {
     HotKey _hotKeyEsc = HotKey(key: PhysicalKeyboardKey.escape, modifiers: [], scope: HotKeyScope.inapp);
-    HotKey _hotKeyComma = HotKey(key: PhysicalKeyboardKey.comma, modifiers: [], scope: HotKeyScope.inapp);
+    HotKey _hotKeyArrowLeft = HotKey(key: PhysicalKeyboardKey.arrowLeft, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyS = HotKey(key: PhysicalKeyboardKey.keyS, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyE = HotKey(key: PhysicalKeyboardKey.keyE, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKeyR = HotKey(key: PhysicalKeyboardKey.keyR, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
 
     await hotKeyManager.register(_hotKeyEsc, keyDownHandler: (hotKey) {
       try {
@@ -76,7 +78,7 @@ class AppSettingService extends GetxService {
       } catch (_) {}
     });
 
-    await hotKeyManager.register(_hotKeyComma, keyDownHandler: (hotKey) {
+    await hotKeyManager.register(_hotKeyArrowLeft, keyDownHandler: (hotKey) {
       try {
         Get.back();
         Overlayment.dismissLast();
@@ -92,6 +94,12 @@ class AppSettingService extends GetxService {
     await hotKeyManager.register(_hotKeyE, keyDownHandler: (hotKey) {
       try {
         Get.find<HomeController>().onMenuChange(kMenuExplore);
+      } catch (_) {}
+    });
+
+    await hotKeyManager.register(_hotKeyR, keyDownHandler: (hotKey) {
+      try {
+        Get.find<HomeController>().onRefreshAllContent();
       } catch (_) {}
     });
   }

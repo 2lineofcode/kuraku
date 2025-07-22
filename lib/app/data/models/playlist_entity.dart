@@ -7,14 +7,16 @@ import 'videos_entity.dart';
 class PlaylistHeader {
   String? id;
   String? name;
+  String? cover;
   String? createdAt;
   String? updatedAt;
 
-  PlaylistHeader({this.id, this.name, this.createdAt, this.updatedAt});
+  PlaylistHeader({this.id, this.name, this.cover, this.createdAt, this.updatedAt});
 
   PlaylistHeader.fromJson(Map<String, dynamic> json) {
     id = json['id'];
     name = json['name'];
+    cover = json['cover'];
     createdAt = json['created_at'];
     updatedAt = json['updated_at'];
   }
@@ -23,6 +25,7 @@ class PlaylistHeader {
     final data = <String, dynamic>{};
     data['id'] = id;
     data['name'] = name;
+    data['cover'] = cover;
     data['created_at'] = createdAt;
     data['updated_at'] = updatedAt;
     return data;

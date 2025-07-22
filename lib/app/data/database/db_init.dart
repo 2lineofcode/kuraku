@@ -5,28 +5,29 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../../core/app_logging.dart';
+import '../../core/app_setting.dart';
+import '../../utils/helper_toast.dart';
 import 'db_history.dart';
 import 'db_library.dart';
 import 'db_playlist.dart';
-import 'db_relapse.dart';
 import 'db_videos.dart';
 
 class DBService extends GetxService {
   late Database dbMain;
   late Database dbR18;
-  late String databasesPath;
+  late String appPath;
 
   @override
   Future<void> onInit() async {
     super.onInit();
-    databasesPath = await getDatabasesPath();
+    appPath = Get.find<AppSettingService>().appDir.path;
     dbMain = await _initializeDatabase();
     dbR18 = await _initializeR18Database();
   }
 
   Future<Database> _initializeDatabase() async {
-    var path = join(databasesPath, 'javit.db');
-    await Directory(databasesPath).create(recursive: true);
+    var path = join(appPath, 'javit.db');
+    await Directory(appPath).create(recursive: true);
     return await openDatabase(
       path,
       version: 1,
@@ -39,8 +40,8 @@ class DBService extends GetxService {
   }
 
   Future<Database> _initializeR18Database() async {
-    var path = join(databasesPath, 'r18.db');
-    await Directory(databasesPath).create(recursive: true);
+    var path = join(appPath, 'r18.db');
+    await Directory(appPath).create(recursive: true);
     return await openDatabase(
       path,
       version: 20250715,
@@ -136,6 +137,7 @@ class DBService extends GetxService {
       CREATE TABLE PlaylistHeader (
         id                          TEXT PRIMARY KEY,
         name                        TEXT,
+        cover                       TEXT,
         created_at                  TEXT,
         updated_at                  TEXT
       )
@@ -170,8 +172,18 @@ class DBService extends GetxService {
     await DBLibrary.deleteAll();
     await DBVideos.deleteAll();
     await DBHistory.deleteAll();
-    await DBPlaylist.deleteAll();
-    await DBRelapse.deleteAll();
+    await DBPlaylist.deleteAllHeader();
+    // await DBRelapse.deleteAll();
+    await vacumDB();
+  }
+
+  Future<void> vacumDB() async {
+    try {
+      await dbMain.rawQuery('VACUUM;');
+      await HelperToast.success('Database optimized successfully');
+    } catch (e) {
+      print('Error vacuuming database: $e');
+    }
   }
 
   Future<void> close() async {

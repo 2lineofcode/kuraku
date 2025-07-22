@@ -10,7 +10,6 @@ import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_toast.dart';
-import '../home_controller.dart';
 
 class PageSearchController extends GetxController {
   final tecSearch = TextEditingController();
@@ -26,7 +25,7 @@ class PageSearchController extends GetxController {
     super.onInit();
     logS('page search ==> onInit called');
     viewModeSelected.value = 'grid';
-    videos.value = await DBVideos.getAll();
+    videos.value = await DBVideos.getAll(limit: 10);
   }
 
   void renewMetadata(Videos videos) async {
@@ -86,7 +85,7 @@ class PageSearchController extends GetxController {
       }
       DBVideos.update(newVideos);
       HelperToast.success('${newVideos.videoCode} metadata updated');
-      Get.find<HomeController>().onRefreshAllContent(); // FIXME
+      // Get.find<HomeController>().onRefreshAllContent(); // FIXME
     }).catchError((e) {
       ExLoading.dismiss();
       HelperToast.error(e.toString());

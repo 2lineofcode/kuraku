@@ -61,4 +61,7 @@ linux/flutter/ephemeral/*
 env.g.dart
 *.sqlite
 *.db
+*.html
 scripts/
+
+test*.dart
