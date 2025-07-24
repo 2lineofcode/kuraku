@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ex_kit/ex.dart';
+import 'package:fast_cached_network_image/fast_cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
@@ -75,12 +75,13 @@ class ExThumbnailV extends GetView<ExThumbnailC> {
   const ExThumbnailV({
     super.key,
     required this.imageUrl,
-    required this.videoPath,
+    this.videoPath = '',
     required this.width,
     required this.height,
     this.iconSize = 64,
     this.fitMemory = BoxFit.cover,
     this.fitUrl = BoxFit.fitHeight,
+    this.withProxy = true,
   });
 
   final String? imageUrl;
@@ -90,6 +91,7 @@ class ExThumbnailV extends GetView<ExThumbnailC> {
   final double? iconSize;
   final BoxFit? fitMemory;
   final BoxFit? fitUrl;
+  final bool? withProxy;
 
   @override
   Widget build(BuildContext context) {
@@ -117,12 +119,36 @@ class ExThumbnailV extends GetView<ExThumbnailC> {
         },
       );
     } else {
-      return CachedNetworkImage(
-        imageUrl: '${imageUrl?.imgUrl()}',
+      return FastCachedImage(
+        key: Key(withProxy == true ? '${imageUrl?.imgUrl()}' : '${imageUrl ?? ''}'),
+        url: withProxy == true ? '${imageUrl?.imgUrl()}' : '${imageUrl ?? ''}',
         fit: fitUrl,
         width: width,
         height: height,
-      );
+        showErrorLog: false,
+        isAntiAlias: true,
+        fadeInDuration: 300.milliseconds,
+        loadingBuilder: (context, progress) {
+          return progress.isDownloading && progress.totalBytes != null
+              ? Stack(
+                  children: [
+                    Container(
+                      width: width,
+                      height: height,
+                      color: Vx.neutral800,
+                    ).shimmer(primaryColor: Vx.neutral800, secondaryColor: Vx.neutral900),
+                    '${progress.downloadedBytes ~/ 1024} / ${progress.totalBytes! ~/ 1024} kb'.text.xs.align(TextAlign.center).makeCentered(),
+                  ],
+                )
+              : 0.heightBox.p8();
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return Icon(
+            CupertinoIcons.photo,
+            size: iconSize,
+          ).wh(width, height).centered().color(AppColor.selected);
+        },
+      ).wh(width, height);
     }
   }
 }

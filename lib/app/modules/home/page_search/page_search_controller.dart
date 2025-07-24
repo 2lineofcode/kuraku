@@ -13,34 +13,36 @@ import '../../../utils/helper_toast.dart';
 
 class PageSearchController extends GetxController {
   final tecSearch = TextEditingController();
+  final isSearchMode = false.obs;
   final fnSearch = FocusNode();
-  final viewModeSelected = ''.obs; // grid | list
+  final phSearch = ''.obs;
 
+  final viewModeSelected = kGrid.obs; // grid | list
   final videos = <Videos>[].obs;
-
   final api = Get.find<ApiJavit>();
 
   @override
   Future<void> onInit() async {
     super.onInit();
     logS('page search ==> onInit called');
-    viewModeSelected.value = 'grid';
+    viewModeSelected.value = kGrid;
     videos.value = await DBVideos.getAll(limit: 10);
+    phSearch.value = await DBVideos.getRandomVideoCode();
   }
 
-  void renewMetadata(Videos videos) async {
+  Future<void> renewMetadata(Videos videos) async {
     await Overlayment.dismissLast();
     ExLoading.show(paddingSymmetric: 240);
-    await api.getByCode(code: videos.videoCode ?? '').then((resp) {
+    await api.getMetadata(code: videos.videoCode ?? '').then((resp) {
       ExLoading.dismiss();
       final newVideos = videos;
-      newVideos.title = resp['title'];
-      newVideos.titleJa = resp['title_ja'];
+      newVideos.title = resp.title;
+      newVideos.titleJa = resp.titleJa;
 
-      newVideos.description = resp['description'];
-      newVideos.fanArt = resp['fan_art'].replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '') ?? '';
-      newVideos.poster = resp['poster'].replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '') ?? '';
-      newVideos.trailer = resp['trailer'];
+      newVideos.description = resp.description;
+      newVideos.fanArt = resp.fanArt?.replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '') ?? '';
+      newVideos.poster = resp.poster?.replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '') ?? '';
+      newVideos.trailer = resp.trailer;
       newVideos.site = 'R18';
 
       if (videos.actress != null) {
@@ -61,31 +63,35 @@ class PageSearchController extends GetxController {
       // }
 
       newVideos.category = <VideoCategory>[];
-      for (var i = 0; i < resp['genre'].length; i++) {
-        newVideos.category?.add(VideoCategory(id: i, category: resp['genre'][i]));
-      }
-
-      newVideos.releaseDate = resp['release_date'];
-      newVideos.releaseDateFormated = resp['release_date_formated'];
-      newVideos.duration = resp['duration'];
-      newVideos.durationFormated = resp['duration_formated'];
-
-      newVideos.studio = resp['studio'];
-      newVideos.label = resp['studio'];
-      newVideos.director = resp['studio'];
-      newVideos.series = resp['series'] ?? '';
-
-      newVideos.screenshot = <String>[];
-      for (var i = 0; i < resp['screenshot'].length; i++) {
-        if (resp['screenshot'][i].toString().contains('jp-')) {
-          newVideos.screenshot?.add(resp['screenshot'][i].replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '') ?? '');
-        } else {
-          newVideos.screenshot?.add(resp['screenshot'][i].replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '').replaceAll('-', 'jp-') ?? '');
+      if (resp.genre != null) {
+        for (var i = 0; i < resp.genre!.length; i++) {
+          newVideos.category?.add(VideoCategory(id: i, category: resp.genre![i]));
         }
       }
+
+      newVideos.releaseDate = resp.releaseDate;
+      newVideos.releaseDateFormated = resp.releaseDateFormated;
+      newVideos.duration = resp.duration;
+      newVideos.durationFormated = resp.durationFormated;
+
+      newVideos.studio = resp.studio;
+      newVideos.label = resp.label;
+      newVideos.director = resp.director;
+      newVideos.series = resp.series;
+
+      newVideos.screenshot = <String>[];
+      if (resp.screenshot != null) {
+        for (var i = 0; i < resp.screenshot!.length; i++) {
+          if (resp.screenshot![i].toString().contains('jp-')) {
+            newVideos.screenshot?.add(resp.screenshot![i].replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', ''));
+          } else {
+            newVideos.screenshot?.add(resp.screenshot![i].replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '').replaceAll('-', 'jp-'));
+          }
+        }
+      }
+
       DBVideos.update(newVideos);
       HelperToast.success('${newVideos.videoCode} metadata updated');
-      // Get.find<HomeController>().onRefreshAllContent(); // FIXME
     }).catchError((e) {
       ExLoading.dismiss();
       HelperToast.error(e.toString());
@@ -100,11 +106,19 @@ class PageSearchController extends GetxController {
 
     videos.value = await DBVideos.search(tecSearch.text);
     fnSearch.requestFocus();
+    isSearchMode.value = true;
   }
 
   Future<void> onReset() async {
     tecSearch.text = '';
     videos.value = await DBVideos.getAll();
     fnSearch.requestFocus();
+    isSearchMode.value = false;
   }
 }
+
+// ────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────
+// # viewMode
+const kGrid = 'grid';
+const kList = 'list';

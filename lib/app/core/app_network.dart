@@ -8,29 +8,35 @@ import '../../env.g.dart';
 import 'app_setting.dart';
 
 mixin Api {
-  static final _option = CacheOptions(
-    store: HiveCacheStore(Get.find<AppSettingService>().appDir.path),
-    policy: CachePolicy.forceCache,
-    priority: CachePriority.high,
-    maxStale: 360.days,
-    hitCacheOnErrorExcept: [401, 404],
-    keyBuilder: (request) => request.uri.toString(),
-    allowPostMethod: false,
-  );
+  static CacheOptions _defaultCacheOption(String appDirPath) => CacheOptions(
+        store: HiveCacheStore(appDirPath),
+        policy: CachePolicy.forceCache,
+        priority: CachePriority.high,
+        maxStale: 360.days,
+        hitCacheOnErrorExcept: [401, 404],
+        keyBuilder: (request) => request.uri.toString(),
+        allowPostMethod: false,
+      );
 
   static final _dio = Dio(
     BaseOptions(baseUrl: Env.apiUrl, connectTimeout: 30.seconds, receiveTimeout: 30.seconds),
   )..interceptors.addAll([
-      DioCacheInterceptor(options: _option),
+      DioCacheInterceptor(options: _defaultCacheOption(Get.find<AppSettingService>().appDir.path)),
       LogInterceptor(),
     ]);
 
-  static Future<Response> get(String url, {Map<String, dynamic>? queryParameters, noCache = false}) async {
-    // _dio.interceptors.add(RetryInterceptor(dio: _dio, logPrint: (object) => log(object.toString())));
+  static Future<Response> get(String url, {Map<String, dynamic>? queryParameters, bool noCache = false}) async {
+    final appSettingService = Get.find<AppSettingService>();
+    final cacheOptions = _defaultCacheOption(appSettingService.appDir.path).copyWith(
+      policy: noCache ? CachePolicy.noCache : CachePolicy.forceCache,
+    );
+
     return await _dio.get(
       url,
       queryParameters: queryParameters,
-      options: _option.copyWith(policy: noCache ? CachePolicy.noCache : CachePolicy.forceCache).toOptions(),
+      options: cacheOptions.toOptions(),
+      cancelToken: CancelToken(),
+      onReceiveProgress: (count, total) {},
     );
   }
 
@@ -82,13 +88,20 @@ class LogInterceptor extends Interceptor {
       diff = DateTime.now().millisecondsSinceEpoch - triggerTime;
     }
 
-    if (diff < 900) {
-      final getCode = response.requestOptions.uri.toString().split('?code=').last;
-      print('$getCode >> Load from Cache');
+    final uri = response.requestOptions.uri;
+    final method = response.requestOptions.method;
+    final status = response.statusCode;
+
+    final isCache = response.extra['cacheHit'] == true || status == 304;
+
+    if (isCache) {
+      print('⚡ [$method] $uri >> Loaded from Cache');
     } else {
-      final diffToSecond = diff / 1000;
-      print('${response.requestOptions.uri} | ${response.statusCode} | $diffToSecond ms', name: response.requestOptions.method);
+      final diffInMs = diff;
+      final diffInSec = (diff / 1000).toStringAsFixed(2);
+      print('🟢 [$method] $uri | $status | ${diffInSec}s ($diffInMs ms)');
     }
+
     super.onResponse(response, handler);
   }
 }

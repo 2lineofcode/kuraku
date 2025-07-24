@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
 
 import '../../core/app_color.dart';
+import '../../core/const.dart';
 import '../../data/database/db_library.dart';
 import '../../data/database/db_r18.dart';
 import '../../data/database/db_videos.dart';
@@ -242,7 +243,7 @@ mixin HomeLibrary {
         newVideo.category = dataCategory.map((e) => VideoCategory.fromJson(e)).toList();
         newVideo.actress = dataActress.map((e) => VideoActress.fromJson(e)).toList();
         newVideo.durationFormated = HelperMisc.durationFormat0(newVideo.duration ?? 0);
-        newVideo.releaseDateFormated = newVideo.releaseDate?.reformatDate(from: 'yyyy-MM-dd', to: 'MMM dd, yyyy');
+        newVideo.releaseDateFormated = newVideo.releaseDate?.reformatDate(from: kYMd, to: kMdY);
         newVideo.director = dataDirector?['name_romaji'] ?? '';
         newVideo.fanArt = '${dataVideo['fan_art']}';
         newVideo.poster = '${dataVideo['poster']}';

@@ -6,13 +6,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
-import '../../core/const.dart';
 import '../../data/database/db_library.dart';
 import '../../data/database/db_videos.dart';
 import '../../data/models/library_entity.dart';
 import '../../utils/helper_file_picker.dart';
 import '../../utils/helper_misc.dart';
 import 'home_library.dart';
+import 'page_download/page_download_controller.dart';
 import 'page_explore/page_explore_controller.dart';
 import 'page_home/page_home_controller.dart';
 import 'page_search/page_search_controller.dart';
@@ -47,6 +47,7 @@ class HomeController extends GetxController with StateMixin {
       await Get.find<PageSearchController>().onInit();
       await Get.find<PageExploreController>().onInit();
       await Get.find<PageSettingsController>().onInit();
+      await Get.find<PageDownloadController>().onInit();
       footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
       change(200, status: RxStatus.success());
     } catch (e) {
@@ -57,8 +58,8 @@ class HomeController extends GetxController with StateMixin {
         actions: [
           CupertinoDialogAction(
             child: Text('Refresh', style: TextStyle(color: Vx.red500, fontSize: 13)),
-            onPressed: () {
-              onRefreshAllContent();
+            onPressed: () async {
+              await onRefreshAllContent();
               Get.back();
             },
           ),
@@ -90,3 +91,12 @@ class HomeController extends GetxController with StateMixin {
     });
   }
 }
+
+// ────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────
+// # menus
+const kMenuHome = 'Home';
+const kMenuSearch = 'Search';
+const kMenuExplore = 'Explore';
+const kMenuDownload = 'Download';
+const kMenuSetting = 'Settings';

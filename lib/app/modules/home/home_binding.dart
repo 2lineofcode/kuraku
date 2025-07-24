@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 
 import '../../data/api/api_javit.dart';
 import 'home_controller.dart';
+import 'page_download/page_download_controller.dart';
 import 'page_explore/page_explore_controller.dart';
 import 'page_home/page_home_controller.dart';
 import 'page_search/page_search_controller.dart';
@@ -12,6 +13,7 @@ class HomeBinding extends Bindings {
   void dependencies() {
     Get.lazyPut<ApiJavit>(() => ApiJavit());
 
+    Get.put<PageDownloadController>(PageDownloadController());
     Get.put<PageSettingsController>(PageSettingsController());
     Get.put<PageExploreController>(PageExploreController());
     Get.put<PageSearchController>(PageSearchController());

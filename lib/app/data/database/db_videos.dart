@@ -136,6 +136,12 @@ mixin DBVideos {
   // ⵌ helper
   static Future<void> deleteAll() async => await _db.delete(_tableName);
 
+  static Future<String> getRandomVideoCode() async {
+    final maps = await _db.query(_tableName, orderBy: 'RANDOM()', limit: 1, where: 'video_code IS NOT NULL AND video_code != ""');
+    if (maps.isEmpty) return 'Search...';
+    return maps.first['video_code'] as String;
+  }
+
   // Category ────────────────────────────────────────────────────────────────
   static Future<List<Map<String, dynamic>>> getAllCategoryWithCount() async {
     final categoryIdToCount = {};
@@ -294,7 +300,7 @@ mixin DBVideos {
     for (var row in rawData) {
       final String? videoPath = row['video_path'] as String?;
       if (videoPath != null && videoPath.isNotEmpty) {
-        String directory = p.dirname(videoPath);
+        final directory = p.dirname(videoPath);
         directoryCounts[directory] = (directoryCounts[directory] ?? 0) + 1;
       }
     }

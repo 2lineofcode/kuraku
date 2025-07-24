@@ -1,13 +1,11 @@
 import 'package:ex_kit/ex.dart';
+import 'package:fast_cached_network_image/fast_cached_network_image.dart';
 import 'package:flutter/material.dart';
-
 import 'package:get/get.dart';
 
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
-import '../../../core/app_network.dart';
 import '../../../data/database/db_init.dart';
-import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
 import 'page_settings_controller.dart';
 
@@ -22,7 +20,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
             // row 1 ~
             Obx(
               () => Container(
-                width: 200,
+                width: 300,
                 decoration: ExDecorator.box(borderColor: AppColor.border),
                 child: VStack([
                   HStack([
@@ -30,83 +28,96 @@ class PageSettingsView extends GetView<PageSettingsController> {
                     Spacer(),
                     IconButton(onPressed: () => controller.onInit(), icon: Icon(Icons.refresh, size: 16)),
                   ]).pOnly(bottom: 12),
-                  HStack([
-                    'Version'.text.size(11).minFontSize(11).make(),
-                    Spacer(),
-                    '(${Env.appVer})'.text.size(11).minFontSize(11).bold.make(),
-                  ]).pOnly(bottom: 8),
-                  HStack([
-                    'R18 Version'.text.size(11).minFontSize(11).make(),
-                    Spacer(),
-                    '(${controller.r18Version})'.text.size(11).minFontSize(11).bold.make(),
-                  ]).pOnly(bottom: 8),
-                  HStack([
-                    'Total Library'.text.size(11).minFontSize(11).make(),
-                    Spacer(),
-                    '${controller.totalLibrary}'.text.size(11).minFontSize(11).bold.make(),
-                  ]).pOnly(bottom: 8),
-                  HStack([
-                    'Total Video'.text.size(11).minFontSize(11).make(),
-                    Spacer(),
-                    '${controller.totalVideos}'.text.size(11).minFontSize(11).bold.make(),
-                  ]).pOnly(bottom: 8),
-                  HStack([
-                    'Total Relapse'.text.size(11).minFontSize(11).make(),
-                    Spacer(),
-                    '${controller.totalRelapse}'.text.size(11).minFontSize(11).bold.make(),
-                  ]).pOnly(bottom: 8),
-                  HStack([
-                    'Last Relapse'.text.size(11).minFontSize(11).make(),
-                    Spacer(),
-                    '${controller.lastRelapse}'.text.size(11).minFontSize(11).bold.make(),
-                  ]).pOnly(bottom: 8),
+
+                  // app
+                  Container(
+                    decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 2),
+                    child: VStack([
+                      HStack([
+                        'Version'.text.size(11).minFontSize(11).neutral400.make(),
+                        Spacer(),
+                        '(${Env.appVer})'.text.size(11).minFontSize(11).bold.make(),
+                      ]).pOnly(bottom: 8),
+                      HStack([
+                        'Total Library'.text.size(11).minFontSize(11).neutral400.make(),
+                        Spacer(),
+                        '${controller.totalLibrary}'.text.size(11).minFontSize(11).bold.make(),
+                      ]).pOnly(bottom: 8),
+                      HStack([
+                        'Total Video'.text.size(11).minFontSize(11).neutral400.make(),
+                        Spacer(),
+                        '${controller.totalVideos}'.text.size(11).minFontSize(11).bold.make(),
+                      ]).pOnly(bottom: 8),
+                      HStack([
+                        'Last Relapse'.text.size(11).minFontSize(11).neutral400.make(),
+                        Spacer(),
+                        '${controller.lastRelapse}'.text.size(11).minFontSize(11).bold.make(),
+                      ]),
+                    ]).p8(),
+                  ),
+
+                  12.heightBox,
+
+                  // r18
+                  Container(
+                    decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 2),
+                    child: VStack([
+                      HStack([
+                        'R18 Version'.text.size(11).minFontSize(11).neutral400.make(),
+                        Spacer(),
+                        '(${controller.r18Version})'.text.size(11).minFontSize(11).bold.make(),
+                      ]).pOnly(bottom: 8),
+                      HStack([
+                        'R18 Total Video'.text.size(11).minFontSize(11).neutral400.make(),
+                        Spacer(),
+                        '${controller.r18TotalVideo}'.text.size(11).minFontSize(11).bold.make(),
+                      ]),
+                    ]).p8(),
+                  ),
                 ]).p12(),
               ).pOnly(right: 12),
             ),
 
             // row 2 ~
             Container(
-              width: 200,
+              width: 100,
+              height: 255,
               decoration: ExDecorator.box(borderColor: AppColor.border),
               child: VStack(
                 [
                   'Sensitif Action'.text.bold.make().pOnly(top: 8, bottom: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      ExButtonOutline(
+                  VStack(
+                    [
+                      ExButtonText(
                         label: 'Go App Folder',
-                        borderColor: Vx.green500,
-                        labelColor: Vx.green500,
                         labelSize: 12,
                         height: 38,
                         onPressed: () => HelperOpener.openFolder(controller.appSetting.appDir.path),
-                      ),
-                      ExButtonOutline(
+                      ).pOnly(bottom: 8),
+                      ExButtonText(
                         label: '🔄 Relapse',
-                        borderColor: Vx.randomPrimaryColor,
-                        labelColor: Vx.randomPrimaryColor,
                         labelSize: 12,
                         height: 38,
                         onPressed: () => controller.onResetRelapse(),
-                      ).hide(),
-                      ExButtonOutline(
-                        label: 'Delete All Data',
-                        borderColor: Vx.red500,
-                        labelColor: Vx.red500,
+                      ).pOnly(bottom: 8).hide(),
+                      ExButtonText(
+                        label: 'Update R18 DB',
+                        labelSize: 12,
+                        height: 38,
+                        onPressed: () => controller.updateR18DB(),
+                      ).pOnly(bottom: 8),
+                      ExButtonText(
+                        label: 'Reset DB',
                         labelSize: 12,
                         height: 38,
                         onPressed: () => controller.onResetAll(),
-                      ),
-                      ExButtonOutline(
+                      ).pOnly(bottom: 8),
+                      ExButtonText(
                         label: 'Vacum DB',
-                        borderColor: Vx.orange500,
-                        labelColor: Vx.orange500,
                         labelSize: 12,
                         height: 38,
                         onPressed: () => Get.find<DBService>().vacumDB(),
-                      ),
+                      ).pOnly(bottom: 8),
                     ],
                   )
                 ],
@@ -123,26 +134,10 @@ class PageSettingsView extends GetView<PageSettingsController> {
             ExButtonElevated(
               label: 'TEST',
               onPressed: () async {
-                // @@@@ TEST
-                ExLoading.show(paddingSymmetric: 200);
-                await Api.get('https://njavtv.com/en/EYAN-182').then((s) {
-                  ExLoading.dismiss();
-                  HelperMisc.copyToClipboard(s.toString());
-                  print(s);
-                }).catchError((e) {
-                  print(e);
-                  ExLoading.dismiss();
-                });
-
-                // await DBR18.getAllVideosByCategory('1100').then((s) {
-                //   print(s);
-                // });
-
-                // await cmd.run('''
-                //   ffmpeg
-                // ''');
+                await FastCachedImageConfig.clearAllCachedImages();
               },
-            )
+            ),
+            
           ],
         ),
       ],

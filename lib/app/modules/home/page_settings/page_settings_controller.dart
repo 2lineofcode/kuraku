@@ -2,10 +2,12 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:sqflite/sqlite_api.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../core/app_setting.dart';
 import '../../../data/database/db_init.dart';
 import '../../../data/database/db_library.dart';
+import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_relapse.dart';
 import '../../../data/database/db_videos.dart';
 import '../home_controller.dart';
@@ -15,9 +17,9 @@ class PageSettingsController extends GetxController {
 
   final totalLibrary = 0.obs;
   final totalVideos = 0.obs;
-  final totalRelapse = 0.obs;
   final lastRelapse = ''.obs;
   final r18Version = 0.obs;
+  final r18TotalVideo = 0.obs;
 
   @override
   Future<void> onInit() async {
@@ -25,9 +27,9 @@ class PageSettingsController extends GetxController {
     logS('page settings ==> onInit called');
     totalLibrary.value = await DBLibrary.getCount();
     totalVideos.value = await DBVideos.getCount();
-    totalRelapse.value = await DBRelapse.getCount();
     lastRelapse.value = await DBRelapse.getLastRelapse();
     r18Version.value = await Get.find<DBService>().dbR18.getVersion();
+    r18TotalVideo.value = await DBR18.getCountAllVideos();
   }
 
   Future<void> onResetRelapse() async {
@@ -70,5 +72,9 @@ class PageSettingsController extends GetxController {
         ),
       ],
     );
+  }
+
+  Future<void> updateR18DB() async {
+    await launchUrlString('https://r18.dev/dumps');
   }
 }

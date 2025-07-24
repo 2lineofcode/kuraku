@@ -13,6 +13,7 @@ class PageHomeController extends GetxController {
   final listFavorite = <Videos>[].obs;
   final listRandom = <Videos>[].obs;
   final listPlaylistHeader = <PlaylistHeader>[].obs;
+  final totalVideo = 0.obs;
 
   @override
   Future<void> onInit() async {
@@ -23,6 +24,8 @@ class PageHomeController extends GetxController {
     await getListFavorite();
     await getListRandom();
     await getListPlaylistHeader();
+
+    totalVideo.value = await DBVideos.getCount();
   }
 
   Future<void> getListNewRelease() async {

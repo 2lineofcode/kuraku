@@ -1,15 +1,15 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ex_kit/ex.dart';
+import 'package:fast_cached_network_image/fast_cached_network_image.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
+import 'package:path/path.dart' as p;
 import 'package:zoom_hover_pinch_image/zoom_hover_pinch_image.dart';
 
 import '../../../core/app_color.dart';
-import '../../../core/const.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_misc.dart';
@@ -57,7 +57,7 @@ mixin PageSearchOverlay {
                   HelperMisc.copyToClipboard(video.videoCode ?? '');
                   HelperToast.info('${video.videoCode} Copied to clipboard');
                 }).pSymmetric(v: 8),
-                '${video.title}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(3).ellipsis.makeCentered(),
+                '${video.title}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(3).ellipsis.makeCentered().tooltip(video.videoPath?.getFileName().noExt() ?? ''),
 
                 ExDivider().pSymmetric(v: 16),
 
@@ -156,6 +156,7 @@ mixin PageSearchOverlay {
                       'Category:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                       Wrap(children: [
                         for (int i = 0; i < video.category!.length; i++) ...[
+                          // FIXME: change use futurebuilder -> decensor text
                           '${video.category?[i].category}'.text.neutral300.underline.size(11).minFontSize(11).make().onInkTap(() async {
                             await _onItemCategoryClick(video, i);
                           }).pOnly(right: 8),
@@ -230,7 +231,9 @@ mixin PageSearchOverlay {
 
                     // Path
                     'Path:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                    '${video.videoPath?.getLastSegments()}'.text.neutral300.ellipsis.size(11).minFontSize(11).make().color(Vx.neutral800).tooltip(video.videoPath ?? ''),
+                    '${video.videoPath?.getLastSegments()}'.text.neutral300.ellipsis.size(11).minFontSize(11).make().color(Vx.neutral800).onInkTap(() async {
+                      await _onItemVideoPathClick(video);
+                    }).tooltip(video.videoPath ?? ''),
                   ]).p12().scrollVertical(),
                 )
               ],
@@ -241,6 +244,9 @@ mixin PageSearchOverlay {
     );
   }
 
+  // ────────────────────────────────────────────────────────────────
+  // ⵌ ~
+  // ────────────────────────────────────────────────────────────────
   static Future<void> _openScreenshot(Videos video) async {
     await Overlayment.show(
       context: Get.context,
@@ -265,8 +271,11 @@ mixin PageSearchOverlay {
               ),
             ] else ...[
               for (int i = 0; i < video.screenshot!.length; i++) ...[
-                CachedNetworkImage(
-                  imageUrl: '${video.screenshot?[i].imgUrl()}',
+                ExThumbnailV(
+                  imageUrl: '${video.screenshot?[i]}',
+                  width: double.infinity,
+                  height: 300,
+                  fitUrl: BoxFit.cover,
                 ).onInkTap(() {
                   Overlayment.show(
                     context: Get.context,
@@ -278,10 +287,10 @@ mixin PageSearchOverlay {
                         Zoom(
                           width: Get.width * 90 / 100,
                           height: Get.height * 90 / 100,
-                          child: CachedNetworkImage(
+                          child: FastCachedImage(
+                            url: '${video.screenshot?[i].imgUrl()}',
                             width: Get.width * 90 / 100,
                             height: Get.height * 90 / 100,
-                            imageUrl: '${video.screenshot?[i].imgUrl()}',
                             fit: BoxFit.contain,
                           ),
                         ),
@@ -300,25 +309,6 @@ mixin PageSearchOverlay {
       ),
     );
   }
-
-  // static Future<void> _openTrailer(Videos video) async {
-  //   await Overlayment.show(
-  //     context: Get.context,
-  //     OverPanel(
-  //       alignment: Alignment.topLeft,
-  //       width: 400,
-  //       height: double.infinity,
-  //       animation: OverSlideAnimation(
-  //         beginAlignment: Alignment.centerLeft,
-  //         reverseDurationMilliseconds: 100,
-  //         durationMilliseconds: 400,
-  //       ),
-  //       child: CachedNetworkImage(
-  //         imageUrl: '${video.trailer?.imgUrl()}',
-  //       ),
-  //     ),
-  //   );
-  // }
 
   static Future<void> _onItemActressClick(Videos video, int index) async {
     final name = '${video.actress?[index].nameRomaji == '' ? '${video.actress?[index].nameKana}' : '${video.actress?[index].nameRomaji}'}';
@@ -349,6 +339,17 @@ mixin PageSearchOverlay {
     await exploreC.onFilterByChange('Series');
     exploreC.tecSearch.text = name;
     exploreC.onOListSearch(name);
+    await exploreC.onOListTap(exploreC.oListFiltered[0]);
+    await Overlayment.dismissLast();
+  }
+
+  static Future<void> _onItemVideoPathClick(Videos video) async {
+    final directory = p.dirname(video.videoPath ?? '');
+    await Get.find<HomeController>().onMenuChange(kMenuExplore);
+    final exploreC = Get.find<PageExploreController>();
+    await exploreC.onFilterByChange('Path');
+    exploreC.tecSearch.text = directory;
+    exploreC.onOListSearch(directory);
     await exploreC.onOListTap(exploreC.oListFiltered[0]);
     await Overlayment.dismissLast();
   }

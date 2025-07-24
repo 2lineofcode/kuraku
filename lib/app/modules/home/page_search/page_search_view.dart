@@ -20,7 +20,7 @@ class PageSearchView extends GetView<PageSearchController> {
             controller: controller.tecSearch,
             focusNode: controller.fnSearch,
             clearButtonMode: OverlayVisibilityMode.editing,
-            placeholder: 'EYAN-181',
+            placeholder: '${controller.phSearch}',
             style: TextStyle(color: Vx.white, fontSize: 14),
             onSubmitted: (value) {
               controller.onSearch();
@@ -28,18 +28,22 @@ class PageSearchView extends GetView<PageSearchController> {
           ).expand(),
           Obx(
             () => IconButton(
-              icon: Icon(CupertinoIcons.square_grid_3x2, size: 18, color: controller.viewModeSelected.value == 'grid' ? Vx.white : Vx.neutral600),
-              onPressed: () => controller.viewModeSelected.value = 'grid',
+              icon: Icon(CupertinoIcons.rectangle_grid_2x2, size: 18, color: controller.viewModeSelected.value == 'grid' ? Vx.white : Vx.neutral600),
+              onPressed: () => controller.viewModeSelected.value = kGrid,
             ),
           ),
           Obx(
             () => IconButton(
               icon: Icon(CupertinoIcons.list_dash, size: 18, color: controller.viewModeSelected.value == 'list' ? Vx.white : Vx.neutral600),
-              onPressed: () => controller.viewModeSelected.value = 'list',
+              onPressed: () => controller.viewModeSelected.value = kList,
             ),
           ),
         ]).pOnly(bottom: 24),
-        Obx(() => 'Result: ${controller.videos.length} Videos'.text.size(12).make().pOnly(bottom: 16)),
+        Obx(
+          () => controller.isSearchMode.isTrue 
+            ? 'Result: ${controller.videos.length} Videos'.text.size(12).make().pOnly(bottom: 16)
+            : 0.heightBox,
+        ),
         Obx(
           () => controller.videos.isEmpty
               ? ExUiErrorOrEmpty(
@@ -47,7 +51,7 @@ class PageSearchView extends GetView<PageSearchController> {
                   title: 'No Data Found',
                   message: 'No Result Found, as you searched for "${controller.tecSearch.text}"\nor Add some video to your library first.',
                 ).expand()
-              : controller.viewModeSelected.value == 'grid'
+              : controller.viewModeSelected.value == kGrid
                   ? modeWrapView().expand()
                   : modeListView().expand(),
         ),
@@ -125,29 +129,5 @@ class PageSearchView extends GetView<PageSearchController> {
         ],
       ],
     ).scrollVertical();
-  }
-}
-
-// ────────────────────────────────────────────────────────────────
-// ⵌ ~~~
-// ────────────────────────────────────────────────────────────────
-class OverlayExample extends StatelessWidget {
-  const OverlayExample({
-    super.key,
-    required this.title,
-    this.currentUrl,
-  });
-  final String title;
-  final String? currentUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: HStack([
-        '$title'.text.make(),
-        Spacer(),
-        CloseButton(),
-      ]).p64(),
-    );
   }
 }

@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -64,7 +63,7 @@ class PageExploreView extends GetView<PageExploreController> {
                           ).expand()
                         : ListView.separated(
                             itemCount: controller.oListFiltered.length,
-                            separatorBuilder: (context, index) => Divider(),
+                            separatorBuilder: (context, index) => Divider(color: AppColor.border),
                             itemBuilder: (context, index) {
                               final item = controller.oListFiltered[index];
                               return Obx(
@@ -75,7 +74,13 @@ class PageExploreView extends GetView<PageExploreController> {
                                     if (controller.filterTypeSelected.value == kActress) ...[
                                       ClipRRect(
                                         borderRadius: BorderRadius.circular(90),
-                                        child: CachedNetworkImage(imageUrl: '${Env.actressAvatarBaseUrl}/${item.imgUrl}', width: 48, height: 48, fit: BoxFit.cover),
+                                        child: ExThumbnailV(
+                                          imageUrl: '${Env.actressAvatarBaseUrl}/${item.imgUrl}',
+                                          width: 48,
+                                          height: 48,
+                                          fitUrl: BoxFit.cover,
+                                          withProxy: false,
+                                        ),
                                       ),
                                     ],
 
@@ -89,11 +94,7 @@ class PageExploreView extends GetView<PageExploreController> {
                                     ]
                                     // other ~
                                     else ...[
-                                      FutureBuilder(
-                                          future: HelperMisc.decensor(item.name),
-                                          builder: (context, snapshot) {
-                                            return snapshot.hasData ? '${snapshot.data} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand() : 0.heightBox;
-                                          }),
+                                      '${item.name} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand()
                                     ],
                                   ]).color(item == controller.oListSelected.value ? AppColor.selected : Colors.transparent).cornerRadius(8),
                                 ),
@@ -146,7 +147,13 @@ class PageExploreView extends GetView<PageExploreController> {
             if (controller.oListSelected.value.imgUrl != null) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(90),
-                child: CachedNetworkImage(imageUrl: '${Env.actressAvatarBaseUrl}/${controller.oListSelected.value.imgUrl}', width: 32, height: 32, fit: BoxFit.cover),
+                child: ExThumbnailV(
+                  imageUrl: '${Env.actressAvatarBaseUrl}/${controller.oListSelected.value.imgUrl}',
+                  width: 32,
+                  height: 32,
+                  fitUrl: BoxFit.cover,
+                  withProxy: false,
+                ),
               ).centered().pOnly(right: 12),
             ] else ...[
               ExAvatarView(
@@ -158,7 +165,12 @@ class PageExploreView extends GetView<PageExploreController> {
               ).centered().pOnly(right: 12),
             ],
             VStack([
-              '${controller.oListSelected.value.name!.trim()}'.text.bold.size(12).ellipsis.make().pOnly(top: 6, bottom: 4),
+              FutureBuilder(
+                future: HelperMisc.decensor(controller.oListSelected.value.name!.trim()),
+                builder: (context, snapshot) {
+                  return snapshot.hasData ? '${snapshot.data}'.text.bold.size(12).ellipsis.make().pOnly(top: 6, bottom: 4) : 0.heightBox;
+                },
+              ),
               Obx(
                 () => HStack([
                   'Local: ${controller.oListSelected.value.count}'
@@ -183,7 +195,8 @@ class PageExploreView extends GetView<PageExploreController> {
                       .cornerRadius(8)
                       .pOnly(right: 12)
                       .onInkTap(() async => await controller.onHeaderR18Tap())
-                      .pOnly(right: 12).hide(isVisible: controller.r18TotalVideo.value != 0),
+                      .pOnly(right: 12)
+                      .hide(isVisible: controller.r18TotalVideo.value != 0),
                 ]),
               ),
             ]).expand(),
@@ -228,7 +241,6 @@ class PageExploreView extends GetView<PageExploreController> {
         return ZStack([
           ExThumbnailV(
             imageUrl: controller.r18ListVideo[i]['fan_art'] ?? '',
-            videoPath: '',
             width: 270,
             height: 200,
           ).wh(270, 200).cornerRadius(8),

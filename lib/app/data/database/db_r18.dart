@@ -5,6 +5,11 @@ import 'db_init.dart';
 mixin DBR18 {
   static final _db = Get.find<DBService>().dbR18;
 
+  static Future<int> getCountAllVideos() async {
+    final List<Map<String, dynamic>> maps = await _db.rawQuery('SELECT count(*) as total FROM derived_video');
+    return maps[0]['total'] as int;
+  }
+
   static Future<Map<String, dynamic>?> getVideo(String code) async {
     final maps = await _db.rawQuery('''
         SELECT
@@ -139,11 +144,9 @@ mixin DBR18 {
         WHERE 1=1
           AND v.dvd_id IS NOT NULL
           AND c.name_en = ?;
-      ''', [categoryName]
-    );
+      ''', [categoryName]);
     return maps;
   }
-
 
   // ────────────────────────────────────────────────────────────────
   // ⵌ Label
@@ -171,8 +174,7 @@ mixin DBR18 {
         WHERE 1=1
           AND v.dvd_id IS NOT NULL
           AND l.name_en = ?;
-      ''', [labelName]
-    );
+      ''', [labelName]);
     return maps;
   }
 
@@ -215,8 +217,8 @@ mixin DBR18 {
       SELECT count(*) AS total
       FROM derived_video v
       JOIN derived_maker m ON m.id = v.maker_id
-      WHERE m.name_en = ?;
-    ''', [studio]);
+      WHERE m.name_en = ? OR m.name_ja = ?;
+    ''', [studio, studio]);
     return maps[0]['total'] as int;
   }
 

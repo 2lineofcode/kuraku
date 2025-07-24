@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
 
+import '../../core/const.dart';
 import '../../data/database/db_relapse.dart';
 import '../../data/models/relapse_entity.dart';
 import 'page_settings/page_settings_controller.dart';
@@ -63,7 +64,7 @@ mixin HomeRelapse {
 
 
   static Future<void> _onRelapse() async {
-    await DBRelapse.add(Relapse(date: DateTime.now().toStringEx(format: 'yyyy-MM-dd')));
+    await DBRelapse.add(Relapse(date: DateTime.now().toStringEx(format: kYMd)));
     await Get.find<PageSettingsController>().onInit();
   }
 }

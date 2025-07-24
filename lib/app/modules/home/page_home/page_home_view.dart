@@ -13,72 +13,122 @@ class PageHomeView extends GetView<PageHomeController> {
   const PageHomeView({super.key});
   @override
   Widget build(BuildContext context) {
+    return Obx(
+      () => controller.totalVideo.value != 0
+          ? buildPage()
+          : ExUiErrorOrEmpty(
+              illustration: Icon(CupertinoIcons.lab_flask_solid),
+              title: '~ Fresh ~',
+              message: 'No Data Found, Please Add New Library First or just \n`drag your JAV Video Folder here`',
+            ),
+    );
+  }
+
+  Widget buildPage() {
     return VStack(
       [
         // New Release
-        HStack([
-          'New Release'.text.size(12).make(),
-          Spacer(),
-          IconButton(
-            icon: Icon(CupertinoIcons.refresh, size: 16),
-            onPressed: () => controller.getListNewRelease(),
-          ),
-        ]).pOnly(bottom: 8),
-        Obx(
-          () => controller.listNewRelease.isEmpty
-              ? buildLayoutEmptyFanArt()
-              : ListView.builder(
-                  itemCount: controller.listNewRelease.length,
-                  scrollDirection: Axis.horizontal,
-                  itemBuilder: (context, index) {
-                    final video = controller.listNewRelease[index];
-                    return buildLayoutFanArt(video);
-                  },
-                ).wh(double.infinity, 120),
+        VStack(
+          [
+            HStack([
+              'New Release'.text.size(12).make(),
+              Spacer(),
+              IconButton(
+                icon: Icon(CupertinoIcons.refresh, size: 16),
+                onPressed: () => controller.getListNewRelease(),
+              ),
+            ]).pOnly(bottom: 8),
+            Obx(
+              () => controller.listNewRelease.isEmpty
+                  ? buildLayoutEmptyFanArt()
+                  : ListView.builder(
+                      itemCount: controller.listNewRelease.length,
+                      scrollDirection: Axis.horizontal,
+                      itemBuilder: (context, index) {
+                        final video = controller.listNewRelease[index];
+                        return buildLayoutFanArt(video);
+                      },
+                    ).wh(double.infinity, 120),
+            ),
+          ],
+        ),
+
+        // Random Videos
+        VStack(
+          [
+            HStack([
+              'Video Maybe you like'.text.size(12).make(),
+              Spacer(),
+              IconButton(
+                icon: Icon(CupertinoIcons.refresh, size: 16),
+                onPressed: () => controller.getListRandom(),
+              ),
+            ]).pSymmetric(v: 12),
+            Obx(
+              () => controller.listNewRelease.isEmpty
+                  ? buildLayoutEmptyPoster()
+                  : ListView.builder(
+                      itemCount: controller.listRandom.length,
+                      scrollDirection: Axis.horizontal,
+                      itemBuilder: (context, index) {
+                        final video = controller.listRandom[index];
+                        return buildLayoutPoster(video, showViewCount: false);
+                      },
+                    ).wh(double.infinity, 200),
+            ),
+          ],
         ),
 
         // Top 10: Watch again and again
-        HStack([
-          'Watch again and again'.text.size(12).make(),
-          Spacer(),
-          IconButton(
-            icon: Icon(CupertinoIcons.refresh, size: 16),
-            onPressed: () => controller.getListTop10Watch(),
-          ),
-        ]).pSymmetric(v: 12),
-        Obx(
-          () => controller.listTop10Watch.isEmpty
-              ? buildLayoutEmptyPoster()
-              : ListView.builder(
-                  itemCount: controller.listTop10Watch.length,
-                  scrollDirection: Axis.horizontal,
-                  itemBuilder: (context, index) {
-                    final video = controller.listTop10Watch[index];
-                    return buildLayoutPoster(video, showViewCount: true);
-                  },
-                ).wh(double.infinity, 200),
+        VStack(
+          [
+            HStack([
+              'Watch again and again'.text.size(12).make(),
+              Spacer(),
+              IconButton(
+                icon: Icon(CupertinoIcons.refresh, size: 16),
+                onPressed: () => controller.getListTop10Watch(),
+              ),
+            ]).pSymmetric(v: 12),
+            Obx(
+              () => controller.listTop10Watch.isEmpty
+                  ? buildLayoutEmptyPoster()
+                  : ListView.builder(
+                      itemCount: controller.listTop10Watch.length,
+                      scrollDirection: Axis.horizontal,
+                      itemBuilder: (context, index) {
+                        final video = controller.listTop10Watch[index];
+                        return buildLayoutPoster(video, showViewCount: true);
+                      },
+                    ).wh(double.infinity, 200),
+            ),
+          ],
         ),
 
         // Favorite videos
-        HStack([
-          'Favorite videos'.text.size(12).make(),
-          Spacer(),
-          IconButton(
-            icon: Icon(CupertinoIcons.refresh, size: 16),
-            onPressed: () => controller.getListFavorite(),
-          ),
-        ]).pSymmetric(v: 12),
-        Obx(
-          () => controller.listFavorite.isEmpty
-              ? buildLayoutEmptyPoster()
-              : ListView.builder(
-                  itemCount: controller.listFavorite.length,
-                  scrollDirection: Axis.horizontal,
-                  itemBuilder: (context, index) {
-                    final video = controller.listFavorite[index];
-                    return buildLayoutPoster(video, showViewCount: false);
-                  },
-                ).wh(double.infinity, 200),
+        VStack(
+          [
+            HStack([
+              'Favorite videos'.text.size(12).make(),
+              Spacer(),
+              IconButton(
+                icon: Icon(CupertinoIcons.refresh, size: 16),
+                onPressed: () => controller.getListFavorite(),
+              ),
+            ]).pSymmetric(v: 12),
+            Obx(
+              () => controller.listFavorite.isEmpty
+                  ? buildLayoutEmptyPoster()
+                  : ListView.builder(
+                      itemCount: controller.listFavorite.length,
+                      scrollDirection: Axis.horizontal,
+                      itemBuilder: (context, index) {
+                        final video = controller.listFavorite[index];
+                        return buildLayoutPoster(video, showViewCount: false);
+                      },
+                    ).wh(double.infinity, 200),
+            ),
+          ],
         ),
 
         // playlist ~
@@ -115,26 +165,6 @@ class PageHomeView extends GetView<PageHomeController> {
             ),
           ],
         ).hide(),
-
-        // Random Videos
-        HStack([
-          'Video Maybe you like'.text.size(12).make(),
-          Spacer(),
-          IconButton(
-            icon: Icon(CupertinoIcons.refresh, size: 16),
-            onPressed: () => controller.getListRandom(),
-          ),
-        ]).pSymmetric(v: 12),
-        Obx(
-          () => ListView.builder(
-            itemCount: controller.listRandom.length,
-            scrollDirection: Axis.horizontal,
-            itemBuilder: (context, index) {
-              final video = controller.listRandom[index];
-              return buildLayoutPoster(video, showViewCount: false);
-            },
-          ).wh(double.infinity, 200),
-        ),
       ],
     ).scrollVertical();
   }

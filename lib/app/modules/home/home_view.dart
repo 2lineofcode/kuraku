@@ -5,10 +5,10 @@ import 'package:get/get.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../../core/app_color.dart';
-import '../../core/const.dart';
 import '../widgets/widgets.dart';
 import 'home_controller.dart';
 import 'home_relapse.dart';
+import 'page_download/page_download_view.dart';
 import 'page_explore/page_explore_view.dart';
 import 'page_home/page_home_view.dart';
 import 'page_search/page_search_controller.dart';
@@ -81,33 +81,38 @@ class HomeView extends GetView<HomeController> {
 
   Widget sideMenuContent() {
     final menuList = <Map<String, dynamic>>[
-      {'icon': CupertinoIcons.suit_diamond, 'name': kMenuHome},
-      {'icon': CupertinoIcons.doc_text_search, 'name': kMenuSearch},
-      {'icon': CupertinoIcons.rectangle_on_rectangle_angled, 'name': kMenuExplore},
+      {'icon': CupertinoIcons.square_stack_3d_down_dottedline, 'name': kMenuHome},
+      {'icon': CupertinoIcons.search, 'name': kMenuSearch},
+      {'icon': CupertinoIcons.book, 'name': kMenuExplore},
+      {'icon': CupertinoIcons.square_arrow_down, 'name': kMenuDownload},
       {'icon': CupertinoIcons.gear_big, 'name': kMenuSetting},
     ];
-    return ListView.builder(
-      physics: NeverScrollableScrollPhysics(),
-      itemCount: menuList.length,
-      itemBuilder: (context, index) {
-        final item = menuList[index];
-        return Obx(
-          () => InkWell(
-            onTap: () => controller.onMenuChange(item['name']),
-            child: Container(
-              decoration: ExDecorator.box(
-                fillColor: item['name'] == controller.currentMenuSelected.value ? AppColor.selected : Colors.transparent,
-                borderColor: Colors.transparent,
+    return VStack(
+      [
+        ListView.builder(
+          physics: NeverScrollableScrollPhysics(),
+          itemCount: menuList.length,
+          itemBuilder: (context, index) {
+            final item = menuList[index];
+            return Obx(
+              () => InkWell(
+                onTap: () => controller.onMenuChange(item['name']),
+                child: Container(
+                  decoration: ExDecorator.box(
+                    fillColor: item['name'] == controller.currentMenuSelected.value ? AppColor.selected : Colors.transparent,
+                    borderColor: Colors.transparent,
+                  ),
+                  child: HStack([
+                    Icon(item['icon'], size: 18).pSymmetric(h: 8),
+                    '${item['name']}'.text.size(11).make().pOnly(left: 4),
+                  ]).p8(),
+                ).pSymmetric(h: 10).pOnly(bottom: 8),
               ),
-              child: HStack([
-                Icon(item['icon'], size: 18).pSymmetric(h: 8),
-                '${item['name']}'.text.size(11).make().pOnly(left: 4),
-              ]).p8(),
-            ).pSymmetric(h: 10).pOnly(bottom: 8),
-          ),
-        );
-      },
-    ).pOnly(top: 16).expand();
+            );
+          },
+        ).wh(300, 280).pOnly(top: 16),
+      ],
+    ).expand();
   }
 
   Widget bodyContent() {
@@ -119,6 +124,8 @@ class HomeView extends GetView<HomeController> {
         return controller.obx((state) => PageSearchView());
       case kMenuExplore:
         return controller.obx((state) => PageExploreView());
+      case kMenuDownload:
+        return controller.obx((state) => PageDownloadView());
       case kMenuSetting:
         return controller.obx((state) => PageSettingsView());
       default:

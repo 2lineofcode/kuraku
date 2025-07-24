@@ -1,3 +1,4 @@
+import 'package:fast_cached_network_image/fast_cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -13,6 +14,11 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await hotKeyManager.unregisterAll();
 
+  await FastCachedImageConfig.init(clearCacheAfter: 365.days);
+
+  // local storage
+  await GetStorage.init(Env.appName);
+
   /// makesure `AppSettingService` already initialized
   await Get.putAsync(() async {
     final service = AppSettingService();
@@ -27,9 +33,6 @@ Future<void> main() async {
     return service;
   }, permanent: true);
 
-  // local storage
-  await GetStorage.init(Env.appName);
-
   runApp(JavIt());
 }
 
@@ -39,7 +42,6 @@ class JavIt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ToastificationWrapper(
-      // config: ToastificationConfig(),
       child: GetMaterialApp(
         title: Env.appName,
         initialRoute: AppPages.INITIAL,

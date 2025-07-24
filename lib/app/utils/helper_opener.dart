@@ -8,13 +8,13 @@ import 'helper_toast.dart';
 
 mixin HelperOpener {
   static Future<void> openFolder(String path) async {
-    await cmd.run('open -R "$path"').catchError((e) async {
+    await cmd.run('open -R "$path"', verbose: false).catchError((e) async {
       await HelperToast.error('File does not exist at path: $path');
     });
   }
 
   static Future<void> openFile(Videos video) async {
-    await cmd.run('open "${video.videoPath}"').then((s) async {
+    await cmd.run('open "${video.videoPath}"', verbose: false).then((s) async {
       await DBVideos.updateViewCount(video);
       await Get.find<PageHomeController>().getListTop10Watch();
     }).catchError((e) async {
@@ -23,7 +23,7 @@ mixin HelperOpener {
   }
 
   static Future<void> openFolderFromFile(String path) async {
-    await cmd.run('open -R "$path"').catchError((e)  {
+    await cmd.run('open -R "$path"', verbose: false).catchError((e)  {
        HelperToast.error('File does not exist at path: $path');
     });
   }
