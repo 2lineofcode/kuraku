@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:ex_kit/ex.dart';
 import 'package:fast_cached_network_image/fast_cached_network_image.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:video_compress/video_compress.dart';
@@ -71,8 +71,20 @@ class ExThumbnailC extends GetxController {
   }
 }
 
-class ExThumbnailV extends GetView<ExThumbnailC> {
-  const ExThumbnailV({
+class ExThumbnail extends GetView<ExThumbnailC> {
+  
+  final String? imageUrl;
+  final String? videoPath;
+  final double width;
+  final double height;
+  final double? iconSize;
+  final BoxFit? fitMemory;
+  final BoxFit? fitUrl;
+  final bool? withProxy;
+  final double? prefix;
+  final Color? backdropColor;
+
+  const ExThumbnail({
     super.key,
     required this.imageUrl,
     this.videoPath = '',
@@ -82,16 +94,9 @@ class ExThumbnailV extends GetView<ExThumbnailC> {
     this.fitMemory = BoxFit.cover,
     this.fitUrl = BoxFit.fitHeight,
     this.withProxy = true,
+    this.prefix = 1,
+    this.backdropColor,
   });
-
-  final String? imageUrl;
-  final String? videoPath;
-  final double width;
-  final double height;
-  final double? iconSize;
-  final BoxFit? fitMemory;
-  final BoxFit? fitUrl;
-  final bool? withProxy;
 
   @override
   Widget build(BuildContext context) {
@@ -103,7 +108,7 @@ class ExThumbnailV extends GetView<ExThumbnailC> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Icon(
-              CupertinoIcons.photo,
+              Icons.broken_image,
               size: iconSize,
             ).wh(width, height).centered().color(AppColor.selected);
           }
@@ -119,36 +124,43 @@ class ExThumbnailV extends GetView<ExThumbnailC> {
         },
       );
     } else {
-      return FastCachedImage(
-        key: Key(withProxy == true ? '${imageUrl?.imgUrl()}' : '${imageUrl ?? ''}'),
-        url: withProxy == true ? '${imageUrl?.imgUrl()}' : '${imageUrl ?? ''}',
-        fit: fitUrl,
-        width: width,
-        height: height,
-        showErrorLog: false,
-        isAntiAlias: true,
-        fadeInDuration: 300.milliseconds,
-        loadingBuilder: (context, progress) {
-          return progress.isDownloading && progress.totalBytes != null
-              ? Stack(
-                  children: [
-                    Container(
-                      width: width,
-                      height: height,
-                      color: Vx.neutral800,
-                    ).shimmer(primaryColor: Vx.neutral800, secondaryColor: Vx.neutral900),
-                    '${progress.downloadedBytes ~/ 1024} / ${progress.totalBytes! ~/ 1024} kb'.text.xs.align(TextAlign.center).makeCentered(),
-                  ],
-                )
-              : 0.heightBox.p8();
-        },
-        errorBuilder: (context, error, stackTrace) {
-          return Icon(
-            CupertinoIcons.photo,
-            size: iconSize,
-          ).wh(width, height).centered().color(AppColor.selected);
-        },
-      ).wh(width, height);
+      final double fastImageRenderWidth = width * (prefix ?? 1);
+
+      return OverflowBox(
+        alignment: Alignment.centerRight,
+        maxWidth: fastImageRenderWidth,
+        maxHeight: height,
+        child: FastCachedImage(
+          key: Key(withProxy == true ? '${imageUrl?.imgUrl()}' : '${imageUrl ?? ''}'),
+          url: withProxy == true ? '${imageUrl?.imgUrl()}' : '${imageUrl ?? ''}',
+          fit: fitUrl,
+          width: fastImageRenderWidth,
+          height: height,
+          showErrorLog: false,
+          isAntiAlias: true,
+          fadeInDuration: 300.milliseconds,
+          loadingBuilder: (context, progress) {
+            return progress.isDownloading && progress.totalBytes != null
+                ? Stack(
+                    children: [
+                      Container(
+                        width: width,
+                        height: height,
+                        color: Vx.neutral800,
+                      ).shimmer(primaryColor: Vx.neutral800, secondaryColor: Vx.neutral900),
+                      '${progress.downloadedBytes ~/ 1024} / ${progress.totalBytes! ~/ 1024} kb'.text.xs.align(TextAlign.center).makeCentered(),
+                    ],
+                  )
+                : 0.heightBox.p8();
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return Icon(
+              Icons.broken_image,
+              size: iconSize,
+            ).wh(width, height).centered().color(AppColor.selected);
+          },
+        ),
+      ).color(backdropColor ?? AppColor.container).wh(width, height);
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 
 import '../../env.g.dart';
+import '../core/app_logging.dart';
 
 mixin HelperMisc {
   static String getLastPath(String path) => path.split('/').last;
@@ -111,10 +112,37 @@ mixin HelperMisc {
         }
       }
     } catch (e) {
-      print('Error reading decensor.csv from assets: $e');
+      AppLog.logE('Error reading decensor.csv from assets: $e');
     }
 
     return resultString;
+  }
+
+  static String formatName(String name) {
+    String cleanAndFormatPart(String part) {
+      String cleanedPart = part.replaceAll(RegExp(r'\d+'), '');
+      if (cleanedPart.isEmpty) return '';
+      return cleanedPart[0].toUpperCase() + cleanedPart.substring(1).toLowerCase();
+    }
+
+    if (name.contains('_') || name.contains('.')) {
+      String namePart = name.split('.')[0];
+      List<String> parts = namePart.split('_');
+
+      List<String> formattedParts = parts.map((part) {
+        return cleanAndFormatPart(part);
+      }).toList();
+
+      return formattedParts.reversed.join(' ');
+    } else {
+      List<String> parts = name.split(' ');
+
+      List<String> formattedParts = parts.map((part) {
+        return cleanAndFormatPart(part);
+      }).toList();
+
+      return formattedParts.join(' ');
+    }
   }
 }
 

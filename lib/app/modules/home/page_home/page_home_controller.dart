@@ -2,6 +2,7 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 
+import '../../../core/app_logging.dart';
 import '../../../data/database/db_playlist.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/playlist_entity.dart';
@@ -18,7 +19,7 @@ class PageHomeController extends GetxController {
   @override
   Future<void> onInit() async {
     super.onInit();
-    logS('page home ==> onInit called');
+    AppLog.logI('page home ==> onInit called');
     await getListNewRelease();
     await getListTop10Watch();
     await getListFavorite();

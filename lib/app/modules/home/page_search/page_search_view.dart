@@ -40,9 +40,7 @@ class PageSearchView extends GetView<PageSearchController> {
           ),
         ]).pOnly(bottom: 24),
         Obx(
-          () => controller.isSearchMode.isTrue 
-            ? 'Result: ${controller.videos.length} Videos'.text.size(12).make().pOnly(bottom: 16)
-            : 0.heightBox,
+          () => controller.isSearchMode.isTrue ? 'Result: ${controller.videos.length} Videos'.text.size(12).make().pOnly(bottom: 16) : 0.heightBox,
         ),
         Obx(
           () => controller.videos.isEmpty
@@ -74,7 +72,7 @@ class PageSearchView extends GetView<PageSearchController> {
             crossAlignment: CrossAxisAlignment.start,
             alignment: MainAxisAlignment.start,
             [
-              ExThumbnailV(
+              ExThumbnail(
                 imageUrl: video.fanArt,
                 videoPath: video.videoPath,
                 width: 200,
@@ -92,7 +90,7 @@ class PageSearchView extends GetView<PageSearchController> {
                   ],
                   if (video.series != '') ...[
                     Icon(CupertinoIcons.circle, size: 12, color: Vx.purple300).pOnly(right: 4),
-                    '${video.series}'.text.size(11).purple300.ellipsis.minFontSize(11).make().pOnly(right: 12).expand(),
+                    '${video.series}'.text.size(11).purple300.maxLines(1).ellipsis.minFontSize(11).make().pOnly(right: 12).expand(),
                   ],
                 ]).pOnly(bottom: 8),
               ]).pOnly(right: 12).expand(),
@@ -104,30 +102,38 @@ class PageSearchView extends GetView<PageSearchController> {
   }
 
   Widget modeWrapView() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 12,
-      children: [
-        for (int i = 0; i < controller.videos.length; i++) ...[
-          Container(
+    return GridView.builder(
+      padding: EdgeInsets.all(8),
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 120,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 8,
+        childAspectRatio: 120 / 200,
+      ),
+      itemCount: controller.videos.length,
+      itemBuilder: (context, i) {
+        final item = controller.videos[i];
+        return RepaintBoundary(
+          child: Container(
             color: AppColor.container,
             child: ZStack([
-              ExThumbnailV(
-                imageUrl: controller.videos[i].poster,
-                videoPath: controller.videos[i].videoPath,
+              ExThumbnail(
+                imageUrl: item.fanArt,
+                videoPath: item.videoPath,
                 width: 120,
                 height: 200,
+                prefix: 2.5,
               ).wh(120, 200),
               Container(
                 color: Vx.black.withAlpha(150),
                 width: 120,
                 height: 20,
-                child: '${controller.videos[i].videoCode == '' ? controller.videos[i].title?.maxChars(10) : controller.videos[i].videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
+                child: '${item.videoCode == '' ? item.title?.maxChars(10) : item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
               ).positioned(bottom: 0),
             ]),
-          ).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(controller.videos[i])),
-        ],
-      ],
-    ).scrollVertical();
+          ).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(item)),
+        );
+      },
+    );
   }
 }

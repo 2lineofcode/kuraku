@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
+import 'package:kana_kit/kana_kit.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../../env.g.dart';
@@ -74,7 +75,7 @@ class PageExploreView extends GetView<PageExploreController> {
                                     if (controller.filterTypeSelected.value == kActress) ...[
                                       ClipRRect(
                                         borderRadius: BorderRadius.circular(90),
-                                        child: ExThumbnailV(
+                                        child: ExThumbnail(
                                           imageUrl: '${Env.actressAvatarBaseUrl}/${item.imgUrl}',
                                           width: 48,
                                           height: 48,
@@ -147,7 +148,7 @@ class PageExploreView extends GetView<PageExploreController> {
             if (controller.oListSelected.value.imgUrl != null) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(90),
-                child: ExThumbnailV(
+                child: ExThumbnail(
                   imageUrl: '${Env.actressAvatarBaseUrl}/${controller.oListSelected.value.imgUrl}',
                   width: 32,
                   height: 32,
@@ -168,7 +169,9 @@ class PageExploreView extends GetView<PageExploreController> {
               FutureBuilder(
                 future: HelperMisc.decensor(controller.oListSelected.value.name!.trim()),
                 builder: (context, snapshot) {
-                  return snapshot.hasData ? '${snapshot.data}'.text.bold.size(12).ellipsis.make().pOnly(top: 6, bottom: 4) : 0.heightBox;
+                  return snapshot.hasData 
+                  ? '${KanaKit().isKana(snapshot.data ?? '') ? KanaKit().toRomaji(snapshot.data ?? '') : snapshot.data}'.text.bold.size(12).ellipsis.make().pOnly(top: 6, bottom: 4) 
+                  : 0.heightBox;
                 },
               ),
               Obx(
@@ -207,57 +210,74 @@ class PageExploreView extends GetView<PageExploreController> {
   }
 
   Widget vListLocal() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 12,
-      children: [
-        for (int i = 0; i < controller.vList.length; i++) ...[
-          Container(
+    return GridView.builder(
+      padding: EdgeInsets.all(8),
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 140,
+        mainAxisExtent: 200,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 8,
+        childAspectRatio: 140 / 200,
+      ),
+      itemCount: controller.vList.length,
+      itemBuilder: (context, i) {
+        final item = controller.vList[i];
+        return RepaintBoundary(
+          child: Container(
             color: AppColor.container,
             child: ZStack([
-              ExThumbnailV(
-                imageUrl: controller.vList[i].poster,
-                videoPath: controller.vList[i].videoPath,
+              ExThumbnail(
+                imageUrl: item.fanArt,
+                videoPath: item.videoPath,
                 width: 140,
                 height: 200,
+                prefix: 2.15,
               ).wh(140, 200),
               Container(
                 color: Vx.black.withAlpha(150),
                 width: 140,
                 height: 20,
-                child: '${controller.vList[i].videoCode == '' ? controller.vList[i].title?.maxChars(10) : controller.vList[i].videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
+                child: '${item.videoCode == '' ? item.title?.maxChars(10) : item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
               ).positioned(bottom: 0),
             ]),
-          ).cornerRadius(8).onInkTap(() => controller.onVListTap(controller.vList[i])),
-        ]
-      ],
-    ).scrollVertical();
+          ).cornerRadius(8).onInkTap(() => controller.onVListTap(item)),
+        );
+      },
+    );
   }
 
   Widget vListR18() {
-    return ListView.builder(
+    return GridView.builder(
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 300,
+        mainAxisExtent: 200,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 300 / 200,
+      ),
       itemCount: controller.r18ListVideo.length,
       itemBuilder: (context, i) {
+        final item = controller.r18ListVideo[i];
         return ZStack([
-          ExThumbnailV(
-            imageUrl: controller.r18ListVideo[i]['fan_art'] ?? '',
-            width: 270,
+          ExThumbnail(
+            imageUrl: item['fan_art'] ?? '',
+            width: 300,
             height: 200,
-          ).wh(270, 200).cornerRadius(8),
+          ).wh(300, 200).cornerRadius(8),
           Container(
             color: Vx.black.withAlpha(150),
-            width: 270,
+            width: 300,
             height: 20,
-            child: '${controller.r18ListVideo[i]['video_code']}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
+            child: '${item['video_code']}'.text.bold.ellipsis.make().pOnly(left: 8),
           ).positioned(bottom: 0),
           Container(
             color: Vx.black.withAlpha(150),
             width: 70,
             height: 18,
-            child: '${controller.r18ListVideo[i]['release_date']}'.text.size(9).minFontSize(9).align(TextAlign.center).ellipsis.makeCentered(),
+            child: '${item['release_date']}'.text.size(9).minFontSize(9).align(TextAlign.center).ellipsis.makeCentered(),
           ).positioned(right: 0),
         ]).onInkTap(() async {
-          await launchUrlString('https://njavtv.com/en/${controller.r18ListVideo[i]['video_code']}');
+          await launchUrlString('https://njavtv.com/en/${item['video_code']}');
         }).pOnly(bottom: 12);
       },
     );

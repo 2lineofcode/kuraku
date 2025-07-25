@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:uuid/v4.dart';
 
+import '../../../core/app_logging.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
@@ -40,7 +41,7 @@ class PageExploreController extends GetxController {
   @override
   Future<void> onInit() async {
     super.onInit();
-    logS('page explore ==> onInit called');
+    AppLog.logI('page explore ==> onInit called');
 
     await onFilterByChange(kActress);
     await 10.milliseconds.delay();

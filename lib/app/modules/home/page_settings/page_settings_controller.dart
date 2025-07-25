@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:sqflite/sqlite_api.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+import '../../../core/app_logging.dart';
 import '../../../core/app_setting.dart';
 import '../../../data/database/db_init.dart';
 import '../../../data/database/db_library.dart';
@@ -24,7 +25,7 @@ class PageSettingsController extends GetxController {
   @override
   Future<void> onInit() async {
     super.onInit();
-    logS('page settings ==> onInit called');
+    AppLog.logI('page settings ==> onInit called');
     totalLibrary.value = await DBLibrary.getCount();
     totalVideos.value = await DBVideos.getCount();
     lastRelapse.value = await DBRelapse.getLastRelapse();

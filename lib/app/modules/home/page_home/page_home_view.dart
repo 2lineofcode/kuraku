@@ -48,7 +48,7 @@ class PageHomeView extends GetView<PageHomeController> {
                         final video = controller.listNewRelease[index];
                         return buildLayoutFanArt(video);
                       },
-                    ).wh(double.infinity, 120),
+                    ).wh(double.infinity, 150),
             ),
           ],
         ),
@@ -176,11 +176,11 @@ class PageHomeView extends GetView<PageHomeController> {
     return Container(
       color: AppColor.container,
       child: ZStack([
-        ExThumbnailV(
+        ExThumbnail(
           imageUrl: video.fanArt,
           videoPath: video.videoPath,
           width: 200,
-          height: 120,
+          height: 150,
           fitUrl: BoxFit.cover,
           fitMemory: BoxFit.fitWidth,
         ),
@@ -198,11 +198,13 @@ class PageHomeView extends GetView<PageHomeController> {
     return Container(
       color: AppColor.container,
       child: ZStack([
-        ExThumbnailV(
-          imageUrl: video.poster,
+        ExThumbnail(
+          imageUrl: video.fanArt,
           videoPath: video.videoPath,
           width: 120,
           height: 200,
+          prefix: 2.5,
+          fitUrl: BoxFit.fitWidth,
         ),
         showViewCount ? ' View: ${video.viewCount}'.text.size(10).minFontSize(10).make().wh(63, 17).color(Vx.black.withAlpha(150)).positioned() : 0.heightBox,
         Container(
@@ -222,11 +224,11 @@ class PageHomeView extends GetView<PageHomeController> {
       itemBuilder: (context, index) {
         return Container(
           width: 200,
-          height: 120,
+          height: 150,
           color: AppColor.container,
         ).cornerRadius(8).pOnly(right: 8);
       },
-    ).wh(double.infinity, 120);
+    ).wh(double.infinity, 150);
   }
 
   Widget buildLayoutEmptyPoster() {

@@ -6,6 +6,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
+import '../../core/app_logging.dart';
 import '../../data/database/db_library.dart';
 import '../../data/database/db_videos.dart';
 import '../../data/models/library_entity.dart';
@@ -28,7 +29,7 @@ class HomeController extends GetxController with StateMixin {
   Future<void> onInit() async {
     super.onInit();
     change(200, status: RxStatus.loading());
-    logS('root home ==> onInit called');
+    AppLog.logI('root home ==> onInit called');
 
     footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
     change(200, status: RxStatus.success());

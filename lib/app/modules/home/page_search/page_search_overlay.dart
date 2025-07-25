@@ -1,5 +1,4 @@
 import 'package:ex_kit/ex.dart';
-import 'package:fast_cached_network_image/fast_cached_network_image.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -39,18 +38,14 @@ mixin PageSearchOverlay {
         ),
         child: VStack(
           [
-            Container(
-              width: double.infinity,
+            ExThumbnail(
+              imageUrl: video.fanArt,
+              videoPath: video.videoPath,
+              width: 300,
               height: 200,
-              color: Vx.neutral900,
-              child: ExThumbnailV(
-                imageUrl: video.fanArt,
-                videoPath: video.videoPath,
-                width: double.infinity,
-                height: 200,
-                fitMemory: BoxFit.fitHeight,
-              ).color(AppColor.selected).onInkTap(() => _openScreenshot(video)),
-            ),
+              fitMemory: BoxFit.fitHeight,
+              fitUrl: BoxFit.contain,
+            ).color(AppColor.selected).onInkTap(() => _openScreenshot(video)),
             VStack(
               [
                 '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
@@ -156,10 +151,16 @@ mixin PageSearchOverlay {
                       'Category:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                       Wrap(children: [
                         for (int i = 0; i < video.category!.length; i++) ...[
-                          // FIXME: change use futurebuilder -> decensor text
-                          '${video.category?[i].category}'.text.neutral300.underline.size(11).minFontSize(11).make().onInkTap(() async {
-                            await _onItemCategoryClick(video, i);
-                          }).pOnly(right: 8),
+                          FutureBuilder(
+                            future: HelperMisc.decensor(video.category?[i].category ?? ''),
+                            builder: (context, snapshot) {
+                              return snapshot.hasData
+                                  ? '${snapshot.data}'.text.neutral300.underline.size(11).minFontSize(11).make().onInkTap(() async {
+                                      await _onItemCategoryClick(video, i);
+                                    }).pOnly(right: 8)
+                                  : 0.heightBox;
+                            },
+                          ),
                         ],
                       ]).pOnly(bottom: 16),
                     ],
@@ -167,9 +168,16 @@ mixin PageSearchOverlay {
                     // series
                     if (!video.series.isEmptyOrNull) ...[
                       'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                      '${video.series}'.text.underline.neutral300.size(11).minFontSize(11).make().onInkTap(() async {
-                        await _onItemSeriesClick(video);
-                      }).pOnly(bottom: 16),
+                      FutureBuilder(
+                        future: HelperMisc.decensor(video.series ?? ''),
+                        builder: (context, snapshot) {
+                          return snapshot.hasData
+                              ? '${snapshot.data}'.text.underline.neutral300.size(11).minFontSize(11).make().onInkTap(() async {
+                                  await _onItemSeriesClick(video);
+                                }).pOnly(bottom: 16)
+                              : 0.heightBox;
+                        },
+                      ),
                     ],
 
                     // release date
@@ -262,18 +270,18 @@ mixin PageSearchOverlay {
         child: VStack(
           [
             if (video.screenshot.isEmptyOrNull) ...[
-              ExThumbnailV(
+              ExThumbnail(
                 imageUrl: '',
                 videoPath: video.videoPath,
-                width: Get.width,
+                width: video.screenshot.isEmptyOrNull ? Get.width * 90 / 100 : 400,
                 height: Get.height,
                 fitMemory: BoxFit.fitHeight,
               ),
             ] else ...[
               for (int i = 0; i < video.screenshot!.length; i++) ...[
-                ExThumbnailV(
+                ExThumbnail(
                   imageUrl: '${video.screenshot?[i]}',
-                  width: double.infinity,
+                  width: video.screenshot.isEmptyOrNull ? Get.width * 90 / 100 : 400,
                   height: 300,
                   fitUrl: BoxFit.cover,
                 ).onInkTap(() {
@@ -287,11 +295,11 @@ mixin PageSearchOverlay {
                         Zoom(
                           width: Get.width * 90 / 100,
                           height: Get.height * 90 / 100,
-                          child: FastCachedImage(
-                            url: '${video.screenshot?[i].imgUrl()}',
+                          child: ExThumbnail(
+                            imageUrl: '${video.screenshot?[i]}',
                             width: Get.width * 90 / 100,
                             height: Get.height * 90 / 100,
-                            fit: BoxFit.contain,
+                            fitUrl: BoxFit.contain,
                           ),
                         ),
                         IconButton(

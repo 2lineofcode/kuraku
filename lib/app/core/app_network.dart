@@ -5,6 +5,7 @@ import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart' hide Response;
 
 import '../../env.g.dart';
+import 'app_logging.dart';
 import 'app_setting.dart';
 
 mixin Api {
@@ -12,7 +13,7 @@ mixin Api {
         store: HiveCacheStore(appDirPath),
         policy: CachePolicy.forceCache,
         priority: CachePriority.high,
-        maxStale: 360.days,
+        maxStale: 1825.days,
         hitCacheOnErrorExcept: [401, 404],
         keyBuilder: (request) => request.uri.toString(),
         allowPostMethod: false,
@@ -95,11 +96,11 @@ class LogInterceptor extends Interceptor {
     final isCache = response.extra['cacheHit'] == true || status == 304;
 
     if (isCache) {
-      print('⚡ [$method] $uri >> Loaded from Cache');
+      AppLog.logD('⚡ [$method] $uri >> Loaded from Cache');
     } else {
       final diffInMs = diff;
       final diffInSec = (diff / 1000).toStringAsFixed(2);
-      print('🟢 [$method] $uri | $status | ${diffInSec}s ($diffInMs ms)');
+      AppLog.logD('🟢 [$method] $uri | $status | ${diffInSec}s ($diffInMs ms)');
     }
 
     super.onResponse(response, handler);

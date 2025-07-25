@@ -15,8 +15,8 @@ mixin DBR18 {
         SELECT
             v.content_id as id,                 -- id
             v.dvd_id as video_code,             -- video_code
-            t.target_en as title,               -- title
-            t.source_ja as title_ja,            -- title_ja
+            COALESCE(t.target_en, v.title_en) AS title,
+            v.title_ja,                         -- title_ja
             s.name_en as series,                -- series
             m.name_ja as studio,                -- studio/maker
             l.name_en as label,                 -- label

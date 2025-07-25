@@ -50,6 +50,10 @@ class PageDownloadView extends GetView<PageDownloadController> {
             ]),
             child: Obx(() => '${controller.currentLang}'.text.uppercase.make().pSymmetric(h: 8).color(Vx.violet500).cornerRadius(90)),
           ).pSymmetric(h: 12),
+          IconButton(
+            icon: Icon(CupertinoIcons.cloud_download, size: 18),
+            onPressed: () => controller.openDialogDownload(),
+          ),
           Obx(
             () => IconButton(
               icon: Icon(CupertinoIcons.arrowtriangle_left_circle),
@@ -73,50 +77,68 @@ class PageDownloadView extends GetView<PageDownloadController> {
                 ).expand()
               : modeWrapView().expand(),
         ),
+        Obx(
+          () => controller.downloadStdout.value.isNotEmpty
+              ? HStack([
+                  '${controller.downloadStdout}'.text.size(11).minFontSize(11).make(),
+                  Spacer(),
+                  ExButtonText(
+                    label: 'Cancel / Close',
+                    labelSize: 12,
+                    onPressed: () => controller.killProcessDownload(),
+                  ),
+                ]).pOnly(top: 12)
+              : 0.heightBox,
+        ),
       ],
     );
   }
 
   Widget modeWrapView() {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        for (int i = 0; i < controller.videos.length; i++) ...[
-          Container(
-            color: AppColor.container,
-            child: ZStack([
-              ExThumbnailV(
-                imageUrl: controller.videos[i].fanArt ?? '',
-                width: 244,
-                height: 180,
-                fitUrl: BoxFit.cover,
-                withProxy: false,
-              ).wh(244, 180),
-              Container(
-                color: Vx.black.withAlpha(150),
-                width: 80,
-                height: 20,
-                child: VStack([
-                  '${controller.videos[i].durationFormated}'.text.size(10).minFontSize(10).maxLines(1).ellipsis.make().pSymmetric(h: 8),
-                ]),
-              ).positioned(right: 0),
-              Container(
-                color: Vx.black.withAlpha(150),
-                width: 244,
-                height: 61,
-                child: VStack([
-                  '${controller.videos[i].videoCode}'.text.bold.size(12).ellipsis.make(),
-                  '${controller.videos[i].title}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().tooltip(controller.videos[i].title ?? ''),
-                ]).p8(),
-              ).positioned(bottom: 0),
-            ]),
-          ).cornerRadius(8).onInkTap(() async {
-            // ~
-            await launchUrlString('https://njavtv.com/en/${controller.videos[i].videoCode}');
-          }),
-        ],
-      ],
-    ).scrollVertical();
+    return GridView.builder(
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 300,
+        mainAxisExtent: 200,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 300 / 200,
+      ),
+      itemCount: controller.videos.length,
+      itemBuilder: (context, i) {
+        final item = controller.videos[i];
+        return Container(
+          color: AppColor.container,
+          child: ZStack([
+            ExThumbnail(
+              imageUrl: item.fanArt ?? '',
+              width: 300,
+              height: 200,
+              fitUrl: BoxFit.cover,
+              withProxy: false,
+            ).wh(300, 200),
+            Container(
+              color: Vx.black.withAlpha(150),
+              width: 80,
+              height: 20,
+              child: VStack([
+                '${item.durationFormated}'.text.size(10).minFontSize(10).maxLines(1).ellipsis.make().pSymmetric(h: 8),
+              ]),
+            ).positioned(right: 0),
+            Container(
+              color: Vx.black.withAlpha(150),
+              width: 300,
+              height: 66,
+              child: VStack([
+                '${item.videoCode}'.text.bold.size(12).ellipsis.make(),
+                '${item.title}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().tooltip(item.title ?? ''),
+              ]).p8(),
+            ).positioned(bottom: 0),
+          ]),
+        ).cornerRadius(8).onInkTap(() async {
+          // ~
+          await launchUrlString('https://njavtv.com/en/${item.videoCode}');
+        });
+      },
+    );
   }
 }

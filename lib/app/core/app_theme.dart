@@ -2,6 +2,7 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import 'app_color.dart';
 import 'app_setting.dart';
 import 'const.dart';
 
@@ -14,12 +15,12 @@ mixin AppTheme {
       iconTheme: IconThemeData(color: Colors.white),
       titleTextStyle: TextStyle(color: Colors.white),
     ),
-    dividerColor: Vx.neutral500,
+    dividerColor: AppColor.border,
   );
 
   /// * dark
   static final dark = ThemeData.dark(useMaterial3: true).copyWith(
-    dividerColor: Vx.neutral500,
+    dividerColor: AppColor.border,
   );
 
   /// load theme

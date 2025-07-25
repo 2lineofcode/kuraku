@@ -1,5 +1,4 @@
 import 'package:ex_kit/ex.dart';
-import 'package:fast_cached_network_image/fast_cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -131,13 +130,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
         // @DEBUG
         VStack(
           [
-            ExButtonElevated(
-              label: 'TEST',
-              onPressed: () async {
-                await FastCachedImageConfig.clearAllCachedImages();
-              },
-            ),
-            
+            ''.text.make(),
           ],
         ),
       ],

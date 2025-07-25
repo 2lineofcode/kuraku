@@ -34,7 +34,7 @@ class DBService extends GetxService {
       onConfigure: _onConfigure,
       onCreate: _onCreate,
       onOpen: (db) async {
-        AppLog.log('== Main Database (javit.db) opened (version: ${await db.getVersion()}) ==');
+        AppLog.logD('== Main Database (javit.db) opened (version: ${await db.getVersion()}) ==');
       },
     );
   }
@@ -47,7 +47,7 @@ class DBService extends GetxService {
       version: 20250715,
       onConfigure: _onConfigure,
       onOpen: (db) async {
-        AppLog.log('== R18 Database (r18.db) opened (version: ${await db.getVersion()}) ==');
+        AppLog.logD('== R18 Database (r18.db) opened (version: ${await db.getVersion()}) ==');
       },
     );
   }
@@ -182,7 +182,7 @@ class DBService extends GetxService {
       await dbMain.rawQuery('VACUUM;');
       await HelperToast.success('Database optimized successfully');
     } catch (e) {
-      print('Error vacuuming database: $e');
+      AppLog.logE('Error vacuuming database: $e');
     }
   }
 

@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -12,6 +11,8 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../env.g.dart';
 import '../modules/home/home_controller.dart';
+import '../modules/home/page_download/page_download_controller.dart';
+import 'app_logging.dart';
 import 'const.dart';
 
 /// handy call sharedpref
@@ -24,18 +25,18 @@ class AppSettingService extends GetxService {
   Future<void> onInit() async {
     super.onInit();
     appDir = await getApplicationDocumentsDirectory();
-    await checkAndApplyDefaultAppConfig();
     await setupDesktop();
-    await hotkey();
+    await setupStorage();
+    await setupHotkey();
   }
 
   // ────────────────────────────────────────────────────────────────
   // ⵌ checkAndApplyDefaultAppConfig
   // ────────────────────────────────────────────────────────────────
-  Future<void> checkAndApplyDefaultAppConfig() async {
+  Future<void> setupStorage() async {
     await pref.writeIfNull(kIsDarkMode, true);
     await pref.writeIfNull(kCurrentLanguage, 'en');
-    logI('-- CONFIG LOADED --');
+    AppLog.logI('-- CONFIG LOADED --');
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -64,42 +65,85 @@ class AppSettingService extends GetxService {
   // ────────────────────────────────────────────────────────────────
   // ⵌ hotkey
   // ────────────────────────────────────────────────────────────────
-  Future<void> hotkey() async {
+  Future<void> setupHotkey() async {
     HotKey _hotKeyEsc = HotKey(key: PhysicalKeyboardKey.escape, modifiers: [], scope: HotKeyScope.inapp);
-    HotKey _hotKeyArrowLeft = HotKey(key: PhysicalKeyboardKey.arrowLeft, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
-    HotKey _hotKeyS = HotKey(key: PhysicalKeyboardKey.keyS, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
-    HotKey _hotKeyE = HotKey(key: PhysicalKeyboardKey.keyE, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKeyX = HotKey(key: PhysicalKeyboardKey.keyX, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyR = HotKey(key: PhysicalKeyboardKey.keyR, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKeyD = HotKey(key: PhysicalKeyboardKey.keyD, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
 
-    await hotKeyManager.register(_hotKeyEsc, keyDownHandler: (hotKey) {
-      try {
-        Get.back();
-        Overlayment.dismissLast();
+    HotKey _hotKey1 = HotKey(key: PhysicalKeyboardKey.digit1, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKey2 = HotKey(key: PhysicalKeyboardKey.digit2, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKey3 = HotKey(key: PhysicalKeyboardKey.digit3, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKey4 = HotKey(key: PhysicalKeyboardKey.digit4, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKey5 = HotKey(key: PhysicalKeyboardKey.digit5, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+
+    HotKey _hotKeyArrowR = HotKey(key: PhysicalKeyboardKey.arrowRight, modifiers: [HotKeyModifier.alt], scope: HotKeyScope.inapp);
+    HotKey _hotKeyArrowL = HotKey(key: PhysicalKeyboardKey.arrowLeft, modifiers: [HotKeyModifier.alt], scope: HotKeyScope.inapp);
+
+
+    await hotKeyManager.register(_hotKeyEsc, keyUpHandler: (hotKey) {
+      AppLog.logD('hotKeyEsc Pressed');
+      try { Get.back(); Overlayment.dismissLast();
       } catch (_) {}
     });
 
-    await hotKeyManager.register(_hotKeyArrowLeft, keyDownHandler: (hotKey) {
-      try {
-        Get.back();
-        Overlayment.dismissLast();
+    await hotKeyManager.register(_hotKeyX, keyUpHandler: (hotKey) {
+      AppLog.logD('hotKeyX Pressed');
+      try { Get.back(); Overlayment.dismissLast();
       } catch (_) {}
     });
 
-    await hotKeyManager.register(_hotKeyS, keyDownHandler: (hotKey) {
-      try {
-        Get.find<HomeController>().onMenuChange(kMenuSearch);
+    await hotKeyManager.register(_hotKeyR, keyUpHandler: (hotKey) {
+      AppLog.logD('hotKeyR Pressed');
+      try { Get.find<HomeController>().onRefreshAllContent();
       } catch (_) {}
     });
 
-    await hotKeyManager.register(_hotKeyE, keyDownHandler: (hotKey) {
-      try {
-        Get.find<HomeController>().onMenuChange(kMenuExplore);
+     await hotKeyManager.register(_hotKeyD, keyUpHandler: (hotKey) {
+      AppLog.logD('hotKeyD Pressed');
+      try { Get.find<PageDownloadController>().openDialogDownload();
       } catch (_) {}
     });
 
-    await hotKeyManager.register(_hotKeyR, keyDownHandler: (hotKey) {
-      try {
-        Get.find<HomeController>().onRefreshAllContent();
+    await hotKeyManager.register(_hotKey1, keyUpHandler: (hotKey) {
+      AppLog.logD('hotKey1 Pressed');
+      try { Get.find<HomeController>().onMenuChange(kMenuHome);
+      } catch (_) {}
+    });
+
+    await hotKeyManager.register(_hotKey2, keyUpHandler: (hotKey) {
+      AppLog.logD('hotKey2 Pressed');
+      try { Get.find<HomeController>().onMenuChange(kMenuSearch);
+      } catch (_) {}
+    });
+
+    await hotKeyManager.register(_hotKey3, keyUpHandler: (hotKey) {
+      AppLog.logD('hotKey3 Pressed');
+      try { Get.find<HomeController>().onMenuChange(kMenuExplore);
+      } catch (_) {}
+    });
+
+    await hotKeyManager.register(_hotKey4, keyUpHandler: (hotKey) {
+      AppLog.logD('hotKey4 Pressed');
+      try { Get.find<HomeController>().onMenuChange(kMenuDownload);
+      } catch (_) {}
+    });
+
+    await hotKeyManager.register(_hotKey5, keyUpHandler: (hotKey) {
+      AppLog.logD('hotKey5 Pressed');
+      try { Get.find<HomeController>().onMenuChange(kMenuSetting);
+      } catch (_) {}
+    });
+
+    await hotKeyManager.register(_hotKeyArrowR, keyUpHandler: (hotKey) {
+      AppLog.logD('hotKeyArrowR Pressed');
+      try { Get.find<PageDownloadController>().onNextPage();
+      } catch (_) {}
+    });
+
+    await hotKeyManager.register(_hotKeyArrowL, keyUpHandler: (hotKey) {
+      AppLog.logD('hotKeyArrowL Pressed');
+      try { Get.find<PageDownloadController>().onPreviousPage();
       } catch (_) {}
     });
   }

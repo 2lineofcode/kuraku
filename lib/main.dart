@@ -43,6 +43,7 @@ class JavIt extends StatelessWidget {
   Widget build(BuildContext context) {
     return ToastificationWrapper(
       child: GetMaterialApp(
+        enableLog: Env.logLvl == 'debug' ? true : false,
         title: Env.appName,
         initialRoute: AppPages.INITIAL,
         theme: ThemeData.dark(),

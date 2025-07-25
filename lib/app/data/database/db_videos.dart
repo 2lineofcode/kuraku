@@ -5,6 +5,8 @@ import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/v4.dart';
 
+import '../../core/app_logging.dart';
+import '../../utils/helper_misc.dart';
 import '../models/videos_entity.dart';
 import 'db_init.dart';
 
@@ -22,6 +24,31 @@ mixin DBVideos {
     videos.id = UuidV4().generate();
     videos.createdAt = DateTime.now().toStringEx();
     videos.updatedAt = DateTime.now().toStringEx();
+
+    // decensored fix `category`
+    if (videos.category != null) {
+      for (int i = 0; i < videos.category!.length; i++) {
+        final dec = await HelperMisc.decensor(videos.category![i].category ?? '');
+        videos.category![i].category = dec;
+      }
+    }
+
+    // decensored fix `series`
+    if (videos.series.isNotEmptyAndNotNull) {
+      final dec = await HelperMisc.decensor(videos.series);
+      videos.series = dec;
+    }
+
+    // actress
+    if (videos.actress != null) {
+      for (int i = 0; i < videos.actress!.length; i++) {
+        if (videos.actress![i].nameRomaji == '') {
+          videos.actress![i].nameRomaji = videos.actress![i].imageUrl;
+        }
+        videos.actress![i].nameRomaji = HelperMisc.formatName(videos.actress![i].nameRomaji ?? '');
+      }
+    }
+
     final isOK = await _validation(videos);
     if (isOK) await _db.insert(_tableName, videos.toJson());
   }
@@ -171,7 +198,7 @@ mixin DBVideos {
             }
           }
         } catch (e) {
-          print('Error parsing category JSON: $e for string: $categoryString');
+          AppLog.logE('Error parsing category JSON: $e for string: $categoryString');
         }
       }
     }
@@ -217,7 +244,7 @@ mixin DBVideos {
             }
           }
         } catch (e) {
-          print('Error parsing actress JSON: $e for string: $actressString');
+          AppLog.logE('Error parsing actress JSON: $e for string: $actressString');
         }
       }
     }

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
 
+import '../../../core/app_logging.dart';
 import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
@@ -24,9 +25,10 @@ class PageSearchController extends GetxController {
   @override
   Future<void> onInit() async {
     super.onInit();
-    logS('page search ==> onInit called');
+    AppLog.logI('page search ==> onInit called');
     viewModeSelected.value = kGrid;
-    videos.value = await DBVideos.getAll(limit: 10);
+    videos.value = await DBVideos.getAll();
+    videos.shuffle();
     phSearch.value = await DBVideos.getRandomVideoCode();
   }
 
