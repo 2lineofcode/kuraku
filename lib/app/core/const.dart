@@ -3,6 +3,8 @@ const kYMd = 'yyyy-MM-dd';
 const kMdY = 'MMM dd, yyyy';
 
 /// storage key
-const kIsDarkMode = 'isDarkMode';
+const kIsDarkMode = 'kIsDarkMode';
 const kCurrentLanguage = 'kCurrentLanguage';
+const kFirstOpenApp = 'kFirstOpenApp';
 const kLastOpenApp = 'kLastOpenApp';
+const kDownloadDir = 'kDownloadDir';

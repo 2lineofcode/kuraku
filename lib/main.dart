@@ -1,7 +1,7 @@
+import 'package:ex_kit/ex.dart';
 import 'package:fast_cached_network_image/fast_cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:toastification/toastification.dart';
 
@@ -14,22 +14,19 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await hotKeyManager.unregisterAll();
 
-  await FastCachedImageConfig.init(clearCacheAfter: 365.days);
-
-  // local storage
-  await GetStorage.init(Env.appName);
+  await FastCachedImageConfig.init(clearCacheAfter: 365.days, subDir: Env.appName);
 
   /// makesure `AppSettingService` already initialized
   await Get.putAsync(() async {
     final service = AppSettingService();
-    await service.onInit();
+    await service.onReady();
     return service;
   }, permanent: true);
 
   // makesure `DBService` already initialized
   await Get.putAsync(() async {
     final service = DBService();
-    await service.onInit();
+    await service.onReady();
     return service;
   }, permanent: true);
 

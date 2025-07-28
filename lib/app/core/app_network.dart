@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:dio_cache_interceptor_hive_store/dio_cache_interceptor_hive_store.dart';
+import 'package:dio_smart_retry/dio_smart_retry.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart' hide Response;
 
@@ -22,14 +23,23 @@ mixin Api {
   static final _dio = Dio(
     BaseOptions(baseUrl: Env.apiUrl, connectTimeout: 30.seconds, receiveTimeout: 30.seconds),
   )..interceptors.addAll([
-      DioCacheInterceptor(options: _defaultCacheOption(Get.find<AppSettingService>().appDir.path)),
+      DioCacheInterceptor(options: _defaultCacheOption(Get.find<AppSettingService>().appPath)),
       LogInterceptor(),
     ]);
 
   static Future<Response> get(String url, {Map<String, dynamic>? queryParameters, bool noCache = false}) async {
     final appSettingService = Get.find<AppSettingService>();
-    final cacheOptions = _defaultCacheOption(appSettingService.appDir.path).copyWith(
+    final cacheOptions = _defaultCacheOption(appSettingService.appPath).copyWith(
       policy: noCache ? CachePolicy.noCache : CachePolicy.forceCache,
+    );
+
+    _dio.interceptors.add(
+      RetryInterceptor(
+        dio: _dio,
+        logPrint: AppLog.logD,
+        retries: 3,
+        retryDelays: [1.seconds, 3.seconds, 5.seconds],
+      ),
     );
 
     return await _dio.get(
@@ -37,7 +47,6 @@ mixin Api {
       queryParameters: queryParameters,
       options: cacheOptions.toOptions(),
       cancelToken: CancelToken(),
-      onReceiveProgress: (count, total) {},
     );
   }
 
@@ -96,7 +105,7 @@ class LogInterceptor extends Interceptor {
     final isCache = response.extra['cacheHit'] == true || status == 304;
 
     if (isCache) {
-      AppLog.logD('⚡ [$method] $uri >> Loaded from Cache');
+      AppLog.logD('⚡ [$method] $uri | $status >> Loaded from Cache');
     } else {
       final diffInMs = diff;
       final diffInSec = (diff / 1000).toStringAsFixed(2);

@@ -9,7 +9,7 @@ environment:
 dependencies:
   # core
   get: ^4.7.2
-  get_storage: ^2.1.1
+  get_secure_storage: ^1.0.5
   path: ^1.9.1
   path_provider: ^2.1.5
   sqflite: ^2.4.2
@@ -64,6 +64,7 @@ flutter:
   assets:
   - assets/psql2sqlite.py
   - assets/decensor.csv
+  - assets/dl
 
 get_cli:
   sub_folder: false

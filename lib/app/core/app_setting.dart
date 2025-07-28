@@ -1,11 +1,13 @@
 import 'dart:io';
 
+import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
+import 'package:get_secure_storage/get_secure_storage.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:overlayment/overlayment.dart';
+import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -15,28 +17,37 @@ import '../modules/home/page_download/page_download_controller.dart';
 import 'app_logging.dart';
 import 'const.dart';
 
-/// handy call sharedpref
-final pref = GetStorage(Env.appName);
 
 class AppSettingService extends GetxService {
-  late Directory appDir;
+  late String appPath;
+  late GetSecureStorage pref;
 
   @override
-  Future<void> onInit() async {
-    super.onInit();
-    appDir = await getApplicationDocumentsDirectory();
+  Future<void> onReady() async {
+    super.onReady();
+    await getApplicationDocumentsDirectory().then((s) {
+      appPath = join(s.path, Env.appName);
+      pref = GetSecureStorage(container: Env.appName, password: Env.appName, path: appPath);
+    });
+
+
     await setupDesktop();
     await setupStorage();
+    await setupExternalFiles();
     await setupHotkey();
   }
 
   // ────────────────────────────────────────────────────────────────
   // ⵌ checkAndApplyDefaultAppConfig
   // ────────────────────────────────────────────────────────────────
-  Future<void> setupStorage() async {
+  Future<void> setupStorage() async {    
     await pref.writeIfNull(kIsDarkMode, true);
     await pref.writeIfNull(kCurrentLanguage, 'en');
-    AppLog.logI('-- CONFIG LOADED --');
+    await pref.writeIfNull(kFirstOpenApp, DateTime.now().toStringEx());
+    await pref.writeIfNull(kLastOpenApp, DateTime.now().toStringEx());
+    await pref.writeIfNull(kDownloadDir, '');
+    
+    await pref.write(kLastOpenApp, DateTime.now().toStringEx());
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -61,6 +72,29 @@ class AppSettingService extends GetxService {
       await windowManager.focus();
     });
   }
+
+  //
+  Future<void> setupExternalFiles() async {
+    final assetFiles = ['psql2sqlite.py', 'dl'];
+
+    for (final fileName in assetFiles) {
+      final filePath = '$appPath/$fileName';
+      final file = File(filePath);
+
+      if (await file.exists()) continue;
+
+      try {
+        final byteData = await rootBundle.load('assets/$fileName');
+        final bytes = byteData.buffer.asUint8List(
+          byteData.offsetInBytes,
+          byteData.lengthInBytes,
+        );
+
+        await file.writeAsBytes(bytes);
+      } catch (_) {}
+    }
+  }
+
 
   // ────────────────────────────────────────────────────────────────
   // ⵌ hotkey
@@ -99,7 +133,7 @@ class AppSettingService extends GetxService {
       } catch (_) {}
     });
 
-     await hotKeyManager.register(_hotKeyD, keyUpHandler: (hotKey) {
+    await hotKeyManager.register(_hotKeyD, keyUpHandler: (hotKey) {
       AppLog.logD('hotKeyD Pressed');
       try { Get.find<PageDownloadController>().openDialogDownload();
       } catch (_) {}

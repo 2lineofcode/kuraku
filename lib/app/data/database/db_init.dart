@@ -18,9 +18,9 @@ class DBService extends GetxService {
   late String appPath;
 
   @override
-  Future<void> onInit() async {
-    super.onInit();
-    appPath = Get.find<AppSettingService>().appDir.path;
+  Future<void> onReady() async {
+    super.onReady();
+    appPath = Get.find<AppSettingService>().appPath;
     dbMain = await _initializeDatabase();
     dbR18 = await _initializeR18Database();
   }
@@ -31,6 +31,7 @@ class DBService extends GetxService {
     return await openDatabase(
       path,
       version: 1,
+      singleInstance: true,
       onConfigure: _onConfigure,
       onCreate: _onCreate,
       onOpen: (db) async {
@@ -41,15 +42,22 @@ class DBService extends GetxService {
 
   Future<Database> _initializeR18Database() async {
     var path = join(appPath, 'r18.db');
-    await Directory(appPath).create(recursive: true);
-    return await openDatabase(
-      path,
-      version: 20250715,
-      onConfigure: _onConfigure,
-      onOpen: (db) async {
-        AppLog.logD('== R18 Database (r18.db) opened (version: ${await db.getVersion()}) ==');
-      },
-    );
+
+    // check is file exist?
+    final file = File(path);
+    if (await file.exists()) {
+      await Directory(appPath).create(recursive: true);
+      return await openDatabase(
+        path,
+        onConfigure: _onConfigure,
+        singleInstance: true,
+        onOpen: (db) async {
+          AppLog.logD('== R18 Database (r18.db) opened (version: ${await db.getVersion()}) ==');
+        },
+      );
+    } else {
+      return await _initializeDatabase();
+    }
   }
 
   void _onConfigure(Database db) async {

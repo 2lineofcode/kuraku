@@ -115,9 +115,9 @@ mixin DBVideos {
     return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
   }
 
-  static Future<List<Videos>> getByCode(String code) async {
+  static Future<Videos> getByCode(String code) async {
     final maps = await _db.query(_tableName, where: 'video_code = ?', whereArgs: [code]);
-    return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
+    return Videos.fromJson(maps.first);
   }
 
   static Future<List<Videos>> search(String s) async {

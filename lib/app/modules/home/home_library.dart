@@ -136,7 +136,7 @@ mixin HomeLibrary {
             controller: tfRootPath,
             placeholder: '<Select Path>',
             placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
-            prefix: Icon(CupertinoIcons.folder, size: 16).pOnly(left: 8),
+            prefix: Icon(CupertinoIcons.folder, size: 13).pOnly(left: 8),
             style: TextStyle(fontSize: 13, color: Vx.neutral500),
             onTap: () async {
               if (isClicked.value) return;

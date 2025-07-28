@@ -24,6 +24,8 @@ class ApiJavit {
   }
 
   Future<JavitSearch> search({required String s, String provider = kProviderNJav, String lang = 'en', int page = 1}) async {
+    if (page <= 1) page = 1;
+
     if (lang == '') lang = 'en';
     try {
       final res = await Api.get('/api/$provider/search?q=$s&lang=$lang&page=$page', noCache: true);
@@ -32,7 +34,6 @@ class ApiJavit {
       throw ApiException(e.toString());
     }
   }
-
   Future<Map<String, dynamic>> ranking({String provider = kProviderNJav}) async {
     try {
       final res = await Api.get('/api/$provider/star_rank', noCache: true);

@@ -1,16 +1,54 @@
-import 'package:get/get.dart';
+import 'dart:io';
 
+import 'package:ex_kit/ex.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:get/get.dart';
+import 'package:path/path.dart';
+import 'package:url_launcher/url_launcher_string.dart';
+
+import '../../core/app_setting.dart';
 import 'db_init.dart';
 
 mixin DBR18 {
   static final _db = Get.find<DBService>().dbR18;
 
+  static Future<bool> _validation() async {
+    var path = join(Get.find<AppSettingService>().appPath, 'r18.db');
+    final file = File(path);
+    if (await file.exists()) {
+      return true;
+    } else {
+      ExAlert.adaptive(
+        title: Text('Ups'),
+        content: Text('(r18.db) not found, please download and put to app folder'),
+        actions: [
+          CupertinoDialogAction(
+            child: Text('Download', style: TextStyle(color: Vx.red500, fontSize: 13)),
+            onPressed: () async {
+              await launchUrlString('https://r18.dev/dumps');
+              Get.back();
+            },
+          ),
+        ],
+      );
+      return false;
+    }
+  }
+
+
   static Future<int> getCountAllVideos() async {
+    if (await _validation() == false) {
+      return 0;
+    }
     final List<Map<String, dynamic>> maps = await _db.rawQuery('SELECT count(*) as total FROM derived_video');
     return maps[0]['total'] as int;
   }
 
   static Future<Map<String, dynamic>?> getVideo(String code) async {
+     if (await _validation() == false) {
+      return null;
+    }
+
     final maps = await _db.rawQuery('''
         SELECT
             v.content_id as id,                 -- id
@@ -39,7 +77,6 @@ mixin DBR18 {
             v.dvd_id = ?
         GROUP BY
             v.dvd_id
-        ;
       ''', [code]);
 
     return maps.isNotEmpty ? maps[0] : null;
@@ -51,7 +88,8 @@ mixin DBR18 {
         FROM derived_video_actress va
         JOIN derived_video v ON v.content_id = va.content_id
         JOIN derived_actress a ON a.id = va.actress_id
-        WHERE v.dvd_id = ?;
+        WHERE 1=1
+          AND v.dvd_id = ?
       ''', [code]);
 
     return maps;
@@ -63,7 +101,9 @@ mixin DBR18 {
         FROM derived_video_category c 
         JOIN derived_video v ON v.content_id = c.content_id
         JOIN derived_category cat ON cat.id = c.category_id
-        WHERE v.dvd_id = ? AND cat.name_en NOT NULL;
+        WHERE 1=1
+          AND v.dvd_id = ? 
+          AND cat.name_en NOT NULL
       ''', [code]);
 
     return maps;
@@ -75,7 +115,8 @@ mixin DBR18 {
         FROM derived_video_director vd
         JOIN derived_video v ON v.content_id = vd.content_id
         JOIN derived_director d ON d.id = vd.director_id
-        WHERE v.dvd_id = ?;
+        WHERE 1=1
+          AND v.dvd_id = ?
       ''', [code]);
 
     return maps.isNotEmpty ? maps[0] : null;
@@ -88,12 +129,12 @@ mixin DBR18 {
     final maps = await _db.rawQuery('''
       SELECT count(*) as total 
       FROM derived_video_actress 
-      WHERE actress_id = '$actressId';
+      WHERE 1=1
+        AND actress_id = '$actressId'
     ''');
     return maps[0]['total'] as int;
   }
 
-  // TODO: FIX ME
   static Future<List<Map<String, dynamic>>> getAllVideosByActress(int actressId) async {
     final q1 = await _db.query('derived_video_actress', columns: ['content_id'], where: 'actress_id = ?', whereArgs: [actressId]);
     final listContentId = q1.map((row) => row['content_id'] as String).toList();
@@ -112,7 +153,7 @@ mixin DBR18 {
           derived_video v
       WHERE 1=1
         AND v.dvd_id IS NOT NULL
-        AND v.content_id IN ($inClause);
+        AND v.content_id IN ($inClause)
     ''', listContentId);
     return q2;
   }
@@ -125,7 +166,8 @@ mixin DBR18 {
       SELECT count(*) AS total
       FROM derived_video_category vc 
       JOIN derived_category c ON c.id = vc.category_id
-      WHERE c.name_en = ?;
+      WHERE 1=1
+        AND c.name_en = ?
     ''', [categoryName]);
     return maps[0]['total'] as int;
   }
@@ -142,8 +184,8 @@ mixin DBR18 {
         JOIN derived_video_category vc ON vc.content_id = v.content_id
         JOIN derived_category c ON c.id = vc.category_id
         WHERE 1=1
+          AND c.name_en = ?
           AND v.dvd_id IS NOT NULL
-          AND c.name_en = ?;
       ''', [categoryName]);
     return maps;
   }
@@ -156,7 +198,9 @@ mixin DBR18 {
       SELECT count(*) AS total
       FROM derived_video v
       JOIN derived_label l ON l.id = v.label_id
-      WHERE l.name_en = ?;
+      WHERE 1=1
+        AND l.name_en = ?
+        AND v.dvd_id IS NOT NULL
     ''', [labelName]);
     return maps[0]['total'] as int;
   }
@@ -172,8 +216,8 @@ mixin DBR18 {
         FROM derived_video v
         JOIN derived_label l ON l.id = v.label_id
         WHERE 1=1
+          AND l.name_en = ?
           AND v.dvd_id IS NOT NULL
-          AND l.name_en = ?;
       ''', [labelName]);
     return maps;
   }
@@ -186,7 +230,9 @@ mixin DBR18 {
       SELECT count(*) AS total
       FROM derived_video v
       JOIN derived_series s ON s.id = v.series_id
-      WHERE s.name_en LIKE ?;
+      WHERE 1=1
+        AND s.name_en LIKE ?
+        AND v.dvd_id IS NOT NULL
     ''', [series]);
     return maps[0]['total'] as int;
   }
@@ -203,8 +249,10 @@ mixin DBR18 {
         FROM derived_video v
         JOIN derived_series s ON s.id = v.series_id
         WHERE 1=1
+          AND s.name_en = ?
           AND v.dvd_id IS NOT NULL
-          AND s.name_en = ?;
+        GROUP BY
+          v.dvd_id
       ''', [series]);
     return maps;
   }
@@ -217,7 +265,9 @@ mixin DBR18 {
       SELECT count(*) AS total
       FROM derived_video v
       JOIN derived_maker m ON m.id = v.maker_id
-      WHERE m.name_en = ? OR m.name_ja = ?;
+      WHERE 1=1
+        AND m.name_en = ? OR m.name_ja = ?
+        AND v.dvd_id IS NOT NULL
     ''', [studio, studio]);
     return maps[0]['total'] as int;
   }
@@ -233,9 +283,9 @@ mixin DBR18 {
         FROM derived_video v
         JOIN derived_maker m ON m.id = v.maker_id
         WHERE 1=1
+          AND m.name_en = ? OR m.name_ja = ?
           AND v.dvd_id IS NOT NULL
-          AND m.name_en = ?;
-      ''', [studio]);
+      ''', [studio, studio]);
     return maps;
   }
 
@@ -247,7 +297,9 @@ mixin DBR18 {
       SELECT count(*) AS total
       FROM derived_video_director vd
       JOIN derived_director d ON d.id = vd.director_id
-      WHERE d.name_romaji = ? OR d.name_kana = ?;
+      WHERE 1=1
+        AND d.name_romaji = ? OR d.name_kana = ?
+        AND v.dvd_id IS NOT NULL
     ''', [director, director]);
     return maps[0]['total'] as int;
   }
@@ -264,8 +316,8 @@ mixin DBR18 {
         JOIN derived_video_director vd ON vd.content_id = v.content_id
         JOIN derived_director d ON d.id = vd.director_id
         WHERE 1=1
+          AND d.name_romaji = ? OR d.name_kana = ?
           AND v.dvd_id IS NOT NULL
-          AND d.name_romaji = ? OR d.name_kana = ?;
       ''', [director, director]);
     return maps;
   }
@@ -277,7 +329,9 @@ mixin DBR18 {
     final maps = await _db.rawQuery('''
       SELECT count(*) AS total
       FROM derived_video v 
-      WHERE v.release_date LIKE ?
+      WHERE 1=1
+      AND v.release_date LIKE ?
+      AND v.dvd_id IS NOT NULL
     ''', ['$year%']);
     return maps[0]['total'] as int;
   }
@@ -292,8 +346,8 @@ mixin DBR18 {
           v.jacket_thumb_url AS poster
         FROM derived_video v
         WHERE 1=1
-          AND v.dvd_id IS NOT NULL
           AND v.release_date LIKE ?
+          AND v.dvd_id IS NOT NULL
       ''', ['$year%']);
     return maps;
   }

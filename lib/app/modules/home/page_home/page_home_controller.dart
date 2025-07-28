@@ -12,6 +12,7 @@ class PageHomeController extends GetxController {
   final listNewRelease = <Videos>[].obs;
   final listTop10Watch = <Videos>[].obs;
   final listFavorite = <Videos>[].obs;
+  final listNewAdded = <Videos>[].obs;
   final listRandom = <Videos>[].obs;
   final listPlaylistHeader = <PlaylistHeader>[].obs;
   final totalVideo = 0.obs;
@@ -23,6 +24,7 @@ class PageHomeController extends GetxController {
     await getListNewRelease();
     await getListTop10Watch();
     await getListFavorite();
+    await getListNewAdded();
     await getListRandom();
     await getListPlaylistHeader();
 
@@ -48,6 +50,13 @@ class PageHomeController extends GetxController {
     listFavorite.value = await DBVideos.getAll(where: 'is_favorite = ?', whereArgs: [1]);
     listFavorite.sort((a, b) => b.createdAt!.compareTo(a.createdAt!));
     listFavorite.value = listFavorite.take(10).toList();
+  }
+
+  Future<void> getListNewAdded() async {
+    listNewAdded.clear();
+    listNewAdded.value = await DBVideos.getAll();
+    listNewAdded.sort((a, b) => b.updatedAt!.compareTo(a.updatedAt!));
+    listNewAdded.value = listNewAdded.take(10).toList();
   }
 
   Future<void> getListRandom() async {

@@ -1,9 +1,11 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:process_run/process_run.dart' as cmd;
 
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
+import '../../../core/app_setting.dart';
 import '../../../data/database/db_init.dart';
 import '../../../utils/helper_opener.dart';
 import 'page_settings_controller.dart';
@@ -62,14 +64,13 @@ class PageSettingsView extends GetView<PageSettingsController> {
                     decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 2),
                     child: VStack([
                       HStack([
-                        'R18 Version'.text.size(11).minFontSize(11).neutral400.make(),
-                        Spacer(),
-                        '(${controller.r18Version})'.text.size(11).minFontSize(11).bold.make(),
-                      ]).pOnly(bottom: 8),
-                      HStack([
                         'R18 Total Video'.text.size(11).minFontSize(11).neutral400.make(),
                         Spacer(),
                         '${controller.r18TotalVideo}'.text.size(11).minFontSize(11).bold.make(),
+                      ]).pOnly(bottom: 8),
+                      HStack([
+                        Spacer(),
+                        'Check Update'.text.size(11).minFontSize(11).underline.blue500.make().onInkTap(() => controller.updateR18DB()),
                       ]),
                     ]).p8(),
                   ),
@@ -91,7 +92,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                         label: 'Go App Folder',
                         labelSize: 12,
                         height: 38,
-                        onPressed: () => HelperOpener.openFolder(controller.appSetting.appDir.path),
+                        onPressed: () => HelperOpener.openFolder(controller.appSetting.appPath),
                       ).pOnly(bottom: 8),
                       ExButtonText(
                         label: '🔄 Relapse',
@@ -130,7 +131,38 @@ class PageSettingsView extends GetView<PageSettingsController> {
         // @DEBUG
         VStack(
           [
-            ''.text.make(),
+            ExButtonText(
+                label: 'Clear',
+                onPressed: () => controller.output.value = '',
+            ),
+
+            ExButtonText(
+              label: 'Go ~',
+              onPressed: () async {
+                try {
+                  await cmd.run('chmod +x "${Get.find<AppSettingService>().appPath}/dl"');
+                } catch (e) {
+                  print('Failed to chmod: $e');
+                }
+
+                try {
+                  await cmd.run(
+                    '${Get.find<AppSettingService>().appPath}/dl list',
+                    verbose: false,
+                    onProcess: (process) {
+                      process.outLines.listen((s) {
+                        print(s);
+                        controller.output.value += s;
+                      });
+                    },
+                  );
+                } catch (e) {
+                  // await HelperToast.error('e -> $e');
+                  controller.output.value = e.toString();
+                }
+              },
+            ),
+            Obx(() => '${controller.output}'.text.make()),
           ],
         ),
       ],

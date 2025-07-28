@@ -31,7 +31,7 @@ class PageHomeView extends GetView<PageHomeController> {
         VStack(
           [
             HStack([
-              'New Release'.text.size(12).make(),
+              '🎉 New Release'.text.size(12).make(),
               Spacer(),
               IconButton(
                 icon: Icon(CupertinoIcons.refresh, size: 16),
@@ -57,7 +57,7 @@ class PageHomeView extends GetView<PageHomeController> {
         VStack(
           [
             HStack([
-              'Video Maybe you like'.text.size(12).make(),
+              '👍🏻 Video Maybe you like'.text.size(12).make(),
               Spacer(),
               IconButton(
                 icon: Icon(CupertinoIcons.refresh, size: 16),
@@ -83,7 +83,7 @@ class PageHomeView extends GetView<PageHomeController> {
         VStack(
           [
             HStack([
-              'Watch again and again'.text.size(12).make(),
+              '👀 Watch again and again'.text.size(12).make(),
               Spacer(),
               IconButton(
                 icon: Icon(CupertinoIcons.refresh, size: 16),
@@ -109,7 +109,7 @@ class PageHomeView extends GetView<PageHomeController> {
         VStack(
           [
             HStack([
-              'Favorite videos'.text.size(12).make(),
+              '⭐ Favorite videos'.text.size(12).make(),
               Spacer(),
               IconButton(
                 icon: Icon(CupertinoIcons.refresh, size: 16),
@@ -124,6 +124,33 @@ class PageHomeView extends GetView<PageHomeController> {
                       scrollDirection: Axis.horizontal,
                       itemBuilder: (context, index) {
                         final video = controller.listFavorite[index];
+                        return buildLayoutPoster(video, showViewCount: false);
+                      },
+                    ).wh(double.infinity, 200),
+            ),
+          ],
+        ),
+
+
+        // new added
+        VStack(
+          [
+            HStack([
+              '🆕 New Added'.text.size(12).make(),
+              Spacer(),
+              IconButton(
+                icon: Icon(CupertinoIcons.refresh, size: 16),
+                onPressed: () => controller.getListNewAdded(),
+              ),
+            ]).pSymmetric(v: 12),
+            Obx(
+              () => controller.listNewAdded.isEmpty
+                  ? buildLayoutEmptyPoster()
+                  : ListView.builder(
+                      itemCount: controller.listNewAdded.length,
+                      scrollDirection: Axis.horizontal,
+                      itemBuilder: (context, index) {
+                        final video = controller.listNewAdded[index];
                         return buildLayoutPoster(video, showViewCount: false);
                       },
                     ).wh(double.infinity, 200),

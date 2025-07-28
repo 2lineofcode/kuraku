@@ -15,8 +15,8 @@ class PageExploreController extends GetxController {
     kActress,
     kCategory,
     kPath,
-    kLabel,
     kSeries,
+    kLabel,
     kStudio,
     kDirector,
     kYear,
@@ -117,8 +117,18 @@ class PageExploreController extends GetxController {
       case kYear: r18ListVideo.value = await DBR18.getAllVideosByYear(oListSelected.value.name ?? ''); break;
     }
 
-    r18ListVideo.value = r18ListVideo.value.take(10000).toList();
+    // sort
+    r18ListVideo.value = r18ListVideo.value.take(100000).toList();
     r18ListVideo.value.sort((a, b) => b['release_date'].compareTo(a['release_date']));
+
+    // check has match video by code
+    r18ListVideo.assignAll(r18ListVideo.map((r18Item) {
+      final Map<String, dynamic> mutableR18Item = Map.from(r18Item);
+      final bool hasMatch = vList.any((vItem) => r18Item['video_code'].toString().contains(vItem.videoCode!));
+      mutableR18Item['match'] = hasMatch;
+      return mutableR18Item;
+    }).toList());
+
     r18ListVideo.refresh();
   }
 

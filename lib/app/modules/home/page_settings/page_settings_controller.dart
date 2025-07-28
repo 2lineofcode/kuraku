@@ -1,7 +1,6 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
-import 'package:sqflite/sqlite_api.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../core/app_logging.dart';
@@ -19,8 +18,9 @@ class PageSettingsController extends GetxController {
   final totalLibrary = 0.obs;
   final totalVideos = 0.obs;
   final lastRelapse = ''.obs;
-  final r18Version = 0.obs;
   final r18TotalVideo = 0.obs;
+
+  final output = ''.obs;
 
   @override
   Future<void> onInit() async {
@@ -29,7 +29,6 @@ class PageSettingsController extends GetxController {
     totalLibrary.value = await DBLibrary.getCount();
     totalVideos.value = await DBVideos.getCount();
     lastRelapse.value = await DBRelapse.getLastRelapse();
-    r18Version.value = await Get.find<DBService>().dbR18.getVersion();
     r18TotalVideo.value = await DBR18.getCountAllVideos();
   }
 

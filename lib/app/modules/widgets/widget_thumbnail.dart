@@ -16,7 +16,7 @@ class ExThumbnailC extends GetxController {
   final Map<String, Uint8List> _thumbnailCache = {};
 
   Future<String> _getThumbnailDirectory() async {
-    final appPath = Get.find<AppSettingService>().appDir.path;
+    final appPath = Get.find<AppSettingService>().appPath;
     final thumbDir = p.join(appPath, 'video_thumbnails');
     await Directory(thumbDir).create(recursive: true);
     return thumbDir;

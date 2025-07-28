@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
 import '../../../utils/helper_misc.dart';
+import '../../../utils/helper_toast.dart';
 import '../../widgets/widget_thumbnail.dart';
+import '../home_controller.dart';
+import '../page_download/page_download_controller.dart';
 import 'page_explore_controller.dart';
 
 class PageExploreView extends GetView<PageExploreController> {
@@ -269,16 +271,32 @@ class PageExploreView extends GetView<PageExploreController> {
             width: 300,
             height: 20,
             child: '${item['video_code']}'.text.bold.ellipsis.make().pOnly(left: 8),
-          ).positioned(bottom: 0),
+          ).onInkTap(() async {
+            HelperMisc.copyToClipboard(item['video_code']);
+            await HelperToast.info('${item['video_code']} Copied to clipboard');
+          }).positioned(bottom: 0),
           Container(
             color: Vx.black.withAlpha(150),
             width: 70,
             height: 18,
             child: '${item['release_date']}'.text.size(9).minFontSize(9).align(TextAlign.center).ellipsis.makeCentered(),
           ).positioned(right: 0),
-        ]).onInkTap(() async {
-          await launchUrlString('https://njavtv.com/en/${item['video_code']}');
-        }).pOnly(bottom: 12);
+
+          Icon(
+            CupertinoIcons.checkmark_seal_fill,
+            size: 24,
+            color: Colors.blueAccent,
+          ).wh(36, 36).color(Vx.black).cornerRadius(90).positioned(right: 8, top: 20).hide(isVisible: item['match'] == true),
+
+        ]).onInkTap(
+          () async {
+            // await launchUrlString('https://njavtv.com/en/${item['video_code']}');
+            Get.find<HomeController>().currentMenuSelected.value = kMenuDownload;
+            Get.find<PageDownloadController>().tecSearch.text = item['video_code'];
+            await Get.find<PageDownloadController>().onSearch(item['video_code']);
+          },
+        ).pOnly(bottom: 12);
+        
       },
     );
   }

@@ -3,7 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_popup/flutter_popup.dart';
 import 'package:get/get.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../core/app_color.dart';
 import '../../widgets/widget_thumbnail.dart';
@@ -48,7 +47,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
                 },
               ),
             ]),
-            child: Obx(() => '${controller.currentLang}'.text.uppercase.make().pSymmetric(h: 8).color(Vx.violet500).cornerRadius(90)),
+            child: Obx(() => '${controller.currentLang}'.text.uppercase.make().pSymmetric(h: 8).color(AppColor.selected).cornerRadius(90)),
           ).pSymmetric(h: 12),
           IconButton(
             icon: Icon(CupertinoIcons.cloud_download, size: 18),
@@ -134,10 +133,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
               ]).p8(),
             ).positioned(bottom: 0),
           ]),
-        ).cornerRadius(8).onInkTap(() async {
-          // ~
-          await launchUrlString('https://njavtv.com/en/${item.videoCode}');
-        });
+        ).cornerRadius(8).onInkTap(() => controller.onItemTap(item));
       },
     );
   }

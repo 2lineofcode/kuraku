@@ -119,7 +119,7 @@ mixin PageSearchOverlay {
                 // metadata
                 Container(
                   width: double.infinity,
-                  constraints: BoxConstraints(minHeight: 100, maxHeight: 268),
+                  constraints: BoxConstraints(minHeight: 100, maxHeight: Get.height * 40 / 100),
                   decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                   child: VStack([
                     HStack([
@@ -243,7 +243,7 @@ mixin PageSearchOverlay {
                       await _onItemVideoPathClick(video);
                     }).tooltip(video.videoPath ?? ''),
                   ]).p12().scrollVertical(),
-                )
+                ),
               ],
             ).pSymmetric(h: 16),
           ],

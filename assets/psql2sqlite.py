@@ -1,3 +1,4 @@
+import glob
 import os
 import sqlite3
 import re
@@ -235,9 +236,13 @@ def convert_sql_to_sqlite_fast(sql_file_path, sqlite_db_path):
             print("🔌 Koneksi SQLite ditutup.")
 
 if __name__ == "__main__":
-    try: os.remove('new_r18_ultrafast.db')
-    except: pass
+    files = glob.glob("r18*.sql")
 
-    input_sql_file = 'r18dotdev_dump_2025-07-15.sql'
-    output_sqlite_db = 'new_r18_ultrafast.db'
+    if len(files) == 0:
+        print("No SQL file found.")
+        exit(1)
+
+    input_sql_file = files[0]
+    now = datetime.datetime.now().strftime("%Y_%m_%d")
+    output_sqlite_db = f'r18.db'
     convert_sql_to_sqlite_fast(input_sql_file, output_sqlite_db)
