@@ -1,6 +1,5 @@
 import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
-import 'package:uuid/v4.dart';
 
 import '../models/history_entity.dart';
 import 'db_init.dart';
@@ -15,7 +14,6 @@ mixin DBHistory {
   }
 
   static Future<void> add(History history) async {
-    history.id = UuidV4().generate();
     history.createdAt = DateTime.now().toStringEx();
     history.updatedAt = DateTime.now().toStringEx();
     final isOK = await _validation(history);
@@ -24,22 +22,24 @@ mixin DBHistory {
 
   static Future<void> update(History history) async {
     await _validation(history);
-    history.updatedAt = DateTime.now().toStringEx();
-    await _db.update(_tableName, history.toJson(), where: 'id = ?', whereArgs: [history.id]);
+    final current = await getByID(history.id ?? '');
+    current.message = history.message;
+    current.updatedAt = DateTime.now().toStringEx();
+    await _db.update(_tableName, current.toJson(), where: 'id = ?', whereArgs: [history.id]);
   }
 
   static Future<void> delete(History history) async {
     await _db.delete(_tableName, where: 'id = ?', whereArgs: [history.id]);
   }
 
-  static Future<List<History>> getAll() async {
-    final List<Map<String, dynamic>> maps = await _db.query(_tableName);
+  static Future<List<History>> getAll({String? where, List<Object?>? whereArgs}) async {
+    final List<Map<String, dynamic>> maps = await _db.query(_tableName, where: where, whereArgs: whereArgs);
     return List.generate(maps.length, (index) => History.fromJson(maps[index]));
   }
 
-  static Future<List<History>> getByID(String id) async {
+  static Future<History> getByID(String id) async {
     final List<Map<String, dynamic>> maps = await _db.query(_tableName, where: 'id = ?', whereArgs: [id]);
-    return List.generate(maps.length, (index) => History.fromJson(maps[index]));
+    return List.generate(maps.length, (index) => History.fromJson(maps[index]))[0];
   }
 
   static Future<int> getCount() async {
@@ -47,5 +47,5 @@ mixin DBHistory {
     return maps.length;
   }
 
-  static Future<void> deleteAll() async => await _db.delete(_tableName);
+  static Future<void> deleteAll({String? where, List<Object?>? whereArgs}) async => await _db.delete(_tableName, where: where, whereArgs: whereArgs);
 }

@@ -260,7 +260,7 @@ mixin PageSearchOverlay {
       context: Get.context,
       OverPanel(
         alignment: Alignment.topLeft,
-        width: video.screenshot.isEmptyOrNull ? Get.width * 90 / 100 : 400,
+        width: 400,
         height: double.infinity,
         animation: OverSlideAnimation(
           beginAlignment: Alignment.centerLeft,
@@ -270,18 +270,21 @@ mixin PageSearchOverlay {
         child: VStack(
           [
             if (video.screenshot.isEmptyOrNull) ...[
-              ExThumbnail(
-                imageUrl: '',
-                videoPath: video.videoPath,
-                width: video.screenshot.isEmptyOrNull ? Get.width * 90 / 100 : 400,
-                height: Get.height,
-                fitMemory: BoxFit.fitHeight,
-              ),
+              for (int i = 0; i < 10; i++) ...[
+                ExThumbnail(
+                  imageUrl: '',
+                  videoPath: video.videoPath,
+                  width: 400,
+                  height: 300,
+                  fitMemory: BoxFit.fitHeight,
+                  position: ExRandom.between(10, 120) * i,
+                ),
+              ],
             ] else ...[
               for (int i = 0; i < video.screenshot!.length; i++) ...[
                 ExThumbnail(
                   imageUrl: '${video.screenshot?[i]}',
-                  width: video.screenshot.isEmptyOrNull ? Get.width * 90 / 100 : 400,
+                  width: 400,
                   height: 300,
                   fitUrl: BoxFit.cover,
                 ).onInkTap(() {

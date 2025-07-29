@@ -69,7 +69,7 @@ mixin HomeEditVideoDetail {
                     final item = video.actress?[index];
                     return VStack([
                       ExThumbnail(
-                        imageUrl: '${Env.actressAvatarBaseUrl}/${item?.imageUrl ?? ''}',
+                        imageUrl: '${Env.actressUrl}/${item?.imageUrl ?? ''}',
                         width: 48,
                         height: 48,
                         fitUrl: BoxFit.cover,

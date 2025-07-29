@@ -78,7 +78,7 @@ class PageExploreView extends GetView<PageExploreController> {
                                       ClipRRect(
                                         borderRadius: BorderRadius.circular(90),
                                         child: ExThumbnail(
-                                          imageUrl: '${Env.actressAvatarBaseUrl}/${item.imgUrl}',
+                                          imageUrl: '${Env.actressUrl}/${item.imgUrl}',
                                           width: 48,
                                           height: 48,
                                           fitUrl: BoxFit.cover,
@@ -151,7 +151,7 @@ class PageExploreView extends GetView<PageExploreController> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(90),
                 child: ExThumbnail(
-                  imageUrl: '${Env.actressAvatarBaseUrl}/${controller.oListSelected.value.imgUrl}',
+                  imageUrl: '${Env.actressUrl}/${controller.oListSelected.value.imgUrl}',
                   width: 32,
                   height: 32,
                   fitUrl: BoxFit.cover,
@@ -290,7 +290,6 @@ class PageExploreView extends GetView<PageExploreController> {
 
         ]).onInkTap(
           () async {
-            // await launchUrlString('https://njavtv.com/en/${item['video_code']}');
             Get.find<HomeController>().currentMenuSelected.value = kMenuDownload;
             Get.find<PageDownloadController>().tecSearch.text = item['video_code'];
             await Get.find<PageDownloadController>().onSearch(item['video_code']);

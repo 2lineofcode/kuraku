@@ -299,7 +299,6 @@ mixin DBR18 {
       JOIN derived_director d ON d.id = vd.director_id
       WHERE 1=1
         AND d.name_romaji = ? OR d.name_kana = ?
-        AND v.dvd_id IS NOT NULL
     ''', [director, director]);
     return maps[0]['total'] as int;
   }

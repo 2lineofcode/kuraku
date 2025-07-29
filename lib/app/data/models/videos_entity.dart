@@ -10,8 +10,6 @@ class Videos {
   // custom
   String? rootPath;
   String? videoPath;
-  String? posterPath;
-  String? coverPath;
   num? viewCount;
 
   // required
@@ -42,9 +40,8 @@ class Videos {
   Videos({
     this.rootPath,
     this.videoPath,
-    this.posterPath,
-    this.coverPath,
     this.viewCount,
+
     this.id,
     this.videoCode,
     this.title,
@@ -73,8 +70,7 @@ class Videos {
   Videos.fromJson(Map<String, dynamic> json) {
     rootPath = json['root_path'] ?? '';
     videoPath = json['video_path'] ?? '';
-    posterPath = json['poster_path'] ?? '';
-    coverPath = json['cover_path'] ?? '';
+    viewCount = json['view_count'] ?? 0;
 
     id = json['id'] ?? '';
     videoCode = json['video_code'] ?? '';
@@ -96,7 +92,6 @@ class Videos {
     director = json['director'] ?? '';
     series = json['series'] ?? '';
     screenshot = json['screenshot'] == null || (json['screenshot'] as String).isEmpty ? null : List<String>.from(jsonDecode(json['screenshot']));
-    viewCount = json['view_count'] ?? 0;
     site = json['site'] ?? '';
     isFavorite = json['is_favorite'] ?? 0;
     createdAt = json['created_at'] ?? '';
@@ -107,8 +102,7 @@ class Videos {
     final data = <String, dynamic>{};
     data['root_path'] = rootPath;
     data['video_path'] = videoPath;
-    data['poster_path'] = posterPath;
-    data['cover_path'] = coverPath;
+    data['view_count'] = viewCount;
 
     data['id'] = id;
     data['video_code'] = videoCode;
@@ -146,7 +140,6 @@ class Videos {
       data['screenshot'] = null;
     }
 
-    data['view_count'] = viewCount;
     data['site'] = site;
     data['is_favorite'] = isFavorite;
     data['created_at'] = createdAt ?? DateTime.now().toStringEx();

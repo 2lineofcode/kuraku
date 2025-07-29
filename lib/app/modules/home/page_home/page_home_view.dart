@@ -51,7 +51,7 @@ class PageHomeView extends GetView<PageHomeController> {
                     ).wh(double.infinity, 150),
             ),
           ],
-        ),
+        ).hide(isVisible: controller.listNewRelease.isNotEmpty),
 
         // Random Videos
         VStack(
@@ -65,7 +65,7 @@ class PageHomeView extends GetView<PageHomeController> {
               ),
             ]).pSymmetric(v: 12),
             Obx(
-              () => controller.listNewRelease.isEmpty
+              () => controller.listRandom.isEmpty
                   ? buildLayoutEmptyPoster()
                   : ListView.builder(
                       itemCount: controller.listRandom.length,
@@ -77,7 +77,7 @@ class PageHomeView extends GetView<PageHomeController> {
                     ).wh(double.infinity, 200),
             ),
           ],
-        ),
+        ).hide(isVisible: controller.listRandom.isNotEmpty),
 
         // Top 10: Watch again and again
         VStack(
@@ -103,7 +103,7 @@ class PageHomeView extends GetView<PageHomeController> {
                     ).wh(double.infinity, 200),
             ),
           ],
-        ),
+        ).hide(isVisible: controller.listTop10Watch.isNotEmpty),
 
         // Favorite videos
         VStack(
@@ -129,14 +129,13 @@ class PageHomeView extends GetView<PageHomeController> {
                     ).wh(double.infinity, 200),
             ),
           ],
-        ),
-
+        ).hide(isVisible: controller.listFavorite.isNotEmpty),
 
         // new added
         VStack(
           [
             HStack([
-              '🆕 New Added'.text.size(12).make(),
+              '🆕 Last Added'.text.size(12).make(),
               Spacer(),
               IconButton(
                 icon: Icon(CupertinoIcons.refresh, size: 16),
@@ -156,7 +155,7 @@ class PageHomeView extends GetView<PageHomeController> {
                     ).wh(double.infinity, 200),
             ),
           ],
-        ),
+        ).hide(isVisible: controller.listNewAdded.isNotEmpty),
 
         // playlist ~
         VStack(

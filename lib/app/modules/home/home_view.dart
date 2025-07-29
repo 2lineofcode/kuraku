@@ -63,7 +63,7 @@ class HomeView extends GetView<HomeController> {
         IconButton(
           icon: Icon(CupertinoIcons.refresh, size: 18),
           onPressed: () => controller.onRefreshAllContent(),
-          tooltip: 'Refresh All Content',
+          tooltip: 'Refresh All Content (⌘+R)',
         ),
         IconButton(
           icon: Icon(CupertinoIcons.thermometer, size: 18),

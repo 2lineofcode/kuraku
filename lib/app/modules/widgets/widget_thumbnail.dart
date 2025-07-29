@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ex_kit/ex.dart';
-import 'package:fast_cached_network_image/fast_cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:video_compress/video_compress.dart';
@@ -17,7 +18,7 @@ class ExThumbnailC extends GetxController {
 
   Future<String> _getThumbnailDirectory() async {
     final appPath = Get.find<AppSettingService>().appPath;
-    final thumbDir = p.join(appPath, 'video_thumbnails');
+    final thumbDir = p.join(appPath, 'vid_thumbnail');
     await Directory(thumbDir).create(recursive: true);
     return thumbDir;
   }
@@ -26,15 +27,18 @@ class ExThumbnailC extends GetxController {
     return '${p.basenameWithoutExtension(videoPath)}.jpg';
   }
 
-  Future<Uint8List?> getThumbnail(String videopath) async {
-    if (_thumbnailCache.containsKey(videopath)) return _thumbnailCache[videopath];
+  Future<Uint8List?> getThumbnail(String videopath, {int? position}) async {
+
+    if (_thumbnailCache.containsKey(videopath) && position == null) {
+      return _thumbnailCache[videopath];
+    }
 
     final thumbDir = await _getThumbnailDirectory();
     final thumbFileName = _getThumbnailFileName(videopath);
     final thumbFilePath = p.join(thumbDir, thumbFileName);
     final thumbFile = File(thumbFilePath);
 
-    if (await thumbFile.exists()) {
+    if (await thumbFile.exists() && position == null) {
       try {
         final uint8list = await thumbFile.readAsBytes();
         _thumbnailCache[videopath] = uint8list;
@@ -45,9 +49,9 @@ class ExThumbnailC extends GetxController {
     }
 
     try {
-      final uint8list = await VideoCompress.getByteThumbnail(videopath, quality: 5, position: 10);
+      final uint8list = await VideoCompress.getByteThumbnail(videopath, quality: 5, position: position ?? 10);
 
-      if (uint8list != null) {
+      if (uint8list != null && position == null) {
         _thumbnailCache[videopath] = uint8list;
         try {
           await thumbFile.writeAsBytes(uint8list);
@@ -83,6 +87,7 @@ class ExThumbnail extends GetView<ExThumbnailC> {
   final bool? withProxy;
   final double? prefix;
   final Color? backdropColor;
+  final int? position;
 
   const ExThumbnail({
     super.key,
@@ -96,6 +101,7 @@ class ExThumbnail extends GetView<ExThumbnailC> {
     this.withProxy = true,
     this.prefix = 1,
     this.backdropColor,
+    this.position,
   });
 
   @override
@@ -104,7 +110,7 @@ class ExThumbnail extends GetView<ExThumbnailC> {
 
     if (imageUrl == null || imageUrl == '') {
       return FutureBuilder<Uint8List?>(
-        future: controller.getThumbnail(videoPath ?? ''),
+        future: controller.getThumbnail(videoPath ?? '', position: position),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Icon(
@@ -130,30 +136,39 @@ class ExThumbnail extends GetView<ExThumbnailC> {
         alignment: Alignment.centerRight,
         maxWidth: fastImageRenderWidth,
         maxHeight: height,
-        child: FastCachedImage(
+        child: CachedNetworkImage(
           key: Key(withProxy == true ? '${imageUrl?.imgUrl()}' : '${imageUrl ?? ''}'),
-          url: withProxy == true ? '${imageUrl?.imgUrl()}' : '${imageUrl ?? ''}',
+          imageUrl: withProxy == true ? '${imageUrl?.imgUrl()}' : '${imageUrl ?? ''}',
           fit: fitUrl,
           width: fastImageRenderWidth,
           height: height,
-          showErrorLog: false,
-          isAntiAlias: true,
           fadeInDuration: 300.milliseconds,
-          loadingBuilder: (context, progress) {
-            return progress.isDownloading && progress.totalBytes != null
-                ? Stack(
-                    children: [
-                      Container(
-                        width: width,
-                        height: height,
-                        color: Vx.neutral800,
-                      ).shimmer(primaryColor: Vx.neutral800, secondaryColor: Vx.neutral900),
-                      '${progress.downloadedBytes ~/ 1024} / ${progress.totalBytes! ~/ 1024} kb'.text.xs.align(TextAlign.center).makeCentered(),
-                    ],
-                  )
-                : 0.heightBox.p8();
+          cacheManager: CacheManager(
+            Config(
+              'net_thumbnail',
+              stalePeriod: 365.days,
+              maxNrOfCacheObjects: 999999999,
+              repo: CacheObjectProvider(
+                databaseName: 'net_thumbnail',
+                path: p.join(Get.find<AppSettingService>().appPath, 'net_thumbnail'),
+              ),
+            ),
+          ),
+          progressIndicatorBuilder: (context, url, progress) {
+            return Stack(
+              children: [
+                Container(
+                  width: width,
+                  height: height,
+                  color: Vx.neutral800,
+                ).shimmer(primaryColor: Vx.neutral800, secondaryColor: Vx.neutral900),
+                if (progress.progress != null) ...[
+                  ' ${(progress.progress! * 100).toDoubleStringAsFixed(digit: 0)}%'.text.xs.align(TextAlign.center).makeCentered(),
+                ]
+              ],
+            );
           },
-          errorBuilder: (context, error, stackTrace) {
+          errorWidget: (context, error, stackTrace) {
             return Icon(
               Icons.broken_image,
               size: iconSize,

@@ -1,17 +1,25 @@
+import 'dart:convert';
+
 import 'package:ex_kit/ex.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:overlayment/overlayment.dart';
 import 'package:process_run/process_run.dart' as shell;
 import 'package:process_run/stdio.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:uuid/v4.dart';
 
+import '../../../../env.g.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_setting.dart';
 import '../../../core/const.dart';
 import '../../../data/api/api_javit.dart';
+import '../../../data/database/db_history.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/__javit_search_entity.dart';
+import '../../../data/models/history_entity.dart';
 import '../../../utils/helper_toast.dart';
 import '../home_controller.dart';
 
@@ -32,6 +40,8 @@ class PageDownloadController extends GetxController {
   final downloadStdout = ''.obs;
   final cProcessDownload = Rx<Process?>(null);
   final retryC = 0.obs;
+
+  final appSetting = Get.find<AppSettingService>();
 
   @override
   Future<void> onInit() async {
@@ -54,7 +64,7 @@ class PageDownloadController extends GetxController {
       if (response.value.result == null || response.value.result!.isEmpty) {
         if (retryC.value < 2) {
           retryC.value++;
-          AppLog.logD('retryC.value++; -> ${retryC.value}');
+          AppLog.logD('retryC.value++ -> ${retryC.value}');
           await 1.seconds.delay();
           await onSearch(s);
         }
@@ -91,11 +101,12 @@ class PageDownloadController extends GetxController {
     retryC.value = 0;
     hasNextPage.value = false;
     videos.value = [];
+    currentLang.value = appSetting.pref.read(kDownloadLang) ?? 'en';
     fnSearch.requestFocus();
   }
 
   Future<void> onItemTap(JavitSearchResult item) async {
-    await launchUrlString('https://njavtv.com/${currentLang.value}/${item.videoCode}');
+    await launchUrlString('${Env.njavUrl}/${currentLang.value}/${item.videoCode}');
   }
 
   // ~ Download ────────────────────────────────────────────────────────────────
@@ -104,15 +115,14 @@ class PageDownloadController extends GetxController {
     final tecDir = TextEditingController();
     final fnUrl = FocusNode();
     final tecFilename = TextEditingController(text: tecSearch.text);
-    
-    tecDir.text = Get.find<AppSettingService>().pref.read(kDownloadDir);
+
+    tecDir.text = appSetting.pref.read(kDownloadDir);
     fnUrl.requestFocus();
 
     ExAlert.adaptive(
       title: Text('Download', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.left).pOnly(bottom: 16),
       content: VStack(
         [
-
           CupertinoTextField(
             readOnly: true,
             controller: tecDir,
@@ -123,13 +133,12 @@ class PageDownloadController extends GetxController {
             onTap: () async {
               await FilePicker.platform.getDirectoryPath(initialDirectory: tecDir.text).then((dir) {
                 if (dir != null) {
-                  Get.find<AppSettingService>().pref.write(kDownloadDir, dir);
+                  appSetting.pref.write(kDownloadDir, dir);
                   tecDir.text = dir;
                 }
               });
             },
           ).pOnly(bottom: 12),
-
           CupertinoTextField(
             controller: tecUrl,
             focusNode: fnUrl,
@@ -137,7 +146,6 @@ class PageDownloadController extends GetxController {
             placeholder: 'Url',
             style: TextStyle(fontSize: 12, color: Vx.white),
           ).pOnly(bottom: 12),
-
           CupertinoTextField(
             controller: tecFilename,
             prefix: Icon(CupertinoIcons.number_square, size: 13).pOnly(left: 8),
@@ -152,7 +160,11 @@ class PageDownloadController extends GetxController {
       ),
       actions: [
         CupertinoDialogAction(
-          child: Text('Start Download', style: TextStyle(fontSize: 13)),
+          child: Text('Open Log', style: TextStyle(fontSize: 12, color: Vx.white)),
+          onPressed: () async => await openDownloadLog(),
+        ),
+        CupertinoDialogAction(
+          child: Text('Start Download', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
           onPressed: () async {
             await startProcessDownload('hls', tecUrl.text, tecDir.text, tecFilename.text);
           },
@@ -171,16 +183,20 @@ class PageDownloadController extends GetxController {
       Get.back();
 
       try {
-        await shell.run('chmod +x "${Get.find<AppSettingService>().appPath}/dl"');
+        await shell.run('chmod +x "${appSetting.appPath}/dl"');
       } catch (e) {
         await HelperToast.error('${e.toString()}');
         return;
       }
 
+      // log to history
+      final id = UuidV4().generate();
+      await DBHistory.add(History(id: id, type: 'download', message: genJsonFormat('start', url, dir, filename)));
+
       await shell.run(
-        '${Get.find<AppSettingService>().appPath}/dl $type -u "$url" -d "$dir" -o "$filename"',
-        commandVerbose: true,
-        verbose: true,
+        '${appSetting.appPath}/dl $type -u "$url" -d "$dir" -o "$filename"',
+        commandVerbose: false,
+        verbose: false,
         onProcess: (process) async {
           cProcessDownload.value = process;
           // listen stdout
@@ -193,24 +209,25 @@ class PageDownloadController extends GetxController {
           });
 
           await process.exitCode.then((code) async {
-            AppLog.logD('code -> $code');
             if (code == 1) {
               downloadStdout.value = 'Download Failed 🔴';
               Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
               await HelperToast.error('Download Failed 🔴');
+              await DBHistory.update(History(id: id, type: 'download', message: genJsonFormat('failed', url, dir, filename)));
             }
 
             if (code == 0) {
               downloadStdout.value = 'Download Finished ✅';
               Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
               await HelperToast.success('Download Finished ✅');
+              await DBHistory.update(History(id: id, type: 'download', message: genJsonFormat('finish', url, dir, filename)));
             }
 
             process.kill();
           });
 
           // listen stderr
-          process.errLines.listen((s) => AppLog.logE('process.errLines e -> $s'));
+          // process.errLines.listen((s) => AppLog.logE('process.errLines e -> $s'));
         },
       );
 
@@ -224,14 +241,85 @@ class PageDownloadController extends GetxController {
     }
   }
 
-  void killProcessDownload() {
+  Future<void> killProcessDownload() async {
     try {
       cProcessDownload.value?.kill(ProcessSignal.sigkill);
       cProcessDownload.value = null;
       downloadStdout.value = '';
-      AppLog.logD('process killed');
+      Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
     } catch (e) {
       AppLog.logD('killProcessDownload e -> $e');
     }
+  }
+
+  Future<void> openDownloadLog() async {
+    Get.back();
+    final data = await DBHistory.getAll(where: 'type = ?', whereArgs: ['download']);
+    await Overlayment.show(
+        context: Get.context,
+        OverPanel(
+          alignment: Alignment.centerRight,
+          width: 300,
+          animation: OverSlideAnimation(
+            beginAlignment: Alignment.centerRight,
+            reverseDurationMilliseconds: 100,
+            durationMilliseconds: 400,
+          ),
+          child: VStack([
+            'Download Log'.text.bold.make().pOnly(bottom: 24),
+            ListView.separated(
+              itemCount: data.length,
+              separatorBuilder: (context, index) => Divider(),
+              itemBuilder: (context, index) {
+                final item = data[index];
+                final jsonData = jsonDecode(item.message ?? '');
+                final dt1 = DateTime.parse(item.createdAt ?? '');
+                final dt2 = DateTime.parse(item.updatedAt ?? '');
+                final diff = dt2.difference(dt1);
+                int totalSeconds = diff.inSeconds;
+                int minutes = totalSeconds ~/ 60;
+                int seconds = totalSeconds % 60;
+
+                var result = '';
+                if (minutes > 0) result += '⏳︎ $minutes minute${minutes > 1 ? 's' : ''}';
+
+                if (seconds > 0) {
+                  if (minutes > 0) result += ', ';
+                  result += '⏳︎ $seconds second${seconds > 1 ? 's' : ''}';
+                }
+                if (result.isEmpty) result = '';
+
+                return HStack([
+                  '${jsonData['ev']}'.text.size(11).minFontSize(11).uppercase.bold.make().w(60),
+                  VStack([
+                    '🔗 ${jsonData['url']}'.text.size(10).minFontSize(10).ellipsis.make(),
+                    '📁 ${jsonData['dir']}'.text.size(10).minFontSize(10).make(),
+                    '📺 ${jsonData['filename']}'.text.size(10).minFontSize(10).make(),
+                    '$result'.text.size(10).minFontSize(10).make(),
+                  ]).expand(),
+                ]).tooltip(item.createdAt ?? '');
+              },
+            ).expand(),
+
+            ExButtonText(
+              width: double.infinity,
+              label: 'Clear Log',
+              labelColor: Vx.red500,
+              onPressed: () async {
+                await Overlayment.dismissLast();
+                await DBHistory.deleteAll(where: 'type = ?', whereArgs: ['download']);
+              },
+            ).hide(isVisible: data.isNotEmpty),
+          ]).p12(),
+        ));
+  }
+
+  String genJsonFormat(ev, url, dir, filename) {
+    final o = {}.obs;
+    o['ev'] = ev;
+    o['url'] = url;
+    o['dir'] = dir;
+    o['filename'] = filename;
+    return jsonEncode(o);
   }
 }

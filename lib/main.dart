@@ -1,10 +1,11 @@
-import 'package:ex_kit/ex.dart';
-import 'package:fast_cached_network_image/fast_cached_network_image.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:toastification/toastification.dart';
 
+import 'app/core/app_logging.dart';
 import 'app/core/app_setting.dart';
 import 'app/data/database/db_init.dart';
 import 'app/routes/app_pages.dart';
@@ -12,9 +13,10 @@ import 'env.g.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await hotKeyManager.unregisterAll();
 
-  await FastCachedImageConfig.init(clearCacheAfter: 365.days, subDir: Env.appName);
+  Stopwatch sw = Stopwatch()..start();
+
+  await hotKeyManager.unregisterAll();
 
   /// makesure `AppSettingService` already initialized
   await Get.putAsync(() async {
@@ -30,6 +32,7 @@ Future<void> main() async {
     return service;
   }, permanent: true);
 
+  AppLog.logD('App service done in ${sw.elapsedMilliseconds}ms');
   runApp(JavIt());
 }
 

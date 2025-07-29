@@ -1,19 +1,19 @@
 import 'dart:convert';
 import 'dart:core';
 
-import 'videos_entity.dart';
-
 class History {
   String? id;
-  List<Videos>? videos;
+  String? type;
+  String? message;
   String? createdAt;
   String? updatedAt;
 
-  History({this.id, this.videos, this.createdAt, this.updatedAt});
+  History({this.id, this.type, this.message, this.createdAt, this.updatedAt});
 
   History.fromJson(Map<String, dynamic> json) {
     id = json['id'];
-    videos = json['videos'] != null ? List<Videos>.from(json['videos'].map((v) => Videos.fromJson(v))) : null;
+    type = json['type'];
+    message = json['message'];
     createdAt = json['created_at'];
     updatedAt = json['updated_at'];
   }
@@ -21,7 +21,8 @@ class History {
   Map<String, dynamic> toJson() {
     final data = <String, dynamic>{};
     data['id'] = id;
-    data['videos'] = jsonEncode(videos);
+    data['type'] = type;
+    data['message'] = message;
     data['created_at'] = createdAt;
     data['updated_at'] = updatedAt;
     return data;

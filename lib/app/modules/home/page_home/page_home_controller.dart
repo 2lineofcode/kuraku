@@ -33,7 +33,7 @@ class PageHomeController extends GetxController {
 
   Future<void> getListNewRelease() async {
     listNewRelease.clear();
-    listNewRelease.value = await DBVideos.getAll();
+    listNewRelease.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""');
     listNewRelease.sort((a, b) => b.releaseDate!.compareTo(a.releaseDate!));
     listNewRelease.value = listNewRelease.take(10).toList();
   }

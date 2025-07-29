@@ -5,6 +5,8 @@ import 'package:flutter_popup/flutter_popup.dart';
 import 'package:get/get.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/app_setting.dart';
+import '../../../core/const.dart';
 import '../../widgets/widget_thumbnail.dart';
 import 'page_download_controller.dart';
 
@@ -35,6 +37,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
                 labelColor: Colors.black,
                 onPressed: () {
                   controller.currentLang.value = 'en';
+                  Get.find<AppSettingService>().pref.write(kDownloadLang, 'en');
                   Get.back();
                 },
               ),
@@ -43,6 +46,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
                 labelColor: Colors.black,
                 onPressed: () {
                   controller.currentLang.value = 'id';
+                  Get.find<AppSettingService>().pref.write(kDownloadLang, 'id');
                   Get.back();
                 },
               ),

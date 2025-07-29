@@ -45,7 +45,8 @@ class AppSettingService extends GetxService {
     await pref.writeIfNull(kCurrentLanguage, 'en');
     await pref.writeIfNull(kFirstOpenApp, DateTime.now().toStringEx());
     await pref.writeIfNull(kLastOpenApp, DateTime.now().toStringEx());
-    await pref.writeIfNull(kDownloadDir, '');
+    await pref.writeIfNull(kDownloadDir, await getDownloadsDirectory());
+    await pref.writeIfNull(kDownloadLang, 'en');
     
     await pref.write(kLastOpenApp, DateTime.now().toStringEx());
   }

@@ -68,6 +68,10 @@ class DBService extends GetxService {
     // Drop existing Test table (optional, only if you want to remove it)
     await db.execute('DROP TABLE IF EXISTS Library');
     await db.execute('DROP TABLE IF EXISTS Videos');
+    await db.execute('DROP TABLE IF EXISTS History');
+    await db.execute('DROP TABLE IF EXISTS Relapse');
+    await db.execute('DROP TABLE IF EXISTS PlaylistHeader');
+    await db.execute('DROP TABLE IF EXISTS PlaylistItem');
 
     // Create Library table
     await db.execute('''
@@ -84,14 +88,12 @@ class DBService extends GetxService {
     ''');
 
     // Create Videos table
-    // Note: 'actors', 'genre', 'screenshot' will be stored as TEXT (JSON string)
+    // Note: 'actress', 'category', 'screenshot' will be stored as TEXT (JSON string)
     await db.execute('''
       CREATE TABLE Videos (
         id                               TEXT PRIMARY KEY,
         root_path                        TEXT, 
         video_path                       TEXT,
-        poster_path                      TEXT,
-        cover_path                       TEXT,
         video_code                       TEXT,
         title                            TEXT,
         title_ja                         TEXT,
@@ -134,7 +136,8 @@ class DBService extends GetxService {
     await db.execute('''
       CREATE TABLE History (
         id                          TEXT PRIMARY KEY,
-        video                       TEXT, -- json
+        type                        TEXT,
+        message                     TEXT,
         created_at                  TEXT,
         updated_at                  TEXT
       )
