@@ -5,8 +5,8 @@ import 'package:flutter_popup/flutter_popup.dart';
 import 'package:get/get.dart';
 
 import '../../../core/app_color.dart';
-import '../../../core/app_setting.dart';
-import '../../../core/const.dart';
+import '../../../core/app_pref.dart';
+import '../../../utils/helper_opener.dart';
 import '../../widgets/widget_thumbnail.dart';
 import 'page_download_controller.dart';
 
@@ -37,7 +37,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
                 labelColor: Colors.black,
                 onPressed: () {
                   controller.currentLang.value = 'en';
-                  Get.find<AppSettingService>().pref.write(kDownloadLang, 'en');
+                  AppPref.setDownloadLang('en');
                   Get.back();
                 },
               ),
@@ -46,7 +46,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
                 labelColor: Colors.black,
                 onPressed: () {
                   controller.currentLang.value = 'id';
-                  Get.find<AppSettingService>().pref.write(kDownloadLang, 'id');
+                  AppPref.setDownloadLang('id');
                   Get.back();
                 },
               ),
@@ -126,7 +126,19 @@ class PageDownloadView extends GetView<PageDownloadController> {
               child: VStack([
                 '${item.durationFormated}'.text.size(10).minFontSize(10).maxLines(1).ellipsis.make().pSymmetric(h: 8),
               ]),
-            ).positioned(right: 0),
+            ).positioned(left: 0),
+
+            // ** open trailer
+            Icon(CupertinoIcons.play, size: 16).wh(32, 32).color(Vx.black).cornerRadius(12).onInkTap(() {
+              HelperOpener.openTrailer(item);
+            }).positioned(right: 8, top: 4),
+
+            // ** open screenshot
+            Icon(CupertinoIcons.photo, size: 16).wh(32, 32).color(Vx.black).cornerRadius(12).onInkTap(() {
+              HelperOpener.openScreenshot(item);
+            }).positioned(right: 8, top: 38),
+
+
             Container(
               color: Vx.black.withAlpha(150),
               width: 300,

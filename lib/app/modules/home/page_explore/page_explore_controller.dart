@@ -7,6 +7,7 @@ import '../../../core/app_logging.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
+import '../../../utils/helper_misc.dart';
 import '../page_search/page_search_overlay.dart';
 
 class PageExploreController extends GetxController {
@@ -118,7 +119,64 @@ class PageExploreController extends GetxController {
     }
 
     // sort
-    r18ListVideo.value = r18ListVideo.value.take(100000).toList();
+    r18ListVideo.value = r18ListVideo.value.take(10000).toList();
+    final r18ValidList = <Map<String, dynamic>>[].obs;
+    for (int i = 0; i < r18ListVideo.length; i++) {
+      final vcode = HelperMisc.getVideoCode(r18ListVideo[i]['video_code'] ?? '');
+      if (vcode.isNotEmpty 
+        && !r18ListVideo[i]['video_code'].startsWith('TK')
+        && !r18ListVideo[i]['video_code'].startsWith('7')
+        && !r18ListVideo[i]['video_code'].startsWith('9')
+        && !r18ListVideo[i]['video_code'].startsWith('K9')
+        && !r18ListVideo[i]['video_code'].startsWith('FTKT')
+        && !r18ListVideo[i]['video_code'].startsWith('GOOE')
+        && !r18ListVideo[i]['video_code'].startsWith('JTKT')
+        && !r18ListVideo[i]['video_code'].startsWith('GTKT')
+        && !r18ListVideo[i]['video_code'].startsWith('DDMP')
+        && !r18ListVideo[i]['video_code'].startsWith('DMPXA')
+        && !r18ListVideo[i]['video_code'].startsWith('USTD')
+        && !r18ListVideo[i]['video_code'].startsWith('VWBS')
+        && !r18ListVideo[i]['video_code'].startsWith('HPXR')
+        && !r18ListVideo[i]['video_code'].startsWith('VWAS')
+        && !r18ListVideo[i]['video_code'].startsWith('TCBD')
+        && !r18ListVideo[i]['video_code'].startsWith('DAXA')
+        && !r18ListVideo[i]['video_code'].startsWith('TWUSS')
+        && !r18ListVideo[i]['video_code'].startsWith('PJXF')
+        && !r18ListVideo[i]['video_code'].startsWith('KKC')
+        && !r18ListVideo[i]['video_code'].startsWith('GNXF')
+        && !r18ListVideo[i]['video_code'].startsWith('JAXA')
+        && !r18ListVideo[i]['video_code'].startsWith('UHB')
+        && !r18ListVideo[i]['video_code'].startsWith('BPUH')
+        && !r18ListVideo[i]['video_code'].startsWith('GNXT')
+        && !r18ListVideo[i]['video_code'].startsWith('ZTKT')
+        && !r18ListVideo[i]['video_code'].startsWith('PB')
+        && !r18ListVideo[i]['video_code'].startsWith('D1')
+        && !r18ListVideo[i]['video_code'].startsWith('D2')
+        && !r18ListVideo[i]['video_code'].startsWith('D3')
+        && !r18ListVideo[i]['video_code'].startsWith('DK')
+
+        && !r18ListVideo[i]['video_code'].endsWith('BOD')
+        && !r18ListVideo[i]['video_code'].endsWith('DOD')
+        && !r18ListVideo[i]['video_code'].endsWith('Ta')
+        && !r18ListVideo[i]['video_code'].endsWith('Tb')
+        && !r18ListVideo[i]['video_code'].endsWith('Tc')
+        && !r18ListVideo[i]['video_code'].endsWith('Td')
+        && !r18ListVideo[i]['video_code'].endsWith('Te')
+        && !r18ListVideo[i]['video_code'].endsWith('TK')
+        && !r18ListVideo[i]['video_code'].endsWith('TK1')
+        && !r18ListVideo[i]['video_code'].endsWith('TK2')
+        && !r18ListVideo[i]['video_code'].endsWith('TK3')
+        && !r18ListVideo[i]['video_code'].endsWith('EC')
+        && !r18ListVideo[i]['video_code'].endsWith('4D')
+        && !r18ListVideo[i]['video_code'].endsWith('5D')
+        && !r18ListVideo[i]['video_code'].endsWith('DL')
+      ) {
+        r18ValidList.add(r18ListVideo[i]);
+      }
+    }
+
+    r18TotalVideo.value = r18ValidList.length;
+    r18ListVideo.value = r18ValidList.value.take(100000).toList();
     r18ListVideo.value.sort((a, b) => b['release_date'].compareTo(a['release_date']));
 
     // check has match video by code
@@ -126,6 +184,7 @@ class PageExploreController extends GetxController {
       final Map<String, dynamic> mutableR18Item = Map.from(r18Item);
       final bool hasMatch = vList.any((vItem) => r18Item['video_code'].toString().contains(vItem.videoCode!));
       mutableR18Item['match'] = hasMatch;
+      mutableR18Item['is_clicked'] = false;
       return mutableR18Item;
     }).toList());
 

@@ -14,6 +14,8 @@ class PageHomeController extends GetxController {
   final listFavorite = <Videos>[].obs;
   final listNewAdded = <Videos>[].obs;
   final listRandom = <Videos>[].obs;
+  final listNeverWatch = <Videos>[].obs;
+  final listOldest = <Videos>[].obs;
   final listPlaylistHeader = <PlaylistHeader>[].obs;
   final totalVideo = 0.obs;
 
@@ -26,6 +28,8 @@ class PageHomeController extends GetxController {
     await getListFavorite();
     await getListNewAdded();
     await getListRandom();
+    await getListNeverWatch();
+    await getListOldest();
     await getListPlaylistHeader();
 
     totalVideo.value = await DBVideos.getCount();
@@ -33,44 +37,44 @@ class PageHomeController extends GetxController {
 
   Future<void> getListNewRelease() async {
     listNewRelease.clear();
-    listNewRelease.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""');
-    listNewRelease.sort((a, b) => b.releaseDate!.compareTo(a.releaseDate!));
-    listNewRelease.value = listNewRelease.take(10).toList();
+    listNewRelease.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date DESC, updated_at DESC', limit: 50);
   }
 
   Future<void> getListTop10Watch() async {
     listTop10Watch.clear();
-    listTop10Watch.value = await DBVideos.getAll(where: 'view_count != 0');
-    listTop10Watch.sort((a, b) => b.viewCount!.compareTo(a.viewCount!));
-    listTop10Watch.value = listTop10Watch.take(10).toList();
+    listTop10Watch.value = await DBVideos.getAll(where: 'view_count != 0', orderBy: 'view_count DESC, updated_at DESC', limit: 50);
   }
 
   Future<void> getListFavorite() async {
     listFavorite.clear();
-    listFavorite.value = await DBVideos.getAll(where: 'is_favorite = ?', whereArgs: [1]);
-    listFavorite.sort((a, b) => b.createdAt!.compareTo(a.createdAt!));
-    listFavorite.value = listFavorite.take(10).toList();
+    listFavorite.value = await DBVideos.getAll(where: 'is_favorite = 1', orderBy: 'updated_at DESC');
   }
 
   Future<void> getListNewAdded() async {
     listNewAdded.clear();
-    listNewAdded.value = await DBVideos.getAll();
-    listNewAdded.sort((a, b) => b.updatedAt!.compareTo(a.updatedAt!));
-    listNewAdded.value = listNewAdded.take(10).toList();
+    listNewAdded.value = await DBVideos.getAll(orderBy: 'updated_at DESC, created_at DESC', limit: 50);
   }
 
   Future<void> getListRandom() async {
     listRandom.clear();
-    listRandom.value = await DBVideos.getAll();
-    listRandom.shuffle();
-    listRandom.value = listRandom.take(10).toList();
+    listRandom.value = await DBVideos.getAll(limit: 20, orderBy: 'RANDOM()');
+  }
+
+  Future<void> getListNeverWatch() async {
+    listNeverWatch.clear();
+    listNeverWatch.value = await DBVideos.getAll(where: 'view_count = 0', limit: 50, orderBy: 'RANDOM()');
+  }
+
+  Future<void> getListOldest() async {
+    listOldest.clear();
+    listOldest.value = await DBVideos.getAll(limit: 50, orderBy: 'created_at ASC');
   }
 
   Future<void> getListPlaylistHeader() async {
     listPlaylistHeader.clear();
     listPlaylistHeader.value = await DBPlaylist.getAllHeader();
     listPlaylistHeader.sort((a, b) => b.createdAt!.compareTo(a.createdAt!));
-    listPlaylistHeader.value = listPlaylistHeader.take(10).toList();
+    listPlaylistHeader.value = listPlaylistHeader.take(50).toList();
   }
 
   Future<void> addOrEditPlaylist({PlaylistHeader? header}) async {

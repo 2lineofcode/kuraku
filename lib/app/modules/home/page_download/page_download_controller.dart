@@ -13,13 +13,16 @@ import 'package:uuid/v4.dart';
 
 import '../../../../env.g.dart';
 import '../../../core/app_logging.dart';
+import '../../../core/app_pref.dart';
 import '../../../core/app_setting.dart';
-import '../../../core/const.dart';
 import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_history.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/__javit_search_entity.dart';
 import '../../../data/models/history_entity.dart';
+import '../../../utils/helper_loading.dart';
+import '../../../utils/helper_misc.dart';
+import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
 import '../home_controller.dart';
 
@@ -30,7 +33,6 @@ class PageDownloadController extends GetxController {
   final currentLang = 'en'.obs;
   final scrollController = ScrollController();
 
-  final api = Get.find<ApiJavit>();
   final response = JavitSearch().obs;
   final hasNextPage = false.obs;
   final currentPage = 0.obs;
@@ -58,8 +60,8 @@ class PageDownloadController extends GetxController {
         return;
       }
 
-      ExLoading.show(paddingSymmetric: Get.width * 30 / 100);
-      response.value = await api.search(s: s, lang: currentLang.value, page: currentPage.value);
+      HelperLoading.show();
+      response.value = await ApiJavit.search(s: s, lang: currentLang.value, page: currentPage.value);
 
       if (response.value.result == null || response.value.result!.isEmpty) {
         if (retryC.value < 2) {
@@ -75,7 +77,7 @@ class PageDownloadController extends GetxController {
       videos.value = response.value.result ?? [];
       retryC.value = 0;
       fnSearch.requestFocus();
-      ExLoading.dismiss();
+      HelperLoading.dismiss();
 
       await scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
     } catch (_) {}
@@ -101,7 +103,7 @@ class PageDownloadController extends GetxController {
     retryC.value = 0;
     hasNextPage.value = false;
     videos.value = [];
-    currentLang.value = appSetting.pref.read(kDownloadLang) ?? 'en';
+    currentLang.value = AppPref.getDownloadLang();
     fnSearch.requestFocus();
   }
 
@@ -116,7 +118,7 @@ class PageDownloadController extends GetxController {
     final fnUrl = FocusNode();
     final tecFilename = TextEditingController(text: tecSearch.text);
 
-    tecDir.text = appSetting.pref.read(kDownloadDir);
+    tecDir.text = AppPref.getDownloadPath();
     fnUrl.requestFocus();
 
     ExAlert.adaptive(
@@ -133,7 +135,7 @@ class PageDownloadController extends GetxController {
             onTap: () async {
               await FilePicker.platform.getDirectoryPath(initialDirectory: tecDir.text).then((dir) {
                 if (dir != null) {
-                  appSetting.pref.write(kDownloadDir, dir);
+                  AppPref.setDownloadPath(dir);
                   tecDir.text = dir;
                 }
               });
@@ -223,6 +225,8 @@ class PageDownloadController extends GetxController {
               await DBHistory.update(History(id: id, type: 'download', message: genJsonFormat('finish', url, dir, filename)));
             }
 
+            await shell.run('${appSetting.appPath}/dl clear -y', commandVerbose: false, verbose: false);
+
             process.kill();
           });
 
@@ -254,7 +258,7 @@ class PageDownloadController extends GetxController {
 
   Future<void> openDownloadLog() async {
     Get.back();
-    final data = await DBHistory.getAll(where: 'type = ?', whereArgs: ['download']);
+    final data = await DBHistory.getAll(where: 'type = ?', whereArgs: ['download'], orderBy: 'updated_at DESC');
     await Overlayment.show(
         context: Get.context,
         OverPanel(
@@ -292,15 +296,21 @@ class PageDownloadController extends GetxController {
                 return HStack([
                   '${jsonData['ev']}'.text.size(11).minFontSize(11).uppercase.bold.make().w(60),
                   VStack([
-                    '🔗 ${jsonData['url']}'.text.size(10).minFontSize(10).ellipsis.make(),
-                    '📁 ${jsonData['dir']}'.text.size(10).minFontSize(10).make(),
-                    '📺 ${jsonData['filename']}'.text.size(10).minFontSize(10).make(),
+                    '🔗 ${jsonData['url']}'.text.size(10).minFontSize(10).ellipsis.make().onInkTap(() {
+                      HelperMisc.copyToClipboard(jsonData['url'], showToast: true);
+
+                    }),
+                    '📁 ${jsonData['dir']}'.text.size(10).minFontSize(10).make().onInkTap(() {
+                      HelperOpener.openFilePath('${jsonData['dir']}/${jsonData['filename']}');
+                    }),
+                    '📺 ${jsonData['filename']}'.text.size(10).minFontSize(10).make().onInkTap(() {
+                      HelperMisc.copyToClipboard(jsonData['filename'], showToast: true);
+                    }),
                     '$result'.text.size(10).minFontSize(10).make(),
                   ]).expand(),
                 ]).tooltip(item.createdAt ?? '');
               },
             ).expand(),
-
             ExButtonText(
               width: double.infinity,
               label: 'Clear Log',
@@ -314,12 +324,13 @@ class PageDownloadController extends GetxController {
         ));
   }
 
-  String genJsonFormat(ev, url, dir, filename) {
+  String genJsonFormat(ev, url, dir, filename, {String? error}) {
     final o = {}.obs;
     o['ev'] = ev;
     o['url'] = url;
     o['dir'] = dir;
     o['filename'] = filename;
+    o['error'] = error ?? '';
     return jsonEncode(o);
   }
 }

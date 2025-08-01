@@ -8,6 +8,7 @@ import 'package:kana_kit/kana_kit.dart';
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
 import '../../../utils/helper_misc.dart';
+import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
@@ -30,8 +31,9 @@ class PageExploreView extends GetView<PageExploreController> {
               () => ExButtonOutline(
                 label: controller.filterType[index],
                 labelSize: 12,
-                labelColor: controller.filterTypeSelected.value == controller.filterType[index] ? Vx.white : Vx.neutral600,
-                borderColor: controller.filterTypeSelected.value == controller.filterType[index] ? Vx.white : Vx.neutral600,
+                labelColor: controller.filterTypeSelected.value == controller.filterType[index] ? Vx.white : Vx.neutral500,
+                borderColor: controller.filterTypeSelected.value == controller.filterType[index] ? AppColor.selected : AppColor.container,
+                backgroundColor: controller.filterTypeSelected.value == controller.filterType[index] ? AppColor.selected : AppColor.container,
                 onPressed: () => controller.onFilterByChange(controller.filterType[index]),
               ).pOnly(right: 8),
             );
@@ -59,11 +61,7 @@ class PageExploreView extends GetView<PageExploreController> {
                   ),
                   Obx(
                     () => controller.oListFiltered.isEmpty
-                        ? ExUiErrorOrEmpty(
-                            illustration: Icon(CupertinoIcons.lab_flask_solid, size: 32),
-                            title: 'No Data Found',
-                            message: 'No Result Found, as you searched for "${controller.tecSearch.text}"',
-                          ).expand()
+                        ? uiNoData().expand()
                         : ListView.separated(
                             itemCount: controller.oListFiltered.length,
                             separatorBuilder: (context, index) => Divider(color: AppColor.border),
@@ -75,24 +73,28 @@ class PageExploreView extends GetView<PageExploreController> {
                                   child: HStack([
                                     // image
                                     if (controller.filterTypeSelected.value == kActress) ...[
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(90),
-                                        child: ExThumbnail(
-                                          imageUrl: '${Env.actressUrl}/${item.imgUrl}',
-                                          width: 48,
-                                          height: 48,
-                                          fitUrl: BoxFit.cover,
-                                          withProxy: false,
-                                        ),
-                                      ),
+                                      item.imgUrl?.trim() != ''
+                                          ? ExThumbnail(
+                                              imageUrl: '${Env.actressUrl}/${item.imgUrl}',
+                                              width: 48,
+                                              height: 48,
+                                              fitUrl: BoxFit.cover,
+                                              withProxy: false,
+                                            ).cornerRadius(90)
+                                          : ExAvatarView(
+                                              source: '',
+                                              height: 48,
+                                              width: 48,
+                                              name: item.name,
+                                            ),
                                     ],
 
                                     // path only
                                     if (controller.filterTypeSelected.value == kPath) ...[
-                                      if (item.name!.contains('/Users')) ...[
-                                        'Local → ${item.name!.getLastPath()} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
-                                      ] else ...[
+                                      if (item.name!.contains('/Volumes')) ...[
                                         'External → ${item.name!.getLastSegments(segment: 1)} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
+                                      ] else ...[
+                                        'Local → ${item.name!.getLastPath()} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
                                       ],
                                     ]
                                     // other ~
@@ -135,79 +137,84 @@ class PageExploreView extends GetView<PageExploreController> {
     );
   }
 
+  Widget uiNoData() {
+    return ExUiErrorOrEmpty(
+      illustration: Icon(CupertinoIcons.lab_flask_solid, size: 32),
+      title: 'No Data Found',
+      message: 'No Result Found, as you searched for "${controller.tecSearch.text}"',
+    );
+  }
+
   Widget buildHeader() {
     if (controller.vList.isEmpty) return Container();
-
+    final item = controller.oListSelected.value;
     return Container(
       width: double.infinity,
       height: 50,
       decoration: ExDecorator.box(borderColor: AppColor.border),
-      child: Obx(
-        () => Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (controller.oListSelected.value.imgUrl != null) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(90),
-                child: ExThumbnail(
-                  imageUrl: '${Env.actressUrl}/${controller.oListSelected.value.imgUrl}',
-                  width: 32,
-                  height: 32,
-                  fitUrl: BoxFit.cover,
-                  withProxy: false,
-                ),
-              ).centered().pOnly(right: 12),
-            ] else ...[
-              ExAvatarView(
-                source: '',
-                name: controller.oListSelected.value.name ?? '',
-                size: 32,
-                bgColor: AppColor.selected,
-                textSize: 12,
-              ).centered().pOnly(right: 12),
-            ],
-            VStack([
-              FutureBuilder(
-                future: HelperMisc.decensor(controller.oListSelected.value.name!.trim()),
-                builder: (context, snapshot) {
-                  return snapshot.hasData 
-                  ? '${KanaKit().isKana(snapshot.data ?? '') ? KanaKit().toRomaji(snapshot.data ?? '') : snapshot.data}'.text.bold.size(12).ellipsis.make().pOnly(top: 6, bottom: 4) 
-                  : 0.heightBox;
-                },
-              ),
-              Obx(
-                () => HStack([
-                  'Local: ${controller.oListSelected.value.count}'
-                      .text
-                      .size(10)
-                      .minFontSize(10)
-                      .maxLines(1)
-                      .make()
-                      .pOnly(left: 12, right: 12)
-                      .color(controller.vListViewMode.value == kLocal ? AppColor.selected : AppColor.unselected)
-                      .cornerRadius(8)
-                      .onInkTap(() async => await controller.onHeaderLocalTap())
-                      .pOnly(right: 12),
-                  'R18: ${controller.r18TotalVideo}'
-                      .text
-                      .size(10)
-                      .minFontSize(10)
-                      .maxLines(1)
-                      .make()
-                      .pOnly(left: 12, right: 12)
-                      .color(controller.vListViewMode.value == kR18 ? AppColor.selected : AppColor.unselected)
-                      .cornerRadius(8)
-                      .pOnly(right: 12)
-                      .onInkTap(() async => await controller.onHeaderR18Tap())
-                      .pOnly(right: 12)
-                      .hide(isVisible: controller.r18TotalVideo.value != 0),
-                ]),
-              ),
-            ]).expand(),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (item.imgUrl != null) ...[
+            item.imgUrl?.trim() == ''
+                ? ExAvatarView(source: '', name: item.name, size: 32).pOnly(right: 12)
+                : ExThumbnail(
+                    imageUrl: '${Env.actressUrl}/${item.imgUrl}',
+                    width: 32,
+                    height: 32,
+                    fitUrl: BoxFit.cover,
+                    withProxy: false,
+                  ).cornerRadius(90).centered().pOnly(right: 12),
+          ] else ...[
+            ExAvatarView(
+              source: '',
+              name: item.name ?? '',
+              size: 32,
+              bgColor: AppColor.selected,
+              textSize: 12,
+            ).centered().pOnly(right: 12),
           ],
-        ).pSymmetric(h: 8),
-      ),
+          VStack([
+            FutureBuilder(
+              future: HelperMisc.decensor(item.name!.trim()),
+              builder: (context, snapshot) {
+                return snapshot.hasData
+                    ? '${KanaKit().isKana(snapshot.data ?? '') ? KanaKit().toRomaji(snapshot.data ?? '') : snapshot.data}'.text.bold.size(12).ellipsis.make().pOnly(top: 6, bottom: 4)
+                    : 0.heightBox;
+              },
+            ),
+            Obx(
+              () => HStack([
+                'Local: ${item.count}'
+                    .text
+                    .size(10)
+                    .minFontSize(10)
+                    .maxLines(1)
+                    .make()
+                    .pOnly(left: 12, right: 12)
+                    .color(controller.vListViewMode.value == kLocal ? AppColor.selected : AppColor.unselected)
+                    .cornerRadius(8)
+                    .onInkTap(() async => await controller.onHeaderLocalTap())
+                    .pOnly(right: 12),
+                'R18: ${controller.r18TotalVideo}'
+                    .text
+                    .size(10)
+                    .minFontSize(10)
+                    .maxLines(1)
+                    .make()
+                    .pOnly(left: 12, right: 12)
+                    .color(controller.vListViewMode.value == kR18 ? AppColor.selected : AppColor.unselected)
+                    .cornerRadius(8)
+                    .pOnly(right: 12)
+                    .onInkTap(() async => await controller.onHeaderR18Tap())
+                    .pOnly(right: 12)
+                    .hide(isVisible: controller.r18TotalVideo.value != 0),
+              ]),
+            ),
+          ]).expand(),
+        ],
+      ).pSymmetric(h: 8),
     ).pOnly(bottom: 12);
   }
 
@@ -260,42 +267,73 @@ class PageExploreView extends GetView<PageExploreController> {
       itemCount: controller.r18ListVideo.length,
       itemBuilder: (context, i) {
         final item = controller.r18ListVideo[i];
-        return ZStack([
-          ExThumbnail(
-            imageUrl: item['fan_art'] ?? '',
-            width: 300,
-            height: 200,
-          ).wh(300, 200).cornerRadius(8),
-          Container(
-            color: Vx.black.withAlpha(150),
-            width: 300,
-            height: 20,
-            child: '${item['video_code']}'.text.bold.ellipsis.make().pOnly(left: 8),
-          ).onInkTap(() async {
-            HelperMisc.copyToClipboard(item['video_code']);
-            await HelperToast.info('${item['video_code']} Copied to clipboard');
-          }).positioned(bottom: 0),
-          Container(
-            color: Vx.black.withAlpha(150),
-            width: 70,
-            height: 18,
-            child: '${item['release_date']}'.text.size(9).minFontSize(9).align(TextAlign.center).ellipsis.makeCentered(),
-          ).positioned(right: 0),
+        return ZStack(
+          [
+            ExThumbnail(
+              imageUrl: item['fan_art'] ?? '',
+              width: 300,
+              height: 200,
+            ).wh(300, 200).cornerRadius(8),
 
-          Icon(
-            CupertinoIcons.checkmark_seal_fill,
-            size: 24,
-            color: Colors.blueAccent,
-          ).wh(36, 36).color(Vx.black).cornerRadius(90).positioned(right: 8, top: 20).hide(isVisible: item['match'] == true),
+            // ** match (already have )
+            Container(
+              color: Colors.green.withAlpha(100),
+              width: 300,
+              height: 200,
+            ).hide(isVisible: item['match'] == true),
 
-        ]).onInkTap(
+            // ** has Clicked
+            GetBuilder(
+              init: PageExploreController(),
+              builder: (controller) {
+                return Container(
+                  color: Colors.blue.withAlpha(100),
+                  width: 300,
+                  height: 200,
+                ).hide(isVisible: item['is_clicked'] == true);
+              },
+            ),
+
+            Container(
+              color: Vx.black.withAlpha(150),
+              width: 300,
+              height: 20,
+              child: '${item['video_code']}'.text.bold.ellipsis.make().pOnly(left: 8),
+            ).onInkTap(() async {
+              HelperMisc.copyToClipboard(item['video_code'], showToast: true);
+            }).positioned(bottom: 0),
+
+            Container(
+              color: Vx.black.withAlpha(150),
+              width: 70,
+              height: 18,
+              child: '${item['release_date']}'.text.size(9).minFontSize(9).align(TextAlign.center).ellipsis.makeCentered(),
+            ).positioned(left: 0),
+
+            // ** open trailer
+            Icon(CupertinoIcons.play, size: 16).wh(32, 32).color(Vx.black).cornerRadius(12).onInkTap(() {
+              HelperOpener.openTrailer(item);
+            }).positioned(right: 8, top: 4),
+
+            // ** open screenshot
+            Icon(CupertinoIcons.photo, size: 16).wh(32, 32).color(Vx.black).cornerRadius(12).onInkTap(() {
+              HelperOpener.openScreenshot(item);
+            }).positioned(right: 8, top: 38),
+
+          ],
+        ).onInkTap(
           () async {
-            Get.find<HomeController>().currentMenuSelected.value = kMenuDownload;
-            Get.find<PageDownloadController>().tecSearch.text = item['video_code'];
-            await Get.find<PageDownloadController>().onSearch(item['video_code']);
+            if (item['match'] == true) {
+              await HelperToast.info('This video is already in your library');
+            } else {
+              item['is_clicked'] = true;
+              Get.find<HomeController>().currentMenuSelected.value = kMenuDownload;
+              Get.find<PageDownloadController>().tecSearch.text = item['video_code'] ?? '';
+              await Get.find<PageDownloadController>().onSearch(item['video_code']);
+            }
+            controller.update();
           },
         ).pOnly(bottom: 12);
-        
       },
     );
   }

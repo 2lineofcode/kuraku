@@ -66,7 +66,7 @@ mixin Api {
     return await _dio.patch(url, data: data);
   }
 
-  Future<Response> head(String url, {Map<String, dynamic>? data}) async {
+  static Future<Response> head(String url, {Map<String, dynamic>? data}) async {
     return await _dio.head(url, data: data);
   }
 

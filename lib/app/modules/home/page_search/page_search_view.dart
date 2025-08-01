@@ -50,7 +50,7 @@ class PageSearchView extends GetView<PageSearchController> {
                   message: 'No Result Found, as you searched for "${controller.tecSearch.text}"\nor Add some video to your library first.',
                 ).expand()
               : controller.viewModeSelected.value == kGrid
-                  ? modeWrapView().expand()
+                  ? modeGridView().expand()
                   : modeListView().expand(),
         ),
       ],
@@ -101,8 +101,9 @@ class PageSearchView extends GetView<PageSearchController> {
     );
   }
 
-  Widget modeWrapView() {
+  Widget modeGridView() {
     return GridView.builder(
+      controller: controller.scrollController,
       padding: EdgeInsets.all(8),
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 120,

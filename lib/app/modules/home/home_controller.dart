@@ -25,6 +25,10 @@ class HomeController extends GetxController with StateMixin {
   final footerText = ''.obs;
   final library = <Library>[].obs;
 
+  // new feat
+  final sideMenuWidth = 180.0.obs;
+  final appBarShow = true.obs;
+
   @override
   Future<void> onInit() async {
     super.onInit();
@@ -100,4 +104,5 @@ const kMenuHome = 'Home';
 const kMenuSearch = 'Search';
 const kMenuExplore = 'Explore';
 const kMenuDownload = 'Download';
+const kMenuTools = 'Tools';
 const kMenuSetting = 'Settings';

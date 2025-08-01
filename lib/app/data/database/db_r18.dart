@@ -51,32 +51,32 @@ mixin DBR18 {
 
     final maps = await _db.rawQuery('''
         SELECT
-            v.content_id as id,                 -- id
-            v.dvd_id as video_code,             -- video_code
-            COALESCE(t.target_en, v.title_en) AS title,
-            v.title_ja,                         -- title_ja
-            s.name_en as series,                -- series
-            m.name_ja as studio,                -- studio/maker
-            l.name_en as label,                 -- label
-            site.name as site,                  -- site
-            v.runtime_mins as duration,         -- duration 
-            v.release_date as release_date,     -- release_date
-            v.sample_url as trailer,            -- trailer
-            v.jacket_full_url as fan_art,       -- fanart
-            v.jacket_thumb_url as poster,       -- poster
-            v.gallery_full_first as ssfirst,    -- screenshot[0]
-            v.gallery_full_last as sslast       -- screenshot[n]
+          v.content_id as id,                             -- id
+          v.dvd_id as video_code,                         -- video_code
+          COALESCE(t.target_en, v.title_en) AS title,     -- title_en
+          v.title_ja,                                     -- title_ja
+          s.name_en as series,                            -- series
+          COALESCE(m.name_en, m.name_ja) AS studio,       -- studio/maker
+          l.name_en as label,                             -- label
+          site.name as site,                              -- site
+          v.runtime_mins as duration,                     -- duration 
+          v.release_date as release_date,                 -- release_date
+          v.sample_url as trailer,                        -- trailer
+          v.jacket_full_url as fan_art,                   -- fanart
+          v.jacket_thumb_url as poster,                   -- poster
+          v.gallery_full_first as ssfirst,                -- screenshot[0]
+          v.gallery_full_last as sslast                   -- screenshot[n]
         FROM
-            derived_video v
-            LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
-            LEFT JOIN derived_maker m ON m.id = v.maker_id
-            LEFT JOIN derived_series s ON s.id = v.series_id
-            LEFT JOIN derived_label l ON l.id = v.label_id
-            LEFT JOIN derived_site site ON site.id = v.site_id
+          derived_video v
+          LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
+          LEFT JOIN derived_maker m ON m.id = v.maker_id
+          LEFT JOIN derived_series s ON s.id = v.series_id
+          LEFT JOIN derived_label l ON l.id = v.label_id
+          LEFT JOIN derived_site site ON site.id = v.site_id
         WHERE
-            v.dvd_id = ?
+          v.dvd_id = ?
         GROUP BY
-            v.dvd_id
+          v.dvd_id
       ''', [code]);
 
     return maps.isNotEmpty ? maps[0] : null;
@@ -97,7 +97,8 @@ mixin DBR18 {
 
   static Future<List<Map<String, dynamic>>> getCategory(String code) async {
     final maps = await _db.rawQuery('''
-        SELECT DISTINCT  cat.id, cat.name_en as category
+        SELECT DISTINCT
+          cat.id as id, cat.name_en as category
         FROM derived_video_category c 
         JOIN derived_video v ON v.content_id = c.content_id
         JOIN derived_category cat ON cat.id = c.category_id
@@ -147,6 +148,7 @@ mixin DBR18 {
           v.content_id as id,                 -- id
           v.dvd_id as video_code,             -- video_code
           v.release_date as release_date,     -- release_date
+          v.sample_url AS trailer,            -- trailer
           v.jacket_full_url as fan_art,       -- fanart
           v.jacket_thumb_url as poster        -- poster
       FROM
@@ -177,7 +179,8 @@ mixin DBR18 {
         SELECT
           v.content_id AS id,
           v.dvd_id AS video_code, 
-          v.release_date AS release_date, 
+          v.release_date AS release_date,
+          v.sample_url AS trailer,
           v.jacket_full_url AS fan_art,
           v.jacket_thumb_url AS poster
         FROM derived_video v
@@ -210,7 +213,8 @@ mixin DBR18 {
         SELECT
           v.content_id AS id,
           v.dvd_id AS video_code, 
-          v.release_date AS release_date, 
+          v.release_date AS release_date,
+          v.sample_url AS trailer,
           v.jacket_full_url AS fan_art,
           v.jacket_thumb_url AS poster
         FROM derived_video v
@@ -244,6 +248,7 @@ mixin DBR18 {
           v.dvd_id AS video_code, 
           s.name_en AS series,
           v.release_date AS release_date, 
+          v.sample_url AS trailer,
           v.jacket_full_url AS fan_art,
           v.jacket_thumb_url AS poster
         FROM derived_video v
@@ -277,7 +282,8 @@ mixin DBR18 {
         SELECT
           v.content_id AS id,
           v.dvd_id AS video_code, 
-          v.release_date AS release_date, 
+          v.release_date AS release_date,
+          v.sample_url AS trailer, 
           v.jacket_full_url AS fan_art,
           v.jacket_thumb_url AS poster
         FROM derived_video v
@@ -309,6 +315,7 @@ mixin DBR18 {
           v.content_id AS id,
           v.dvd_id AS video_code, 
           v.release_date AS release_date, 
+          v.sample_url AS trailer,
           v.jacket_full_url AS fan_art,
           v.jacket_thumb_url AS poster
         FROM derived_video v
@@ -341,6 +348,7 @@ mixin DBR18 {
           v.content_id AS id,
           v.dvd_id AS video_code, 
           v.release_date AS release_date, 
+          v.sample_url AS trailer,
           v.jacket_full_url AS fan_art,
           v.jacket_thumb_url AS poster
         FROM derived_video v

@@ -39,6 +39,7 @@ mixin HomeLibrary {
               Spacer(),
               IconButton(
                 icon: Icon(CupertinoIcons.refresh, size: 18),
+                tooltip: 'Rescan All Video',
                 onPressed: () {
                   Overlayment.dismissLast();
                   doRescanAllVideoFromLibrary(library);
@@ -46,6 +47,7 @@ mixin HomeLibrary {
               ),
               IconButton(
                 icon: Icon(CupertinoIcons.add, size: 18),
+                tooltip: 'Add New Library',
                 onPressed: () {
                   Overlayment.dismissLast();
                   openDialogAddorEditLibrary();
@@ -68,7 +70,7 @@ mixin HomeLibrary {
                     return HStack([
                       VStack([
                         HStack([
-                          'ⵌ ${item.alias}'.text.ellipsis.make().pOnly(right: 8),
+                          '${item.alias}'.text.ellipsis.make().pOnly(right: 8),
                           Container(
                             decoration: ExDecorator.box(borderRadius: 90, fillColor: AppColor.container),
                             child: ' ${item.totalVideo} '.text.size(9).minFontSize(9).make(),

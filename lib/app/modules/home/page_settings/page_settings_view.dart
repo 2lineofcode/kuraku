@@ -1,11 +1,10 @@
 import 'package:ex_kit/ex.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:process_run/process_run.dart' as cmd;
 
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
-import '../../../core/app_setting.dart';
 import '../../../data/database/db_init.dart';
 import '../../../utils/helper_opener.dart';
 import 'page_settings_controller.dart';
@@ -52,7 +51,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                       HStack([
                         'Last Relapse'.text.size(11).minFontSize(11).neutral400.make(),
                         Spacer(),
-                        '${controller.lastRelapse}'.text.size(11).minFontSize(11).bold.make(),
+                        // Obx(() => '${controller.lastRelapse.value.ago(format: kYMd, locale: 'en')}'.text.size(11).minFontSize(11).bold.make()),
                       ]),
                     ]).p8(),
                   ),
@@ -89,33 +88,39 @@ class PageSettingsView extends GetView<PageSettingsController> {
                   VStack(
                     [
                       ExButtonText(
+                        label: 'Keyboard Shortcuts',
+                        labelSize: 12,
+                        height: 32,
+                        onPressed: () => controller.openKeyboardShortcuts(),
+                      ).pOnly(bottom: 8),
+                      ExButtonText(
                         label: 'Go App Folder',
                         labelSize: 12,
-                        height: 38,
+                        height: 32,
                         onPressed: () => HelperOpener.openFolder(controller.appSetting.appPath),
                       ).pOnly(bottom: 8),
                       ExButtonText(
                         label: '🔄 Relapse',
                         labelSize: 12,
-                        height: 38,
+                        height: 32,
                         onPressed: () => controller.onResetRelapse(),
                       ).pOnly(bottom: 8).hide(),
                       ExButtonText(
                         label: 'Update R18 DB',
                         labelSize: 12,
-                        height: 38,
+                        height: 32,
                         onPressed: () => controller.updateR18DB(),
                       ).pOnly(bottom: 8),
                       ExButtonText(
                         label: 'Reset DB',
                         labelSize: 12,
-                        height: 38,
+                        height: 32,
                         onPressed: () => controller.onResetAll(),
                       ).pOnly(bottom: 8),
                       ExButtonText(
                         label: 'Vacum DB',
                         labelSize: 12,
-                        height: 38,
+                        height: 32,
                         onPressed: () => Get.find<DBService>().vacumDB(),
                       ).pOnly(bottom: 8),
                     ],
@@ -128,43 +133,20 @@ class PageSettingsView extends GetView<PageSettingsController> {
           alignment: MainAxisAlignment.start,
         ).pOnly(bottom: 24),
 
-        // @DEBUG
-        VStack(
-          [
-            ExButtonText(
-                label: 'Clear',
-                onPressed: () => controller.output.value = '',
-            ),
+        
 
-            ExButtonText(
-              label: 'Go ~',
-              onPressed: () async {
-                try {
-                  await cmd.run('chmod +x "${Get.find<AppSettingService>().appPath}/dl"');
-                } catch (e) {
-                  print('Failed to chmod: $e');
-                }
-
-                try {
-                  await cmd.run(
-                    '${Get.find<AppSettingService>().appPath}/dl list',
-                    verbose: false,
-                    onProcess: (process) {
-                      process.outLines.listen((s) {
-                        print(s);
-                        controller.output.value += s;
-                      });
-                    },
-                  );
-                } catch (e) {
-                  // await HelperToast.error('e -> $e');
-                  controller.output.value = e.toString();
-                }
-              },
-            ),
-            Obx(() => '${controller.output}'.text.make()),
-          ],
-        ),
+        // ! DEBUG ONLY
+        if (kDebugMode) ...[
+          HStack(
+            [
+              'debug only'.text.make(),
+              ExButtonText(
+                label: 'test',
+                onPressed: () {},
+              ),
+            ],
+          ),
+        ],
       ],
     ).scrollVertical();
   }

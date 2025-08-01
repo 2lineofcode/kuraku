@@ -1,7 +1,10 @@
+import 'package:ex_kit/ex.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
 import '../../env.g.dart';
 import '../core/app_logging.dart';
+import 'helper_toast.dart';
 
 mixin HelperMisc {
   static String getLastPath(String path) => path.split('/').last;
@@ -87,11 +90,21 @@ mixin HelperMisc {
     return parts.join(', ');
   }
 
-  static void copyToClipboard(String? text) {
+  static void copyToClipboard(String? text, {
+    bool? showToast = false, 
+    String? toastMessage,
+    Duration? toastDuration,
+    Alignment? alignment,
+  }) {
     if (text == null) return;
 
     final data = ClipboardData(text: text);
     Clipboard.setData(data);
+
+    if (showToast == true) {
+      toastMessage ??= '[$text] Copied to clipboard';
+      HelperToast.info(toastMessage, duration: toastDuration ?? 2.seconds, alignment: alignment);
+    }
   }
 
   static Future<String?> decensor(String? s) async {
@@ -118,7 +131,7 @@ mixin HelperMisc {
     return resultString;
   }
 
-  static String formatName(String name) {
+  static String formatActressName(String name) {
     String cleanAndFormatPart(String part) {
       String cleanedPart = part.replaceAll(RegExp(r'\d+'), '');
       if (cleanedPart.isEmpty) return '';

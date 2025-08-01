@@ -135,7 +135,7 @@ class PageHomeView extends GetView<PageHomeController> {
         VStack(
           [
             HStack([
-              '🆕 Last Added'.text.size(12).make(),
+              '🆕 New Added'.text.size(12).make(),
               Spacer(),
               IconButton(
                 icon: Icon(CupertinoIcons.refresh, size: 16),
@@ -156,6 +156,58 @@ class PageHomeView extends GetView<PageHomeController> {
             ),
           ],
         ).hide(isVisible: controller.listNewAdded.isNotEmpty),
+
+        // never watch
+        VStack(
+          [
+            HStack([
+              '👁️‍🗨️ Never Watch'.text.size(12).make(),
+              Spacer(),
+              IconButton(
+                icon: Icon(CupertinoIcons.refresh, size: 16),
+                onPressed: () => controller.getListNeverWatch(),
+              ),
+            ]).pSymmetric(v: 12),
+            Obx(
+              () => controller.listNeverWatch.isEmpty
+                  ? buildLayoutEmptyPoster()
+                  : ListView.builder(
+                      itemCount: controller.listNeverWatch.length,
+                      scrollDirection: Axis.horizontal,
+                      itemBuilder: (context, index) {
+                        final video = controller.listNeverWatch[index];
+                        return buildLayoutPoster(video, showViewCount: false);
+                      },
+                    ).wh(double.infinity, 200),
+            ),
+          ],
+        ).hide(isVisible: controller.listNeverWatch.isNotEmpty),
+
+        // oldest
+        VStack(
+          [
+            HStack([
+              '👴🏻 Oldest'.text.size(12).make(),
+              Spacer(),
+              IconButton(
+                icon: Icon(CupertinoIcons.refresh, size: 16),
+                onPressed: () => controller.getListOldest(),
+              ),
+            ]).pSymmetric(v: 12),
+            Obx(
+              () => controller.listOldest.isEmpty
+                  ? buildLayoutEmptyPoster()
+                  : ListView.builder(
+                      itemCount: controller.listOldest.length,
+                      scrollDirection: Axis.horizontal,
+                      itemBuilder: (context, index) {
+                        final video = controller.listOldest[index];
+                        return buildLayoutPoster(video, showViewCount: false);
+                      },
+                    ).wh(double.infinity, 200),
+            ),
+          ],
+        ).hide(isVisible: controller.listOldest.isNotEmpty),
 
         // playlist ~
         VStack(

@@ -9,7 +9,8 @@ mixin DBHistory {
   static final _tableName = 'History';
 
   static Future<bool> _validation(History history) async {
-    if (history.id == null) return false;
+    if (history.id.isNullOrEmpty) return false;
+    if (history.message.isNullOrEmpty) return false;
     return true;
   }
 
@@ -32,8 +33,8 @@ mixin DBHistory {
     await _db.delete(_tableName, where: 'id = ?', whereArgs: [history.id]);
   }
 
-  static Future<List<History>> getAll({String? where, List<Object?>? whereArgs}) async {
-    final List<Map<String, dynamic>> maps = await _db.query(_tableName, where: where, whereArgs: whereArgs);
+  static Future<List<History>> getAll({String? where, List<Object?>? whereArgs, String? orderBy, int? limit}) async {
+    final List<Map<String, dynamic>> maps = await _db.query(_tableName, where: where, whereArgs: whereArgs, orderBy: orderBy, limit: limit);
     return List.generate(maps.length, (index) => History.fromJson(maps[index]));
   }
 

@@ -1,25 +1,20 @@
-# r18
+# JavIt 🇯🇵
 
-### implement
-https://pub.dev/packages/super_drag_and_drop ✅
-https://pub.dev/packages/toastification ✅
-zoom image ✅
-https://pub.dev/packages/icons_launcher ✅
-fast_cached_network_image: ^1.3.3+5  ✅
-https://pub.dev/packages/super_context_menu 
-https://pub.dev/packages/keymap
-loadmore
+(NSFW) Powerful Organize your local Japanese Adult Video (JAV)  wherever it without internet (offline)
 
+Auto manage your local JAV like a boss 😎, search, explore, track, etc **just by drag drop your JAV folder into app**, see video how it work 😎😎
 
-### fix
+# Video Demo
+![alt text](.screenshot/demo.gif)
 
+# Screenshot
+![alt text](.screenshot/ss_home.png)
+![alt text](.screenshot/ss_explore.png)
+![alt text](.screenshot/ss_search.png)
 
-### add features
-- hide sidebar
+# How it work?
+- this app working with local database (r18) download latest R18 DB Here: https://r18.dev/dumps
 
 
-
-https://img2.javmost.com/file_image/DOKS-642.jpg
-https://img2.javmost.com/file_image/MVSD-471.jpg
-https://img3.javmost.com/images/720/MVSD-471.webp
-https://surrit.com/d27be9b8-4d7b-440b-9b36-090b8f4be7aa/360p/video.m3u8
+# 🤗 Contributors
+i create this project just for hobbies while im free with flutter, and i just have a macbook, so i build for macos only, but feel free to open PR if you want to build to other platform :))

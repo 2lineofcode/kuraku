@@ -14,8 +14,8 @@ import 'package:window_manager/window_manager.dart';
 import '../../env.g.dart';
 import '../modules/home/home_controller.dart';
 import '../modules/home/page_download/page_download_controller.dart';
+import '../modules/home/page_tools/page_tools_controller.dart';
 import 'app_logging.dart';
-import 'const.dart';
 
 
 class AppSettingService extends GetxService {
@@ -32,7 +32,7 @@ class AppSettingService extends GetxService {
 
 
     await setupDesktop();
-    await setupStorage();
+    await setupAppPref();
     await setupExternalFiles();
     await setupHotkey();
   }
@@ -40,15 +40,15 @@ class AppSettingService extends GetxService {
   // ────────────────────────────────────────────────────────────────
   // ⵌ checkAndApplyDefaultAppConfig
   // ────────────────────────────────────────────────────────────────
-  Future<void> setupStorage() async {    
-    await pref.writeIfNull(kIsDarkMode, true);
-    await pref.writeIfNull(kCurrentLanguage, 'en');
-    await pref.writeIfNull(kFirstOpenApp, DateTime.now().toStringEx());
-    await pref.writeIfNull(kLastOpenApp, DateTime.now().toStringEx());
-    await pref.writeIfNull(kDownloadDir, await getDownloadsDirectory());
-    await pref.writeIfNull(kDownloadLang, 'en');
-    
-    await pref.write(kLastOpenApp, DateTime.now().toStringEx());
+  Future<void> setupAppPref() async {    
+    await pref.writeIfNull('_kAppIsDarkMode',true);
+    await pref.writeIfNull('_kAppLanguage','en');
+    await pref.writeIfNull('_kAppFirstOpen',DateTime.now().toStringEx());
+    await pref.writeIfNull('_kAppLastOpen',DateTime.now().toStringEx());
+    await pref.writeIfNull('_kDownloadPath','');
+    await pref.writeIfNull('_kDownloadLang','en');
+
+    await pref.writeIfNull('_kAppLastOpen',DateTime.now().toStringEx());
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -105,6 +105,8 @@ class AppSettingService extends GetxService {
     HotKey _hotKeyX = HotKey(key: PhysicalKeyboardKey.keyX, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyR = HotKey(key: PhysicalKeyboardKey.keyR, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyD = HotKey(key: PhysicalKeyboardKey.keyD, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKeyT = HotKey(key: PhysicalKeyboardKey.keyT, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKeyB = HotKey(key: PhysicalKeyboardKey.keyB, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
 
     HotKey _hotKey1 = HotKey(key: PhysicalKeyboardKey.digit1, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKey2 = HotKey(key: PhysicalKeyboardKey.digit2, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
@@ -138,6 +140,23 @@ class AppSettingService extends GetxService {
       AppLog.logD('hotKeyD Pressed');
       try { Get.find<PageDownloadController>().openDialogDownload();
       } catch (_) {}
+    });
+
+    await hotKeyManager.register(_hotKeyT, keyUpHandler: (hotKey) {
+      AppLog.logD('hotKeyT Pressed');
+      try { Get.find<PageToolsController>().addTodo();
+      } catch (_) {}
+    });
+
+    await hotKeyManager.register(_hotKeyB, keyUpHandler: (hotKey) {
+      final current = Get.find<HomeController>().sideMenuWidth.value;
+      if (current == 0) {
+        Get.find<HomeController>().sideMenuWidth.value = 180;
+        Get.find<HomeController>().appBarShow.value = true;
+      } else {
+        Get.find<HomeController>().sideMenuWidth.value = 0;
+        Get.find<HomeController>().appBarShow.value = false;
+      }
     });
 
     await hotKeyManager.register(_hotKey1, keyUpHandler: (hotKey) {

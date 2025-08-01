@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -10,6 +9,7 @@ import '../../../core/app_logging.dart';
 import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
+import '../../../utils/helper_loading.dart';
 import '../../../utils/helper_toast.dart';
 
 class PageSearchController extends GetxController {
@@ -18,12 +18,16 @@ class PageSearchController extends GetxController {
   final fnSearch = FocusNode();
   final phSearch = ''.obs;
 
+  final scrollController = ScrollController();
+  final scrollOffset = 0.0.obs;
+
   final viewModeSelected = kGrid.obs; // grid | list
   final videos = <Videos>[].obs;
-  final api = Get.find<ApiJavit>();
 
   @override
   Future<void> onInit() async {
+    if (scrollOffset.value > 0) scrollController.jumpTo(scrollOffset.value);
+    
     super.onInit();
     AppLog.logI('page search ==> onInit called');
     viewModeSelected.value = kGrid;
@@ -34,9 +38,9 @@ class PageSearchController extends GetxController {
 
   Future<void> renewMetadata(Videos videos) async {
     await Overlayment.dismissLast();
-    ExLoading.show(paddingSymmetric: 240);
-    await api.getMetadata(code: videos.videoCode ?? '').then((resp) {
-      ExLoading.dismiss();
+    HelperLoading.show();
+    await ApiJavit.getMetadata(code: videos.videoCode ?? '').then((resp) {
+      HelperLoading.dismiss();
       final newVideos = videos;
       newVideos.title = resp.title;
       newVideos.titleJa = resp.titleJa;
@@ -95,7 +99,7 @@ class PageSearchController extends GetxController {
       DBVideos.update(newVideos);
       HelperToast.success('${newVideos.videoCode} metadata updated');
     }).catchError((e) {
-      ExLoading.dismiss();
+      HelperLoading.dismiss();
       HelperToast.error(e.toString());
     });
   }

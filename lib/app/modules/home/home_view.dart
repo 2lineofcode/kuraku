@@ -1,5 +1,6 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
@@ -14,6 +15,7 @@ import 'page_home/page_home_view.dart';
 import 'page_search/page_search_controller.dart';
 import 'page_search/page_search_view.dart';
 import 'page_settings/page_settings_view.dart';
+import 'page_tools/page_tools_view.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
@@ -30,27 +32,33 @@ class HomeView extends GetView<HomeController> {
         }
       },
       onPerformDrop: controller.onDropEvent,
-      child: MyLayout(
-        appBarTitle: appBarTitle(),
-        appBarLeading: appBarLeading().pOnly(right: 8),
-        isShowAppBarLeading: false,
-        appBarAction: appBarAction(),
-        sideMenuContent: sideMenuContent(),
-        sideMenuWidth: 180,
-        bodyContent: controller.obx(
-          (_) => Obx(() => bodyContent().p8()),
-          onLoading: ExUiLoading(
-            message: Obx(() => '${controller.loadingText}'.text.makeCentered()),
+      child: Obx(
+        () => MyLayout(
+          appBarTitle: controller.appBarShow.isTrue ? appBarTitle() : null,
+          appBarLeading: appBarLeading().pOnly(right: 8),
+          isShowAppBarLeading: false,
+          appBarAction: appBarAction(),
+          sideMenuContent: sideMenuContent(),
+          sideMenuWidth: controller.sideMenuWidth.value,
+          bodyContent: controller.obx(
+            (_) => bodyContent().p8(),
+            onLoading: ExUiLoading(
+              message: Obx(() => '${controller.loadingText}'.text.makeCentered()),
+            ),
           ),
+          footerContent: footerContent(),
+          floatingActionButton: floatingActionButton(),
         ),
-        footerContent: footerContent(),
-        floatingActionButton: floatingActionButton(),
       ),
     );
   }
 
   Widget appBarTitle() {
-    return Obx(() => '${controller.currentMenuSelected}'.text.size(14).bold.make());
+    if (kDebugMode) {
+      return Obx(() => '[DEBUG] ${controller.currentMenuSelected}'.text.size(14).bold.make());
+    } else {
+      return Obx(() => '${controller.currentMenuSelected}'.text.size(14).bold.make());
+    }
   }
 
   Widget appBarLeading() {
@@ -85,6 +93,7 @@ class HomeView extends GetView<HomeController> {
       {'icon': CupertinoIcons.search, 'name': kMenuSearch},
       {'icon': CupertinoIcons.book, 'name': kMenuExplore},
       {'icon': CupertinoIcons.square_arrow_down, 'name': kMenuDownload},
+      {'icon': CupertinoIcons.cube_box, 'name': kMenuTools},
       {'icon': CupertinoIcons.gear_big, 'name': kMenuSetting},
     ];
     return VStack(
@@ -116,22 +125,41 @@ class HomeView extends GetView<HomeController> {
   }
 
   Widget bodyContent() {
-    switch (controller.currentMenuSelected.value) {
-      case kMenuHome:
-        return controller.obx((state) => PageHomeView());
-      case kMenuSearch:
-        Get.find<PageSearchController>().fnSearch.requestFocus();
-        return controller.obx((state) => PageSearchView());
-      case kMenuExplore:
-        return controller.obx((state) => PageExploreView());
-      case kMenuDownload:
-        return controller.obx((state) => PageDownloadView());
-      case kMenuSetting:
-        return controller.obx((state) => PageSettingsView());
-      default:
-        return Container();
+    final List<Widget> pages = [
+      PageHomeView(),
+      PageSearchView(),
+      PageExploreView(),
+      PageDownloadView(),
+      PageToolsView(),
+      PageSettingsView(),
+    ];
+
+    int getPageIndex(String menuName) {
+      switch (menuName) {
+        case kMenuHome: return 0;
+        case kMenuSearch: return 1;
+        case kMenuExplore: return 2;
+        case kMenuDownload: return 3;
+        case kMenuTools: return 4;
+        case kMenuSetting: return 5;
+        default: return 0;
+      }
     }
+
+    return Obx(
+      () {
+        final index = getPageIndex(controller.currentMenuSelected.value);
+        
+        if (controller.currentMenuSelected.value == kMenuSearch) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Get.find<PageSearchController>().fnSearch.requestFocus();
+          });
+        }
+        return IndexedStack(index: index, children: pages);
+      },
+    );
   }
+
 
   Widget footerContent() {
     return HStack([

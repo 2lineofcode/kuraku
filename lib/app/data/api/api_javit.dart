@@ -9,8 +9,8 @@ const kProviderR18 = 'r18';
 const kProviderNJav = 'njav';
 const kProviderMissAV = 'missav';
 
-class ApiJavit {
-  Future<JavitMetadata> getMetadata({required String code}) async {
+mixin ApiJavit {
+  static Future<JavitMetadata> getMetadata({required String code}) async {
     if (!HelperMisc.isValidVideoCode(code) || code == '') {
       throw Exception('Invalid video code for $code');
     }
@@ -23,7 +23,7 @@ class ApiJavit {
     }
   }
 
-  Future<JavitSearch> search({required String s, String provider = kProviderNJav, String lang = 'en', int page = 1}) async {
+  static Future<JavitSearch> search({required String s, String provider = kProviderNJav, String lang = 'en', int page = 1}) async {
     if (page <= 1) page = 1;
 
     if (lang == '') lang = 'en';
@@ -34,7 +34,8 @@ class ApiJavit {
       throw ApiException(e.toString());
     }
   }
-  Future<Map<String, dynamic>> ranking({String provider = kProviderNJav}) async {
+
+  static Future<Map<String, dynamic>> ranking({String provider = kProviderNJav}) async {
     try {
       final res = await Api.get('/api/$provider/star_rank', noCache: true);
       return res.data;

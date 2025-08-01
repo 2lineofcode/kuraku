@@ -32,7 +32,7 @@ Future<void> main() async {
     return service;
   }, permanent: true);
 
-  AppLog.logD('App service done in ${sw.elapsedMilliseconds}ms');
+  AppLog.logD('All Depedencies loaded in ${sw.elapsedMilliseconds}ms');
   runApp(JavIt());
 }
 

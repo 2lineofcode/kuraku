@@ -45,7 +45,7 @@ mixin DBVideos {
         if (videos.actress![i].nameRomaji == '') {
           videos.actress![i].nameRomaji = videos.actress![i].imageUrl;
         }
-        videos.actress![i].nameRomaji = HelperMisc.formatName(videos.actress![i].nameRomaji ?? '');
+        videos.actress![i].nameRomaji = HelperMisc.formatActressName(videos.actress![i].nameRomaji ?? '');
       }
     }
 
@@ -70,9 +70,15 @@ mixin DBVideos {
     await _db.delete(_tableName, where: 'root_path = ?', whereArgs: [rootPath]);
   }
 
-  static Future<List<Videos>> getAll({String? where, List<Object?>? whereArgs, int? limit}) async {
+  static Future<List<Videos>> getAll({
+    String? where,
+    List<Object?>? whereArgs,
+    String? orderBy,
+    String? groupBy,
+    int? limit
+  }) async {
     try {
-      final maps = await _db.query(_tableName, where: where, whereArgs: whereArgs, limit: limit);
+      final maps = await _db.query(_tableName, where: where, whereArgs: whereArgs, groupBy: groupBy, orderBy: orderBy, limit: limit);
       return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
     } catch (e) {
       throw Exception('${e.toString()}');
@@ -362,5 +368,22 @@ mixin DBVideos {
 
     final maps = List<Map<String, dynamic>>.from(rawMaps);
     return maps;
+  }
+
+
+  static Future<List<Videos>> getListDuplicateVideos() async {
+    final maps = await _db.rawQuery('''
+        SELECT * FROM "Videos" v
+        WHERE v.video_code IN (
+          SELECT video_code
+          FROM "Videos"
+          WHERE video_code != '' AND video_code IS NOT NULL
+          GROUP BY video_code
+          HAVING COUNT(video_code) > 1
+        )
+        ORDER BY 
+          v.video_code, v.video_path;
+      ''');
+    return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
   }
 }
