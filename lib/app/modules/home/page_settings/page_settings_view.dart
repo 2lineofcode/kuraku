@@ -51,7 +51,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                       HStack([
                         'Last Relapse'.text.size(11).minFontSize(11).neutral400.make(),
                         Spacer(),
-                        // Obx(() => '${controller.lastRelapse.value.ago(format: kYMd, locale: 'en')}'.text.size(11).minFontSize(11).bold.make()),
+                        Obx(() => '${controller.lastRelapse.value}'.text.size(11).minFontSize(11).bold.make()),
                       ]),
                     ]).p8(),
                   ),
@@ -67,10 +67,10 @@ class PageSettingsView extends GetView<PageSettingsController> {
                         Spacer(),
                         '${controller.r18TotalVideo}'.text.size(11).minFontSize(11).bold.make(),
                       ]).pOnly(bottom: 8),
-                      HStack([
-                        Spacer(),
-                        'Check Update'.text.size(11).minFontSize(11).underline.blue500.make().onInkTap(() => controller.updateR18DB()),
-                      ]),
+                      // HStack([
+                      //   Spacer(),
+                      //   'Check Update'.text.size(11).minFontSize(11).underline.blue500.make().onInkTap(() => controller.updateR18DB()),
+                      // ]),
                     ]).p8(),
                   ),
                 ]).p12(),

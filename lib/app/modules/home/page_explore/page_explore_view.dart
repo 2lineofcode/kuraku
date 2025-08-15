@@ -4,15 +4,13 @@ import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
+import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
-import '../../../utils/helper_toast.dart';
 import '../../widgets/widget_thumbnail.dart';
-import '../home_controller.dart';
-import '../page_download/page_download_controller.dart';
 import 'page_explore_controller.dart';
 
 class PageExploreView extends GetView<PageExploreController> {
@@ -124,7 +122,10 @@ class PageExploreView extends GetView<PageExploreController> {
                           illustration: Icon(
                           CupertinoIcons.chevron_left_2,
                           size: 32,
-                        )).expand()
+                        ).pOnly(bottom: 12),
+                        message: 'Please select left area first',
+                        
+                        ).expand()
                       : controller.vListViewMode.value == kLocal
                           ? vListLocal().expand()
                           : vListR18().expand(),
@@ -139,7 +140,7 @@ class PageExploreView extends GetView<PageExploreController> {
 
   Widget uiNoData() {
     return ExUiErrorOrEmpty(
-      illustration: Icon(CupertinoIcons.lab_flask_solid, size: 32),
+      illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
       title: 'No Data Found',
       message: 'No Result Found, as you searched for "${controller.tecSearch.text}"',
     );
@@ -311,29 +312,17 @@ class PageExploreView extends GetView<PageExploreController> {
             ).positioned(left: 0),
 
             // ** open trailer
-            Icon(CupertinoIcons.play, size: 16).wh(32, 32).color(Vx.black).cornerRadius(12).onInkTap(() {
+            Icon(UIconsPro.regularRounded.play, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
               HelperOpener.openTrailer(item);
             }).positioned(right: 8, top: 4),
 
             // ** open screenshot
-            Icon(CupertinoIcons.photo, size: 16).wh(32, 32).color(Vx.black).cornerRadius(12).onInkTap(() {
+            Icon(UIconsPro.regularRounded.picture, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
               HelperOpener.openScreenshot(item);
-            }).positioned(right: 8, top: 38),
+            }).positioned(right: 8, top: 36),
 
           ],
-        ).onInkTap(
-          () async {
-            if (item['match'] == true) {
-              await HelperToast.info('This video is already in your library');
-            } else {
-              item['is_clicked'] = true;
-              Get.find<HomeController>().currentMenuSelected.value = kMenuDownload;
-              Get.find<PageDownloadController>().tecSearch.text = item['video_code'] ?? '';
-              await Get.find<PageDownloadController>().onSearch(item['video_code']);
-            }
-            controller.update();
-          },
-        ).pOnly(bottom: 12);
+        ).onInkTap(() async => await HelperOpener.openVideoInfo(item)).pOnly(bottom: 12);
       },
     );
   }

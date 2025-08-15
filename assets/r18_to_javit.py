@@ -20,13 +20,19 @@ def convert_sql_to_sqlite_fast(sql_file_path, sqlite_db_path):
         conn = sqlite3.connect(sqlite_db_path)
         cursor = conn.cursor()
 
-        conn.execute('PRAGMA synchronous = OFF;')
-        conn.execute('PRAGMA journal_mode = MEMORY;')
-        conn.execute('PRAGMA locking_mode = EXCLUSIVE;')
-        conn.execute('PRAGMA temp_store = 2;')
-        conn.execute('PRAGMA cache_size = 1000000;')
-        conn.execute('PRAGMA page_size = 65536;')
-        conn.execute('PRAGMA foreign_keys = OFF;')
+        conn.execute('PRAGMA synchronous = OFF;')               # Matikan flush disk
+        conn.execute('PRAGMA journal_mode = OFF;')              # Matikan journal sama sekali
+        conn.execute('PRAGMA locking_mode = EXCLUSIVE;')        # Full lock, single writer
+        conn.execute('PRAGMA temp_store = MEMORY;')             # Temp di RAM
+        conn.execute('PRAGMA cache_size = -1048576;')           # ~1GB cache (page-based)
+        conn.execute('PRAGMA page_size = 65536;')               # Max page size (64KB)
+        conn.execute('PRAGMA mmap_size = 281474976710656;')     # Max mmap size (256 TB teoritis)
+        conn.execute('PRAGMA foreign_keys = OFF;')              # Matikan cek foreign key
+        conn.execute('PRAGMA automatic_index = OFF;')           # Matikan index otomatis
+        conn.execute('PRAGMA count_changes = OFF;')             # Matikan update counter
+        # conn.execute('PRAGMA temp_store_directory = "/dev/shm";') # Simpan temp file di RAM (Linux)
+
+
 
         conn.execute('BEGIN TRANSACTION;')
 
@@ -129,13 +135,11 @@ def convert_sql_to_sqlite_fast(sql_file_path, sqlite_db_path):
                     current_statement_parts = []
 
         for table_name, columns, lines in copy_blocks:
-            # Patch nama kolom jika SQLite mengubah otomatis
             sqlite_column_aliases = {
                 "release_date": "release_date",
                 "timestamp": "timestamp",
             }
             adjusted_columns = [sqlite_column_aliases.get(col.strip('"'), col.strip('"')) for col in columns]
-
 
             cursor.execute(f"PRAGMA table_info({table_name})")
             existing_cols = [row[1] for row in cursor.fetchall()]
@@ -148,14 +152,34 @@ def convert_sql_to_sqlite_fast(sql_file_path, sqlite_db_path):
 
             placeholders = ', '.join(['?'] * len(adjusted_columns))
             insert_sql = f"INSERT INTO {table_name} ({', '.join(adjusted_columns)}) VALUES ({placeholders})"
+
+            # 🚀 Optimasi batch insert
+            batch_size = 1_000_000
+            total_inserted = 0
             batch = []
-            for line in lines:
+            for idx, line in enumerate(lines, 1):
                 values = line.split('\t')
                 parsed = [None if v == r'\N' or v.lower() == 'infinity' else v for v in values]
                 batch.append(parsed)
-            cursor.executemany(insert_sql, batch)
-            total_statements += len(batch)
-            converted_copy_statements += len(batch)
+
+                if len(batch) >= batch_size:
+                    cursor.executemany(insert_sql, batch)
+                    total_inserted += len(batch)
+                    batch.clear()
+                    print(f"   ↳ {total_inserted:,} baris dimasukkan ke {table_name}...")
+
+
+            # sisanya eksekusi sekali
+            if batch:
+                cursor.executemany(insert_sql, batch)
+                total_inserted += len(batch)
+                print(f"   ↳ {total_inserted:,} baris dimasukkan ke {table_name}...")
+
+
+            print(f"📦 Commit data {table_name}...")
+            total_statements += total_inserted
+            converted_copy_statements += total_inserted
+
 
         conn.execute('COMMIT;')
 
@@ -164,14 +188,19 @@ def convert_sql_to_sqlite_fast(sql_file_path, sqlite_db_path):
             # Index untuk video
             "CREATE INDEX IF NOT EXISTS idx_derived_video_dvd_id ON derived_video(dvd_id);",
             "CREATE INDEX IF NOT EXISTS idx_derived_video_content_id ON derived_video(content_id);",
+            "CREATE INDEX IF NOT EXISTS idx_derived_video_title_en ON derived_video(title_en);",
             "CREATE INDEX IF NOT EXISTS idx_derived_video_title_ja ON derived_video(title_ja);",
             "CREATE INDEX IF NOT EXISTS idx_derived_video_release_date ON derived_video(release_date);",
+            "CREATE INDEX IF NOT EXISTS idx_derived_video_dvd_id_title_en ON derived_video (dvd_id, title_en);",
 
-            # Relasi maker, label, series, site
+            # Relasi maker, label, series, site, director
             "CREATE INDEX IF NOT EXISTS idx_derived_video_maker_id ON derived_video(maker_id);",
+            "CREATE INDEX IF NOT EXISTS idx_derived_video_maker_id_release_date ON derived_video (maker_id, release_date DESC);",
             "CREATE INDEX IF NOT EXISTS idx_derived_video_label_id ON derived_video(label_id);",
             "CREATE INDEX IF NOT EXISTS idx_derived_video_series_id ON derived_video(series_id);",
             "CREATE INDEX IF NOT EXISTS idx_derived_video_site_id ON derived_video(site_id);",
+            "CREATE INDEX IF NOT EXISTS idx_derived_director_name_romaji ON derived_director(name_romaji);",
+            "CREATE INDEX IF NOT EXISTS idx_derived_director_name_kana ON derived_director(name_kana);",
 
             # machine_translation
             "CREATE INDEX IF NOT EXISTS idx_machine_translation_source_ja ON machine_translation(source_ja);",
@@ -181,6 +210,7 @@ def convert_sql_to_sqlite_fast(sql_file_path, sqlite_db_path):
             # derived_maker/label/series/site names
             "CREATE INDEX IF NOT EXISTS idx_label_name_en ON derived_label(name_en);",
             "CREATE INDEX IF NOT EXISTS idx_maker_name_ja ON derived_maker(name_ja);",
+            "CREATE INDEX IF NOT EXISTS idx_derived_maker_name_en ON derived_maker(name_en);",
             "CREATE INDEX IF NOT EXISTS idx_series_name_en ON derived_series(name_en);",
             "CREATE INDEX IF NOT EXISTS idx_site_name ON derived_site(name);",
 
@@ -244,5 +274,5 @@ if __name__ == "__main__":
 
     input_sql_file = files[0]
     now = datetime.datetime.now().strftime("%Y_%m_%d")
-    output_sqlite_db = f'r18.db'
+    output_sqlite_db = f'r18_{now}.db'
     convert_sql_to_sqlite_fast(input_sql_file, output_sqlite_db)

@@ -13,7 +13,7 @@
         "linux": true,
         "android": true,
         "windows": true,
-        "macos": true,
+        "macos": false,
         "ios": true,
         "web": true,
         "build": false,
@@ -35,4 +35,5 @@
         "firebase.json": "firebase.json, .firebaserc",
         ".env": ".env, .env.dev, .env.local, .env.staging, .env.prod, env.g.dart",
     },
+    "postman.settings.dotenv-detection-notification-visibility": false,
 }

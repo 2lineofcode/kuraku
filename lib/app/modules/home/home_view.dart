@@ -1,9 +1,9 @@
 import 'package:ex_kit/ex.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
+import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../core/app_color.dart';
 import '../widgets/widgets.dart';
@@ -55,7 +55,7 @@ class HomeView extends GetView<HomeController> {
 
   Widget appBarTitle() {
     if (kDebugMode) {
-      return Obx(() => '[DEBUG] ${controller.currentMenuSelected}'.text.size(14).bold.make());
+      return Obx(() => '🐞 ${controller.currentMenuSelected}'.text.size(14).bold.make());
     } else {
       return Obx(() => '${controller.currentMenuSelected}'.text.size(14).bold.make());
     }
@@ -68,33 +68,33 @@ class HomeView extends GetView<HomeController> {
   Widget appBarAction() {
     return HStack(
       [
+        // IconButton(
+        //   icon: Icon(UIconsPro.regularRounded.refresh, size: 14),
+        //   onPressed: () => controller.onRefreshAllContent(),
+        //   tooltip: 'Refresh All Content (⌘+R)',
+        // ),
         IconButton(
-          icon: Icon(CupertinoIcons.refresh, size: 18),
-          onPressed: () => controller.onRefreshAllContent(),
-          tooltip: 'Refresh All Content (⌘+R)',
-        ),
-        IconButton(
-          icon: Icon(CupertinoIcons.thermometer, size: 18),
+          icon: Icon(UIconsPro.regularRounded.calendar_minus, size: 14),
           onPressed: () => HomeRelapse.openMenuRelapse(),
           tooltip: 'Relapse :(',
         ),
         IconButton(
-          icon: Icon(CupertinoIcons.collections, size: 18),
+          icon: Icon(UIconsPro.regularRounded.multiple_alt, size: 14),
           onPressed: () => controller.onOpenLibrary(),
           tooltip: 'Library',
-        ),
+        ).pOnly(right: 8),
       ],
     );
   }
 
   Widget sideMenuContent() {
     final menuList = <Map<String, dynamic>>[
-      {'icon': CupertinoIcons.square_stack_3d_down_dottedline, 'name': kMenuHome},
-      {'icon': CupertinoIcons.search, 'name': kMenuSearch},
-      {'icon': CupertinoIcons.book, 'name': kMenuExplore},
-      {'icon': CupertinoIcons.square_arrow_down, 'name': kMenuDownload},
-      {'icon': CupertinoIcons.cube_box, 'name': kMenuTools},
-      {'icon': CupertinoIcons.gear_big, 'name': kMenuSetting},
+      {'icon': UIconsPro.regularRounded.comet, 'name': kMenuHome},
+      {'icon': UIconsPro.regularRounded.magnifying_glass_wave, 'name': kMenuSearch},
+      {'icon': UIconsPro.regularRounded.book_alt, 'name': kMenuExplore},
+      {'icon': UIconsPro.regularRounded.display_arrow_down, 'name': kMenuDownload},
+      {'icon': UIconsPro.regularRounded.customization, 'name': kMenuTools},
+      {'icon': UIconsPro.regularRounded.operating_system_upgrade, 'name': kMenuSetting},
     ];
     return VStack(
       [
@@ -112,7 +112,7 @@ class HomeView extends GetView<HomeController> {
                     borderColor: Colors.transparent,
                   ),
                   child: HStack([
-                    Icon(item['icon'], size: 18).pSymmetric(h: 8),
+                    Icon(item['icon'], size: 16).pSymmetric(h: 8),
                     '${item['name']}'.text.size(11).make().pOnly(left: 4),
                   ]).p8(),
                 ).pSymmetric(h: 10).pOnly(bottom: 8),

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../core/app_logging.dart';
 import '../../../core/app_setting.dart';
+import '../../../core/const.dart';
 import '../../../data/database/db_init.dart';
 import '../../../data/database/db_library.dart';
 import '../../../data/database/db_r18.dart';
@@ -33,8 +34,9 @@ class PageSettingsController extends GetxController {
     AppLog.logI('page settings ==> onInit called');
     totalLibrary.value = await DBLibrary.getCount();
     totalVideos.value = await DBVideos.getCount();
-    lastRelapse.value = await DBRelapse.getLastRelapse();
     r18TotalVideo.value = await DBR18.getCountAllVideos();
+    lastRelapse.value = await DBRelapse.getLastRelapse();
+    lastRelapse.value = lastRelapse.value.ago(format: kYMd);
   }
 
   Future<void> onResetRelapse() async {

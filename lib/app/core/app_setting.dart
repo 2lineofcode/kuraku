@@ -9,7 +9,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:window_manager_plus/window_manager_plus.dart';
 
 import '../../env.g.dart';
 import '../modules/home/home_controller.dart';
@@ -47,8 +47,6 @@ class AppSettingService extends GetxService {
     await pref.writeIfNull('_kAppLastOpen',DateTime.now().toStringEx());
     await pref.writeIfNull('_kDownloadPath','');
     await pref.writeIfNull('_kDownloadLang','en');
-
-    await pref.writeIfNull('_kAppLastOpen',DateTime.now().toStringEx());
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -56,8 +54,9 @@ class AppSettingService extends GetxService {
   // ────────────────────────────────────────────────────────────────
   Future<void> setupDesktop() async {
     final idealSize = Size(702, 650);
-    await windowManager.ensureInitialized();
-    WindowOptions windowOptions = WindowOptions(
+    await WindowManagerPlus.ensureInitialized(0);
+
+    final windowOptions = WindowOptions(
       title: Env.appName,
       size: idealSize,
       minimumSize: idealSize,
@@ -68,15 +67,15 @@ class AppSettingService extends GetxService {
       backgroundColor: Colors.transparent,
       skipTaskbar: false,
     );
-    await windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
+    await WindowManagerPlus.current.waitUntilReadyToShow(windowOptions, () async {
+      await WindowManagerPlus.current.show();
+      await WindowManagerPlus.current.focus();
     });
   }
 
   //
   Future<void> setupExternalFiles() async {
-    final assetFiles = ['psql2sqlite.py', 'dl'];
+    final assetFiles = ['r18_to_javit.py', 'javit_dl'];
 
     for (final fileName in assetFiles) {
       final filePath = '$appPath/$fileName';

@@ -4,13 +4,13 @@ import 'dart:math' show max;
 
 import 'package:ex_kit/ex.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:path/path.dart' as p;
+import 'package:uicons_pro/uicons_pro.dart';
 import 'package:zoom_hover_pinch_image/zoom_hover_pinch_image.dart';
 
 import '../../../core/app_color.dart';
@@ -77,7 +77,7 @@ mixin PageSearchOverlay {
                     '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
                       HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
                     }).pSymmetric(v: 8),
-                    '${video.title}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(3).ellipsis.makeCentered().tooltip(video.videoPath?.getFileName().noExt() ?? ''),
+                    '${video.title}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(3).ellipsis.makeCentered().tooltip(video.videoPath ?? ''),
             
                     ExDivider().pSymmetric(v: 16),
             
@@ -89,7 +89,7 @@ mixin PageSearchOverlay {
                         Container(
                           decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                           child: IconButton(
-                            icon: Icon(CupertinoIcons.play, size: 16),
+                            icon: Icon(UIconsPro.regularRounded.play, size: 14),
                             onPressed: () => {
                               Overlayment.dismissLast(),
                               HelperOpener.openVideoFile(video),
@@ -103,7 +103,7 @@ mixin PageSearchOverlay {
                           builder: (b) => Container(
                             decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                             child: IconButton(
-                              icon: video.isFavorite == 1 ? Icon(CupertinoIcons.star_fill, size: 16, color: Vx.orange500) : Icon(CupertinoIcons.star, size: 16, color: null),
+                              icon: video.isFavorite == 1 ? Icon(UIconsPro.solidRounded.star, size: 14, color: Vx.orange500) : Icon(UIconsPro.regularRounded.star, size: 14, color: null),
                               onPressed: () {
                                 final current = video.isFavorite ?? 0;
                                 if (current == 1) {
@@ -123,7 +123,7 @@ mixin PageSearchOverlay {
                             ? Container(
                                 decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                                 child: IconButton(
-                                  icon: Icon(CupertinoIcons.refresh, size: 16),
+                                  icon: Icon(UIconsPro.regularRounded.thought_bubble, size: 14),
                                   onPressed: () => _controller.renewMetadata(video),
                                 ),
                               ).pOnly(right: 8)
@@ -132,7 +132,7 @@ mixin PageSearchOverlay {
                         Container(
                           decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                           child: IconButton(
-                            icon: Icon(CupertinoIcons.folder, size: 16),
+                            icon: Icon(UIconsPro.regularRounded.folder, size: 16),
                             onPressed: () => HelperOpener.openFilePath(video.videoPath ?? ''),
                           ),
                         ).pOnly(right: 8),
@@ -153,7 +153,7 @@ mixin PageSearchOverlay {
                       child: SingleChildScrollView(
                         child: VStack([
                           HStack([
-                            Icon(CupertinoIcons.chevron_left_slash_chevron_right, size: 16).pOnly(right: 8),
+                            Icon(UIconsPro.regularRounded.square_code, size: 14).pOnly(right: 8),
                             'Metadata'.text.size(14).bold.make(),
                           ]).pOnly(bottom: 16),
             
@@ -409,7 +409,7 @@ mixin PageSearchOverlay {
                         alignment: Alignment.centerRight,
                         child: Container(
                           decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
-                          child: Icon(CupertinoIcons.forward_fill).p12(),
+                          child: Icon(UIconsPro.regularRounded.arrow_small_right).p12(),
                         ).onInkTap(() {
                           if (idxSelectedJav.value < video.screenshot!.length - 1) {
                             idxSelectedJav.value++;
@@ -420,7 +420,7 @@ mixin PageSearchOverlay {
                         alignment: Alignment.centerLeft,
                         child: Container(
                           decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
-                          child: Icon(CupertinoIcons.backward_fill).p12(),
+                          child: Icon(UIconsPro.regularRounded.arrow_small_left).p12(),
                         ).onInkTap(() {
                           if (idxSelectedJav.value > 0) {
                             idxSelectedJav.value--;
@@ -433,7 +433,7 @@ mixin PageSearchOverlay {
                         alignment: Alignment.topRight,
                         child: Container(
                           decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
-                          child: Icon(CupertinoIcons.clear).p8(),
+                          child: Icon(UIconsPro.regularRounded.cross_small).p8(),
                         ).onInkTap(() {
                           Overlayment.dismissLast();
                         }),

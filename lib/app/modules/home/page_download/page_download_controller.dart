@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:process_run/process_run.dart' as shell;
 import 'package:process_run/stdio.dart';
+import 'package:uicons_pro/uicons_pro.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:uuid/v4.dart';
 
@@ -27,12 +28,17 @@ import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
 import '../home_controller.dart';
 
+const kLangEn = 'en';
+const kLangId = 'id';
+const kModeNet = 'net';
+const kModeDB = 'db';
+
 class PageDownloadController extends GetxController {
   final tecSearch = TextEditingController();
   final fnSearch = FocusNode();
   final phSearch = ''.obs;
-  final currentLang = 'en'.obs;   // en | id
-  final currentMode = 'net'.obs;  // net | db
+  final currentLang = kLangEn.obs; // en | id
+  final currentMode = kModeNet.obs; // net | db
   final scrollController = ScrollController();
 
   final response = JavitSearch().obs;
@@ -56,9 +62,8 @@ class PageDownloadController extends GetxController {
   }
 
   Future<void> onSearch(String s) async {
-    
     // ** net mode
-    if (currentMode.value == 'net') {
+    if (currentMode.value == kModeNet) {
       try {
         if (s.isEmpty) {
           await onReset();
@@ -86,14 +91,14 @@ class PageDownloadController extends GetxController {
 
         await scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
       } catch (_) {}
-    } 
-    
+    }
+
     // ** db mode
     else {
       try {
-
         if (s.isEmpty) {
-          await onReset(); return;
+          await onReset();
+          return;
         }
 
         HelperLoading.show();
@@ -103,16 +108,15 @@ class PageDownloadController extends GetxController {
         final output = <JavitSearchResult>[];
         for (var i = 0; i < r18.length; i++) {
           if (r18[i]['video_code'] == null || r18[i]['video_code'].isEmpty) continue;
-          output.add(
-            JavitSearchResult(
-              videoId: r18[i]['id'],
-              videoCode: r18[i]['video_code'],
-              duration: r18[i]['duration'],
-              durationFormated: '${r18[i]['release_date']}',
-              title: r18[i]['title'],
-              fanArt: r18[i]['fan_art'].toString().imgUrl(),
-              poster: r18[i]['poster'],
-              trailer: r18[i]['trailer'],
+          output.add(JavitSearchResult(
+            videoId: r18[i]['id'],
+            videoCode: r18[i]['video_code'],
+            duration: r18[i]['duration'],
+            durationFormated: '${r18[i]['release_date']}',
+            title: r18[i]['title'],
+            fanArt: r18[i]['fan_art'].toString().imgUrl(),
+            poster: r18[i]['poster'],
+            trailer: r18[i]['trailer'],
           ));
         }
 
@@ -176,7 +180,7 @@ class PageDownloadController extends GetxController {
             readOnly: true,
             controller: tecDir,
             placeholder: 'Save To...',
-            prefix: Icon(CupertinoIcons.folder, size: 13).pOnly(left: 8),
+            prefix: Icon(UIconsPro.regularRounded.folder, size: 13).pOnly(left: 8),
             placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
             style: TextStyle(fontSize: 13, color: Vx.neutral500),
             onTap: () async {
@@ -191,13 +195,13 @@ class PageDownloadController extends GetxController {
           CupertinoTextField(
             controller: tecUrl,
             focusNode: fnUrl,
-            prefix: Icon(CupertinoIcons.link, size: 13).pOnly(left: 8),
+            prefix: Icon(UIconsPro.regularRounded.link, size: 13).pOnly(left: 8),
             placeholder: 'Url',
             style: TextStyle(fontSize: 12, color: Vx.white),
           ).pOnly(bottom: 12),
           CupertinoTextField(
             controller: tecFilename,
-            prefix: Icon(CupertinoIcons.number_square, size: 13).pOnly(left: 8),
+            prefix: Icon(UIconsPro.regularRounded.hastag, size: 13).pOnly(left: 8),
             placeholder: 'Filename',
             style: TextStyle(fontSize: 12, color: Vx.white),
             onSubmitted: (value) async {
@@ -232,7 +236,7 @@ class PageDownloadController extends GetxController {
       Get.back();
 
       try {
-        await shell.run('chmod +x "${appSetting.appPath}/dl"');
+        await shell.run('chmod +x "${appSetting.appPath}/javit_dl"');
       } catch (e) {
         await HelperToast.error('${e.toString()}');
         return;
@@ -243,7 +247,7 @@ class PageDownloadController extends GetxController {
       await DBHistory.add(History(id: id, type: 'download', message: genJsonFormat('start', url, dir, filename)));
 
       await shell.run(
-        '${appSetting.appPath}/dl $type -u "$url" -d "$dir" -o "$filename"',
+        '${appSetting.appPath}/javit_dl $type -u "$url" -d "$dir" -o "$filename"',
         commandVerbose: false,
         verbose: false,
         onProcess: (process) async {
@@ -272,7 +276,7 @@ class PageDownloadController extends GetxController {
               await DBHistory.update(History(id: id, type: 'download', message: genJsonFormat('finish', url, dir, filename)));
             }
 
-            await shell.run('${appSetting.appPath}/dl clear -y', commandVerbose: false, verbose: false);
+            await shell.run('${appSetting.appPath}/javit_dl clear -y', commandVerbose: false, verbose: false);
 
             process.kill();
           });
@@ -345,7 +349,6 @@ class PageDownloadController extends GetxController {
                   VStack([
                     '🔗 ${jsonData['url']}'.text.size(10).minFontSize(10).ellipsis.make().onInkTap(() {
                       HelperMisc.copyToClipboard(jsonData['url'], showToast: true);
-
                     }),
                     '📁 ${jsonData['dir']}'.text.size(10).minFontSize(10).make().onInkTap(() {
                       HelperOpener.openFilePath('${jsonData['dir']}/${jsonData['filename']}');

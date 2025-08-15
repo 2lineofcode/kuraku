@@ -1,9 +1,10 @@
 import 'package:ex_kit/ex.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
+import 'package:uicons_pro/uicons_pro.dart';
 
+import '../../core/app_color.dart';
 import '../../core/const.dart';
 import '../../data/database/db_relapse.dart';
 import '../../data/models/relapse_entity.dart';
@@ -16,7 +17,6 @@ mixin HomeRelapse {
 
     relapse.value = await DBRelapse.getAll();
     countAll.value = await DBRelapse.getCount();
-
 
     await Overlayment.show(
       context: Get.context,
@@ -32,11 +32,11 @@ mixin HomeRelapse {
           [
             HStack(
               [
-                Icon(CupertinoIcons.thermometer, size: 18).pOnly(right: 12, left: 8),
+                Icon(UIconsPro.regularRounded.calendar_minus, size: 16).pOnly(right: 12, left: 8),
                 'Relapse Timeline ($countAll)'.text.bold.make(),
                 Spacer(),
                 IconButton(
-                  icon: Icon(CupertinoIcons.add, size: 18),
+                  icon: Icon(UIconsPro.regularRounded.plus, size: 13),
                   onPressed: () async {
                     await _onRelapse();
                     await Overlayment.dismissLast();
@@ -50,10 +50,19 @@ mixin HomeRelapse {
               separatorBuilder: (context, index) => Divider(),
               itemBuilder: (context, index) {
                 final item = relapse[index];
-                return ListTile(
-                  title: '${item['date']}'.text.size(12).bold.make(),
-                  subtitle: '${item['count']} times'.text.size(10).minFontSize(10).make(),
-                );
+                // return ListTile(
+                //   title: '${item['date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(12).bold.make(),
+                //   trailing: '${item['count']} times'.text.size(10).minFontSize(10).make(),
+                // );
+                return HStack([
+                  Icon(UIconsPro.solidRounded.minus, size: 12).pOnly(left: 8, right: 12),
+                  VStack([
+                    '${item['date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(12).bold.make(),
+                    '${item['date'].toString().ago(format: kYMd)}'.text.size(10).neutral400.minFontSize(10).make(),
+                  ]),
+                  Spacer(),
+                  '${item['count']} times'.text.size(10).minFontSize(10).make().w(40).pSymmetric(h: 5, v: 2).color(AppColor.selected),
+                ]);
               },
             ).expand(),
           ],
@@ -61,7 +70,6 @@ mixin HomeRelapse {
       ),
     );
   }
-
 
   static Future<void> _onRelapse() async {
     await DBRelapse.add(Relapse(date: DateTime.now().toStringEx(format: kYMd)));

@@ -30,7 +30,7 @@ mixin HelperMisc {
     return RegExp(r'^[a-zA-Z]{2,}-[0-9]{3,}$').hasMatch(code);
   }
 
-  static String durationFormat0(num durationInMinutes) {
+  static String durationFormat1(num durationInMinutes) {
     if (durationInMinutes < 0) {
       return 'Invalid duration';
     }
@@ -49,17 +49,7 @@ mixin HelperMisc {
     }
   }
 
-  static String durationFormat1(num milliseconds) {
-    int totalSeconds = (milliseconds / 1000).truncate();
-    int hours = (totalSeconds / 3600).truncate();
-    int minutes = ((totalSeconds % 3600) / 60).truncate();
-    List<String> parts = [];
-    if (hours > 0) parts.add('$hours hour');
-    if (minutes > 0) parts.add('$minutes minutes');
-    if (parts.isEmpty) return '0 detik';
-    return parts.join(', ');
-  }
-
+  // ** for ffmpeg perpose
   static String durationFormat2(num totalSeconds) {
     if (totalSeconds.isNaN || totalSeconds.isInfinite) {
       return 'Invalid Duration';

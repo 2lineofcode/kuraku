@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
+import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
 import '../../widgets/widget_thumbnail.dart';
@@ -28,13 +29,13 @@ class PageSearchView extends GetView<PageSearchController> {
           ).expand(),
           Obx(
             () => IconButton(
-              icon: Icon(CupertinoIcons.rectangle_grid_2x2, size: 18, color: controller.viewModeSelected.value == 'grid' ? Vx.white : Vx.neutral600),
+              icon: Icon(UIconsPro.regularRounded.apps, size: 14, color: controller.viewModeSelected.value == 'grid' ? Vx.white : Vx.neutral600),
               onPressed: () => controller.viewModeSelected.value = kGrid,
             ),
           ),
           Obx(
             () => IconButton(
-              icon: Icon(CupertinoIcons.list_dash, size: 18, color: controller.viewModeSelected.value == 'list' ? Vx.white : Vx.neutral600),
+              icon: Icon(UIconsPro.regularRounded.list_timeline, size: 14, color: controller.viewModeSelected.value == 'list' ? Vx.white : Vx.neutral600),
               onPressed: () => controller.viewModeSelected.value = kList,
             ),
           ),
@@ -45,7 +46,7 @@ class PageSearchView extends GetView<PageSearchController> {
         Obx(
           () => controller.videos.isEmpty
               ? ExUiErrorOrEmpty(
-                  illustration: Icon(CupertinoIcons.lab_flask_solid, size: 32),
+                  illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
                   title: 'No Data Found',
                   message: 'No Result Found, as you searched for "${controller.tecSearch.text}"\nor Add some video to your library first.',
                 ).expand()
@@ -85,12 +86,12 @@ class PageSearchView extends GetView<PageSearchController> {
                 Spacer(),
                 HStack([
                   if (video.releaseDate != '') ...[
-                    Icon(CupertinoIcons.calendar, size: 12).pOnly(right: 4),
-                    '${video.releaseDateFormated}'.text.size(11).minFontSize(11).make().pOnly(right: 12),
+                    Icon(UIconsPro.regularRounded.calendar_minus, size: 10).pOnly(right: 6),
+                    '${video.releaseDateFormated}'.text.size(10).minFontSize(10).make().pOnly(right: 12),
                   ],
                   if (video.series != '') ...[
-                    Icon(CupertinoIcons.circle, size: 12, color: Vx.purple300).pOnly(right: 4),
-                    '${video.series}'.text.size(11).purple300.maxLines(1).ellipsis.minFontSize(11).make().pOnly(right: 12).expand(),
+                    Icon(UIconsPro.regularRounded.tags, size: 10, color: Vx.purple200).pOnly(right: 6),
+                    '${video.series}'.text.size(10).purple200.maxLines(1).ellipsis.minFontSize(10).make().pOnly(right: 12).expand(),
                   ],
                 ]).pOnly(bottom: 8),
               ]).pOnly(right: 12).expand(),

@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
+import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../core/app_color.dart';
 import '../../core/const.dart';
@@ -34,11 +35,11 @@ mixin HomeLibrary {
         child: VStack([
           HStack(
             [
-              Icon(CupertinoIcons.collections, size: 18).pOnly(right: 12, left: 8),
+              Icon(UIconsPro.regularRounded.multiple_alt, size: 18).pOnly(right: 12, left: 8),
               'Library'.text.bold.make(),
               Spacer(),
               IconButton(
-                icon: Icon(CupertinoIcons.refresh, size: 18),
+                icon: Icon(UIconsPro.regularRounded.refresh, size: 13),
                 tooltip: 'Rescan All Video',
                 onPressed: () {
                   Overlayment.dismissLast();
@@ -46,7 +47,7 @@ mixin HomeLibrary {
                 },
               ),
               IconButton(
-                icon: Icon(CupertinoIcons.add, size: 18),
+                icon: Icon(UIconsPro.regularRounded.plus, size: 13),
                 tooltip: 'Add New Library',
                 onPressed: () {
                   Overlayment.dismissLast();
@@ -58,7 +59,7 @@ mixin HomeLibrary {
           Divider(),
           library.isEmpty
               ? ExUiErrorOrEmpty(
-                  illustration: Icon(CupertinoIcons.lab_flask_solid),
+                  illustration: Icon(UIconsPro.regularRounded.mug_hot_alt),
                   title: 'No Data',
                   message: 'No Library Found, Please Add New Library by Click Button `+`',
                 ).expand()
@@ -83,12 +84,12 @@ mixin HomeLibrary {
                           await Overlayment.dismissLast(),
                           doRescanVideoFromLibrary(item),
                         },
-                        icon: Icon(CupertinoIcons.refresh, size: 16),
+                        icon: Icon(UIconsPro.regularRounded.back_up, size: 14),
                         tooltip: 'Rescan Folder `${item.alias}`',
                       ),
                       IconButton(
                         onPressed: () => HelperOpener.openFolder(item.rootFolder ?? ''),
-                        icon: Icon(CupertinoIcons.folder, size: 16),
+                        icon: Icon(UIconsPro.regularRounded.folder_camera, size: 14),
                         tooltip: 'Open Folder `${item.alias}`',
                       ),
                     ]).onInkTap(() async {
@@ -138,7 +139,7 @@ mixin HomeLibrary {
             controller: tfRootPath,
             placeholder: '<Select Path>',
             placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
-            prefix: Icon(CupertinoIcons.folder, size: 13).pOnly(left: 8),
+            prefix: Icon(UIconsPro.regularRounded.folder, size: 13).pOnly(left: 8),
             style: TextStyle(fontSize: 13, color: Vx.neutral500),
             onTap: () async {
               if (isClicked.value) return;
@@ -160,7 +161,7 @@ mixin HomeLibrary {
             controller: tfAlias,
             placeholder: 'Alias',
             placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
-            prefix: Icon(CupertinoIcons.number_square, size: 16).pOnly(left: 8),
+            prefix: Icon(UIconsPro.regularRounded.tags, size: 14).pOnly(left: 8),
             style: TextStyle(fontSize: 13, color: Vx.white),
           ).pOnly(bottom: 16),
           Obx(() => totalVideo.value != 0 ? Text('Total Video: ${totalVideo.value}') : 0.heightBox),
@@ -244,7 +245,7 @@ mixin HomeLibrary {
         newVideo.videoPath = video;
         newVideo.category = dataCategory.map((e) => VideoCategory.fromJson(e)).toList();
         newVideo.actress = dataActress.map((e) => VideoActress.fromJson(e)).toList();
-        newVideo.durationFormated = HelperMisc.durationFormat0(newVideo.duration ?? 0);
+        newVideo.durationFormated = HelperMisc.durationFormat1(newVideo.duration ?? 0);
         newVideo.releaseDateFormated = newVideo.releaseDate?.reformatDate(from: kYMd, to: kMdY);
         newVideo.director = dataDirector?['name_romaji'] ?? '';
         newVideo.fanArt = '${dataVideo['fan_art']}';

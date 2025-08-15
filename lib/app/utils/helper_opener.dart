@@ -5,12 +5,13 @@ import 'dart:math';
 import 'package:cached_video_player_plus/cached_video_player_plus.dart';
 import 'package:chewie/chewie.dart';
 import 'package:ex_kit/ex.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:process_run/process_run.dart' as cmd;
+import 'package:uicons_pro/uicons_pro.dart';
 import 'package:video_player/video_player.dart';
 import 'package:zoom_hover_pinch_image/zoom_hover_pinch_image.dart';
 
@@ -18,11 +19,15 @@ import '../../env.g.dart';
 import '../core/app_color.dart';
 import '../core/app_logging.dart';
 import '../core/app_network.dart';
+import '../core/const.dart';
 import '../data/api/api_javit.dart';
 import '../data/database/db_r18.dart';
 import '../data/database/db_videos.dart';
 import '../data/models/__javit_search_entity.dart';
 import '../data/models/videos_entity.dart';
+import '../modules/home/home_controller.dart';
+import '../modules/home/page_download/page_download_controller.dart';
+import '../modules/home/page_explore/page_explore_controller.dart';
 import '../modules/home/page_home/page_home_controller.dart';
 import '../modules/widgets/widget_chiwie_custom.dart';
 import '../modules/widgets/widget_thumbnail.dart';
@@ -51,6 +56,429 @@ mixin HelperOpener {
   }
 
   // ────────────────────────────────────────────────────────────────
+  static Future<void> openVideoInfo(dynamic item) async {
+    late Map<String, dynamic>? dataVideo;
+    HelperLoading.show();
+
+    // ** -> from download page
+    if (item is JavitSearchResult) {
+      final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
+      dataVideo = await DBR18.getVideo(fixCode);
+    }
+
+    // ** -> from library
+    else if (item is Videos) {
+      final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
+      dataVideo = await DBR18.getVideo(fixCode);
+    }
+
+    // ** -> direct from r18
+    else {
+      dataVideo = await DBR18.getVideo(item['video_code']);
+    }
+
+    final video = Videos.fromJson(dataVideo ?? {});
+    final dataCategory = await DBR18.getCategory(video.videoCode ?? '');
+    final dataActress = await DBR18.getActress(video.videoCode ?? '');
+    final dataDirector = await DBR18.getDirector(video.videoCode ?? '');
+
+    // prefix
+    video.category = dataCategory.map((e) => VideoCategory.fromJson(e)).toList();
+    video.actress = dataActress.map((e) => VideoActress.fromJson(e)).toList();
+    video.director = dataDirector?['name_romaji'] ?? '';
+    video.releaseDateFormated = video.releaseDate?.reformatDate(from: kYMd, to: kMdY);
+    video.durationFormated = HelperMisc.durationFormat1(video.duration?? 0);
+
+    HelperLoading.dismiss();
+
+    final _focusNode = FocusNode();
+
+    await Overlayment.show(
+      context: Get.context,
+      OverPanel(
+        alignment: Alignment.centerRight,
+        width: 300,
+        animation: OverSlideAnimation(
+          beginAlignment: Alignment.centerRight,
+          reverseDurationMilliseconds: 100,
+          durationMilliseconds: 400,
+        ),
+        actions: OverlayActions(
+          onReady: () async => _focusNode.requestFocus(),
+        ),
+        child: FocusScope(
+          autofocus: true,
+          child: RawKeyboardListener(
+            focusNode: _focusNode,
+            onKey: (event) {
+              if (event is RawKeyDownEvent) {
+                if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                  Overlayment.dismissLast();
+                }
+                if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                  HelperOpener.openScreenshot(video);
+                  Overlayment.dismissLast();
+                }
+              }
+            },
+            child: VStack(
+              [
+                ExThumbnail(
+                  imageUrl: video.fanArt,
+                  videoPath: video.videoPath,
+                  width: 300,
+                  height: 200,
+                  fitMemory: BoxFit.fitHeight,
+                  fitUrl: BoxFit.contain,
+                ).color(AppColor.selected).onInkTap(() => openScreenshot(video)),
+                VStack(
+                  [
+                    '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
+                      HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
+                    }).pSymmetric(v: 8),
+                    '${video.title}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(3).ellipsis.makeCentered().tooltip(video.videoPath?.getFileName().noExt() ?? ''),
+            
+                    ExDivider().pSymmetric(v: 16),
+            
+                  ],
+                ).pSymmetric(h: 16),
+
+                // ** action
+                HStack(
+                  [
+                    Spacer(),
+
+                    // screenshot
+                    Container(
+                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
+                      child: IconButton(
+                        icon: Icon(UIconsPro.regularRounded.comment_image, size: 16),
+                        onPressed: () async {
+                          await openScreenshot(item);
+                        },
+                      ),
+                    ).pOnly(right: 8).tooltip('Screenshot'),
+
+                    // download
+                    Container(
+                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
+                      child: IconButton(
+                        icon: Icon(UIconsPro.regularRounded.arrow_square_down, size: 16),
+                        onPressed: () async {
+                          await Overlayment.dismissLast();
+
+                          if (item['match'] == true) {
+                            await HelperToast.info('This video is already in your library');
+                          } else {
+                            item['is_clicked'] = true;
+                            Get.find<HomeController>().currentMenuSelected.value = kMenuDownload;
+                            Get.find<PageDownloadController>().tecSearch.text = item['video_code'] ?? '';
+                            await Get.find<PageDownloadController>().onSearch(item['video_code']);
+                          }
+
+                          Get.find<PageExploreController>().update();
+                        },
+                      ),
+                    ).pOnly(right: 8).tooltip('Download'),
+
+                    // trailer
+                    Container(
+                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
+                      child: IconButton(
+                        icon: Icon(UIconsPro.regularRounded.video_camera, size: 16),
+                        onPressed: () async {
+                          await openTrailer(item);
+                        },
+                      ),
+                    ).pOnly(right: 8).tooltip('Trailer'),
+                    Spacer(),
+                  ],
+                ).pOnly(bottom: 12),
+            
+                // ** metadata
+                Expanded(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: 100),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
+                      child: SingleChildScrollView(
+                        child: VStack([
+                          HStack([
+                            Icon(UIconsPro.regularRounded.square_code, size: 14).pOnly(right: 8),
+                            'Metadata'.text.size(14).bold.make(),
+                          ]).pOnly(bottom: 16),
+            
+                          // actress
+                          if (!video.actress.isEmptyOrNull) ...[
+                            'Actress:'.text.size(12).bold.make().pOnly(bottom: 4),
+                            Wrap(children: [
+                              for (int i = 0; i < video.actress!.length; i++) ...[
+                                '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}'
+                                    .text
+                                    .neutral300
+                                    .underline
+                                    .size(11)
+                                    .minFontSize(11)
+                                    .make()
+                                    .tooltip(video.actress?[i].nameRomaji == '' ? '${KanaKit().toRomaji(video.actress?[i].nameKana ?? '')}' : '')
+                                    .pOnly(right: 8),
+                              ],
+                            ]).pOnly(bottom: 16),
+                          ],
+            
+                          // category
+                          if (!video.category.isEmptyOrNull) ...[
+                            'Category:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            Wrap(children: [
+                              for (int i = 0; i < video.category!.length; i++) ...[
+                                FutureBuilder(
+                                  future: HelperMisc.decensor(video.category?[i].category ?? ''),
+                                  builder: (context, snapshot) {
+                                    return snapshot.hasData
+                                        ? '${snapshot.data}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(right: 8)
+                                        : 0.heightBox;
+                                  },
+                                ),
+                              ],
+                            ]).pOnly(bottom: 16),
+                          ],
+            
+                          // series
+                          if (!video.series.isEmptyOrNull) ...[
+                            'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            FutureBuilder(
+                              future: HelperMisc.decensor(video.series ?? ''),
+                              builder: (context, snapshot) {
+                                return snapshot.hasData
+                                    ? '${snapshot.data}'.text.underline.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16)
+                                    : 0.heightBox;
+                              },
+                            ),
+                          ],
+            
+                          // release date
+                          if (!video.releaseDate.isEmptyOrNull) ...[
+                            'Release Date:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            '${video.releaseDateFormated}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                          ],
+            
+                          // duration
+                          if (video.duration != 0) ...[
+                            'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            '${video.durationFormated}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                          ],
+            
+                          // label
+                          if (!video.label.isEmptyOrNull) ...[
+                            'Label:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            '${video.label}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                          ],
+            
+                          // studio
+                          if (!video.studio.isEmptyOrNull) ...[
+                            'Studio:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            '${video.studio}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                          ],
+            
+                          // director
+                          if (!video.director.isEmptyOrNull) ...[
+                            'Director:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            '${video.director}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                          ],
+            
+                        ]).p12(),
+                      ),
+                    ).pSymmetric(h: 16),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+  }
+
+  static Future<void> openScreenshot(dynamic item) async {
+    late Map<String, dynamic>? dataVideo;
+    HelperLoading.show();
+
+    // ** -> from download page
+    if (item is JavitSearchResult) {
+      final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
+      dataVideo = await DBR18.getVideo(fixCode);
+    }
+
+    // ** -> from library
+    else if (item is Videos) {
+      final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
+      dataVideo = await DBR18.getVideo(fixCode);
+    }
+
+    // ** -> direct from r18
+    else {
+      dataVideo = await DBR18.getVideo(item['video_code']);
+    }
+
+    final video = Videos.fromJson(dataVideo ?? {});
+
+    if (dataVideo?['sslast'] != null) {
+      final ss = <String>[];
+      final n = dataVideo?['sslast'].toString().split('-').last;
+      for (var i = 0; i < int.parse(n!); i++) {
+        final filename = '${dataVideo?['ssfirst']}';
+
+        if (!filename.contains('jp-')) {
+          final part = filename.allBefore('-');
+          final prefix = '${part}jp-${i + 1}';
+          ss.add(prefix);
+        } else {
+          final part = filename.removeLast(1);
+          final prefix = '$part${i + 1}';
+          ss.add(prefix);
+        }
+      }
+      video.screenshot = ss;
+    }
+
+    HelperLoading.dismiss();
+
+    if (video.screenshot == null || video.screenshot!.isEmpty) {
+      await HelperToast.warn('No screenshot found');
+      return;
+    }
+
+    final idxSelected = 0.obs;
+    final focusNode = FocusNode();
+
+    await Overlayment.show(
+      context: Get.context,
+      OverPanel(
+        alignment: Alignment.center,
+        width: max(Get.width * 90 / 100, 400),
+        height: max(Get.height * 80 / 100, 400),
+        animation: OverSlideAnimation(
+          beginAlignment: Alignment.bottomCenter,
+          reverseDurationMilliseconds: 100,
+          durationMilliseconds: 400,
+        ),
+        actions: OverlayActions(
+          onReady: () async {
+            focusNode.requestFocus();
+          },
+        ),
+        child: FocusScope(
+          autofocus: true,
+          child: RawKeyboardListener(
+            focusNode: focusNode,
+            onKey: (event) {
+              if (event is RawKeyDownEvent) {
+                if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                  if (idxSelected.value > 0) {
+                    idxSelected.value--;
+                  }
+                } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                  if (idxSelected.value < video.screenshot!.length - 1) {
+                    idxSelected.value++;
+                  }
+                } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                  Overlayment.dismissLast();
+                }
+              }
+            },
+            child: VStack(
+              [
+                ZStack(
+                  [
+                    Obx(
+                      () => Zoom(
+                        width: max(Get.width * 90 / 100, 400),
+                        height: max(Get.height * 80 / 100, 400) - 80,
+                        child: ExThumbnail(
+                          imageUrl: '${video.screenshot?[idxSelected.value]}',
+                          videoPath: video.videoPath,
+                          width: max(Get.width * 90 / 100, 400),
+                          height: max(Get.height * 80 / 100, 400) - 80,
+                          fitUrl: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                    Obx(
+                      () => Container(
+                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                        child: '${idxSelected.value + 1}/${video.screenshot!.length}'.text.size(11).minFontSize(11).make().p4(),
+                      ),
+                    ).p12(),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                        child: Icon(UIconsPro.regularRounded.arrow_small_right).p12(),
+                      ).onInkTap(() {
+                        if (idxSelected.value < video.screenshot!.length - 1) {
+                          idxSelected.value++;
+                        }
+                      }),
+                    ).positioned(right: 8, top: 0, bottom: 0),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                        child: Icon(UIconsPro.regularRounded.arrow_small_left).p12(),
+                      ).onInkTap(() {
+                        if (idxSelected.value > 0) {
+                          idxSelected.value--;
+                        }
+                      }),
+                    ).positioned(left: 8, top: 0, bottom: 0),
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: Container(
+                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                        child: Icon(UIconsPro.regularRounded.cross_small).p8(),
+                      ).onInkTap(() {
+                        Overlayment.dismissLast();
+                      }),
+                    ).positioned(right: 8, top: 8, bottom: 0),
+                  ],
+                ),
+                Container(height: 5, color: AppColor.container),
+                ListView.builder(
+                  itemCount: video.screenshot!.length,
+                  scrollDirection: Axis.horizontal,
+                  itemBuilder: (context, index) {
+                    return ZStack(
+                      [
+                        ExThumbnail(
+                          imageUrl: '${video.screenshot?[index]}',
+                          videoPath: video.videoPath,
+                          width: 120,
+                          height: 70,
+                          fitUrl: BoxFit.cover,
+                        ).onInkTap(() {
+                          idxSelected.value = index;
+                        }).pOnly(right: 4),
+                        Obx(
+                          () => Container(
+                            width: 120,
+                            height: 70,
+                            color: Colors.green.withAlpha(100),
+                          ).onInkTap(() => idxSelected.value = index).pOnly(right: 4).hide(isVisible: idxSelected.value == index),
+                        ),
+                      ],
+                    );
+                  },
+                ).wh(double.infinity, 70),
+                Container(height: 5, color: AppColor.container),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   static Future<void> openTrailer(dynamic item) async {
     late Map<String, dynamic>? dataVideo;
@@ -187,191 +615,12 @@ mixin HelperOpener {
               alignment: Alignment.topRight,
               child: Container(
                 decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
-                child: Icon(CupertinoIcons.clear).p8(),
+                child: Icon(UIconsPro.regularRounded.cross_small).p8(),
               ).onInkTap(() {
                 Overlayment.dismissLast();
               }),
             ).positioned(right: 8, top: 8, bottom: 0),
           ],
-        ),
-      ),
-    );
-  }
-
-  static Future<void> openScreenshot(dynamic item) async {
-    late Map<String, dynamic>? dataVideo;
-    HelperLoading.show();
-
-    // ** -> from download page
-    if (item is JavitSearchResult) {
-      final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
-      dataVideo = await DBR18.getVideo(fixCode);
-    }
-
-    // ** -> from library
-    else if (item is Videos) {
-      final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
-      dataVideo = await DBR18.getVideo(fixCode);
-    }
-
-    // ** -> direct from r18
-    else {
-      dataVideo = await DBR18.getVideo(item['video_code']);
-    }
-
-    final video = Videos.fromJson(dataVideo ?? {});
-
-    if (dataVideo?['sslast'] != null) {
-      final ss = <String>[];
-      final n = dataVideo?['sslast'].toString().split('-').last;
-      for (var i = 0; i < int.parse(n!); i++) {
-        final filename = '${dataVideo?['ssfirst']}';
-
-        if (!filename.contains('jp-')) {
-          final part = filename.allBefore('-');
-          final prefix = '${part}jp-${i + 1}';
-          ss.add(prefix);
-        } else {
-          final part = filename.removeLast(1);
-          final prefix = '$part${i + 1}';
-          ss.add(prefix);
-        }
-      }
-      video.screenshot = ss;
-    }
-
-    HelperLoading.dismiss();
-
-    if (video.screenshot == null || video.screenshot!.isEmpty) {
-      await HelperToast.warn('No screenshot found');
-      return;
-    }
-
-    final idxSelected = 0.obs;
-    final focusNode = FocusNode();
-
-    await Overlayment.show(
-      context: Get.context,
-      OverPanel(
-        alignment: Alignment.center,
-        width: max(Get.width * 90 / 100, 400),
-        height: max(Get.height * 80 / 100, 400),
-        animation: OverSlideAnimation(
-          beginAlignment: Alignment.bottomCenter,
-          reverseDurationMilliseconds: 100,
-          durationMilliseconds: 400,
-        ),
-        actions: OverlayActions(
-          onReady: () async {
-            focusNode.requestFocus();
-          },
-        ),
-        child: FocusScope(
-          autofocus: true,
-          child: RawKeyboardListener(
-            focusNode: focusNode,
-            onKey: (event) {
-              if (event is RawKeyDownEvent) {
-                if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                  if (idxSelected.value > 0) {
-                    idxSelected.value--;
-                  }
-                } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                  if (idxSelected.value < video.screenshot!.length - 1) {
-                    idxSelected.value++;
-                  }
-                } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                  Overlayment.dismissLast();
-                }
-              }
-            },
-            child: VStack(
-              [
-                ZStack(
-                  [
-                    Obx(
-                      () => Zoom(
-                        width: max(Get.width * 90 / 100, 400),
-                        height: max(Get.height * 80 / 100, 400) - 80,
-                        child: ExThumbnail(
-                          imageUrl: '${video.screenshot?[idxSelected.value]}',
-                          videoPath: video.videoPath,
-                          width: max(Get.width * 90 / 100, 400),
-                          height: max(Get.height * 80 / 100, 400) - 80,
-                          fitUrl: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                    Obx(
-                      () => Container(
-                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
-                        child: '${idxSelected.value + 1}/${video.screenshot!.length}'.text.size(11).minFontSize(11).make().p4(),
-                      ),
-                    ).p12(),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Container(
-                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
-                        child: Icon(CupertinoIcons.forward_fill).p12(),
-                      ).onInkTap(() {
-                        if (idxSelected.value < video.screenshot!.length - 1) {
-                          idxSelected.value++;
-                        }
-                      }),
-                    ).positioned(right: 8, top: 0, bottom: 0),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
-                        child: Icon(CupertinoIcons.backward_fill).p12(),
-                      ).onInkTap(() {
-                        if (idxSelected.value > 0) {
-                          idxSelected.value--;
-                        }
-                      }),
-                    ).positioned(left: 8, top: 0, bottom: 0),
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: Container(
-                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
-                        child: Icon(CupertinoIcons.clear).p8(),
-                      ).onInkTap(() {
-                        Overlayment.dismissLast();
-                      }),
-                    ).positioned(right: 8, top: 8, bottom: 0),
-                  ],
-                ),
-                Container(height: 5, color: AppColor.container),
-                ListView.builder(
-                  itemCount: video.screenshot!.length,
-                  scrollDirection: Axis.horizontal,
-                  itemBuilder: (context, index) {
-                    return ZStack(
-                      [
-                        ExThumbnail(
-                          imageUrl: '${video.screenshot?[index]}',
-                          videoPath: video.videoPath,
-                          width: 120,
-                          height: 70,
-                          fitUrl: BoxFit.cover,
-                        ).onInkTap(() {
-                          idxSelected.value = index;
-                        }).pOnly(right: 4),
-                        Obx(
-                          () => Container(
-                            width: 120,
-                            height: 70,
-                            color: Colors.green.withAlpha(100),
-                          ).onInkTap(() => idxSelected.value = index).pOnly(right: 4).hide(isVisible: idxSelected.value == index),
-                        ),
-                      ],
-                    );
-                  },
-                ).wh(double.infinity, 70),
-                Container(height: 5, color: AppColor.container),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -385,7 +634,6 @@ mixin HelperOpener {
       {'key': '⌘ + D', 'action': 'Open New Dialog Download'},
       {'key': '⌘ + T', 'action': 'Open New Add Todo'},
       {'key': '⌘ + B', 'action': 'Show/Hide Side Menu'},
-
       {'key': '⌘ + 1', 'action': 'Open Home Page'},
       {'key': '⌘ + 2', 'action': 'Open Library Page'},
       {'key': '⌘ + 3', 'action': 'Open Explore Page'},
@@ -432,5 +680,4 @@ mixin HelperOpener {
       ),
     );
   }
-
 }

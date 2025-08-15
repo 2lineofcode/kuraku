@@ -2,6 +2,7 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
 import '../../../data/models/videos_entity.dart';
@@ -17,7 +18,7 @@ class PageHomeView extends GetView<PageHomeController> {
       () => controller.totalVideo.value != 0
           ? buildPage()
           : ExUiErrorOrEmpty(
-              illustration: Icon(CupertinoIcons.lab_flask_solid),
+              illustration: Icon(UIconsPro.regularRounded.mug_hot_alt),
               title: '~ Fresh ~',
               message: 'No Data Found, Please Add New Library First or just \n`drag your JAV Video Folder here`',
             ),
@@ -34,7 +35,7 @@ class PageHomeView extends GetView<PageHomeController> {
               '🎉 New Release'.text.size(12).make(),
               Spacer(),
               IconButton(
-                icon: Icon(CupertinoIcons.refresh, size: 16),
+                icon: Icon(UIconsPro.regularRounded.rotate_right, size: 12),
                 onPressed: () => controller.getListNewRelease(),
               ),
             ]).pOnly(bottom: 8),
@@ -60,7 +61,7 @@ class PageHomeView extends GetView<PageHomeController> {
               '👍🏻 Video Maybe you like'.text.size(12).make(),
               Spacer(),
               IconButton(
-                icon: Icon(CupertinoIcons.refresh, size: 16),
+                icon: Icon(UIconsPro.regularRounded.rotate_right, size: 12),
                 onPressed: () => controller.getListRandom(),
               ),
             ]).pSymmetric(v: 12),
@@ -86,7 +87,7 @@ class PageHomeView extends GetView<PageHomeController> {
               '👀 Watch again and again'.text.size(12).make(),
               Spacer(),
               IconButton(
-                icon: Icon(CupertinoIcons.refresh, size: 16),
+                icon: Icon(UIconsPro.regularRounded.rotate_right, size: 12),
                 onPressed: () => controller.getListTop10Watch(),
               ),
             ]).pSymmetric(v: 12),
@@ -112,7 +113,7 @@ class PageHomeView extends GetView<PageHomeController> {
               '⭐ Favorite videos'.text.size(12).make(),
               Spacer(),
               IconButton(
-                icon: Icon(CupertinoIcons.refresh, size: 16),
+                icon: Icon(UIconsPro.regularRounded.rotate_right, size: 12),
                 onPressed: () => controller.getListFavorite(),
               ),
             ]).pSymmetric(v: 12),
@@ -138,7 +139,7 @@ class PageHomeView extends GetView<PageHomeController> {
               '🆕 New Added'.text.size(12).make(),
               Spacer(),
               IconButton(
-                icon: Icon(CupertinoIcons.refresh, size: 16),
+                icon: Icon(UIconsPro.regularRounded.rotate_right, size: 12),
                 onPressed: () => controller.getListNewAdded(),
               ),
             ]).pSymmetric(v: 12),
@@ -164,7 +165,7 @@ class PageHomeView extends GetView<PageHomeController> {
               '👁️‍🗨️ Never Watch'.text.size(12).make(),
               Spacer(),
               IconButton(
-                icon: Icon(CupertinoIcons.refresh, size: 16),
+                icon: Icon(UIconsPro.regularRounded.rotate_right, size: 12),
                 onPressed: () => controller.getListNeverWatch(),
               ),
             ]).pSymmetric(v: 12),
@@ -190,7 +191,7 @@ class PageHomeView extends GetView<PageHomeController> {
               '👴🏻 Oldest'.text.size(12).make(),
               Spacer(),
               IconButton(
-                icon: Icon(CupertinoIcons.refresh, size: 16),
+                icon: Icon(UIconsPro.regularRounded.rotate_right, size: 12),
                 onPressed: () => controller.getListOldest(),
               ),
             ]).pSymmetric(v: 12),
@@ -216,7 +217,7 @@ class PageHomeView extends GetView<PageHomeController> {
               'Playlist'.text.bold.size(12).make(),
               Spacer(),
               IconButton(
-                icon: Icon(CupertinoIcons.refresh, size: 16),
+                icon: Icon(UIconsPro.regularRounded.rotate_right, size: 12),
                 onPressed: () => controller.getListRandom(),
               ),
               IconButton(
