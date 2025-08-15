@@ -5,7 +5,7 @@ import 'package:get/get.dart';
 
 import '../../../core/app_color.dart';
 import '../../../data/database/db_videos.dart';
-import '../../../utils/helper_misc.dart';
+import '../../../utils/helper.dart';
 import '../page_search/page_search_overlay.dart';
 import 'page_tools_controller.dart';
 
@@ -125,7 +125,12 @@ class PageToolsView extends GetView<PageToolsController> {
                 children: [
                   // code
                   '${controller.todos[index].message}'.text.ellipsis.size(12).make().p12().onInkTap(() {
-                    HelperMisc.copyToClipboard(controller.todos[index].message, showToast: true);
+                    final isValidCode = HelperMisc.isValidVideoCode(controller.todos[index].message ?? '');
+                    if (isValidCode) {
+                      var item = <String, dynamic>{};
+                      item['video_code'] = controller.todos[index].message;
+                      HelperOpener.openScreenshot(item);
+                    }
                   }),
 
                   // action

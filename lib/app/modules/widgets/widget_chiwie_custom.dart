@@ -87,7 +87,7 @@ class _ExMaterialControlsState extends State<ExMaterialControls> with SingleTick
         autofocus: true,
         onKey: (event) {
           if (event is RawKeyDownEvent) {
-            print('Keyboard shortcut pressed: ${event.logicalKey.debugName}');
+            // print('Keyboard shortcut pressed: ${event.logicalKey.debugName}');
             if (event.logicalKey == LogicalKeyboardKey.space) {
               _playPause();
             } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
@@ -310,7 +310,7 @@ class _ExMaterialControlsState extends State<ExMaterialControls> with SingleTick
                     _buildPosition(),
                     const Spacer(),
                     if (chewieController.allowFullScreen) _buildExpandButton(),
-                    '${widget.video.videoCode}'.text.extraBold.make(),
+                    '${widget.video.videoCode} (${widget.video.site.toTitleCase})'.text.extraBold.make(),
                   ],
                 ),
               ),
@@ -523,7 +523,7 @@ class _ExMaterialControlsState extends State<ExMaterialControls> with SingleTick
   }
 
   void _cancelAndRestartTimer() {
-    print('Calling _cancelAndRestartTimer, showing controls');
+    // print('Calling _cancelAndRestartTimer, showing controls');
     _hideTimer?.cancel();
     _startHideTimer();
 
@@ -581,7 +581,7 @@ class _ExMaterialControlsState extends State<ExMaterialControls> with SingleTick
     }
 
     setState(() {
-      print('Playing/Pausing, will force hide controls');
+      // print('Playing/Pausing, will force hide controls');
       notifier.hideStuff = true;
     });
   }
@@ -599,7 +599,7 @@ class _ExMaterialControlsState extends State<ExMaterialControls> with SingleTick
     }
 
     setState(() {
-      print('Seeking, will force hide controls');
+      // print('Seeking, will force hide controls');
       notifier.hideStuff = true;
     });
   }

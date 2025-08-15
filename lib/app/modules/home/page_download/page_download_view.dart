@@ -6,7 +6,7 @@ import 'package:get/get.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_pref.dart';
-import '../../../utils/helper_opener.dart';
+import '../../../utils/helper.dart';
 import '../../widgets/widget_thumbnail.dart';
 import 'page_download_controller.dart';
 
@@ -30,29 +30,65 @@ class PageDownloadView extends GetView<PageDownloadController> {
               },
             ).expand(),
           ),
-          CustomPopup(
-            content: VStack([
-              ExButtonText(
-                label: 'English',
-                labelColor: Colors.black,
-                onPressed: () {
-                  controller.currentLang.value = 'en';
-                  AppPref.setDownloadLang('en');
-                  Get.back();
-                },
-              ),
-              ExButtonText(
-                label: 'Indonesia',
-                labelColor: Colors.black,
-                onPressed: () {
-                  controller.currentLang.value = 'id';
-                  AppPref.setDownloadLang('id');
-                  Get.back();
-                },
-              ),
-            ]),
-            child: Obx(() => '${controller.currentLang}'.text.uppercase.make().pSymmetric(h: 8).color(AppColor.selected).cornerRadius(90)),
-          ).pSymmetric(h: 12),
+
+          // ** MODE
+          Obx(
+            () => CustomPopup(
+              content: VStack([
+                ExButtonText(
+                  label: controller.currentMode.value == 'net' ? '◉ NETWORK (Online)' : '◎ NETWORK (Online)',
+                  labelColor: Colors.black,
+                  isLabelBold: controller.currentMode.value == 'net',
+                  onPressed: () {
+                    controller.currentMode.value = 'net';
+                    AppPref.setDownloadMode('net');
+                    Get.back();
+                  },
+                ),
+                ExButtonText(
+                  label: controller.currentMode.value == 'db' ? '◉ DATABASE (Offline)' : '◎ DATABASE (Offline)',
+                  labelColor: Colors.black,
+                  isLabelBold: controller.currentMode.value == 'db',
+                  onPressed: () {
+                    controller.currentMode.value = 'db';
+                    AppPref.setDownloadMode('db');
+                    Get.back();
+                  },
+                ),
+              ]),
+              child: Obx(() => '${controller.currentMode}'.text.uppercase.make().pSymmetric(h: 8).color(controller.currentMode.value == 'net' ? Colors.green : Colors.red).cornerRadius(90)),
+            ).pOnly(left: 12),
+          ),
+
+          // ** LANG
+          Obx(
+            () => CustomPopup(
+              content: VStack([
+                ExButtonText(
+                  label: controller.currentLang.value == 'en' ? '◉ English' : '◎ English',
+                  labelColor: Colors.black,
+                  isLabelBold: controller.currentLang.value == 'en',
+                  onPressed: () {
+                    controller.currentLang.value = 'en';
+                    AppPref.setDownloadLang('en');
+                    Get.back();
+                  },
+                ),
+                ExButtonText(
+                  label: controller.currentLang.value == 'id' ? '◉ Indonesia' : '◎ Indonesia',
+                  labelColor: Colors.black,
+                  isLabelBold: controller.currentLang.value == 'id',
+                  onPressed: () {
+                    controller.currentLang.value = 'id';
+                    AppPref.setDownloadLang('id');
+                    Get.back();
+                  },
+                ),
+              ]),
+              child: Obx(() => '${controller.currentLang}'.text.uppercase.make().pSymmetric(h: 8).color(AppColor.selected).cornerRadius(90)),
+            ).pSymmetric(h: 12),
+          ),
+
           IconButton(
             icon: Icon(CupertinoIcons.cloud_download, size: 18),
             onPressed: () => controller.openDialogDownload(),
@@ -70,7 +106,9 @@ class PageDownloadView extends GetView<PageDownloadController> {
               onPressed: controller.hasNextPage.isTrue ? () => controller.onNextPage() : null,
             ),
           ),
-        ]).pOnly(bottom: 24),
+        ]).pOnly(bottom: 12),
+
+        Obx(() => 'Result : ${controller.videos.length} Videos'.text.size(10).minFontSize(10).bold.make().pOnly(bottom: 12).hide(isVisible: controller.videos.isNotEmpty)),
         Obx(
           () => controller.videos.isEmpty
               ? ExUiErrorOrEmpty(
@@ -138,14 +176,13 @@ class PageDownloadView extends GetView<PageDownloadController> {
               HelperOpener.openScreenshot(item);
             }).positioned(right: 8, top: 38),
 
-
             Container(
               color: Vx.black.withAlpha(150),
               width: 300,
-              height: 66,
+              height: 62,
               child: VStack([
                 '${item.videoCode}'.text.bold.size(12).ellipsis.make(),
-                '${item.title}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().tooltip(item.title ?? ''),
+                '${HelperMisc.decodeHtml(item.title ?? '')}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240),
               ]).p8(),
             ).positioned(bottom: 0),
           ]),

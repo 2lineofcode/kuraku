@@ -27,7 +27,7 @@ class AppSettingService extends GetxService {
     super.onReady();
     await getApplicationDocumentsDirectory().then((s) {
       appPath = join(s.path, Env.appName);
-      pref = GetSecureStorage(container: Env.appName, password: Env.appName, path: appPath);
+      pref = GetSecureStorage(container: Env.appName.toLowerCase(), password: Env.appName, path: appPath);
     });
 
 
@@ -94,6 +94,13 @@ class AppSettingService extends GetxService {
         await file.writeAsBytes(bytes);
       } catch (_) {}
     }
+
+    // create file
+    final file = File('$appPath/javit.dio');
+    if (!await file.exists()) {
+      await file.create(recursive: true);
+    }
+
   }
 
 
@@ -113,6 +120,7 @@ class AppSettingService extends GetxService {
     HotKey _hotKey3 = HotKey(key: PhysicalKeyboardKey.digit3, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKey4 = HotKey(key: PhysicalKeyboardKey.digit4, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKey5 = HotKey(key: PhysicalKeyboardKey.digit5, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKeyComma = HotKey(key: PhysicalKeyboardKey.comma, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
 
     HotKey _hotKeyArrowR = HotKey(key: PhysicalKeyboardKey.arrowRight, modifiers: [HotKeyModifier.alt], scope: HotKeyScope.inapp);
     HotKey _hotKeyArrowL = HotKey(key: PhysicalKeyboardKey.arrowLeft, modifiers: [HotKeyModifier.alt], scope: HotKeyScope.inapp);
@@ -149,6 +157,7 @@ class AppSettingService extends GetxService {
     });
 
     await hotKeyManager.register(_hotKeyB, keyUpHandler: (hotKey) {
+      AppLog.logD('hotKeyB Pressed');
       final current = Get.find<HomeController>().sideMenuWidth.value;
       if (current == 0) {
         Get.find<HomeController>().sideMenuWidth.value = 180;
@@ -185,6 +194,12 @@ class AppSettingService extends GetxService {
 
     await hotKeyManager.register(_hotKey5, keyUpHandler: (hotKey) {
       AppLog.logD('hotKey5 Pressed');
+      try { Get.find<HomeController>().onMenuChange(kMenuTools);
+      } catch (_) {}
+    });
+
+    await hotKeyManager.register(_hotKeyComma, keyUpHandler: (hotKey) {
+      AppLog.logD('hotKeyComma Pressed');
       try { Get.find<HomeController>().onMenuChange(kMenuSetting);
       } catch (_) {}
     });

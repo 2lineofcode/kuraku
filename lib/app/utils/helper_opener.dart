@@ -51,9 +51,8 @@ mixin HelperOpener {
   }
 
   // ────────────────────────────────────────────────────────────────
-  // ⵌ
-  // ────────────────────────────────────────────────────────────────
-  static Future<void> openTrailer(item) async {
+
+  static Future<void> openTrailer(dynamic item) async {
     late Map<String, dynamic>? dataVideo;
 
     // ** -> from download page
@@ -61,6 +60,13 @@ mixin HelperOpener {
       final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
       dataVideo = await DBR18.getVideo(fixCode);
     }
+
+    // ** -> from library
+    else if (item is Videos) {
+      final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
+      dataVideo = await DBR18.getVideo(fixCode);
+    }
+
     // ** -> direct from r18
     else {
       dataVideo = await DBR18.getVideo(item['video_code']);
@@ -68,7 +74,7 @@ mixin HelperOpener {
 
     final video = Videos.fromJson(dataVideo ?? {});
 
-    if (video.videoCode == null) {
+    if (video.videoCode.isNullOrEmpty) {
       await HelperToast.warn('Invalid video code');
       return;
     }
@@ -77,20 +83,18 @@ mixin HelperOpener {
 
     HelperLoading.show();
     if (video.trailer.isNullOrEmpty) {
-      AppLog.logD('[1]. trailer is null.. trying to get trailer from javit (${video.videoCode})');
-
       await ApiJavit.getMetadata(code: video.videoCode ?? '').then((s) {
         trailerUrl = s.trailer ?? '';
-        AppLog.logD('[2] trailerUrl from javit -> $trailerUrl');
+      }).catchError((e) {
+        trailerUrl = '';
       });
     } else {
       trailerUrl = video.trailer ?? '';
-      AppLog.logD('[2] trailerUrl from db -> $trailerUrl');
     }
 
     late final CachedVideoPlayerPlus cachePlayer;
     trailerUrl = trailerUrl.replaceAll('https://cc3001.dmm.co.jp', 'https://media.javtrailers.com');
-    AppLog.logD('trailerUrl -> $trailerUrl');
+    trailerUrl = trailerUrl.replaceAll('https://cc3001.dmm.com', 'https://media.javtrailers.com');
 
     if (trailerUrl.isNullOrEmpty) {
       HelperLoading.dismiss();
@@ -99,16 +103,37 @@ mixin HelperOpener {
     }
 
     await Api.head('${Env.vidUrl}$trailerUrl').then((s) {
+      // ** file mode
       trailerUrl = trailerUrl;
+      AppLog.logD('FILE MODE -> $trailerUrl');
+      video.site = 'file';
     }).catchError((e) {
-      final prefix = '${trailerUrl.substring(0, trailerUrl.lastIndexOf('/') + 1)}playlist.m3u8'.replaceAll('litevideo', 'hlsvideo');
+      // ** hls mode
+      String _prefixVidId(String s) {
+        final m = RegExp(r'^(.*?)(\d+)$').firstMatch(s);
+        return m == null ? s : '${m[1]}${m[2]!.padLeft(5, '0')}';
+      }
+
+      final prefix1 = '${trailerUrl.substring(0, trailerUrl.lastIndexOf('/'))}';
+      final prefix2 = '${prefix1.substring(0, prefix1.lastIndexOf('/'))}/${_prefixVidId(video.id!)}/playlist.m3u8'.replaceAll('litevideo', 'hlsvideo');
+      final prefix = prefix2;
       trailerUrl = prefix;
+      video.site = 'hls';
+      AppLog.logD('HLS MODE -> $prefix2');
     });
-    AppLog.logD('out -> ${Env.vidUrl}$trailerUrl');
+
+    // ** DEBUG
+    final proxyUrl = Env.vidUrl;
+    // trailerUrl = 'https://media.javtrailers.com/hlsvideo/freepv/j/jur/jur00132/playlist.m3u8';
+    // trailerUrl = 'https://media.javtrailers.com/litevideo/freepv/1/18s/18sprd1085/18sprd1085_dmb_w.mp4';
+    final joinUrl = '${proxyUrl.trim()}${trailerUrl.trim()}';
+    // ** END DEBUG
+
+    AppLog.logD('out -> $joinUrl');
 
     try {
       cachePlayer = CachedVideoPlayerPlus.networkUrl(
-        Uri.parse('${Env.vidUrl}$trailerUrl'),
+        Uri.parse('$joinUrl'),
         invalidateCacheIfOlderThan: 1.seconds,
         skipCache: true,
         videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
@@ -116,8 +141,8 @@ mixin HelperOpener {
 
       await cachePlayer.initialize().then((_) async {
         await cachePlayer.controller.play();
-        await cachePlayer.controller.setPlaybackSpeed(1.25);
-        // await cachePlayer.controller.setVolume(0);
+        await cachePlayer.controller.setPlaybackSpeed(1.1);
+        await cachePlayer.controller.setVolume(0.1);
       });
     } catch (e) {
       e as PlatformException;
@@ -139,8 +164,6 @@ mixin HelperOpener {
       customControls: ExMaterialControls(video: video),
     );
 
-    await chewie.setVolume(0.1);
-
     HelperLoading.dismiss();
 
     await Overlayment.show(
@@ -158,22 +181,39 @@ mixin HelperOpener {
         ),
         child: ZStack(
           [
-            cachePlayer.isInitialized ? Chewie(controller: chewie).centered().centered() : const CircularProgressIndicator.adaptive(),
-            // '${_video?['title']}'.text.size(11).maxLines(3).ellipsis.minFontSize(11).make().positioned(top: 32, left: 12).w(Get.width * 90 / 100),
+            cachePlayer.isInitialized ? Chewie(controller: chewie).centered() : const CircularProgressIndicator.adaptive(),
+            // '${video.title}'.text.size(11).maxLines(3).ellipsis.minFontSize(11).make().w(Get.width * 70 / 100),
+            Align(
+              alignment: Alignment.topRight,
+              child: Container(
+                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                child: Icon(CupertinoIcons.clear).p8(),
+              ).onInkTap(() {
+                Overlayment.dismissLast();
+              }),
+            ).positioned(right: 8, top: 8, bottom: 0),
           ],
         ),
       ),
     );
   }
 
-  static Future<void> openScreenshot(item) async {
+  static Future<void> openScreenshot(dynamic item) async {
     late Map<String, dynamic>? dataVideo;
+    HelperLoading.show();
 
     // ** -> from download page
     if (item is JavitSearchResult) {
       final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
       dataVideo = await DBR18.getVideo(fixCode);
     }
+
+    // ** -> from library
+    else if (item is Videos) {
+      final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
+      dataVideo = await DBR18.getVideo(fixCode);
+    }
+
     // ** -> direct from r18
     else {
       dataVideo = await DBR18.getVideo(item['video_code']);
@@ -199,6 +239,8 @@ mixin HelperOpener {
       }
       video.screenshot = ss;
     }
+
+    HelperLoading.dismiss();
 
     if (video.screenshot == null || video.screenshot!.isEmpty) {
       await HelperToast.warn('No screenshot found');
@@ -281,13 +323,22 @@ mixin HelperOpener {
                       alignment: Alignment.centerLeft,
                       child: Container(
                         decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
-                        child: Icon(CupertinoIcons.backward_fill).p12(), // p12 di dalam Container
+                        child: Icon(CupertinoIcons.backward_fill).p12(),
                       ).onInkTap(() {
                         if (idxSelected.value > 0) {
                           idxSelected.value--;
                         }
                       }),
                     ).positioned(left: 8, top: 0, bottom: 0),
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: Container(
+                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                        child: Icon(CupertinoIcons.clear).p8(),
+                      ).onInkTap(() {
+                        Overlayment.dismissLast();
+                      }),
+                    ).positioned(right: 8, top: 8, bottom: 0),
                   ],
                 ),
                 Container(height: 5, color: AppColor.container),
@@ -325,4 +376,61 @@ mixin HelperOpener {
       ),
     );
   }
+
+  static Future<void> openKeyboardShortcuts() async {
+    final shortcuts = <Map<String, String>>[
+      {'key': 'Esc', 'action': 'Close Dialog / Panel'},
+      {'key': '⌘ + X', 'action': 'Close Dialog / Panel'},
+      {'key': '⌘ + R', 'action': 'Reload All Page'},
+      {'key': '⌘ + D', 'action': 'Open New Dialog Download'},
+      {'key': '⌘ + T', 'action': 'Open New Add Todo'},
+      {'key': '⌘ + B', 'action': 'Show/Hide Side Menu'},
+
+      {'key': '⌘ + 1', 'action': 'Open Home Page'},
+      {'key': '⌘ + 2', 'action': 'Open Library Page'},
+      {'key': '⌘ + 3', 'action': 'Open Explore Page'},
+      {'key': '⌘ + 4', 'action': 'Open Download Page'},
+      {'key': '⌘ + 5', 'action': 'Open Tool Page'},
+      {'key': '⌘ + ,', 'action': 'Open Setting Page'},
+    ];
+    await Overlayment.show(
+      context: Get.context,
+      OverPanel(
+        alignment: Alignment.center,
+        width: MediaQuery.of(Get.context!).size.width * 90 / 100,
+        height: MediaQuery.of(Get.context!).size.width * 9.0 / 16.0,
+        child: VStack(
+          [
+            'Keyboard Shortcuts'.text.bold.size(16).make().pOnly(bottom: 12),
+            Table(
+              border: TableBorder.all(color: AppColor.border),
+              columnWidths: const {
+                0: FlexColumnWidth(1),
+                1: FlexColumnWidth(4),
+              },
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(color: AppColor.container),
+                  children: [
+                    'Key'.text.bold.make().p8(),
+                    'Action'.text.bold.make().p8(),
+                  ],
+                ),
+
+                // items
+                ...List.generate(
+                  shortcuts.length,
+                  (index) => TableRow(children: [
+                    '${shortcuts[index]['key']}'.text.make().p4(),
+                    '${shortcuts[index]['action']}'.text.make().p4(),
+                  ]),
+                ),
+              ],
+            ).p12(),
+          ],
+        ).scrollVertical().p12(),
+      ),
+    );
+  }
+
 }

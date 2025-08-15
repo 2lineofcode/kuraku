@@ -30,6 +30,8 @@ mixin PageSearchOverlay {
   static Future<void> onItemTap(Videos video) async {
     final _controller = Get.find<PageSearchController>();
     final _mediaInfo = <String>[].obs;
+    final _focusNode = FocusNode();
+
 
     // open overlay
     await Overlayment.show(
@@ -42,222 +44,242 @@ mixin PageSearchOverlay {
           reverseDurationMilliseconds: 100,
           durationMilliseconds: 400,
         ),
-        child: VStack(
-          [
-            ExThumbnail(
-              imageUrl: video.fanArt,
-              videoPath: video.videoPath,
-              width: 300,
-              height: 200,
-              fitMemory: BoxFit.fitHeight,
-              fitUrl: BoxFit.contain,
-            ).color(AppColor.selected).onInkTap(() => _openScreenshot(video)),
-            VStack(
+        actions: OverlayActions(
+          onReady: () async => _focusNode.requestFocus(),
+        ),
+        child: FocusScope(
+          autofocus: true,
+          child: RawKeyboardListener(
+            focusNode: _focusNode,
+            onKey: (event) {
+              if (event is RawKeyDownEvent) {
+                if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                  Overlayment.dismissLast();
+                }
+                if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                  HelperOpener.openScreenshot(video);
+                  Overlayment.dismissLast();
+                }
+              }
+            },
+            child: VStack(
               [
-                '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
-                  HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
-                }).pSymmetric(v: 8),
-                '${video.title}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(3).ellipsis.makeCentered().tooltip(video.videoPath?.getFileName().noExt() ?? ''),
-
-                ExDivider().pSymmetric(v: 16),
-
-                // action
-                HStack(
+                ExThumbnail(
+                  imageUrl: video.fanArt,
+                  videoPath: video.videoPath,
+                  width: 300,
+                  height: 200,
+                  fitMemory: BoxFit.fitHeight,
+                  fitUrl: BoxFit.contain,
+                ).color(AppColor.selected).onInkTap(() => _openScreenshot(video)),
+                VStack(
                   [
-                    Spacer(),
-                    // play
-                    Container(
-                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                      child: IconButton(
-                        icon: Icon(CupertinoIcons.play, size: 16),
-                        onPressed: () => {
-                          Overlayment.dismissLast(),
-                          HelperOpener.openVideoFile(video),
-                        },
-                      ),
-                    ).pOnly(right: 8),
-
-                    // add to favorite
-                    GetBuilder<PageSearchController>(
-                      init: _controller,
-                      builder: (b) => Container(
-                        decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                        child: IconButton(
-                          icon: video.isFavorite == 1 ? Icon(CupertinoIcons.star_fill, size: 16, color: Vx.orange500) : Icon(CupertinoIcons.star, size: 16, color: null),
-                          onPressed: () {
-                            final current = video.isFavorite ?? 0;
-                            if (current == 1) {
-                              DBVideos.removeFromFavorite(video);
-                            } else {
-                              DBVideos.addToFavorite(video);
-                            }
-                            Get.find<PageHomeController>().getListFavorite();
-                            b.update();
-                          },
-                        ),
-                      ).pOnly(right: 8),
-                    ),
-
-                    // renew metadata
-                    video.videoCode?.isNotBlank ?? false
-                        ? Container(
+                    '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
+                      HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
+                    }).pSymmetric(v: 8),
+                    '${video.title}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(3).ellipsis.makeCentered().tooltip(video.videoPath?.getFileName().noExt() ?? ''),
+            
+                    ExDivider().pSymmetric(v: 16),
+            
+                    // action
+                    HStack(
+                      [
+                        Spacer(),
+                        // play
+                        Container(
+                          decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
+                          child: IconButton(
+                            icon: Icon(CupertinoIcons.play, size: 16),
+                            onPressed: () => {
+                              Overlayment.dismissLast(),
+                              HelperOpener.openVideoFile(video),
+                            },
+                          ),
+                        ).pOnly(right: 8),
+            
+                        // add to favorite
+                        GetBuilder<PageSearchController>(
+                          init: _controller,
+                          builder: (b) => Container(
                             decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                             child: IconButton(
-                              icon: Icon(CupertinoIcons.refresh, size: 16),
-                              onPressed: () => _controller.renewMetadata(video),
+                              icon: video.isFavorite == 1 ? Icon(CupertinoIcons.star_fill, size: 16, color: Vx.orange500) : Icon(CupertinoIcons.star, size: 16, color: null),
+                              onPressed: () {
+                                final current = video.isFavorite ?? 0;
+                                if (current == 1) {
+                                  DBVideos.removeFromFavorite(video);
+                                } else {
+                                  DBVideos.addToFavorite(video);
+                                }
+                                Get.find<PageHomeController>().getListFavorite();
+                                b.update();
+                              },
                             ),
-                          ).pOnly(right: 8)
-                        : 0.heightBox,
-
-                    Container(
-                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                      child: IconButton(
-                        icon: Icon(CupertinoIcons.folder, size: 16),
-                        onPressed: () => HelperOpener.openFilePath(video.videoPath ?? ''),
-                      ),
-                    ).pOnly(right: 8),
-
-                    Spacer(),
-                  ],
-                ).pOnly(bottom: 16),
-              ],
-            ).pSymmetric(h: 16),
-
-            // metadata
-            Expanded(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: 100),
-                child: Container(
-                  width: double.infinity,
-                  decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                  child: SingleChildScrollView(
-                    child: VStack([
-                      HStack([
-                        Icon(CupertinoIcons.chevron_left_slash_chevron_right, size: 16).pOnly(right: 8),
-                        'Metadata'.text.size(14).bold.make(),
-                      ]).pOnly(bottom: 16),
-
-                      // actress
-                      if (!video.actress.isEmptyOrNull) ...[
-                        'Actress:'.text.size(12).bold.make().pOnly(bottom: 4),
-                        Wrap(children: [
-                          for (int i = 0; i < video.actress!.length; i++) ...[
-                            '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}'
-                                .text
-                                .neutral300
-                                .underline
-                                .size(11)
-                                .minFontSize(11)
-                                .make()
-                                .tooltip(video.actress?[i].nameRomaji == '' ? '${KanaKit().toRomaji(video.actress?[i].nameKana ?? '')}' : '')
-                                .onInkTap(() async => await _onItemActressClick(video, i))
-                                .pOnly(right: 8),
-                          ],
-                        ]).pOnly(bottom: 16),
+                          ).pOnly(right: 8),
+                        ),
+            
+                        // renew metadata
+                        video.videoCode?.isNotBlank ?? false
+                            ? Container(
+                                decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
+                                child: IconButton(
+                                  icon: Icon(CupertinoIcons.refresh, size: 16),
+                                  onPressed: () => _controller.renewMetadata(video),
+                                ),
+                              ).pOnly(right: 8)
+                            : 0.heightBox,
+            
+                        Container(
+                          decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
+                          child: IconButton(
+                            icon: Icon(CupertinoIcons.folder, size: 16),
+                            onPressed: () => HelperOpener.openFilePath(video.videoPath ?? ''),
+                          ),
+                        ).pOnly(right: 8),
+            
+                        Spacer(),
                       ],
-
-                      // category
-                      if (!video.category.isEmptyOrNull) ...[
-                        'Category:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                        Wrap(children: [
-                          for (int i = 0; i < video.category!.length; i++) ...[
+                    ).pOnly(bottom: 16),
+                  ],
+                ).pSymmetric(h: 16),
+            
+                // metadata
+                Expanded(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: 100),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
+                      child: SingleChildScrollView(
+                        child: VStack([
+                          HStack([
+                            Icon(CupertinoIcons.chevron_left_slash_chevron_right, size: 16).pOnly(right: 8),
+                            'Metadata'.text.size(14).bold.make(),
+                          ]).pOnly(bottom: 16),
+            
+                          // actress
+                          if (!video.actress.isEmptyOrNull) ...[
+                            'Actress:'.text.size(12).bold.make().pOnly(bottom: 4),
+                            Wrap(children: [
+                              for (int i = 0; i < video.actress!.length; i++) ...[
+                                '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}'
+                                    .text
+                                    .neutral300
+                                    .underline
+                                    .size(11)
+                                    .minFontSize(11)
+                                    .make()
+                                    .tooltip(video.actress?[i].nameRomaji == '' ? '${KanaKit().toRomaji(video.actress?[i].nameKana ?? '')}' : '')
+                                    .onInkTap(() async => await _onItemActressClick(video, i))
+                                    .pOnly(right: 8),
+                              ],
+                            ]).pOnly(bottom: 16),
+                          ],
+            
+                          // category
+                          if (!video.category.isEmptyOrNull) ...[
+                            'Category:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            Wrap(children: [
+                              for (int i = 0; i < video.category!.length; i++) ...[
+                                FutureBuilder(
+                                  future: HelperMisc.decensor(video.category?[i].category ?? ''),
+                                  builder: (context, snapshot) {
+                                    return snapshot.hasData
+                                        ? '${snapshot.data}'.text.neutral300.underline.size(11).minFontSize(11).make().onInkTap(() async {
+                                            await _onItemCategoryClick(video, i);
+                                          }).pOnly(right: 8)
+                                        : 0.heightBox;
+                                  },
+                                ),
+                              ],
+                            ]).pOnly(bottom: 16),
+                          ],
+            
+                          // series
+                          if (!video.series.isEmptyOrNull) ...[
+                            'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             FutureBuilder(
-                              future: HelperMisc.decensor(video.category?[i].category ?? ''),
+                              future: HelperMisc.decensor(video.series ?? ''),
                               builder: (context, snapshot) {
                                 return snapshot.hasData
-                                    ? '${snapshot.data}'.text.neutral300.underline.size(11).minFontSize(11).make().onInkTap(() async {
-                                        await _onItemCategoryClick(video, i);
-                                      }).pOnly(right: 8)
+                                    ? '${snapshot.data}'.text.underline.neutral300.size(11).minFontSize(11).make().onInkTap(() async {
+                                        await _onItemSeriesClick(video);
+                                      }).pOnly(bottom: 16)
                                     : 0.heightBox;
                               },
                             ),
                           ],
-                        ]).pOnly(bottom: 16),
-                      ],
-
-                      // series
-                      if (!video.series.isEmptyOrNull) ...[
-                        'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                        FutureBuilder(
-                          future: HelperMisc.decensor(video.series ?? ''),
-                          builder: (context, snapshot) {
-                            return snapshot.hasData
-                                ? '${snapshot.data}'.text.underline.neutral300.size(11).minFontSize(11).make().onInkTap(() async {
-                                    await _onItemSeriesClick(video);
-                                  }).pOnly(bottom: 16)
-                                : 0.heightBox;
-                          },
-                        ),
-                      ],
-
-                      // release date
-                      if (!video.releaseDate.isEmptyOrNull) ...[
-                        'Release Date:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                        '${video.releaseDateFormated}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-                      ],
-
-                      // duration
-                      if (video.duration != 0) ...[
-                        'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                        '${video.durationFormated}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-                      ],
-
-                      // label
-                      if (!video.label.isEmptyOrNull) ...[
-                        'Label:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                        '${video.label}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-                      ],
-
-                      // studio
-                      if (!video.studio.isEmptyOrNull) ...[
-                        'Studio:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                        '${video.studio}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-                      ],
-
-                      // director
-                      if (!video.director.isEmptyOrNull) ...[
-                        'Director:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                        '${video.director}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-                      ],
-
-                      // ~
-                      GetBuilder(
-                        init: _controller,
-                        builder: (_) => _mediaInfo.isNotEmpty
-                            ? VStack([
-                                // resolution
-                                'Res:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                                '${_mediaInfo[0]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-
-                                // filesize
-                                'File Size:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                                '${_mediaInfo[2]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-
-                                // duration (non jav)
-                                if (video.duration == 0) ...[
-                                  'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                                  '${_mediaInfo[3]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-                                ],
-                              ])
-                            : VStack([
-                                'Get More Info'.text.blue300.size(12).underline.make().onInkTap(() async {
-                                  _mediaInfo.value = await _getMediaInfo(video.videoPath ?? '');
-                                  if (_mediaInfo.length > 2) _controller.update();
-                                }).pOnly(bottom: 16),
-                              ]),
+            
+                          // release date
+                          if (!video.releaseDate.isEmptyOrNull) ...[
+                            'Release Date:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            '${video.releaseDateFormated}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                          ],
+            
+                          // duration
+                          if (video.duration != 0) ...[
+                            'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            '${video.durationFormated}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                          ],
+            
+                          // label
+                          if (!video.label.isEmptyOrNull) ...[
+                            'Label:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            '${video.label}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                          ],
+            
+                          // studio
+                          if (!video.studio.isEmptyOrNull) ...[
+                            'Studio:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            '${video.studio}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                          ],
+            
+                          // director
+                          if (!video.director.isEmptyOrNull) ...[
+                            'Director:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            '${video.director}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                          ],
+            
+                          // ~
+                          GetBuilder(
+                            init: _controller,
+                            builder: (_) => _mediaInfo.isNotEmpty
+                                ? VStack([
+                                    // resolution
+                                    'Res:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                                    '${_mediaInfo[0]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+            
+                                    // filesize
+                                    'File Size:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                                    '${_mediaInfo[2]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+            
+                                    // duration (non jav)
+                                    if (video.duration == 0) ...[
+                                      'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                                      '${_mediaInfo[3]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                                    ],
+                                  ])
+                                : VStack([
+                                    'Get More Info'.text.blue300.size(12).underline.make().onInkTap(() async {
+                                      _mediaInfo.value = await _getMediaInfo(video.videoPath ?? '');
+                                      if (_mediaInfo.length > 2) _controller.update();
+                                    }).pOnly(bottom: 16),
+                                  ]),
+                          ),
+            
+                          // Path
+                          'Path:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                          '${video.videoPath?.getLastSegments()}'.text.neutral300.ellipsis.size(11).minFontSize(11).make().color(Vx.neutral800).onInkTap(() async {
+                            await _onItemVideoPathClick(video);
+                          }).tooltip(video.videoPath ?? ''),
+                        ]).p12(),
                       ),
-
-                      // Path
-                      'Path:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                      '${video.videoPath?.getLastSegments()}'.text.neutral300.ellipsis.size(11).minFontSize(11).make().color(Vx.neutral800).onInkTap(() async {
-                        await _onItemVideoPathClick(video);
-                      }).tooltip(video.videoPath ?? ''),
-                    ]).p12(),
+                    ).pSymmetric(h: 16),
                   ),
-                ).pSymmetric(h: 16),
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -270,19 +292,6 @@ mixin PageSearchOverlay {
     final idxSelectedJav = 0.obs;
     final idxSelectedNonJav = 10.obs;
     final focusNode = FocusNode();
-
-    // if (video.screenshot.isEmptyOrNull) {
-    //   for (int i = 0; i < 10; i++) ...[
-    //     ExThumbnail(
-    //       imageUrl: '',
-    //       videoPath: video.videoPath,
-    //       width: max(Get.width * 40 / 100, 400),
-    //       height: 500,
-    //       fitMemory: BoxFit.fitHeight,
-    //       position: ExRandom.between(10, 120) * i,
-    //     ),
-    //   ],
-    // }
 
     await Overlayment.show(
       context: Get.context,
@@ -411,13 +420,24 @@ mixin PageSearchOverlay {
                         alignment: Alignment.centerLeft,
                         child: Container(
                           decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
-                          child: Icon(CupertinoIcons.backward_fill).p12(), // p12 di dalam Container
+                          child: Icon(CupertinoIcons.backward_fill).p12(),
                         ).onInkTap(() {
                           if (idxSelectedJav.value > 0) {
                             idxSelectedJav.value--;
                           }
                         }),
                       ).positioned(left: 8, top: 0, bottom: 0),
+
+
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: Container(
+                          decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                          child: Icon(CupertinoIcons.clear).p8(),
+                        ).onInkTap(() {
+                          Overlayment.dismissLast();
+                        }),
+                      ).positioned(right: 8, top: 12, bottom: 0),
                     ],
                   ),
                   Container(height: 5, color: AppColor.container),

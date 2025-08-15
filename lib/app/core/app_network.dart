@@ -1,9 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
-import 'package:dio_cache_interceptor_hive_store/dio_cache_interceptor_hive_store.dart';
-import 'package:dio_smart_retry/dio_smart_retry.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart' hide Response;
+import 'package:http_cache_sembast_store/http_cache_sembast_store.dart';
 
 import '../../env.g.dart';
 import 'app_logging.dart';
@@ -11,12 +10,13 @@ import 'app_setting.dart';
 
 mixin Api {
   static CacheOptions _defaultCacheOption(String appDirPath) => CacheOptions(
-        store: HiveCacheStore(appDirPath),
+        store: SembastCacheStore(storePath: appDirPath, cacheStore: 'javit.dio'),
         policy: CachePolicy.forceCache,
         priority: CachePriority.high,
         maxStale: 1825.days,
-        hitCacheOnErrorExcept: [401, 404],
-        keyBuilder: (request) => request.uri.toString(),
+        hitCacheOnErrorCodes: [401, 404],
+        keyBuilder: ({headers, required url}) => url.toString(),
+        // keyBuilder: (request) => request.uri.toString(),
         allowPostMethod: false,
       );
 
@@ -33,14 +33,14 @@ mixin Api {
       policy: noCache ? CachePolicy.noCache : CachePolicy.forceCache,
     );
 
-    _dio.interceptors.add(
-      RetryInterceptor(
-        dio: _dio,
-        logPrint: AppLog.logD,
-        retries: 3,
-        retryDelays: [1.seconds, 3.seconds, 5.seconds],
-      ),
-    );
+    // _dio.interceptors.add(
+    //   RetryInterceptor(
+    //     dio: _dio,
+    //     logPrint: AppLog.logD,
+    //     retries: 3,
+    //     retryDelays: [1.seconds, 3.seconds, 5.seconds],
+    //   ),
+    // );
 
     return await _dio.get(
       url,

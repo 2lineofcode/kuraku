@@ -18,6 +18,7 @@ import 'page_explore/page_explore_controller.dart';
 import 'page_home/page_home_controller.dart';
 import 'page_search/page_search_controller.dart';
 import 'page_settings/page_settings_controller.dart';
+import 'page_tools/page_tools_controller.dart';
 
 class HomeController extends GetxController with StateMixin {
   final currentMenuSelected = kMenuHome.obs;
@@ -51,8 +52,9 @@ class HomeController extends GetxController with StateMixin {
       await Get.find<PageHomeController>().onInit();
       await Get.find<PageSearchController>().onInit();
       await Get.find<PageExploreController>().onInit();
-      await Get.find<PageSettingsController>().onInit();
       await Get.find<PageDownloadController>().onInit();
+      await Get.find<PageToolsController>().onInit();
+      await Get.find<PageSettingsController>().onInit();
       footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
       change(200, status: RxStatus.success());
     } catch (e) {

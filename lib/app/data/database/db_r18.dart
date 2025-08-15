@@ -82,6 +82,47 @@ mixin DBR18 {
     return maps.isNotEmpty ? maps[0] : null;
   }
 
+
+  static Future<List<Map<String, dynamic>>> search(String query) async {
+    if (await _validation() == false) {
+      return [];
+    }
+
+    final maps = await _db.rawQuery('''
+        SELECT
+          v.content_id as id,                             -- id
+          v.dvd_id as video_code,                         -- video_code
+          COALESCE(t.target_en, v.title_en) AS title,     -- title_en
+          v.title_ja,                                     -- title_ja
+          s.name_en as series,                            -- series
+          COALESCE(m.name_en, m.name_ja) AS studio,       -- studio/maker
+          l.name_en as label,                             -- label
+          site.name as site,                              -- site
+          v.runtime_mins as duration,                     -- duration 
+          v.release_date as release_date,                 -- release_date
+          v.sample_url as trailer,                        -- trailer
+          v.jacket_full_url as fan_art,                   -- fanart
+          v.jacket_thumb_url as poster,                   -- poster
+          v.gallery_full_first as ssfirst,                -- screenshot[0]
+          v.gallery_full_last as sslast                   -- screenshot[n]
+        FROM
+          derived_video v
+          LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
+          LEFT JOIN derived_maker m ON m.id = v.maker_id
+          LEFT JOIN derived_series s ON s.id = v.series_id
+          LEFT JOIN derived_label l ON l.id = v.label_id
+          LEFT JOIN derived_site site ON site.id = v.site_id
+        WHERE
+          v.dvd_id LIKE ? or v.title_en LIKE ?
+        GROUP BY
+          v.dvd_id
+        ORDER BY
+          v.release_date DESC
+      ''', ['%$query%', '%$query%']);
+
+    return maps;
+  }
+
   static Future<List<Map<String, dynamic>>> getActress(String code) async {
     final maps = await _db.rawQuery('''
         SELECT DISTINCT a.*
@@ -156,6 +197,9 @@ mixin DBR18 {
       WHERE 1=1
         AND v.dvd_id IS NOT NULL
         AND v.content_id IN ($inClause)
+      ORDER BY
+        v.release_date DESC
+      LIMIT 10000
     ''', listContentId);
     return q2;
   }
@@ -189,6 +233,9 @@ mixin DBR18 {
         WHERE 1=1
           AND c.name_en = ?
           AND v.dvd_id IS NOT NULL
+        ORDER BY
+          v.release_date DESC
+        LIMIT 10000
       ''', [categoryName]);
     return maps;
   }
@@ -222,6 +269,9 @@ mixin DBR18 {
         WHERE 1=1
           AND l.name_en = ?
           AND v.dvd_id IS NOT NULL
+        ORDER BY
+          v.release_date DESC
+        LIMIT 10000
       ''', [labelName]);
     return maps;
   }
@@ -258,6 +308,9 @@ mixin DBR18 {
           AND v.dvd_id IS NOT NULL
         GROUP BY
           v.dvd_id
+        ORDER BY
+          v.release_date DESC
+        LIMIT 10000
       ''', [series]);
     return maps;
   }
@@ -291,6 +344,9 @@ mixin DBR18 {
         WHERE 1=1
           AND m.name_en = ? OR m.name_ja = ?
           AND v.dvd_id IS NOT NULL
+        ORDER BY
+          v.release_date DESC
+        LIMIT 10000
       ''', [studio, studio]);
     return maps;
   }
@@ -324,6 +380,9 @@ mixin DBR18 {
         WHERE 1=1
           AND d.name_romaji = ? OR d.name_kana = ?
           AND v.dvd_id IS NOT NULL
+        ORDER BY
+          v.release_date DESC
+        LIMIT 10000
       ''', [director, director]);
     return maps;
   }
@@ -355,6 +414,9 @@ mixin DBR18 {
         WHERE 1=1
           AND v.release_date LIKE ?
           AND v.dvd_id IS NOT NULL
+        ORDER BY
+          v.release_date DESC
+        LIMIT 10000
       ''', ['$year%']);
     return maps;
   }

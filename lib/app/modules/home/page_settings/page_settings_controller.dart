@@ -1,10 +1,8 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
-import 'package:overlayment/overlayment.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_setting.dart';
 import '../../../data/database/db_init.dart';
@@ -21,6 +19,13 @@ class PageSettingsController extends GetxController {
   final totalVideos = 0.obs;
   final lastRelapse = ''.obs;
   final r18TotalVideo = 0.obs;
+
+  // **
+  final tecApiUrl = TextEditingController();
+  final tecProxyUrl = TextEditingController();
+  final tecImgUrl = TextEditingController();
+  final tecVidUrl = TextEditingController();
+  final tecActressAvatarUrl = TextEditingController();
 
   @override
   Future<void> onInit() async {
@@ -51,6 +56,10 @@ class PageSettingsController extends GetxController {
     );
   }
 
+  Future<void> updateR18DB() async {
+    await launchUrlString('https://r18.dev/dumps');
+  }
+
   Future<void> _openDialogConfirm({
     void Function()? onYes,
     String? title,
@@ -71,66 +80,6 @@ class PageSettingsController extends GetxController {
           },
         ),
       ],
-    );
-  }
-
-  Future<void> updateR18DB() async {
-    await launchUrlString('https://r18.dev/dumps');
-  }
-
-  Future<void> openKeyboardShortcuts() async {
-    final shortcuts = <Map<String, String>>[
-      {'key': 'Esc', 'action': 'Close Dialog / Panel'},
-      {'key': '⌘ + X', 'action': 'Close Dialog / Panel'},
-      {'key': '⌘ + R', 'action': 'Reload All Page'},
-      {'key': '⌘ + D', 'action': 'Open New Dialog Download'},
-      {'key': '⌘ + T', 'action': 'Open New Add Todo'},
-      {'key': '⌘ + B', 'action': 'Show/Hide Side Menu'},
-
-      {'key': '⌘ + 1', 'action': 'Open Home Page'},
-      {'key': '⌘ + 2', 'action': 'Open Library Page'},
-      {'key': '⌘ + 3', 'action': 'Open Explore Page'},
-      {'key': '⌘ + 4', 'action': 'Open Download Page'},
-      {'key': '⌘ + 5', 'action': 'Open Tool Page'},
-      {'key': '⌘ + ,', 'action': 'Open Setting Page'},
-    ];
-    await Overlayment.show(
-      context: Get.context,
-      OverPanel(
-        alignment: Alignment.center,
-        width: MediaQuery.of(Get.context!).size.width * 90 / 100,
-        height: MediaQuery.of(Get.context!).size.width * 9.0 / 16.0,
-        child: VStack(
-          [
-            'Keyboard Shortcuts'.text.bold.size(16).make().pOnly(bottom: 12),
-            Table(
-              border: TableBorder.all(color: AppColor.border),
-              columnWidths: const {
-                0: FlexColumnWidth(1),
-                1: FlexColumnWidth(4),
-              },
-              children: [
-                TableRow(
-                  decoration: BoxDecoration(color: AppColor.container),
-                  children: [
-                    'Key'.text.bold.make().p8(),
-                    'Action'.text.bold.make().p8(),
-                  ],
-                ),
-
-                // items
-                ...List.generate(
-                  shortcuts.length,
-                  (index) => TableRow(children: [
-                    '${shortcuts[index]['key']}'.text.make().p4(),
-                    '${shortcuts[index]['action']}'.text.make().p4(),
-                  ]),
-                ),
-              ],
-            ).p12(),
-          ],
-        ).scrollVertical().p12(),
-      ),
     );
   }
 }

@@ -17,6 +17,7 @@ import '../../../core/app_pref.dart';
 import '../../../core/app_setting.dart';
 import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_history.dart';
+import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/__javit_search_entity.dart';
 import '../../../data/models/history_entity.dart';
@@ -30,7 +31,8 @@ class PageDownloadController extends GetxController {
   final tecSearch = TextEditingController();
   final fnSearch = FocusNode();
   final phSearch = ''.obs;
-  final currentLang = 'en'.obs;
+  final currentLang = 'en'.obs;   // en | id
+  final currentMode = 'net'.obs;  // net | db
   final scrollController = ScrollController();
 
   final response = JavitSearch().obs;
@@ -54,33 +56,73 @@ class PageDownloadController extends GetxController {
   }
 
   Future<void> onSearch(String s) async {
-    try {
-      if (s.isEmpty) {
-        await onReset();
-        return;
-      }
-
-      HelperLoading.show();
-      response.value = await ApiJavit.search(s: s, lang: currentLang.value, page: currentPage.value);
-
-      if (response.value.result == null || response.value.result!.isEmpty) {
-        if (retryC.value < 2) {
-          retryC.value++;
-          AppLog.logD('retryC.value++ -> ${retryC.value}');
-          await 1.seconds.delay();
-          await onSearch(s);
+    
+    // ** net mode
+    if (currentMode.value == 'net') {
+      try {
+        if (s.isEmpty) {
+          await onReset();
+          return;
         }
+
+        HelperLoading.show();
+        response.value = await ApiJavit.search(s: s, lang: currentLang.value, page: currentPage.value);
+
+        if (response.value.result == null || response.value.result!.isEmpty) {
+          if (retryC.value < 2) {
+            retryC.value++;
+            AppLog.logD('retryC.value++ -> ${retryC.value}');
+            await 1.seconds.delay();
+            await onSearch(s);
+          }
+        }
+
+        hasNextPage.value = response.value.hasNextPage ?? false;
+        currentPage.value = response.value.page ?? 1;
+        videos.value = response.value.result ?? [];
+        retryC.value = 0;
+        fnSearch.requestFocus();
+        HelperLoading.dismiss();
+
+        await scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
+      } catch (_) {}
+    } 
+    
+    // ** db mode
+    else {
+      try {
+
+        if (s.isEmpty) {
+          await onReset(); return;
+        }
+
+        HelperLoading.show();
+        final r18 = await DBR18.search(s);
+        HelperLoading.dismiss();
+
+        final output = <JavitSearchResult>[];
+        for (var i = 0; i < r18.length; i++) {
+          if (r18[i]['video_code'] == null || r18[i]['video_code'].isEmpty) continue;
+          output.add(
+            JavitSearchResult(
+              videoId: r18[i]['id'],
+              videoCode: r18[i]['video_code'],
+              duration: r18[i]['duration'],
+              durationFormated: '${r18[i]['release_date']}',
+              title: r18[i]['title'],
+              fanArt: r18[i]['fan_art'].toString().imgUrl(),
+              poster: r18[i]['poster'],
+              trailer: r18[i]['trailer'],
+          ));
+        }
+
+        videos.value = output;
+
+        await scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
+      } catch (e) {
+        AppLog.logE('e -> $e');
       }
-
-      hasNextPage.value = response.value.hasNextPage ?? false;
-      currentPage.value = response.value.page ?? 1;
-      videos.value = response.value.result ?? [];
-      retryC.value = 0;
-      fnSearch.requestFocus();
-      HelperLoading.dismiss();
-
-      await scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
-    } catch (_) {}
+    }
   }
 
   Future<void> onNextPage() async {
@@ -104,11 +146,16 @@ class PageDownloadController extends GetxController {
     hasNextPage.value = false;
     videos.value = [];
     currentLang.value = AppPref.getDownloadLang();
+    currentMode.value = AppPref.getDownloadMode();
     fnSearch.requestFocus();
   }
 
   Future<void> onItemTap(JavitSearchResult item) async {
-    await launchUrlString('${Env.njavUrl}/${currentLang.value}/${item.videoCode}');
+    if (currentMode.value == 'db') {
+      await launchUrlString('${Env.njavUrl}/${currentLang.value}/search/${item.videoCode}');
+    } else {
+      await launchUrlString('${Env.njavUrl}/${currentLang.value}/${item.videoCode}');
+    }
   }
 
   // ~ Download ────────────────────────────────────────────────────────────────
@@ -324,7 +371,7 @@ class PageDownloadController extends GetxController {
         ));
   }
 
-  String genJsonFormat(ev, url, dir, filename, {String? error}) {
+  String genJsonFormat(String ev, String url, String dir, String filename, {String? error}) {
     final o = {}.obs;
     o['ev'] = ev;
     o['url'] = url;

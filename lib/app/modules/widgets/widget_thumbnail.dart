@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' show pow;
 import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -147,7 +148,7 @@ class ExThumbnail extends GetView<ExThumbnailC> {
             Config(
               'net_thumbnail',
               stalePeriod: 365.days,
-              maxNrOfCacheObjects: 999999999,
+              maxNrOfCacheObjects: (pow(2, 63) - 1).toInt(),
               repo: CacheObjectProvider(
                 databaseName: 'net_thumbnail',
                 path: p.join(Get.find<AppSettingService>().appPath, 'net_thumbnail'),

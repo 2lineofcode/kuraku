@@ -26,7 +26,7 @@ mixin HelperMisc {
     return match != null ? '${match.group(1)?.toUpperCase()}-${match.group(2)}' : '';
   }
 
-  static isValidVideoCode(String code) {
+  static bool isValidVideoCode(String code) {
     return RegExp(r'^[a-zA-Z]{2,}-[0-9]{3,}$').hasMatch(code);
   }
 
@@ -90,8 +90,9 @@ mixin HelperMisc {
     return parts.join(', ');
   }
 
-  static void copyToClipboard(String? text, {
-    bool? showToast = false, 
+  static void copyToClipboard(
+    String? text, {
+    bool? showToast = false,
     String? toastMessage,
     Duration? toastDuration,
     Alignment? alignment,
@@ -157,6 +158,12 @@ mixin HelperMisc {
       return formattedParts.join(' ');
     }
   }
+
+  static String decodeHtml(String htmlString) {
+    String decodedString = htmlString.replaceAll('&quot;', '"');
+    decodedString = decodedString.replaceAll('&amp;', '&');
+    return decodedString;
+  }
 }
 
 extension HelperMiscExt on String {
@@ -165,7 +172,7 @@ extension HelperMiscExt on String {
   String getFileName() => split('/').last;
   String getVideoCode() => HelperMisc.getVideoCode(this);
   String getLastPath() => split('/').last;
-  String getLastSegments({segment = 4}) => HelperMisc.getLastSegments(this, n: segment);
+  String getLastSegments({int segment = 4}) => HelperMisc.getLastSegments(this, n: segment);
   String removeExt() => split('.').sublist(0, split('.').length - 1).join('.');
   String removePath() => split('/').sublist(0, split('/').length - 1).join('/');
   String removeFileName() => split('/').sublist(0, split('/').length - 1).join('/');

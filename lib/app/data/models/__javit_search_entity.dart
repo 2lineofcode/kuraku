@@ -51,6 +51,7 @@ class JavitSearchResult {
   String? trailer;
   num? duration;
   String? durationFormated;
+  bool? match;
 
   JavitSearchResult({
     this.videoId,
@@ -61,6 +62,7 @@ class JavitSearchResult {
     this.trailer,
     this.duration,
     this.durationFormated,
+    this.match,
   });
 
   JavitSearchResult.fromJson(Map<String, dynamic> json) {

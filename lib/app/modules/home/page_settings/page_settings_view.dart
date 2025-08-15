@@ -91,7 +91,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                         label: 'Keyboard Shortcuts',
                         labelSize: 12,
                         height: 32,
-                        onPressed: () => controller.openKeyboardShortcuts(),
+                        onPressed: () => HelperOpener.openKeyboardShortcuts(),
                       ).pOnly(bottom: 8),
                       ExButtonText(
                         label: 'Go App Folder',
@@ -131,9 +131,22 @@ class PageSettingsView extends GetView<PageSettingsController> {
           ],
           crossAlignment: CrossAxisAlignment.start,
           alignment: MainAxisAlignment.start,
-        ).pOnly(bottom: 24),
+        ).pOnly(bottom: 12),
 
-        
+        // Container(
+        //   decoration: ExDecorator.box(borderColor: AppColor.border),
+        //   width: Get.width,
+        //   height: 200,
+        //   child: VStack(
+        //     [
+        //       CupertinoTextField(
+        //         controller: controller.tecApiUrl,
+        //         placeholder: 'Title',
+        //         style: TextStyle(fontSize: 13, color: Vx.white),
+        //       )
+        //     ],
+        //   ).p12(),
+        // ),
 
         // ! DEBUG ONLY
         if (kDebugMode) ...[
