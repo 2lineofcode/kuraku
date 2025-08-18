@@ -29,6 +29,7 @@ import '../modules/home/home_controller.dart';
 import '../modules/home/page_download/page_download_controller.dart';
 import '../modules/home/page_explore/page_explore_controller.dart';
 import '../modules/home/page_home/page_home_controller.dart';
+import '../modules/home/page_tools/page_tools_controller.dart';
 import '../modules/widgets/widget_chiwie_custom.dart';
 import '../modules/widgets/widget_thumbnail.dart';
 import 'helper.dart';
@@ -177,6 +178,7 @@ mixin HelperOpener {
                           }
 
                           Get.find<PageExploreController>().update();
+                          Get.find<PageToolsController>().update();
                         },
                       ),
                     ).pOnly(right: 8).tooltip('Download'),

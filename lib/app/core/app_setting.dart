@@ -9,13 +9,14 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:window_manager_plus/window_manager_plus.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../env.g.dart';
 import '../modules/home/home_controller.dart';
 import '../modules/home/page_download/page_download_controller.dart';
 import '../modules/home/page_tools/page_tools_controller.dart';
 import 'app_logging.dart';
+import 'app_pref.dart';
 
 
 class AppSettingService extends GetxService {
@@ -54,7 +55,7 @@ class AppSettingService extends GetxService {
   // ────────────────────────────────────────────────────────────────
   Future<void> setupDesktop() async {
     final idealSize = Size(702, 650);
-    await WindowManagerPlus.ensureInitialized(0);
+    await windowManager.ensureInitialized();
 
     final windowOptions = WindowOptions(
       title: Env.appName,
@@ -67,9 +68,9 @@ class AppSettingService extends GetxService {
       backgroundColor: Colors.transparent,
       skipTaskbar: false,
     );
-    await WindowManagerPlus.current.waitUntilReadyToShow(windowOptions, () async {
-      await WindowManagerPlus.current.show();
-      await WindowManagerPlus.current.focus();
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
     });
   }
 
@@ -158,12 +159,12 @@ class AppSettingService extends GetxService {
     await hotKeyManager.register(_hotKeyB, keyUpHandler: (hotKey) {
       AppLog.logD('hotKeyB Pressed');
       final current = Get.find<HomeController>().sideMenuWidth.value;
-      if (current == 0) {
+      if (current == 65) {
         Get.find<HomeController>().sideMenuWidth.value = 180;
-        Get.find<HomeController>().appBarShow.value = true;
+        AppPref.setAppHideSideMenu(false);
       } else {
-        Get.find<HomeController>().sideMenuWidth.value = 0;
-        Get.find<HomeController>().appBarShow.value = false;
+        Get.find<HomeController>().sideMenuWidth.value = 65;
+        AppPref.setAppHideSideMenu(true);
       }
     });
 

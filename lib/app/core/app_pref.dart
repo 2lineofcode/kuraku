@@ -18,6 +18,9 @@ mixin AppPref {
   static String getAppLastOpen() => _pref.read(_kAppLastOpen) ?? '';
   static void setAppLastOpen(String value) => _pref.write(_kAppLastOpen, value);
 
+  static bool getAppHideSideMenu() => _pref.read(_kAppHideSideMenu) ?? false;
+  static void setAppHideSideMenu(bool value) => _pref.write(_kAppHideSideMenu, value);
+
   // ** [download]
   static String getDownloadPath() => _pref.read(_kDownloadPath) ?? '';
   static void setDownloadPath(String value) => _pref.write(_kDownloadPath, value);
@@ -50,6 +53,7 @@ const _kAppIsDarkMode = '_kAppIsDarkMode';
 const _kAppLanguage = '_kAppLanguage';
 const _kAppFirstOpen = '_kAppFirstOpen';
 const _kAppLastOpen = '_kAppLastOpen';
+const _kAppHideSideMenu = '_kAppHideSideMenu';
 
 const _kDownloadPath = '_kDownloadPath';
 const _kDownloadLang = '_kDownloadLang';

@@ -276,8 +276,6 @@ class PageDownloadController extends GetxController {
               await DBHistory.update(History(id: id, type: 'download', message: genJsonFormat('finish', url, dir, filename)));
             }
 
-            await shell.run('${appSetting.appPath}/javit_dl clear -y', commandVerbose: false, verbose: false);
-
             process.kill();
           });
 

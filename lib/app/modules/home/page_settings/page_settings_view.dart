@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
 import '../../../data/database/db_init.dart';
+import '../../../data/database/db_r18.dart';
 import '../../../utils/helper_opener.dart';
 import 'page_settings_controller.dart';
 
@@ -155,7 +156,29 @@ class PageSettingsView extends GetView<PageSettingsController> {
               'debug only'.text.make(),
               ExButtonText(
                 label: 'test',
-                onPressed: () {},
+                onPressed: () async {
+                  try {
+                    final results = await DBR18.advanceSearch(
+                      categories: ['POV', 'Kiss Kiss'],
+                      startYear: '2020',
+                      endYear: '2025',
+                      actressName: '',
+                    );
+
+                    if (results.isNotEmpty) {
+                      print('Hasil Pencarian Ditemukan: ${results.length} film');
+                      for (var movie in results) {
+                        print('---');
+                        print('Code: ${movie['video_code']}');
+                        print('Release Date: ${movie['release_date']}');
+                      }
+                    } else {
+                      print('Tidak ada film yang sesuai dengan kriteria.');
+                    }
+                  } catch (e) {
+                    print('Error saat melakukan pencarian: $e');
+                  }
+                },
               ),
             ],
           ),

@@ -123,6 +123,11 @@ mixin DBR18 {
     return maps;
   }
 
+  static Future<List<Map<String, dynamic>>> getAllActress() async {
+    final maps = await _db.rawQuery('''SELECT * FROM derived_actress WHERE name_romaji is NOT NULL''');
+    return maps;
+  }
+
   static Future<List<Map<String, dynamic>>> getActress(String code) async {
     final maps = await _db.rawQuery('''
         SELECT DISTINCT a.*
@@ -132,6 +137,15 @@ mixin DBR18 {
         WHERE 1=1
           AND v.dvd_id = ?
       ''', [code]);
+
+    return maps;
+  }
+
+
+  static Future<List<Map<String, dynamic>>> getAllCategories() async {
+    final maps = await _db.rawQuery('''
+        SELECT DISTINCT * FROM derived_category WHERE name_en is NOT NULL 
+      ''');
 
     return maps;
   }
@@ -418,6 +432,89 @@ mixin DBR18 {
           v.release_date DESC
         LIMIT 10000
       ''', ['$year%']);
+    return maps;
+  }
+
+
+  // ────────────────────────────────────────────────────────────────
+  // ⵌ advanced search (26 aug 2025)
+  // ────────────────────────────────────────────────────────────────
+  static Future<List<Map<String, dynamic>>> advanceSearch({
+    required List<String> categories,
+    String? startYear,
+    String? endYear,
+    String? actressName,
+  }) async {
+    if (await _validation() == false) return [];
+
+    if (categories.isEmpty) {
+      return [];
+    }
+
+    final inClause = List.generate(categories.length, (index) => '?').join(', ');
+    final List<String> arguments = [...categories];
+
+    final whereClauses = <String>[];
+    if (startYear != null && endYear != null) {
+      whereClauses.add('v.release_date >= ? AND v.release_date <= ?');
+      arguments.add('$startYear-01-01');
+      arguments.add('$endYear-12-31');
+    }
+
+    if (actressName != null && actressName.isNotEmpty) {
+      whereClauses.add('da.image_url LIKE ?');
+      arguments.add('%$actressName%');
+    }
+
+    final whereQuery = whereClauses.isNotEmpty ? 'AND ${whereClauses.join(' AND ')}' : '';
+
+    final maps = await _db.rawQuery('''
+        SELECT
+          v.content_id as id,
+          v.dvd_id as video_code,
+          COALESCE(t.target_en, v.title_en) AS title,
+          v.title_ja,
+          s.name_en as series,
+          COALESCE(m.name_en, m.name_ja) AS studio,
+          l.name_en as label,
+          site.name as site,
+          v.runtime_mins as duration,
+          v.release_date as release_date,
+          v.sample_url as trailer,
+          v.jacket_full_url as fan_art,
+          v.jacket_thumb_url as poster,
+          v.gallery_full_first as ssfirst,
+          v.gallery_full_last as sslast,
+          GROUP_CONCAT(dc.name_en, ', ') AS categories,
+          GROUP_CONCAT(da.name_romaji, ', ') AS actresses
+        FROM derived_video v
+        JOIN (
+          SELECT dvc.content_id
+          FROM derived_video_category dvc
+          JOIN derived_category dc ON dvc.category_id = dc.id
+          WHERE dc.name_en IN ($inClause)
+          GROUP BY dvc.content_id
+          HAVING COUNT(dc.name_en) >= ${categories.length}
+        ) AS filtered_videos ON v.content_id = filtered_videos.content_id
+        LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
+        LEFT JOIN derived_maker m ON m.id = v.maker_id
+        LEFT JOIN derived_series s ON s.id = v.series_id
+        LEFT JOIN derived_label l ON l.id = v.label_id
+        LEFT JOIN derived_site site ON site.id = v.site_id
+        LEFT JOIN derived_video_category dvc ON dvc.content_id = v.content_id
+        LEFT JOIN derived_category dc on dc.id = dvc.category_id
+        LEFT JOIN derived_video_actress dva ON dva.content_id = v.content_id
+        LEFT JOIN derived_actress da ON da.id = dva.actress_id
+        WHERE 1=1
+            AND v.dvd_id IS NOT NULL
+            $whereQuery
+        GROUP BY
+            v.content_id
+      ''', arguments);
+
+      // print query
+      print(arguments);
+
     return maps;
   }
 }

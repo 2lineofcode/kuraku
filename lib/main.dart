@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:toastification/toastification.dart';
-import 'package:window_manager_plus/window_manager_plus.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'app/core/app_logging.dart';
 import 'app/core/app_pref.dart';
@@ -50,12 +50,12 @@ class _JavItState extends State<JavIt> with WindowListener {
   @override
   void initState() {
     super.initState();
-    WindowManagerPlus.current.addListener(this);
+    windowManager.addListener(this);
   }
 
   @override
   void dispose() {
-    WindowManagerPlus.current.removeListener(this);
+    windowManager.removeListener(this);
     super.dispose();
   }
 

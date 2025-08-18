@@ -52,7 +52,7 @@ class PageHomeController extends GetxController {
 
   Future<void> getListNewAdded() async {
     listNewAdded.clear();
-    listNewAdded.value = await DBVideos.getAll(orderBy: 'updated_at DESC, created_at DESC', limit: 50);
+    listNewAdded.value = await DBVideos.getAll(orderBy: 'created_at DESC', limit: 50);
   }
 
   Future<void> getListRandom() async {

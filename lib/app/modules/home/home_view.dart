@@ -34,7 +34,7 @@ class HomeView extends GetView<HomeController> {
       onPerformDrop: controller.onDropEvent,
       child: Obx(
         () => MyLayout(
-          appBarTitle: controller.appBarShow.isTrue ? appBarTitle() : null,
+          appBarTitle: appBarTitle(),
           appBarLeading: appBarLeading().pOnly(right: 8),
           isShowAppBarLeading: false,
           appBarAction: appBarAction(),
@@ -96,6 +96,34 @@ class HomeView extends GetView<HomeController> {
       {'icon': UIconsPro.regularRounded.customization, 'name': kMenuTools},
       {'icon': UIconsPro.regularRounded.operating_system_upgrade, 'name': kMenuSetting},
     ];
+
+    if (controller.sideMenuWidth.value != 180) {
+      return VStack(
+        [
+          ListView.builder(
+            physics: NeverScrollableScrollPhysics(),
+            itemCount: menuList.length,
+            itemBuilder: (context, index) {
+              final item = menuList[index];
+              return Obx(
+                () => InkWell(
+                  onTap: () => controller.onMenuChange(item['name']),
+                  child: Container(
+                    decoration: ExDecorator.box(
+                      fillColor: item['name'] == controller.currentMenuSelected.value ? AppColor.selected : Colors.transparent,
+                      borderColor: Colors.transparent,
+                    ),
+                    child: HStack([
+                      Icon(item['icon'], size: 16).centered(),
+                    ]).p(10),
+                  ).pSymmetric(h: 10).pOnly(left: 0, bottom: 8),
+                ),
+              );
+            },
+          ).wh(60, 280).pOnly(top: 16),
+          ],
+      );
+    } 
     return VStack(
       [
         ListView.builder(
@@ -119,7 +147,7 @@ class HomeView extends GetView<HomeController> {
               ),
             );
           },
-        ).wh(300, 280).pOnly(top: 16),
+        ).wh(180, 280).pOnly(top: 16),
       ],
     ).expand();
   }

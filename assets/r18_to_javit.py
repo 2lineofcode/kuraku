@@ -239,6 +239,12 @@ def convert_sql_to_sqlite_fast(sql_file_path, sqlite_db_path):
             # timestamp extras
             "CREATE INDEX IF NOT EXISTS idx_dmm_trailer_timestamp ON source_dmm_trailer(timestamp);",
             "CREATE INDEX IF NOT EXISTS idx_dmm_video_histrion_timestamp ON source_dmm_video_histrion(timestamp);",
+
+            # new
+            "CREATE INDEX IF NOT EXISTS idx_dvc_category_content ON derived_video_category(category_id, content_id);",
+            "CREATE INDEX IF NOT EXISTS idx_dc_name_id ON derived_category(name_en, id);",
+            "CREATE INDEX IF NOT EXISTS idx_dv_release_date_content ON derived_video(release_date, content_id);",
+
         ]
 
 

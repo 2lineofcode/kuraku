@@ -181,7 +181,9 @@ class PageExploreView extends GetView<PageExploreController> {
               future: HelperMisc.decensor(item.name!.trim()),
               builder: (context, snapshot) {
                 return snapshot.hasData
-                    ? '${KanaKit().isKana(snapshot.data ?? '') ? KanaKit().toRomaji(snapshot.data ?? '') : snapshot.data}'.text.bold.size(12).ellipsis.make().pOnly(top: 6, bottom: 4)
+                    ? '${KanaKit().isKana(snapshot.data ?? '') ? KanaKit().toRomaji(snapshot.data ?? '') : snapshot.data}'.text.bold.size(12).ellipsis.make().onInkTap(() {
+                        HelperMisc.copyToClipboard(snapshot.data ?? '', showToast: true);
+                      }).pOnly(top: 6, bottom: 4)
                     : 0.heightBox;
               },
             ),

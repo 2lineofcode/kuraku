@@ -32,7 +32,6 @@ mixin PageSearchOverlay {
     final _mediaInfo = <String>[].obs;
     final _focusNode = FocusNode();
 
-
     // open overlay
     await Overlayment.show(
       context: Get.context,
@@ -77,10 +76,14 @@ mixin PageSearchOverlay {
                     '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
                       HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
                     }).pSymmetric(v: 8),
-                    '${video.title}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(3).ellipsis.makeCentered().tooltip(video.videoPath ?? ''),
-            
+                    '${video.title}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(3).ellipsis.makeCentered().onInkTap(
+                      () {
+                        HelperMisc.copyToClipboard(video.title ?? '', showToast: true);
+                      },
+                    ).tooltip(video.videoPath ?? ''),
+
                     ExDivider().pSymmetric(v: 16),
-            
+
                     // action
                     HStack(
                       [
@@ -96,7 +99,7 @@ mixin PageSearchOverlay {
                             },
                           ),
                         ).pOnly(right: 8),
-            
+
                         // add to favorite
                         GetBuilder<PageSearchController>(
                           init: _controller,
@@ -117,7 +120,7 @@ mixin PageSearchOverlay {
                             ),
                           ).pOnly(right: 8),
                         ),
-            
+
                         // renew metadata
                         video.videoCode?.isNotBlank ?? false
                             ? Container(
@@ -128,7 +131,7 @@ mixin PageSearchOverlay {
                                 ),
                               ).pOnly(right: 8)
                             : 0.heightBox,
-            
+
                         Container(
                           decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                           child: IconButton(
@@ -136,13 +139,13 @@ mixin PageSearchOverlay {
                             onPressed: () => HelperOpener.openFilePath(video.videoPath ?? ''),
                           ),
                         ).pOnly(right: 8),
-            
+
                         Spacer(),
                       ],
                     ).pOnly(bottom: 16),
                   ],
                 ).pSymmetric(h: 16),
-            
+
                 // metadata
                 Expanded(
                   child: ConstrainedBox(
@@ -156,7 +159,7 @@ mixin PageSearchOverlay {
                             Icon(UIconsPro.regularRounded.square_code, size: 14).pOnly(right: 8),
                             'Metadata'.text.size(14).bold.make(),
                           ]).pOnly(bottom: 16),
-            
+
                           // actress
                           if (!video.actress.isEmptyOrNull) ...[
                             'Actress:'.text.size(12).bold.make().pOnly(bottom: 4),
@@ -175,7 +178,7 @@ mixin PageSearchOverlay {
                               ],
                             ]).pOnly(bottom: 16),
                           ],
-            
+
                           // category
                           if (!video.category.isEmptyOrNull) ...[
                             'Category:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
@@ -194,7 +197,7 @@ mixin PageSearchOverlay {
                               ],
                             ]).pOnly(bottom: 16),
                           ],
-            
+
                           // series
                           if (!video.series.isEmptyOrNull) ...[
                             'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
@@ -209,37 +212,37 @@ mixin PageSearchOverlay {
                               },
                             ),
                           ],
-            
+
                           // release date
                           if (!video.releaseDate.isEmptyOrNull) ...[
                             'Release Date:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.releaseDateFormated}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
-            
+
                           // duration
                           if (video.duration != 0) ...[
                             'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.durationFormated}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
-            
+
                           // label
                           if (!video.label.isEmptyOrNull) ...[
                             'Label:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.label}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
-            
+
                           // studio
                           if (!video.studio.isEmptyOrNull) ...[
                             'Studio:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.studio}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
-            
+
                           // director
                           if (!video.director.isEmptyOrNull) ...[
                             'Director:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.director}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
-            
+
                           // ~
                           GetBuilder(
                             init: _controller,
@@ -248,16 +251,16 @@ mixin PageSearchOverlay {
                                     // resolution
                                     'Res:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                                     '${_mediaInfo[0]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-            
+
                                     // filesize
                                     'File Size:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                                     '${_mediaInfo[2]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-            
+
                                     // duration (non jav)
                                     if (video.duration == 0) ...[
                                       'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                                       '${_mediaInfo[3]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-                                    ],
+                                    ],   
                                   ])
                                 : VStack([
                                     'Get More Info'.text.blue300.size(12).underline.make().onInkTap(() async {
@@ -266,12 +269,17 @@ mixin PageSearchOverlay {
                                     }).pOnly(bottom: 16),
                                   ]),
                           ),
-            
+
                           // Path
                           'Path:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                           '${video.videoPath?.getLastSegments()}'.text.neutral300.ellipsis.size(11).minFontSize(11).make().color(Vx.neutral800).onInkTap(() async {
                             await _onItemVideoPathClick(video);
                           }).tooltip(video.videoPath ?? ''),
+
+                          // added
+                          'Added:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4, top: 16),
+                          '${video.createdAt?.reformatDate()}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+
                         ]).p12(),
                       ),
                     ).pSymmetric(h: 16),
@@ -427,8 +435,6 @@ mixin PageSearchOverlay {
                           }
                         }),
                       ).positioned(left: 8, top: 0, bottom: 0),
-
-
                       Align(
                         alignment: Alignment.topRight,
                         child: Container(

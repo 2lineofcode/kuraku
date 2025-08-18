@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../../core/app_logging.dart';
+import '../../core/app_pref.dart';
 import '../../data/database/db_library.dart';
 import '../../data/database/db_videos.dart';
 import '../../data/models/library_entity.dart';
@@ -28,7 +29,6 @@ class HomeController extends GetxController with StateMixin {
 
   // new feat
   final sideMenuWidth = 180.0.obs;
-  final appBarShow = true.obs;
 
   @override
   Future<void> onInit() async {
@@ -37,6 +37,8 @@ class HomeController extends GetxController with StateMixin {
     AppLog.logI('root home ==> onInit called');
 
     footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
+
+    sideMenuWidth.value = AppPref.getAppHideSideMenu() ? 65 : 180;
     change(200, status: RxStatus.success());
   }
 

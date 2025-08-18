@@ -3,19 +3,22 @@ import 'dart:math' as math;
 
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:uuid/v4.dart';
 
 import '../../../core/app_logging.dart';
 import '../../../data/database/db_history.dart';
+import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/history_entity.dart';
 import '../../../data/models/videos_entity.dart';
+import '../../../utils/helper.dart';
 import '../home_controller.dart';
 import '../page_download/page_download_controller.dart';
 
 class PageToolsController extends GetxController {
-  final menus = [kDuplicate, kTopLargeFile, kTodo].obs;
+  final menus = [kAdvanceSearch, kDuplicate, kTopLargeFile, kTodo].obs;
   final toolSelected = ''.obs;
 
   // **
@@ -28,12 +31,23 @@ class PageToolsController extends GetxController {
   // **
   final top100LargeFile = <Map<String, dynamic>>[].obs;
 
+  // **
+  final tecCategory = TextEditingController();
+  final tecActressName = TextEditingController();
+  final tecVideoCode = TextEditingController();
+  final currentRange = RangeValues(2000, DateTime.now().year.toDouble()).obs;
+  final actresses = <String>[].obs;
+  final categories = <String>[].obs;
+  final categoriesSelected = <String>[].obs;
+  final videos = <Map<String, dynamic>>[].obs;
+
   @override
   Future<void> onInit() async {
     super.onInit();
     AppLog.logI('page tools ==> onInit called');
-    toolSelected.value = kDuplicate;
-    await getDuplicateVideos();
+    toolSelected.value = kAdvanceSearch;
+    await getAllCategories();
+    await getAllActresses();
   }
 
   Future<void> onMenuChange(String menu) async {
@@ -41,6 +55,10 @@ class PageToolsController extends GetxController {
     if (menu == kDuplicate) await getDuplicateVideos();
     if (menu == kTodo) await getTodos();
     if (menu == kTopLargeFile) await getTopLargeFile();
+    if (menu == kAdvanceSearch) {
+      await getAllCategories();
+      await getAllActresses();
+    }
   }
 
   // ** kFindDuplicate Part ---
@@ -51,7 +69,14 @@ class PageToolsController extends GetxController {
 
   // ** kTodo Part ---
   Future<void> getTodos() async {
-    todos.value = await DBHistory.getAll(where: 'type = ?', whereArgs: ['todo']);
+    final todoo = await DBHistory.getAll(where: 'type = ?', whereArgs: ['todo']);
+    for (var todo in todoo) {
+      try {
+        final xvid = await DBVideos.getByCode(todo.message ?? '');
+        if (todo.message == xvid.videoCode) todo.message = '✔︎ ${todo.message}';
+      } catch (_) {}
+    }
+    todos.value = todoo;
   }
 
   Future<void> itemTodosSearch(String s) async {
@@ -150,8 +175,72 @@ class PageToolsController extends GetxController {
     final i = (math.log(bytes) / math.log(1024)).floor();
     return '${(bytes / math.pow(1024, i)).toStringAsFixed(2)} ${suffixes[i]}';
   }
+
+  // ** kAdvanceSearch Part ---
+  Future<void> getAllCategories() async {
+    categories.clear();
+    await DBR18.getAllCategories().then((cat) {
+      for (var i = 0; i < cat.length; i++) {
+        categories.add('${cat[i]['name_en']}');
+      }
+      categories.unique();
+    });
+  }
+
+  Future<void> getAllActresses() async {
+    actresses.clear();
+    await DBR18.getAllActress().then((actress) {
+      for (var i = 0; i < actress.length; i++) {
+        actresses.add('${actress[i]['name_romaji']}');
+      }
+      actresses.unique();
+    });
+  }
+
+  Future<void> onAdvanceSearch() async {
+    videos.clear();
+    HelperLoading.show();
+
+    final data = await DBR18.advanceSearch(
+      categories: categoriesSelected,
+      startYear: currentRange.value.start.toInt().toString(),
+      endYear: currentRange.value.end.toInt().toString(),
+      actressName: '',
+    );
+
+    // Filter hanya valid video_code
+    videos.addAll(data.where((item) => HelperMisc.isValidVideoCode(item['video_code'] ?? '')));
+
+    // Filter berdasarkan input tecVideoCode
+    if (tecVideoCode.text.isNotBlank) {
+      videos.removeWhere((video) => !video['video_code'].toString().toLowerCase().contains(tecVideoCode.text.toLowerCase()));
+    }
+
+    if(tecActressName.text.isNotBlank) {
+      videos.removeWhere((video) => !video['actresses'].toString().toLowerCase().contains(tecActressName.text.toLowerCase()));
+    }
+
+    // unique by `video_code`
+    videos.unique((item) => item['video_code']);
+
+    // Urutkan berdasarkan release_date
+    videos.sort((a, b) => b['release_date'].compareTo(a['release_date']));
+
+    // Tambah field is_clicked
+    videos.assignAll(videos.map((r18Item) {
+      final mutable = Map<String, dynamic>.from(r18Item);
+      mutable['is_clicked'] = false;
+      return mutable;
+    }).toList());
+
+    HelperLoading.dismiss();
+    videos.refresh();
+
+  }
 }
 
+// ** Constants ---
 const kDuplicate = 'Duplicate Videos';
 const kTodo = 'Todo';
 const kTopLargeFile = 'Large File';
+const kAdvanceSearch = 'Advance Search';
