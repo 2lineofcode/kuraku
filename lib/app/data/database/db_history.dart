@@ -2,7 +2,7 @@ import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
 
 import '../models/history_entity.dart';
-import 'db_init.dart';
+import '_init_db.dart';
 
 mixin DBHistory {
   static final _db = Get.find<DBService>().dbMain;

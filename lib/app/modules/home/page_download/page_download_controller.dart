@@ -9,13 +9,13 @@ import 'package:overlayment/overlayment.dart';
 import 'package:process_run/process_run.dart' as shell;
 import 'package:process_run/stdio.dart';
 import 'package:uicons_pro/uicons_pro.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 import 'package:uuid/v4.dart';
 
-import '../../../../env.g.dart';
+import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
 import '../../../core/app_setting.dart';
+import '../../../core/const.dart';
 import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_history.dart';
 import '../../../data/database/db_r18.dart';
@@ -26,10 +26,12 @@ import '../../../utils/helper_loading.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
+import '../../widgets/widget_auto_complate.dart';
 import '../home_controller.dart';
 
 const kLangEn = 'en';
 const kLangId = 'id';
+// ---
 const kModeNet = 'net';
 const kModeDB = 'db';
 
@@ -37,8 +39,8 @@ class PageDownloadController extends GetxController {
   final tecSearch = TextEditingController();
   final fnSearch = FocusNode();
   final phSearch = ''.obs;
-  final currentLang = kLangEn.obs; // en | id
-  final currentMode = kModeNet.obs; // net | db
+  final currentLang = kLangEn.obs;
+  final currentMode = kModeNet.obs;
   final scrollController = ScrollController();
 
   final response = JavitSearch().obs;
@@ -48,17 +50,30 @@ class PageDownloadController extends GetxController {
 
   // downloader
   final downloadStdout = ''.obs;
-  final cProcessDownload = Rx<Process?>(null);
-  final retryC = 0.obs;
+  final currentProcessDownload = Rx<Process?>(null);
+  final retryCount = 0.obs;
 
+  // filters
+  final isFiltered = false.obs;
+  final tecVideoCode = TextEditingController();
+  final tecActressName = TextEditingController();
+  final tecCategory = TextEditingController();
+  final actresses = <String>[].obs;
+  final categories = <String>[].obs;
+  final categoriesSelected = <String>[].obs;
+  final currentRange = RangeValues(2000, DateTime.now().year.toDouble()).obs;
+
+  // app setting
   final appSetting = Get.find<AppSettingService>();
 
   @override
   Future<void> onInit() async {
     super.onInit();
     AppLog.logI('page download ==> onInit called');
-    phSearch.value = await DBVideos.getRandomVideoCode();
+    phSearch.value = 'Video Code or Title...';
     await onReset();
+    isFiltered.value = false;
+    // await _onResetFilter();
   }
 
   Future<void> onSearch(String s) async {
@@ -72,11 +87,12 @@ class PageDownloadController extends GetxController {
 
         HelperLoading.show();
         response.value = await ApiJavit.search(s: s, lang: currentLang.value, page: currentPage.value);
+        final existVid = await DBVideos.getAll();
 
         if (response.value.result == null || response.value.result!.isEmpty) {
-          if (retryC.value < 2) {
-            retryC.value++;
-            AppLog.logD('retryC.value++ -> ${retryC.value}');
+          if (retryCount.value < 2) {
+            retryCount.value++;
+            AppLog.logD('retryC.value++ -> ${retryCount.value}');
             await 1.seconds.delay();
             await onSearch(s);
           }
@@ -84,13 +100,23 @@ class PageDownloadController extends GetxController {
 
         hasNextPage.value = response.value.hasNextPage ?? false;
         currentPage.value = response.value.page ?? 1;
-        videos.value = response.value.result ?? [];
-        retryC.value = 0;
+
+        videos.clear();
+        for (JavitSearchResult video in response.value.result ?? []) {
+          video.isUncensoredLeak = video.videoCode?.contains('UNCENSORED-LEAK');
+          video.videoCode = video.videoCode?.replaceAll('-UNCENSORED-LEAK', '');
+          video.match = existVid.any((eVid) => video.videoCode == eVid.videoCode);
+          videos.add(video);
+        }
+
+        retryCount.value = 0;
         fnSearch.requestFocus();
         HelperLoading.dismiss();
 
         await scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
-      } catch (_) {}
+      } catch (e) {
+        // AppLog.logE('onSearch netMode e -> $e');
+      }
     }
 
     // ** db mode
@@ -102,29 +128,45 @@ class PageDownloadController extends GetxController {
         }
 
         HelperLoading.show();
-        final r18 = await DBR18.search(s);
+        final r18videos = await DBR18.search(s);
+        final existVideos = await DBVideos.getAll();
         HelperLoading.dismiss();
 
         final output = <JavitSearchResult>[];
-        for (var i = 0; i < r18.length; i++) {
-          if (r18[i]['video_code'] == null || r18[i]['video_code'].isEmpty) continue;
-          output.add(JavitSearchResult(
-            videoId: r18[i]['id'],
-            videoCode: r18[i]['video_code'],
-            duration: r18[i]['duration'],
-            durationFormated: '${r18[i]['release_date']}',
-            title: r18[i]['title'],
-            fanArt: r18[i]['fan_art'].toString().imgUrl(),
-            poster: r18[i]['poster'],
-            trailer: r18[i]['trailer'],
-          ));
+        for (var i = 0; i < r18videos.length; i++) {
+          if (r18videos[i]['video_code'] == null || r18videos[i]['video_code'].toString().isEmpty) continue;
+          if (HelperMisc.isValidVideoCode(r18videos[i]['video_code']) == false) continue;
+          final hasMatch = existVideos.any((eVid) => r18videos[i]['video_code'].toString() == (eVid.videoCode ?? ''));
+
+          final actresses = r18videos[i]['actresses'].toString().split(',').map((e) => e.trim()).toList();
+          final categories = r18videos[i]['categories'].toString().split(',').map((e) => e.trim()).toList();
+
+          output.add(
+            JavitSearchResult(
+              videoId: r18videos[i]['id'],
+              videoCode: r18videos[i]['video_code'],
+              duration: r18videos[i]['duration'],
+              durationFormated: '${r18videos[i]['release_date']}',
+              releaseDate: '${r18videos[i]['release_date']}',
+              title: r18videos[i]['title'],
+              fanArt: r18videos[i]['fan_art'].toString().imgUrl(),
+              poster: r18videos[i]['poster'],
+              trailer: r18videos[i]['trailer'],
+              match: hasMatch,
+              isReleased: DateTime.parse(r18videos[i]['release_date'] ?? '').isBefore(DateTime.now()),
+              actresses: actresses,
+              categories: categories,
+            ),
+          );
         }
 
         videos.value = output;
 
         await scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
+
+        if (isFiltered.isTrue) await _onApplyFilter();
       } catch (e) {
-        AppLog.logE('e -> $e');
+        // AppLog.logE('onSearch dbMode e -> $e');
       }
     }
   }
@@ -146,7 +188,7 @@ class PageDownloadController extends GetxController {
   Future<void> onReset() async {
     response.value = JavitSearch();
     currentPage.value = 0;
-    retryC.value = 0;
+    retryCount.value = 0;
     hasNextPage.value = false;
     videos.value = [];
     currentLang.value = AppPref.getDownloadLang();
@@ -154,16 +196,345 @@ class PageDownloadController extends GetxController {
     fnSearch.requestFocus();
   }
 
-  Future<void> onItemTap(JavitSearchResult item) async {
-    if (currentMode.value == 'db') {
-      await launchUrlString('${Env.njavUrl}/${currentLang.value}/search/${item.videoCode}');
-    } else {
-      await launchUrlString('${Env.njavUrl}/${currentLang.value}/${item.videoCode}');
+  // ~ Filters ────────────────────────────────────────────────────────────────
+  Future<void> openDialogFilter() async {
+    // actresses
+    if (actresses.isEmpty) {
+      await DBR18.getAllActress().then((actress) {
+        for (var i = 0; i < actress.length; i++) {
+          actresses.add('${actress[i]['name_romaji']}');
+        }
+        actresses.unique();
+      });
     }
+
+    // categories
+    if (categories.isEmpty) {
+      await DBR18.getAllCategories().then((cat) {
+        for (var i = 0; i < cat.length; i++) {
+          categories.add('${cat[i]['name_en']}');
+        }
+        categories.unique();
+      });
+    }
+
+    await Overlayment.show(
+      context: Get.context!,
+      OverPanel(
+        alignment: Alignment.center,
+        width: Get.width * 50 / 100,
+        animation: OverSlideAnimation(
+          beginAlignment: Alignment.bottomCenter,
+          reverseDurationMilliseconds: 100,
+          durationMilliseconds: 400,
+        ),
+        child: VStack(
+          [
+            'Filter'.text.bold.make().pOnly(bottom: 16),
+            Container(
+              decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
+              child: VStack(
+                [
+                  HStack(
+                    [
+                      CupertinoTextField(
+                        controller: tecVideoCode,
+                        clearButtonMode: OverlayVisibilityMode.editing,
+                        placeholder: 'Video Code..',
+                        style: TextStyle(color: Vx.white, fontSize: 12),
+                      ).expand(),
+                      12.widthBox,
+                      ExAutoComplate(
+                        controller: tecActressName,
+                        items: actresses,
+                        fontSize: 12,
+                        placeHolder: 'Actress Name (${actresses.length})',
+                        onSelected: (s) => tecActressName.text = s,
+                      ).expand(),
+                    ],
+                  ).pOnly(bottom: 16),
+                  Obx(
+                    () => Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: categoriesSelected.map((tag) {
+                        return Chip(
+                          label: Text(tag, style: TextStyle(fontSize: 9)),
+                          deleteIcon: Icon(Icons.close, size: 12),
+                          labelPadding: EdgeInsets.all(2),
+                          side: BorderSide(color: AppColor.container),
+                          backgroundColor: AppColor.selected,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(1)),
+                          onDeleted: () => {
+                            categoriesSelected.remove(tag),
+                          },
+                        );
+                      }).toList(),
+                    ).pOnly(bottom: 12),
+                  ),
+                  ExAutoComplate(
+                    controller: tecCategory,
+                    items: categories,
+                    fontSize: 12,
+                    placeHolder: 'Add Category (${categories.length})',
+                    emptyText: 'No Category with `${tecCategory.text}` Found ',
+                    onSelected: (s) {
+                      tecCategory.clear();
+                      if (categoriesSelected.contains(s)) return;
+                      categoriesSelected.add(s);
+                    },
+                  ).pOnly(bottom: 12),
+                  HStack(
+                    [
+                      'Year:'.text.size(11).make().pOnly(right: 24),
+                      Obx(
+                        () => SliderTheme(
+                          data: SliderTheme.of(Get.context!).copyWith(
+                            trackHeight: 4,
+                            overlayShape: SliderComponentShape.noOverlay,
+                            activeTrackColor: AppColor.selected,
+                            inactiveTrackColor: AppColor.container,
+                            rangeTrackShape: RectangularRangeSliderTrackShape(),
+                            valueIndicatorTextStyle: const TextStyle(fontSize: 10, color: Colors.white),
+                            valueIndicatorColor: AppColor.container,
+                            rangeThumbShape: RoundRangeSliderThumbShape(
+                              enabledThumbRadius: 6,
+                              disabledThumbRadius: 0,
+                            ),
+                          ),
+                          child: RangeSlider(
+                            values: currentRange.value,
+                            min: 2000,
+                            max: DateTime.now().year.toDouble(),
+                            divisions: (DateTime.now().year.toDouble() - 2000).toInt(),
+                            labels: RangeLabels(
+                              currentRange.value.start.toInt().toString(),
+                              currentRange.value.end.toInt().toString(),
+                            ),
+                            onChanged: (RangeValues values) {
+                              currentRange.value = values;
+                            },
+                          ),
+                        ).expand(),
+                      ),
+                      '${currentRange.value.start.toInt()} - ${currentRange.value.end.toInt()}'.text.size(11).make().pOnly(left: 24),
+                    ],
+                  ),
+                ],
+              ).p12(),
+            ),
+            HStack(
+              [
+                ExButtonElevated(
+                  height: 38,
+                  label: 'Clear Filter',
+                  labelColor: Vx.red300,
+                  labelSize: 12,
+                  onPressed: () async => await _onResetFilter(),
+                ).pOnly(right: 12),
+                ExButtonElevated(
+                  height: 38,
+                  label: 'Filter',
+                  labelSize: 12,
+                  backgroundColor: AppColor.selected,
+                  onPressed: () async => await _onApplyFilter(),
+                ).expand(),
+              ],
+            ).pOnly(top: 24, bottom: 16),
+          ],
+        ).p16(),
+      ),
+    );
+  }
+
+  Future<void> _onResetFilter() async {
+    tecVideoCode.text = '';
+    tecActressName.text = '';
+    tecCategory.text = '';
+    actresses.clear();
+    categories.clear();
+    categoriesSelected.clear();
+    currentRange.value = RangeValues(2000, DateTime.now().year.toDouble());
+    isFiltered.value = false;
+    await onSearch(tecSearch.text);
+    await Overlayment.dismissLast();
+  }
+
+  Future<void> _onApplyFilter() async {
+    var filteredVideos = videos.toList();
+
+    // filter `video_code`
+    if (tecVideoCode.text.isNotBlank) {
+      final query = tecVideoCode.text.toLowerCase();
+      filteredVideos = filteredVideos.where((video) => video.videoCode.toString().toLowerCase().contains(query)).toList();
+    }
+
+    // filter `actresses`
+    if (tecActressName.text.isNotBlank) {
+      final query = tecActressName.text.toLowerCase();
+      filteredVideos = filteredVideos.where((video) => video.actresses.toString().toLowerCase().contains(query)).toList();
+    }
+
+    // filter `categories`
+    if (categoriesSelected.isNotEmpty) {
+      filteredVideos = filteredVideos.where((video) => video.categories!.containsAll(categoriesSelected)).toList();
+    }
+
+    // filter `years`
+    if (currentRange.value.start.toInt() > 0 || currentRange.value.end.toInt() > 0) {
+      filteredVideos = filteredVideos.where((video) {
+        if (video.releaseDate == null) return false;
+        final year = video.releaseDate!.toDateEx(format: kYMd).year;
+        final startYear = currentRange.value.start.toInt();
+        final endYear = currentRange.value.end.toInt();
+        return year >= startYear && year <= endYear;
+      }).toList();
+    }
+
+    isFiltered.value = true;
+    videos.value = filteredVideos;
+    await Overlayment.dismissLast();
   }
 
   // ~ Download ────────────────────────────────────────────────────────────────
+  Future<void> openDownloadLog() async {
+    Get.back();
+    final data = await DBHistory.getAll(where: 'type = ?', whereArgs: ['download'], orderBy: 'updated_at DESC');
+    await Overlayment.show(
+        context: Get.context,
+        OverPanel(
+          alignment: Alignment.center,
+          width: Get.width * 0.8,
+          height: Get.height * 0.5,
+          animation: OverSlideAnimation(
+            beginAlignment: Alignment.bottomCenter,
+            reverseDurationMilliseconds: 100,
+            durationMilliseconds: 400,
+          ),
+          child: VStack([
+            'Downloads'.text.bold.make().pOnly(bottom: 12),
+
+            // actions
+            HStack(
+              [
+                ExButtonElevated(
+                  height: 38,
+                  backgroundColor: AppColor.selected,
+                  child: HStack(
+                    [Icon(UIconsPro.regularRounded.plus, size: 11)],
+                  ),
+                  onPressed: () {
+                    Overlayment.dismissLast();
+                    openDialogDownload();
+                  },
+                ).pOnly(right: 6),
+                ExButtonElevated(
+                  height: 38,
+                  child: HStack(
+                    [
+                      Icon(UIconsPro.regularRounded.loading, size: 11, color: Vx.red300).pOnly(right: 8),
+                      'Clear Log'.text.size(11).minFontSize(11).red300.make(),
+                    ],
+                  ),
+                  onPressed: () {
+                    Overlayment.dismissLast();
+                    ExAlert.adaptive(title: Text('Are you sure?', style: TextStyle(fontSize: 14)), content: Text('Clear all download log?', style: TextStyle(fontSize: 12)).pOnly(top: 8), actions: [
+                      CupertinoDialogAction(
+                        child: Text('Yes', style: TextStyle(color: Vx.red500, fontSize: 13)),
+                        onPressed: () async {
+                          await DBHistory.deleteAll(where: 'type = ?', whereArgs: ['download']);
+                          await openDownloadLog();
+                        },
+                      ),
+                      CupertinoDialogAction(
+                        child: Text('No', style: TextStyle(fontSize: 13)),
+                        onPressed: () async {
+                          Get.back();
+                          await openDownloadLog();
+                        },
+                      ),
+                    ]);
+                  },
+                ),
+              ],
+            ).pOnly(bottom: 12),
+
+            // table
+            SizedBox(
+              height: Get.height * 0.30,
+              child: SingleChildScrollView(
+                child: Table(
+                  border: TableBorder.all(color: AppColor.border),
+                  columnWidths: const {
+                    0: FlexColumnWidth(2),
+                    1: FlexColumnWidth(3),
+                    2: FlexColumnWidth(1),
+                    3: FlexColumnWidth(1),
+                  },
+                  children: [
+                    TableRow(
+                      decoration: BoxDecoration(color: AppColor.container),
+                      children: [
+                        'Name'.text.size(11).minFontSize(11).bold.make().p8(),
+                        'Url'.text.size(11).minFontSize(11).bold.make().p8(),
+                        'Status'.text.size(11).minFontSize(11).bold.make().p8(),
+                        'Added'.text.size(11).minFontSize(11).bold.make().p8(),
+                        'DL Time'.text.size(11).minFontSize(11).bold.make().p8(),
+                      ],
+                    ),
+
+                    // items
+                    ...List.generate(
+                      data.length,
+                      (index) {
+                        final item = data[index];
+                        final jsonData = jsonDecode(item.message ?? '');
+                        final dt1 = DateTime.parse(item.createdAt ?? '');
+                        final dt2 = DateTime.parse(item.updatedAt ?? '');
+                        final diff = dt2.difference(dt1);
+                        int totalSeconds = diff.inSeconds;
+                        int minutes = totalSeconds ~/ 60;
+                        int seconds = totalSeconds % 60;
+                        String formattedTime = '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+                        String result = '';
+                        if (formattedTime != '00:00') result = '$formattedTime';
+
+                        var status = jsonData['ev'];
+                        if (status == 'finish') status = '✅';
+                        else if (status == 'failed') status = '❌';
+
+                        return TableRow(
+                          children: [
+                            HStack(
+                              [
+                                Icon(UIconsPro.regularRounded.folder, size: 11).pOnly(left: 8).onInkTap(() {
+                                  HelperOpener.openFilePath('${jsonData['dir']}/${jsonData['filename']}.mp4');
+                                }),
+                                '${jsonData['filename']}'.text.size(12).minFontSize(12).maxLines(1).ellipsis.make().p(6).onInkTap(() {
+                                  HelperMisc.copyToClipboard(jsonData['filename'], showToast: true);
+                                }).expand(),
+                              ],
+                            ),
+                            '${jsonData['url']}'.text.size(12).minFontSize(12).maxLines(1).ellipsis.make().p(6).onInkTap(() {
+                              HelperMisc.copyToClipboard(jsonData['url'], showToast: true);
+                            }),
+                            '$status'.text.size(12).minFontSize(12).maxLines(1).ellipsis.makeCentered().p(6),
+                            '${item.createdAt?.reformatDate(to: 'yy/M/d')}'.text.size(12).minFontSize(12).make().p(6),
+                            '$result'.text.size(12).minFontSize(12).make().p(6),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ).p(0),
+              ),
+            ),
+          ]).p12(),
+        ));
+  }
+
   Future<void> openDialogDownload() async {
+    final tecChunk = TextEditingController(text: AppPref.getDownloadChunk().toString());
     final tecUrl = TextEditingController();
     final tecDir = TextEditingController();
     final fnUrl = FocusNode();
@@ -176,21 +547,34 @@ class PageDownloadController extends GetxController {
       title: Text('Download', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.left).pOnly(bottom: 16),
       content: VStack(
         [
-          CupertinoTextField(
-            readOnly: true,
-            controller: tecDir,
-            placeholder: 'Save To...',
-            prefix: Icon(UIconsPro.regularRounded.folder, size: 13).pOnly(left: 8),
-            placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
-            style: TextStyle(fontSize: 13, color: Vx.neutral500),
-            onTap: () async {
-              await FilePicker.platform.getDirectoryPath(initialDirectory: tecDir.text).then((dir) {
-                if (dir != null) {
-                  AppPref.setDownloadPath(dir);
-                  tecDir.text = dir;
-                }
-              });
-            },
+          HStack(
+            [
+              CupertinoTextField(
+                readOnly: true,
+                controller: tecDir,
+                placeholder: 'Save To...',
+                prefix: Icon(UIconsPro.regularRounded.folder, size: 13).pOnly(left: 8),
+                placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
+                style: TextStyle(fontSize: 13, color: Vx.neutral500),
+                onTap: () async {
+                  await FilePicker.platform.getDirectoryPath(initialDirectory: tecDir.text).then((dir) {
+                    if (dir != null) {
+                      AppPref.setDownloadPath(dir);
+                      tecDir.text = dir;
+                    }
+                  });
+                },
+              ).expand(),
+              6.widthBox,
+              CupertinoTextField(
+                controller: tecChunk,
+                placeholder: 'Chunk',
+                prefix: Icon(UIconsPro.regularRounded.download, size: 13).pOnly(left: 8),
+                placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
+                style: TextStyle(fontSize: 13, color: Vx.white),
+                onChanged: (s) => AppPref.setDownloadChunk(s.toInt() ?? 1),
+              ).w(90),
+            ],
           ).pOnly(bottom: 12),
           CupertinoTextField(
             controller: tecUrl,
@@ -208,7 +592,6 @@ class PageDownloadController extends GetxController {
               await startProcessDownload('hls', tecUrl.text, tecDir.text, tecFilename.text);
             },
           ).pOnly(bottom: 12),
-          Text('* (NEW) Support HLS(.m3u8)', style: TextStyle(fontSize: 10)),
         ],
       ),
       actions: [
@@ -247,11 +630,11 @@ class PageDownloadController extends GetxController {
       await DBHistory.add(History(id: id, type: 'download', message: genJsonFormat('start', url, dir, filename)));
 
       await shell.run(
-        '${appSetting.appPath}/javit_dl $type -u "$url" -d "$dir" -o "$filename"',
+        '${appSetting.appPath}/javit_dl $type -u "$url" -d "$dir" -o "$filename" -w ${AppPref.getDownloadChunk()}',
         commandVerbose: false,
         verbose: false,
         onProcess: (process) async {
-          cProcessDownload.value = process;
+          currentProcessDownload.value = process;
           // listen stdout
           process.outLines.listen((s) {
             downloadStdout.value = s;
@@ -284,8 +667,8 @@ class PageDownloadController extends GetxController {
         },
       );
 
-      if (cProcessDownload.value != null) {
-        if (await cProcessDownload.value?.exitCode == 0) {
+      if (currentProcessDownload.value != null) {
+        if (await currentProcessDownload.value?.exitCode == 0) {
           downloadStdout.value = '';
         }
       }
@@ -296,80 +679,13 @@ class PageDownloadController extends GetxController {
 
   Future<void> killProcessDownload() async {
     try {
-      cProcessDownload.value?.kill(ProcessSignal.sigkill);
-      cProcessDownload.value = null;
+      currentProcessDownload.value?.kill(ProcessSignal.sigkill);
+      currentProcessDownload.value = null;
       downloadStdout.value = '';
       Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
     } catch (e) {
       AppLog.logD('killProcessDownload e -> $e');
     }
-  }
-
-  Future<void> openDownloadLog() async {
-    Get.back();
-    final data = await DBHistory.getAll(where: 'type = ?', whereArgs: ['download'], orderBy: 'updated_at DESC');
-    await Overlayment.show(
-        context: Get.context,
-        OverPanel(
-          alignment: Alignment.centerRight,
-          width: 300,
-          animation: OverSlideAnimation(
-            beginAlignment: Alignment.centerRight,
-            reverseDurationMilliseconds: 100,
-            durationMilliseconds: 400,
-          ),
-          child: VStack([
-            'Download Log'.text.bold.make().pOnly(bottom: 24),
-            ListView.separated(
-              itemCount: data.length,
-              separatorBuilder: (context, index) => Divider(),
-              itemBuilder: (context, index) {
-                final item = data[index];
-                final jsonData = jsonDecode(item.message ?? '');
-                final dt1 = DateTime.parse(item.createdAt ?? '');
-                final dt2 = DateTime.parse(item.updatedAt ?? '');
-                final diff = dt2.difference(dt1);
-                int totalSeconds = diff.inSeconds;
-                int minutes = totalSeconds ~/ 60;
-                int seconds = totalSeconds % 60;
-
-                var result = '';
-                if (minutes > 0) result += '⏳︎ $minutes minute${minutes > 1 ? 's' : ''}';
-
-                if (seconds > 0) {
-                  if (minutes > 0) result += ', ';
-                  result += '⏳︎ $seconds second${seconds > 1 ? 's' : ''}';
-                }
-                if (result.isEmpty) result = '';
-
-                return HStack([
-                  '${jsonData['ev']}'.text.size(11).minFontSize(11).uppercase.bold.make().w(60),
-                  VStack([
-                    '🔗 ${jsonData['url']}'.text.size(10).minFontSize(10).ellipsis.make().onInkTap(() {
-                      HelperMisc.copyToClipboard(jsonData['url'], showToast: true);
-                    }),
-                    '📁 ${jsonData['dir']}'.text.size(10).minFontSize(10).make().onInkTap(() {
-                      HelperOpener.openFilePath('${jsonData['dir']}/${jsonData['filename']}');
-                    }),
-                    '📺 ${jsonData['filename']}'.text.size(10).minFontSize(10).make().onInkTap(() {
-                      HelperMisc.copyToClipboard(jsonData['filename'], showToast: true);
-                    }),
-                    '$result'.text.size(10).minFontSize(10).make(),
-                  ]).expand(),
-                ]).tooltip(item.createdAt ?? '');
-              },
-            ).expand(),
-            ExButtonText(
-              width: double.infinity,
-              label: 'Clear Log',
-              labelColor: Vx.red500,
-              onPressed: () async {
-                await Overlayment.dismissLast();
-                await DBHistory.deleteAll(where: 'type = ?', whereArgs: ['download']);
-              },
-            ).hide(isVisible: data.isNotEmpty),
-          ]).p12(),
-        ));
   }
 
   String genJsonFormat(String ev, String url, String dir, String filename, {String? error}) {

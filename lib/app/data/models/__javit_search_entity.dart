@@ -51,7 +51,13 @@ class JavitSearchResult {
   String? trailer;
   num? duration;
   String? durationFormated;
+  String? releaseDate;
   bool? match;
+  bool? isReleased;
+  bool? isClicked;
+  bool? isUncensoredLeak;
+  List<String>? actresses;
+  List<String>? categories;
 
   JavitSearchResult({
     this.videoId,
@@ -62,7 +68,13 @@ class JavitSearchResult {
     this.trailer,
     this.duration,
     this.durationFormated,
+    this.releaseDate,
     this.match,
+    this.isReleased,
+    this.isClicked,
+    this.isUncensoredLeak,
+    this.actresses,
+    this.categories,
   });
 
   JavitSearchResult.fromJson(Map<String, dynamic> json) {
@@ -74,6 +86,11 @@ class JavitSearchResult {
     trailer = json['trailer'] ?? '';
     duration = json['duration'] ?? 0;
     durationFormated = json['duration_formated'] ?? '';
+    releaseDate = json['release_date'] ?? '';
+    match = json['match'] ?? false;
+    isReleased = json['is_released'] ?? false;
+    isClicked = json['is_clicked'] ?? false;
+    isUncensoredLeak = json['is_uncensored_leak'] ?? false;
   }
 
   Map<String, dynamic> toJson() {
@@ -86,6 +103,11 @@ class JavitSearchResult {
     data['trailer'] = trailer;
     data['duration'] = duration;
     data['duration_formated'] = durationFormated;
+    data['release_date'] = releaseDate;
+    data['match'] = match;
+    data['is_released'] = isReleased;
+    data['is_clicked'] = isClicked;
+    data['is_uncensored_leak'] = isUncensoredLeak;
     return data;
   }
 

@@ -21,6 +21,7 @@ class PageExploreController extends GetxController {
     kStudio,
     kDirector,
     kYear,
+    kCustom,
   ];
 
   final tecSearch = TextEditingController();
@@ -95,6 +96,22 @@ class PageExploreController extends GetxController {
         vList.value = await DBVideos.getAllLike('release_date', item.name ?? '');
         r18TotalVideo.value = await DBR18.getCountAllVideosByYear(item.name!.trim());
         break;
+      case kCustom:
+        if (oListSelected.value.name == 'New Release') {
+          vList.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date DESC, updated_at DESC', limit: 50);
+        } else if (oListSelected.value.name == 'Favorite') {
+          vList.value = await DBVideos.getAll(where: 'is_favorite = 1', orderBy: 'updated_at DESC');
+        } else if (oListSelected.value.name == 'Non Jav') {
+          vList.value = await DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC', limit: 50);
+        } else if (oListSelected.value.name == 'Most Watch') {
+          vList.value = await DBVideos.getAll(where: 'view_count != 0', orderBy: 'view_count DESC, updated_at DESC', limit: 50);
+        } else if (oListSelected.value.name == 'New Added') {
+          vList.value = await DBVideos.getAll(orderBy: 'created_at DESC', limit: 50);
+        } else if (oListSelected.value.name == 'Never Watch') {
+          vList.value = await DBVideos.getAll(where: 'view_count = 0', limit: 50, orderBy: 'RANDOM()');
+        }
+        r18TotalVideo.value = 0;
+        break;
     }
   }
 
@@ -116,6 +133,7 @@ class PageExploreController extends GetxController {
       case kStudio: r18ListVideo.value = await DBR18.getAllVideosByStudio(oListSelected.value.name ?? ''); break;
       case kDirector: r18ListVideo.value = await DBR18.getAllVideosByDirector(oListSelected.value.name ?? ''); break;
       case kYear: r18ListVideo.value = await DBR18.getAllVideosByYear(oListSelected.value.name ?? ''); break;
+      case kCustom: break;
     }
 
     // sort
@@ -123,68 +141,27 @@ class PageExploreController extends GetxController {
     final r18ValidList = <Map<String, dynamic>>[].obs;
     for (int i = 0; i < r18ListVideo.length; i++) {
       final vcode = HelperMisc.getVideoCode(r18ListVideo[i]['video_code'] ?? '');
-      if (vcode.isNotEmpty 
-        && !r18ListVideo[i]['video_code'].startsWith('TK')
-        && !r18ListVideo[i]['video_code'].startsWith('7')
-        && !r18ListVideo[i]['video_code'].startsWith('9')
-        && !r18ListVideo[i]['video_code'].startsWith('K9')
-        && !r18ListVideo[i]['video_code'].startsWith('FTKT')
-        && !r18ListVideo[i]['video_code'].startsWith('GOOE')
-        && !r18ListVideo[i]['video_code'].startsWith('JTKT')
-        && !r18ListVideo[i]['video_code'].startsWith('GTKT')
-        && !r18ListVideo[i]['video_code'].startsWith('DDMP')
-        && !r18ListVideo[i]['video_code'].startsWith('DMPXA')
-        && !r18ListVideo[i]['video_code'].startsWith('USTD')
-        && !r18ListVideo[i]['video_code'].startsWith('VWBS')
-        && !r18ListVideo[i]['video_code'].startsWith('HPXR')
-        && !r18ListVideo[i]['video_code'].startsWith('VWAS')
-        && !r18ListVideo[i]['video_code'].startsWith('TCBD')
-        && !r18ListVideo[i]['video_code'].startsWith('DAXA')
-        && !r18ListVideo[i]['video_code'].startsWith('TWUSS')
-        && !r18ListVideo[i]['video_code'].startsWith('PJXF')
-        && !r18ListVideo[i]['video_code'].startsWith('KKC')
-        && !r18ListVideo[i]['video_code'].startsWith('GNXF')
-        && !r18ListVideo[i]['video_code'].startsWith('JAXA')
-        && !r18ListVideo[i]['video_code'].startsWith('UHB')
-        && !r18ListVideo[i]['video_code'].startsWith('BPUH')
-        && !r18ListVideo[i]['video_code'].startsWith('GNXT')
-        && !r18ListVideo[i]['video_code'].startsWith('ZTKT')
-        && !r18ListVideo[i]['video_code'].startsWith('PB')
-        && !r18ListVideo[i]['video_code'].startsWith('D1')
-        && !r18ListVideo[i]['video_code'].startsWith('D2')
-        && !r18ListVideo[i]['video_code'].startsWith('D3')
-        && !r18ListVideo[i]['video_code'].startsWith('DK')
-
-        && !r18ListVideo[i]['video_code'].endsWith('BOD')
-        && !r18ListVideo[i]['video_code'].endsWith('DOD')
-        && !r18ListVideo[i]['video_code'].endsWith('Ta')
-        && !r18ListVideo[i]['video_code'].endsWith('Tb')
-        && !r18ListVideo[i]['video_code'].endsWith('Tc')
-        && !r18ListVideo[i]['video_code'].endsWith('Td')
-        && !r18ListVideo[i]['video_code'].endsWith('Te')
-        && !r18ListVideo[i]['video_code'].endsWith('TK')
-        && !r18ListVideo[i]['video_code'].endsWith('TK1')
-        && !r18ListVideo[i]['video_code'].endsWith('TK2')
-        && !r18ListVideo[i]['video_code'].endsWith('TK3')
-        && !r18ListVideo[i]['video_code'].endsWith('EC')
-        && !r18ListVideo[i]['video_code'].endsWith('4D')
-        && !r18ListVideo[i]['video_code'].endsWith('5D')
-        && !r18ListVideo[i]['video_code'].endsWith('DL')
-      ) {
+      if (vcode.isNotEmpty && HelperMisc.isValidVideoCode(r18ListVideo[i]['video_code'] ?? '')) {
         r18ValidList.add(r18ListVideo[i]);
       }
     }
 
-    r18TotalVideo.value = r18ValidList.length;
+    // r18TotalVideo.value = r18ValidList.length;
     r18ListVideo.value = r18ValidList.value.take(100000).toList();
+    r18ListVideo.value.unique((item) => item['video_code']);
+    r18TotalVideo.value = r18ListVideo.length;
+
     r18ListVideo.value.sort((a, b) => b['release_date'].compareTo(a['release_date']));
 
     // check has match video by code
     r18ListVideo.assignAll(r18ListVideo.map((r18Item) {
       final Map<String, dynamic> mutableR18Item = Map.from(r18Item);
-      final bool hasMatch = vList.any((vItem) => r18Item['video_code'].toString().contains(vItem.videoCode!));
+      final hasMatch = vList.any((vItem) => r18Item['video_code'].toString() == (vItem.videoCode!));
       mutableR18Item['match'] = hasMatch;
       mutableR18Item['is_clicked'] = false;
+
+      final releaseDate = DateTime.parse(r18Item['release_date'] ?? '');
+      mutableR18Item['is_released'] = releaseDate.isBefore(DateTime.now());
       return mutableR18Item;
     }).toList());
 
@@ -203,6 +180,8 @@ class PageExploreController extends GetxController {
       case kStudio: await getStudioList(); break;
       case kDirector: await getDirectorList(); break;
       case kYear: await getYearList(); break;
+      case kCustom: await getCustomList(); break;
+
     }
     await 10.milliseconds.delay();
     phSearchText.value = 'Search (${oList.length})...';
@@ -350,6 +329,24 @@ class PageExploreController extends GetxController {
     oListFiltered.assignAll(oList);
   }
 
+  Future<void> getCustomList() async {
+    final cNewRelease = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date DESC, updated_at DESC', limit: 50);
+    final cFavorite = await DBVideos.getAll(where: 'is_favorite = 1', orderBy: 'updated_at DESC');
+    final cNewAdded = await DBVideos.getAll(orderBy: 'created_at DESC', limit: 50);
+    final cMostWatch = await DBVideos.getAll(where: 'view_count != 0', orderBy: 'view_count DESC, updated_at DESC', limit: 50);
+    final cNeverWatch = await DBVideos.getAll(where: 'view_count = 0', orderBy: 'updated_at DESC', limit: 50);
+    final cNonJav = await DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC', limit: 50);
+
+    oList.clear();
+    oList.add(OListModel(name: 'New Release', count: cNewRelease.length));
+    oList.add(OListModel(name: 'Favorite', count: cFavorite.length));
+    oList.add(OListModel(name: 'Non Jav', count: cNonJav.length));
+    oList.add(OListModel(name: 'Most Watch', count: cMostWatch.length));
+    oList.add(OListModel(name: 'New Added', count: cNewAdded.length));
+    oList.add(OListModel(name: 'Never Watch', count: cNeverWatch.length));
+    oListFiltered.assignAll(oList);
+  }
+
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -372,6 +369,7 @@ const kSeries = 'Series';
 const kStudio = 'Studio';
 const kDirector = 'Director';
 const kYear = 'Year';
+const kCustom = 'Custom';
 
 // viewMode
 const kLocal = 'Local';

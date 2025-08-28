@@ -24,7 +24,7 @@ class PageHomeController extends GetxController {
     super.onInit();
     AppLog.logI('page home ==> onInit called');
     await getListNewRelease();
-    await getListTop10Watch();
+    await getListMostWatch();
     await getListFavorite();
     await getListNewAdded();
     await getListRandom();
@@ -40,7 +40,7 @@ class PageHomeController extends GetxController {
     listNewRelease.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date DESC, updated_at DESC', limit: 50);
   }
 
-  Future<void> getListTop10Watch() async {
+  Future<void> getListMostWatch() async {
     listTop10Watch.clear();
     listTop10Watch.value = await DBVideos.getAll(where: 'view_count != 0', orderBy: 'view_count DESC, updated_at DESC', limit: 50);
   }

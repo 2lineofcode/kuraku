@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:uuid/v4.dart';
 
 import '../models/relapse_entity.dart';
-import 'db_init.dart';
+import '_init_db.dart';
 
 mixin DBRelapse {
   static final _db = Get.find<DBService>().dbMain;
@@ -29,8 +29,8 @@ mixin DBRelapse {
 
   static Future<String> getLastRelapse() async {
     final List<Map<String, dynamic>> maps = await _db.query(_tableName, limit: 1, orderBy: 'date DESC');
-    if (maps.isEmpty) return '-';
-    return maps.first['date'] ?? '-';
+    if (maps.isEmpty) return '';
+    return maps.first['date'] ?? '';
   }
 
   static Future<int> getCount() async {

@@ -28,7 +28,7 @@ mixin ApiJavit {
 
     if (lang == '') lang = 'en';
     try {
-      final res = await Api.get('/api/$provider/search?q=$s&lang=$lang&page=$page', noCache: true);
+      final res = await Api.get('/api/$provider/search?q=$s&lang=$lang&page=$page', withCache: false);
       return JavitSearch.fromJson(res.data);
     } catch (e) {
       throw ApiException(e.toString());
@@ -37,7 +37,7 @@ mixin ApiJavit {
 
   static Future<Map<String, dynamic>> ranking({String provider = kProviderNJav}) async {
     try {
-      final res = await Api.get('/api/$provider/star_rank', noCache: true);
+      final res = await Api.get('/api/$provider/star_rank', withCache: false);
       return res.data;
     } catch (e) {
       throw ApiException(e.toString());

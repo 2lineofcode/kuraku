@@ -4,7 +4,7 @@ import 'package:uuid/v4.dart';
 
 import '../../utils/helper_toast.dart';
 import '../models/library_entity.dart';
-import 'db_init.dart';
+import '_init_db.dart';
 
 mixin DBLibrary {
   static final _db = Get.find<DBService>().dbMain;

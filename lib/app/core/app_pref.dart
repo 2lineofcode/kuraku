@@ -31,22 +31,34 @@ mixin AppPref {
   static String getDownloadMode() => _pref.read(_kDownloadMode) ?? 'net';
   static void setDownloadMode(String value) => _pref.write(_kDownloadMode, value);
 
+  static int getDownloadChunk() => _pref.read(_kDownloadChunk) ?? 2;
+  static void setDownloadChunk(int value) => _pref.write(_kDownloadChunk, value);
+
 
   // ** [home segment]
   static bool getHomeSecNewRelease() => _pref.read(_kHomeSecNewRelease) ?? true;
-  static void setHomeSecNewRelease(String value) => _pref.write(_kHomeSecNewRelease, value);
+  static void setHomeSecNewRelease(bool value) => _pref.write(_kHomeSecNewRelease, value);
 
-  static bool getHomeSecRandom() => _pref.read(_kHomeSecRandom) ?? true;
-  static void setHomeSecRandom(String value) => _pref.write(_kHomeSecRandom, value);
+  static bool getHomeSecFavorite() => _pref.read(_kHomeSecFavorite) ?? true;
+  static void setHomeSecFavorite(bool value) => _pref.write(_kHomeSecFavorite, value);
 
   static bool getHomeSecNewAdd() => _pref.read(_kHomeSecNewAdd) ?? true;
-  static void setHomeSecNewAdd(String value) => _pref.write(_kHomeSecNewAdd, value);
+  static void setHomeSecNewAdd(bool value) => _pref.write(_kHomeSecNewAdd, value);
+
+  static bool getHomeSecMostWatch() => _pref.read(_kHomeSecMostWatch) ?? true;
+  static void setHomeSecMostWatch(bool value) => _pref.write(_kHomeSecMostWatch, value);
 
   static bool getHomeSecNeverWatch() => _pref.read(_kHomeSecNeverWatch) ?? true;
-  static void setHomeSecNeverWatch(String value) => _pref.write(_kHomeSecNeverWatch, value);
+  static void setHomeSecNeverWatch(bool value) => _pref.write(_kHomeSecNeverWatch, value);
+
+  static bool getHomeSecNonJav() => _pref.read(_kHomeSecNonJav) ?? true;
+  static void setHomeSecNonJav(bool value) => _pref.write(_kHomeSecNonJav, value);
+
+  static bool getHomeSecRandom() => _pref.read(_kHomeSecRandom) ?? true;
+  static void setHomeSecRandom(bool value) => _pref.write(_kHomeSecRandom, value);
 
   static bool getHomeSecOldest() => _pref.read(_kHomeSecOldest) ?? true;
-  static void setHomeSecOldest(String value) => _pref.write(_kHomeSecOldest, value);
+  static void setHomeSecOldest(bool value) => _pref.write(_kHomeSecOldest, value);
 }
 
 const _kAppIsDarkMode = '_kAppIsDarkMode';
@@ -58,9 +70,13 @@ const _kAppHideSideMenu = '_kAppHideSideMenu';
 const _kDownloadPath = '_kDownloadPath';
 const _kDownloadLang = '_kDownloadLang';
 const _kDownloadMode = '_kDownloadMode';
+const _kDownloadChunk = '_kDownloadChunk';
 
 const _kHomeSecNewRelease = '_kHomeSecNewRelease';
-const _kHomeSecRandom = '_kHomeSecRandom';
+const _kHomeSecFavorite = '_kHomeSecFavorite';
 const _kHomeSecNewAdd = '_kHomeSecNewAdd';
+const _kHomeSecMostWatch = '_kHomeSecMostWatch';
 const _kHomeSecNeverWatch = '_kHomeSecNeverWatch';
+const _kHomeSecNonJav = '_kHomeSecNonJav';
+const _kHomeSecRandom = '_kHomeSecRandom';
 const _kHomeSecOldest = '_kHomeSecOldest';

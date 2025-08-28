@@ -27,7 +27,20 @@ mixin HelperMisc {
   }
 
   static bool isValidVideoCode(String code) {
-    return RegExp(r'^[a-zA-Z]{2,}-[0-9]{3,}$').hasMatch(code);
+    const _blacklistedPrefixes = [
+      'TK', '7', '9', 'K9', 'FTKT', 'GOOE', 'JTKT', 'GTKT', 'DDMP', 'DMPXA', 'USTD', 
+      'VWBS', 'HPXR', 'VWAS', 'TCBD', 'DAXA', 'TWUSS', 'PJXF', 'KKC', 'GNXF', 'JAXA', 'UHB', 
+      'BPUH', 'GNXT', 'ZTKT', 'PB', 'D1', 'D2', 'D3', 'DK',
+    ];
+    const _blacklistedSuffixes = [
+      'BOD', 'DOD', 'Ta', 'Tb', 'Tc', 'Td', 'Te', 
+      'TK', 'TK1', 'TK2', 'TK3', 'EC', '4D', '5D', 'DL',
+    ];
+
+    final hasValidFormat = RegExp(r'^[a-zA-Z]{2,}-[0-9]{3,}$').hasMatch(code);
+    final hasBlacklistedPrefix = _blacklistedPrefixes.any((prefix) => code.startsWith(prefix));
+    final hasBlacklistedSuffix = _blacklistedSuffixes.any((suffix) => code.endsWith(suffix));
+    return hasValidFormat && !hasBlacklistedPrefix && !hasBlacklistedSuffix;
   }
 
   static String durationFormat1(num durationInMinutes) {

@@ -13,6 +13,7 @@ class ExAutoComplate extends StatelessWidget {
     this.maxHeight,
     this.maxWidth,
     this.onSelected,
+    this.fontSize,
   });
 
   final List<String> items;
@@ -22,6 +23,7 @@ class ExAutoComplate extends StatelessWidget {
   final double? maxHeight;
   final double? maxWidth;
   final Function(String)? onSelected;
+  final double? fontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -38,13 +40,11 @@ class ExAutoComplate extends StatelessWidget {
           focusNode: focusNode,
           clearButtonMode: OverlayVisibilityMode.editing,
           placeholder: placeHolder ?? 'Search...',
-          style: TextStyle(color: Vx.white, fontSize: 14),
+          style: TextStyle(color: Vx.white, fontSize: fontSize ?? 14),
         );
       },
       itemBuilder: (context, s) {
-        return ListTile(
-          title: '$s'.text.size(11).minFontSize(11).make(),
-        );
+        return '$s'.text.minFontSize(11).size(11).make().p8().pOnly(left: 8);
       },
       constraints: BoxConstraints(
         maxHeight: maxHeight ?? 200,

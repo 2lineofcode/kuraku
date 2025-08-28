@@ -5,8 +5,7 @@ import 'package:get/get.dart';
 
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
-import '../../../data/database/db_init.dart';
-import '../../../data/database/db_r18.dart';
+import '../../../data/database/_init_db.dart';
 import '../../../utils/helper_opener.dart';
 import 'page_settings_controller.dart';
 
@@ -68,10 +67,11 @@ class PageSettingsView extends GetView<PageSettingsController> {
                         Spacer(),
                         '${controller.r18TotalVideo}'.text.size(11).minFontSize(11).bold.make(),
                       ]).pOnly(bottom: 8),
-                      // HStack([
-                      //   Spacer(),
-                      //   'Check Update'.text.size(11).minFontSize(11).underline.blue500.make().onInkTap(() => controller.updateR18DB()),
-                      // ]),
+                      HStack([
+                        'R18 Version'.text.size(11).minFontSize(11).neutral400.make(),
+                        Spacer(),
+                        Obx(() => '${controller.dbR18Version}'.text.size(11).minFontSize(11).bold.make()),
+                      ]),
                     ]).p8(),
                   ),
                 ]).p12(),
@@ -157,27 +157,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
               ExButtonText(
                 label: 'test',
                 onPressed: () async {
-                  try {
-                    final results = await DBR18.advanceSearch(
-                      categories: ['POV', 'Kiss Kiss'],
-                      startYear: '2020',
-                      endYear: '2025',
-                      actressName: '',
-                    );
-
-                    if (results.isNotEmpty) {
-                      print('Hasil Pencarian Ditemukan: ${results.length} film');
-                      for (var movie in results) {
-                        print('---');
-                        print('Code: ${movie['video_code']}');
-                        print('Release Date: ${movie['release_date']}');
-                      }
-                    } else {
-                      print('Tidak ada film yang sesuai dengan kriteria.');
-                    }
-                  } catch (e) {
-                    print('Error saat melakukan pencarian: $e');
-                  }
+                  //
                 },
               ),
             ],

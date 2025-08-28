@@ -1,6 +1,9 @@
 import 'dart:io';
 
+import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
+import 'package:glob/glob.dart';
+import 'package:glob/list_local_fs.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -40,8 +43,21 @@ class DBService extends GetxService {
     );
   }
 
+  // TODO: auto detect r18*.db and take latest version, fix version base on filename
   Future<Database> _initializeR18Database() async {
-    var path = join(appPath, 'r18.db');
+    var files = Glob('r18*.db').listSync(root: appPath);
+    files.sort((a, b) => b.path.compareTo(a.path));
+
+    if (files.isEmpty) {
+      print('No SQL file found.');
+      exit(1);
+    }
+    
+    final r18SqlFile = files.first.path;
+    AppLog.logS('Using DB file: $r18SqlFile');
+
+    final date = r18SqlFile.allBetween('r18_', '.db').replaceAll('_', '').toInt();
+    var path = join(appPath, r18SqlFile);
 
     // check is file exist?
     final file = File(path);
@@ -49,6 +65,7 @@ class DBService extends GetxService {
       await Directory(appPath).create(recursive: true);
       return await openDatabase(
         path,
+        version: date ?? 1,
         onConfigure: _onConfigure,
         singleInstance: true,
         onOpen: (db) async {

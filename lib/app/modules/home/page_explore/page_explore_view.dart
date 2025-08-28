@@ -11,6 +11,7 @@ import '../../../core/app_color.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
 import '../../widgets/widget_thumbnail.dart';
+import '../home_controller.dart';
 import 'page_explore_controller.dart';
 
 class PageExploreView extends GetView<PageExploreController> {
@@ -54,6 +55,7 @@ class PageExploreView extends GetView<PageExploreController> {
                       placeholder: controller.phSearchText.value,
                       style: TextStyle(color: Vx.white, fontSize: 12),
                       clearButtonMode: OverlayVisibilityMode.editing,
+                      prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
                       onChanged: (s) => controller.onOListSearch(s),
                     ).pSymmetric(v: 8),
                   ),
@@ -245,12 +247,13 @@ class PageExploreView extends GetView<PageExploreController> {
                 height: 200,
                 prefix: 2.15,
               ).wh(140, 200),
+
               Container(
                 color: Vx.black.withAlpha(150),
                 width: 140,
                 height: 20,
                 child: '${item.videoCode == '' ? item.title?.maxChars(10) : item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
-              ).positioned(bottom: 0),
+              ).positioned(bottom: 0, left: 0, right: 0),
             ]),
           ).cornerRadius(8).onInkTap(() => controller.onVListTap(item)),
         );
@@ -285,9 +288,16 @@ class PageExploreView extends GetView<PageExploreController> {
               height: 200,
             ).hide(isVisible: item['match'] == true),
 
+            // ** is_released (false) 
+            Container(
+              color: Colors.red.withAlpha(70),
+              width: 300,
+              height: 200,
+            ).hide(isVisible: item['is_released'] == false),
+
             // ** has Clicked
             GetBuilder(
-              init: PageExploreController(),
+              init: HomeController(),
               builder: (controller) {
                 return Container(
                   color: Colors.blue.withAlpha(100),
@@ -300,11 +310,14 @@ class PageExploreView extends GetView<PageExploreController> {
             Container(
               color: Vx.black.withAlpha(150),
               width: 300,
-              height: 20,
-              child: '${item['video_code']}'.text.bold.ellipsis.make().pOnly(left: 8),
-            ).onInkTap(() async {
-              HelperMisc.copyToClipboard(item['video_code'], showToast: true);
-            }).positioned(bottom: 0),
+              height: item['title'] != null && item['title'] != '' ? 62 : 33,
+              child: VStack([
+                '${item['video_code']}'.text.bold.size(12).ellipsis.make().onInkTap((){
+                  HelperMisc.copyToClipboard(item['video_code'], showToast: true);
+                }),
+                '${HelperMisc.decodeHtml(item['title'] ?? '')}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240).hide(isVisible: item['title'] != null && item['title'] != ''),
+              ]).p8(),
+            ).positioned(bottom: 0, left: 0, right: 0),
 
             Container(
               color: Vx.black.withAlpha(150),

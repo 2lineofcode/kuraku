@@ -230,6 +230,4 @@ mixin HomeEditVideoDetail {
       ),
     );
   }
-
-
 }

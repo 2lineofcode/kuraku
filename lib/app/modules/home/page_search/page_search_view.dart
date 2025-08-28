@@ -23,9 +23,8 @@ class PageSearchView extends GetView<PageSearchController> {
             clearButtonMode: OverlayVisibilityMode.editing,
             placeholder: '${controller.phSearch}',
             style: TextStyle(color: Vx.white, fontSize: 14),
-            onSubmitted: (value) {
-              controller.onSearch();
-            },
+            prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+            onSubmitted: (value) => controller.onSearch(),
           ).expand(),
           Obx(
             () => IconButton(

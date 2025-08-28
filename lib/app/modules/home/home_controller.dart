@@ -50,7 +50,6 @@ class HomeController extends GetxController with StateMixin {
   Future<void> onRefreshAllContent() async {
     try {
       footerText.value = 'Refreshing...';
-      // await onInit();
       await Get.find<PageHomeController>().onInit();
       await Get.find<PageSearchController>().onInit();
       await Get.find<PageExploreController>().onInit();

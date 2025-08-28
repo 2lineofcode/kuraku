@@ -1,13 +1,17 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_list_view/flutter_list_view.dart';
+import 'package:flutter_popup/flutter_popup.dart';
 import 'package:get/get.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../utils/helper.dart';
-import '../../widgets/widgets.dart';
+import '../../widgets/widget_thumbnail.dart';
+import '../home_controller.dart';
+import '../page_explore/page_explore_controller.dart';
 import '../page_search/page_search_overlay.dart';
 import 'page_tools_controller.dart';
 
@@ -232,117 +236,123 @@ class PageToolsView extends GetView<PageToolsController> {
   }
 
   Widget buildUIAdvanceSearch() {
-    return VStack(
+    return HStack(
       [
+        // r1
         Container(
-          decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 2),
-          child: HStack(
+          width: 220,
+          height: Get.height,
+          decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
+          child: VStack(
             [
-              // r1
-              VStack(
-                [
-                  HStack(
-                    [
-                      CupertinoTextField(
-                        controller: controller.tecVideoCode,
-                        clearButtonMode: OverlayVisibilityMode.editing,
-                        placeholder: 'Video Code..',
-                        style: TextStyle(color: Vx.white, fontSize: 14),
-                      ).expand(),
-                      12.widthBox,
-                      ExAutoComplate(
-                        controller: controller.tecActressName,
-                        items: controller.actresses,
-                        placeHolder: 'Actress Name (${controller.actresses.length})',
-                        onSelected: (s) => controller.tecActressName.text = s,
-                      ).expand(),
-                    ],
-                  ),
-                  8.heightBox,
-                  Obx(
-                    () => Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: controller.categoriesSelected.map((tag) {
-                        return Chip(
-                          label: Text(tag, style: TextStyle(fontSize: 9)),
-                          deleteIcon: Icon(Icons.close, size: 12),
-                          labelPadding: EdgeInsets.all(2),
-                          side: BorderSide(color: AppColor.container),
-                          backgroundColor: AppColor.selected,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(1)),
-                          onDeleted: () => {
-                            controller.categoriesSelected.remove(tag),
-                          },
-                        );
-                      }).toList(),
-                    ).pOnly(bottom: 12),
-                  ),
-                  ExAutoComplate(
-                    controller: controller.tecCategory,
-                    items: controller.categories,
-                    placeHolder: 'Add Category (${controller.categories.length})',
-                    emptyText: 'No Category with `${controller.tecCategory.text}` Found ',
-                    onSelected: (s) {
-                      controller.tecCategory.clear();
-                      if (controller.categoriesSelected.contains(s)) return;
-                      controller.categoriesSelected.add(s);
-                    },
-                  ).pOnly(bottom: 12),
-                  HStack(
-                    [
-                      'Year:'.text.size(11).make().pOnly(right: 24),
-                      Obx(
-                        () => SliderTheme(
-                          data: SliderTheme.of(Get.context!).copyWith(
-                            trackHeight: 4,
-                            overlayShape: SliderComponentShape.noOverlay,
-                            activeTrackColor: AppColor.selected,
-                            inactiveTrackColor: AppColor.container,
-                            rangeTrackShape: RectangularRangeSliderTrackShape(),
-                            valueIndicatorTextStyle: const TextStyle(fontSize: 10, color: Colors.white),
-                            valueIndicatorColor: AppColor.container,
-                            rangeThumbShape: RoundRangeSliderThumbShape(
-                              enabledThumbRadius: 6,
-                              disabledThumbRadius: 0,
-                            ),
-                          ),
-                          child: RangeSlider(
-                            values: controller.currentRange.value,
-                            min: 2000,
-                            max: DateTime.now().year.toDouble(),
-                            divisions: (DateTime.now().year.toDouble() - 2000).toInt(),
-                            labels: RangeLabels(
-                              controller.currentRange.value.start.toInt().toString(),
-                              controller.currentRange.value.end.toInt().toString(),
-                            ),
-                            onChanged: (RangeValues values) {
-                              controller.currentRange.value = values;
-                            },
-                          ),
-                        ).expand(),
-                      ),
-                      '${controller.currentRange.value.start.toInt()} - ${controller.currentRange.value.end.toInt()}'.text.size(11).make().pOnly(left: 24),
-                    ],
-                  ),
-                ],
-              ).expand(),
+              HStack([
+                'Filter by: (${controller.listFilter.length})'.text.size(11).minFontSize(11).make(),
+                Spacer(),
+                Obx(
+                  () => CustomPopup(
+                    content: VStack([
+                      // Actress
+                      '${controller.filterBy.value == kActress ? '◉' : '◎'} $kActress'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
+                        controller.filterBy.value = kActress;
+                        await controller.filterByActress();
+                        Get.back();
+                      }),
 
-              // r2
-              ExButtonElevated(
-                label: 'Search',
-                onPressed: () => controller.onAdvanceSearch(),
-              ).pOnly(left: 12)
+                      // Series
+                      '${controller.filterBy.value == kSeries ? '◉' : '◎'} $kSeries'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
+                        controller.filterBy.value = kSeries;
+                        await controller.filterBySeries();
+                        Get.back();
+                      }),
+
+                      // Category
+                      '${controller.filterBy.value == kCategory ? '◉' : '◎'} $kCategory'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
+                        controller.filterBy.value = kCategory;
+                        await controller.filterByCategories();
+                        Get.back();
+                      }),
+
+                      // Year
+                      '${controller.filterBy.value == kYear ? '◉' : '◎'} $kYear'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
+                        controller.filterBy.value = kYear;
+                        await controller.filterByYear();
+                        Get.back();
+                      }),
+                    ]),
+                    child: '${controller.filterBy}'.text.minFontSize(11).size(11).make().pSymmetric(h: 8).box.color(AppColor.selected).make().cornerRadius(4),
+                  ),
+                ),
+              ]),
+              CupertinoTextField(
+                controller: controller.tecFilterSearch,
+                focusNode: controller.fnFilterSearch,
+                placeholder: 'Search (${controller.listFilter.length})...',
+                style: TextStyle(color: Vx.white, fontSize: 12),
+                clearButtonMode: OverlayVisibilityMode.editing,
+                prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+                onSubmitted: (s) {
+                  switch (controller.filterBy.value) {
+                    case kActress: controller.filterByActress(q: s); break;
+                    case kSeries: controller.filterBySeries(q: s); break;
+                    case kCategory: controller.filterByCategories(q: s); break;
+                    case kYear: controller.filterByYear(q: s); break;
+                  }
+                  controller.fnFilterSearch.requestFocus();
+                  controller.listFilterScrollController.value.animToTop();
+                },
+              ).pSymmetric(v: 16),
+              FlutterListView(
+                controller: controller.listFilterScrollController.value,
+                delegate: FlutterListViewDelegate(
+                  (context, index) {
+                    final item = controller.listFilter[index];
+                    return VStack(
+                      [
+                        Obx(
+                          () => InkWell(
+                            onTap: () async => await controller.onFilterItemSelected(item),
+                            child: '${item['name_en']}'.text.size(11).minFontSize(11).make().w(double.infinity).p4(),
+                          ).color(item['name_en'] == controller.filterItemSelected.value ? AppColor.selected : Colors.transparent).cornerRadius(2),
+                        ),
+                        Divider(color: AppColor.border, thickness: 0.5),
+                      ],
+                    );
+                  },
+                  childCount: controller.listFilter.length,
+                ),
+              ).expand(),
             ],
           ).p12(),
-        ).pOnly(bottom: 12),
-        'Result: ${controller.videos.length}'.text.size(11).make().pOnly(bottom: 8),
-        modeGridView().expand(),
+        ).pOnly(right: 12),
+
+        // r2
+        Container(
+          decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
+          child: controller.obx(
+            (state) => VStack(
+              [
+                'Result (${controller.r18ListVideo.length})'.text.minFontSize(11).size(11).make().pOnly(bottom: 12),
+                vListR18().expand(),
+              ],
+            ).p12(),
+            onLoading: ExUiLoading(
+              message: 'Loading...'.text.size(11).minFontSize(11).makeCentered(),
+            ),
+            onEmpty: ExUiErrorOrEmpty(
+              illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
+              title: 'No Data Found',
+              message: 'No Result Found, as you searched for "${controller.filterItemSelected}"',
+            ),
+          ),
+        ).expand(),
       ],
-    );
+    ).pOnly(left: 8);
   }
 
-  Widget modeGridView() {
+  // ────────────────────────────────────────────────────────────────
+  // ⵌ ~
+  // ────────────────────────────────────────────────────────────────
+  Widget vListR18() {
     return GridView.builder(
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 300,
@@ -351,9 +361,9 @@ class PageToolsView extends GetView<PageToolsController> {
         crossAxisSpacing: 8,
         childAspectRatio: 300 / 200,
       ),
-      itemCount: controller.videos.length,
+      itemCount: controller.r18ListVideo.length,
       itemBuilder: (context, i) {
-        final item = controller.videos[i];
+        final item = controller.r18ListVideo[i];
         return ZStack(
           [
             ExThumbnail(
@@ -369,9 +379,16 @@ class PageToolsView extends GetView<PageToolsController> {
               height: 200,
             ).hide(isVisible: item['match'] == true),
 
+            // ** is_released (false)
+            Container(
+              color: Colors.red.withAlpha(70),
+              width: 300,
+              height: 200,
+            ).hide(isVisible: item['is_released'] == false),
+
             // ** has Clicked
             GetBuilder(
-              init: PageToolsController(),
+              init: HomeController(),
               builder: (controller) {
                 return Container(
                   color: Colors.blue.withAlpha(100),
@@ -384,11 +401,14 @@ class PageToolsView extends GetView<PageToolsController> {
             Container(
               color: Vx.black.withAlpha(150),
               width: 300,
-              height: 20,
-              child: '${item['video_code']}'.text.bold.ellipsis.make().pOnly(left: 8),
-            ).onInkTap(() async {
-              HelperMisc.copyToClipboard(item['video_code'], showToast: true);
-            }).positioned(bottom: 0),
+              height: item['title'] != null && item['title'] != '' ? 62 : 33,
+              child: VStack([
+                '${item['video_code']}'.text.bold.size(12).ellipsis.make().onInkTap((){
+                  HelperMisc.copyToClipboard(item['video_code'], showToast: true);
+                }),
+                '${HelperMisc.decodeHtml(item['title'] ?? '')}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240).hide(isVisible: item['title'] != null && item['title'] != ''),
+              ]).p8(),
+            ).positioned(bottom: 0, left: 0, right: 0),
 
             Container(
               color: Vx.black.withAlpha(150),
@@ -409,6 +429,6 @@ class PageToolsView extends GetView<PageToolsController> {
           ],
         ).onInkTap(() async => await HelperOpener.openVideoInfo(item)).pOnly(bottom: 12);
       },
-    ).wh(double.infinity, 100);
+    );
   }
 }

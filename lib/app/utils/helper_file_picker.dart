@@ -5,6 +5,8 @@ import '../data/models/library_entity.dart';
 import 'helper_misc.dart';
 
 mixin HelperFilePicker {
+
+  // ** pickFolderSubFolder
   static Future<Library?> pickFolderSubFolder() async {
     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
 
@@ -47,6 +49,7 @@ mixin HelperFilePicker {
     return null;
   }
 
+  // ** scanFolderAndSubFolder
   static Future<Library?> scanFolderAndSubFolder(String path) async {
     final directory = Directory(path);
     List<FileSystemEntity> files = directory.listSync(recursive: true);

@@ -10,7 +10,7 @@ import 'package:window_manager/window_manager.dart';
 import 'app/core/app_logging.dart';
 import 'app/core/app_pref.dart';
 import 'app/core/app_setting.dart';
-import 'app/data/database/db_init.dart';
+import 'app/data/database/_init_db.dart';
 import 'app/routes/app_pages.dart';
 import 'env.g.dart';
 
@@ -66,7 +66,7 @@ class _JavItState extends State<JavIt> with WindowListener {
         enableLog: Env.logLvl == 'debug' ? true : false,
         title: Env.appName,
         initialRoute: AppPages.INITIAL,
-        theme: ThemeData.dark(),
+        theme: ThemeData.dark(useMaterial3: true),
         getPages: AppPages.routes,
         defaultTransition: Transition.fadeIn,
         debugShowCheckedModeBanner: false,

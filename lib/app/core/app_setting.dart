@@ -33,8 +33,8 @@ class AppSettingService extends GetxService {
 
 
     await setupDesktop();
+    await exposeExternalFiles();
     await setupAppPref();
-    await setupExternalFiles();
     await setupHotkey();
   }
 
@@ -48,6 +48,19 @@ class AppSettingService extends GetxService {
     await pref.writeIfNull('_kAppLastOpen',DateTime.now().toStringEx());
     await pref.writeIfNull('_kDownloadPath','');
     await pref.writeIfNull('_kDownloadLang','en');
+
+    // home_sec
+    await pref.writeIfNull('_kHomeSecNewRelease', true);
+    await pref.writeIfNull('_kHomeSecFavorite', true);
+    await pref.writeIfNull('_kHomeSecNewAdd', true);
+    await pref.writeIfNull('_kHomeSecMostWatch', true);
+    await pref.writeIfNull('_kHomeSecNeverWatch', true);
+    await pref.writeIfNull('_kHomeSecNonJav', true);
+    await pref.writeIfNull('_kHomeSecRandom', true);
+    await pref.writeIfNull('_kHomeSecOldest', true);
+
+    // print all pref
+    await pref.getKeys().forEach((key) => print('pref key: $key, value: ${pref.read(key)}'));
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -75,7 +88,7 @@ class AppSettingService extends GetxService {
   }
 
   //
-  Future<void> setupExternalFiles() async {
+  Future<void> exposeExternalFiles() async {
     final assetFiles = ['r18_to_javit.py', 'javit_dl'];
 
     for (final fileName in assetFiles) {

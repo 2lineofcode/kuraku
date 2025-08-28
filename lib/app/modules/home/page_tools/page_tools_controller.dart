@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter_list_view/flutter_list_view.dart';
 import 'package:get/get.dart';
 import 'package:uuid/v4.dart';
 
@@ -16,9 +16,10 @@ import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../home_controller.dart';
 import '../page_download/page_download_controller.dart';
+import '../page_explore/page_explore_controller.dart';
 
-class PageToolsController extends GetxController {
-  final menus = [kAdvanceSearch, kDuplicate, kTopLargeFile, kTodo].obs;
+class PageToolsController extends GetxController with StateMixin {
+  final menus = [kDuplicate, kTopLargeFile, kTodo, kAdvanceSearch].obs;
   final toolSelected = ''.obs;
 
   // **
@@ -32,22 +33,23 @@ class PageToolsController extends GetxController {
   final top100LargeFile = <Map<String, dynamic>>[].obs;
 
   // **
-  final tecCategory = TextEditingController();
-  final tecActressName = TextEditingController();
-  final tecVideoCode = TextEditingController();
-  final currentRange = RangeValues(2000, DateTime.now().year.toDouble()).obs;
-  final actresses = <String>[].obs;
-  final categories = <String>[].obs;
-  final categoriesSelected = <String>[].obs;
-  final videos = <Map<String, dynamic>>[].obs;
+  final filterBy = ''.obs;
+  final listFilter = <Map<String, dynamic>>[].obs;
+  final listFilterScrollController = FlutterListViewController().obs;
+  final filterItemSelected = ''.obs;
+  final tecFilterSearch = TextEditingController();
+  final fnFilterSearch = FocusNode();
+  final r18ListVideo = <Map<String, dynamic>>[].obs;
 
   @override
   Future<void> onInit() async {
     super.onInit();
     AppLog.logI('page tools ==> onInit called');
-    toolSelected.value = kAdvanceSearch;
-    await getAllCategories();
-    await getAllActresses();
+    await getDuplicateVideos();
+    toolSelected.value = kDuplicate;
+    await onResetFilter();
+    await filterBySeries();
+    change(200, status: RxStatus.success());
   }
 
   Future<void> onMenuChange(String menu) async {
@@ -55,10 +57,7 @@ class PageToolsController extends GetxController {
     if (menu == kDuplicate) await getDuplicateVideos();
     if (menu == kTodo) await getTodos();
     if (menu == kTopLargeFile) await getTopLargeFile();
-    if (menu == kAdvanceSearch) {
-      await getAllCategories();
-      await getAllActresses();
-    }
+    if (menu == kAdvanceSearch) { }
   }
 
   // ** kFindDuplicate Part ---
@@ -177,65 +176,68 @@ class PageToolsController extends GetxController {
   }
 
   // ** kAdvanceSearch Part ---
-  Future<void> getAllCategories() async {
-    categories.clear();
-    await DBR18.getAllCategories().then((cat) {
-      for (var i = 0; i < cat.length; i++) {
-        categories.add('${cat[i]['name_en']}');
-      }
-      categories.unique();
-    });
+  Future<void> filterByActress({String? q}) async => listFilter.value = await DBR18.getAllActress(q: q);
+  Future<void> filterBySeries({String? q}) async => listFilter.value = await DBR18.getAllSeries(q: q);
+  Future<void> filterByCategories({String? q}) async => listFilter.value = await DBR18.getAllCategories(q: q);
+  Future<void> filterByYear({String? q}) async {
+    final yearNow = DateTime.now().year;
+    final sub30Year = yearNow - 40;
+    listFilter.value = [];
+    for (var i = sub30Year; i <= yearNow; i++) {
+      listFilter.value.add({'id': i, 'name_en': i.toString()});
+    }
+    listFilter.value.sort((a, b) => b['id'].compareTo(a['id']));
   }
 
-  Future<void> getAllActresses() async {
-    actresses.clear();
-    await DBR18.getAllActress().then((actress) {
-      for (var i = 0; i < actress.length; i++) {
-        actresses.add('${actress[i]['name_romaji']}');
+  Future<void> onFilterItemSelected(dynamic item) async {
+    change(0, status: RxStatus.loading());
+
+    filterItemSelected.value = item['name_en'];
+    final _selectedId = item['id'];
+    var videos = <Map<String, dynamic>>[];
+
+    switch (filterBy.value) {
+      case kActress: videos = await DBR18.getAllVideosByActress(_selectedId); break;
+      case kSeries: videos = await DBR18.getAllVideosBySeries(filterItemSelected.value); break;
+      case kCategory: videos = await DBR18.getAllVideosByCategory(filterItemSelected.value); break;
+      case kYear: videos = await DBR18.getAllVideosByYear(filterItemSelected.value); break;
+    }
+
+    // filter
+    r18ListVideo.value = [];
+    for (var i = 0; i < videos.length; i++) {
+      if (HelperMisc.isValidVideoCode(videos[i]['video_code'].toString())) {
+        r18ListVideo.value.add(videos[i]);
       }
-      actresses.unique();
-    });
-  }
-
-  Future<void> onAdvanceSearch() async {
-    videos.clear();
-    HelperLoading.show();
-
-    final data = await DBR18.advanceSearch(
-      categories: categoriesSelected,
-      startYear: currentRange.value.start.toInt().toString(),
-      endYear: currentRange.value.end.toInt().toString(),
-      actressName: '',
-    );
-
-    // Filter hanya valid video_code
-    videos.addAll(data.where((item) => HelperMisc.isValidVideoCode(item['video_code'] ?? '')));
-
-    // Filter berdasarkan input tecVideoCode
-    if (tecVideoCode.text.isNotBlank) {
-      videos.removeWhere((video) => !video['video_code'].toString().toLowerCase().contains(tecVideoCode.text.toLowerCase()));
     }
 
-    if(tecActressName.text.isNotBlank) {
-      videos.removeWhere((video) => !video['actresses'].toString().toLowerCase().contains(tecActressName.text.toLowerCase()));
-    }
+    // check has match video by code
+    final vList = await DBVideos.getAll();
+    r18ListVideo.assignAll(r18ListVideo.map((r18Item) {
+      final Map<String, dynamic> mutableR18Item = Map.from(r18Item);
+      final hasMatch = vList.any((vItem) => r18Item['video_code'].toString() == (vItem.videoCode!));
+      mutableR18Item['match'] = hasMatch;
+      mutableR18Item['is_clicked'] = false;
 
-    // unique by `video_code`
-    videos.unique((item) => item['video_code']);
-
-    // Urutkan berdasarkan release_date
-    videos.sort((a, b) => b['release_date'].compareTo(a['release_date']));
-
-    // Tambah field is_clicked
-    videos.assignAll(videos.map((r18Item) {
-      final mutable = Map<String, dynamic>.from(r18Item);
-      mutable['is_clicked'] = false;
-      return mutable;
+      final releaseDate = DateTime.parse(r18Item['release_date'] ?? '');
+      mutableR18Item['is_released'] = releaseDate.isBefore(DateTime.now());
+      return mutableR18Item;
     }).toList());
 
-    HelperLoading.dismiss();
-    videos.refresh();
+    r18ListVideo.refresh();
 
+    if (r18ListVideo.isNotEmpty) {
+      change(200, status: RxStatus.success());
+    } else {
+      change(200, status: RxStatus.empty());
+    }
+  }
+
+  Future<void> onResetFilter() async {
+    filterBy.value = kSeries;
+    filterItemSelected.value = '';
+    tecFilterSearch.text = '';
+    r18ListVideo.value = [];
   }
 }
 
@@ -243,4 +245,4 @@ class PageToolsController extends GetxController {
 const kDuplicate = 'Duplicate Videos';
 const kTodo = 'Todo';
 const kTopLargeFile = 'Large File';
-const kAdvanceSearch = 'Advance Search';
+const kAdvanceSearch = 'Advance Search (R18)';

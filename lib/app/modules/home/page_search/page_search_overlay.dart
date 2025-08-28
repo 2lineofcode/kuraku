@@ -27,6 +27,7 @@ import '../page_home/page_home_controller.dart';
 import 'page_search_controller.dart';
 
 mixin PageSearchOverlay {
+  //
   static Future<void> onItemTap(Videos video) async {
     final _controller = Get.find<PageSearchController>();
     final _mediaInfo = <String>[].obs;
@@ -98,7 +99,7 @@ mixin PageSearchOverlay {
                               HelperOpener.openVideoFile(video),
                             },
                           ),
-                        ).pOnly(right: 8),
+                        ).pOnly(right: 8).tooltip('Play'),
 
                         // add to favorite
                         GetBuilder<PageSearchController>(
@@ -118,7 +119,7 @@ mixin PageSearchOverlay {
                                 b.update();
                               },
                             ),
-                          ).pOnly(right: 8),
+                          ).pOnly(right: 8).tooltip('Add/Remove Favorite'),
                         ),
 
                         // renew metadata
@@ -129,7 +130,7 @@ mixin PageSearchOverlay {
                                   icon: Icon(UIconsPro.regularRounded.thought_bubble, size: 14),
                                   onPressed: () => _controller.renewMetadata(video),
                                 ),
-                              ).pOnly(right: 8)
+                              ).pOnly(right: 8).tooltip('Renew Metadata')
                             : 0.heightBox,
 
                         Container(
@@ -138,7 +139,7 @@ mixin PageSearchOverlay {
                             icon: Icon(UIconsPro.regularRounded.folder, size: 16),
                             onPressed: () => HelperOpener.openFilePath(video.videoPath ?? ''),
                           ),
-                        ).pOnly(right: 8),
+                        ).pOnly(right: 8).tooltip('Open File Path'),
 
                         Spacer(),
                       ],
@@ -487,7 +488,7 @@ mixin PageSearchOverlay {
     final name = '${video.actress?[index].nameRomaji == '' ? '${video.actress?[index].nameKana}' : '${video.actress?[index].nameRomaji}'}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
-    await exploreC.onFilterByChange('Actress');
+    await exploreC.onFilterByChange(kActress);
     exploreC.tecSearch.text = name;
     exploreC.onOListSearch(name);
     await exploreC.onOListTap(exploreC.oListFiltered[0]);
@@ -498,7 +499,7 @@ mixin PageSearchOverlay {
     final name = '${video.category?[index].category}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
-    await exploreC.onFilterByChange('Category');
+    await exploreC.onFilterByChange(kCategory);
     exploreC.tecSearch.text = name;
     exploreC.onOListSearch(name);
     await exploreC.onOListTap(exploreC.oListFiltered[0]);
@@ -509,7 +510,7 @@ mixin PageSearchOverlay {
     final name = '${video.series}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
-    await exploreC.onFilterByChange('Series');
+    await exploreC.onFilterByChange(kSeries);
     exploreC.tecSearch.text = name;
     exploreC.onOListSearch(name);
     await exploreC.onOListTap(exploreC.oListFiltered[0]);
@@ -520,7 +521,7 @@ mixin PageSearchOverlay {
     final directory = p.dirname(video.videoPath ?? '');
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
-    await exploreC.onFilterByChange('Path');
+    await exploreC.onFilterByChange(kPath);
     exploreC.tecSearch.text = directory;
     exploreC.onOListSearch(directory);
     await exploreC.onOListTap(exploreC.oListFiltered[0]);

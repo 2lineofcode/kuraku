@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:uuid/v4.dart';
 
 import '../models/playlist_entity.dart';
-import 'db_init.dart';
+import '_init_db.dart';
 
 mixin DBPlaylist {
   static final _db = Get.find<DBService>().dbMain;

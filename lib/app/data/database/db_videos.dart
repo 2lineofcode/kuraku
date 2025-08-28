@@ -8,7 +8,7 @@ import 'package:uuid/v4.dart';
 import '../../core/app_logging.dart';
 import '../../utils/helper_misc.dart';
 import '../models/videos_entity.dart';
-import 'db_init.dart';
+import '_init_db.dart';
 
 mixin DBVideos {
   static final _db = Get.find<DBService>().dbMain;

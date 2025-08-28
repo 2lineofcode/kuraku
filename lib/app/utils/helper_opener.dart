@@ -12,6 +12,7 @@ import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:process_run/process_run.dart' as cmd;
 import 'package:uicons_pro/uicons_pro.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'package:video_player/video_player.dart';
 import 'package:zoom_hover_pinch_image/zoom_hover_pinch_image.dart';
 
@@ -26,36 +27,39 @@ import '../data/database/db_videos.dart';
 import '../data/models/__javit_search_entity.dart';
 import '../data/models/videos_entity.dart';
 import '../modules/home/home_controller.dart';
-import '../modules/home/page_download/page_download_controller.dart';
 import '../modules/home/page_explore/page_explore_controller.dart';
 import '../modules/home/page_home/page_home_controller.dart';
-import '../modules/home/page_tools/page_tools_controller.dart';
 import '../modules/widgets/widget_chiwie_custom.dart';
 import '../modules/widgets/widget_thumbnail.dart';
 import 'helper.dart';
 
 mixin HelperOpener {
+  // open folder
   static Future<void> openFolder(String path) async {
     await cmd.run('open -R "$path"', verbose: false).catchError((e) async {
       await HelperToast.error('File does not exist at path: $path');
     });
   }
 
-  static Future<void> openVideoFile(Videos video) async {
-    await cmd.run('open "${video.videoPath}"', verbose: false).then((s) async {
-      await DBVideos.updateViewCount(video);
-      await Get.find<PageHomeController>().getListTop10Watch();
-    }).catchError((e) async {
-      await HelperToast.error('${e.toString()}');
-    });
-  }
-
+  // open file path
   static Future<void> openFilePath(String path) async {
     await cmd.run('open -R "$path"', verbose: false).catchError((e) {
       HelperToast.error('File does not exist at path: $path');
     });
   }
 
+  // open video file -> direct default video player
+  static Future<void> openVideoFile(Videos video) async {
+    await cmd.run('open "${video.videoPath}"', verbose: false).then((s) async {
+      await DBVideos.updateViewCount(video);
+      await Get.find<PageHomeController>().getListMostWatch();
+    }).catchError((e) async {
+      await HelperToast.error('${e.toString()}');
+    });
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // ** 
   // ────────────────────────────────────────────────────────────────
   static Future<void> openVideoInfo(dynamic item) async {
     late Map<String, dynamic>? dataVideo;
@@ -73,7 +77,7 @@ mixin HelperOpener {
       dataVideo = await DBR18.getVideo(fixCode);
     }
 
-    // ** -> direct from r18
+    // ** -> from r18
     else {
       dataVideo = await DBR18.getVideo(item['video_code']);
     }
@@ -88,7 +92,7 @@ mixin HelperOpener {
     video.actress = dataActress.map((e) => VideoActress.fromJson(e)).toList();
     video.director = dataDirector?['name_romaji'] ?? '';
     video.releaseDateFormated = video.releaseDate?.reformatDate(from: kYMd, to: kMdY);
-    video.durationFormated = HelperMisc.durationFormat1(video.duration?? 0);
+    video.durationFormated = HelperMisc.durationFormat1(video.duration ?? 0);
 
     HelperLoading.dismiss();
 
@@ -137,10 +141,10 @@ mixin HelperOpener {
                     '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
                       HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
                     }).pSymmetric(v: 8),
-                    '${video.title}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(3).ellipsis.makeCentered().tooltip(video.videoPath?.getFileName().noExt() ?? ''),
-            
+                    '${video.title}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(6).ellipsis.makeCentered().onInkTap(() {
+                      HelperMisc.copyToClipboard(video.title ?? '', showToast: true);
+                    }).tooltip(video.videoPath?.getFileName().noExt() ?? ''),
                     ExDivider().pSymmetric(v: 16),
-            
                   ],
                 ).pSymmetric(h: 16),
 
@@ -167,18 +171,17 @@ mixin HelperOpener {
                         icon: Icon(UIconsPro.regularRounded.arrow_square_down, size: 16),
                         onPressed: () async {
                           await Overlayment.dismissLast();
+                          await launchUrlString('${Env.njavUrl}/en/search/${video.videoCode}');
 
-                          if (item['match'] == true) {
-                            await HelperToast.info('This video is already in your library');
-                          } else {
+                          try {
                             item['is_clicked'] = true;
-                            Get.find<HomeController>().currentMenuSelected.value = kMenuDownload;
-                            Get.find<PageDownloadController>().tecSearch.text = item['video_code'] ?? '';
-                            await Get.find<PageDownloadController>().onSearch(item['video_code']);
-                          }
+                            Get.find<HomeController>().update();
+                          } catch (_) {}
 
-                          Get.find<PageExploreController>().update();
-                          Get.find<PageToolsController>().update();
+                          try {
+                            item.isClicked = true;
+                            Get.find<HomeController>().update();
+                          } catch (_) {}
                         },
                       ),
                     ).pOnly(right: 8).tooltip('Download'),
@@ -188,15 +191,13 @@ mixin HelperOpener {
                       decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                       child: IconButton(
                         icon: Icon(UIconsPro.regularRounded.video_camera, size: 16),
-                        onPressed: () async {
-                          await openTrailer(item);
-                        },
+                        onPressed: () async => await openTrailer(item),
                       ),
                     ).pOnly(right: 8).tooltip('Trailer'),
                     Spacer(),
                   ],
                 ).pOnly(bottom: 12),
-            
+
                 // ** metadata
                 Expanded(
                   child: ConstrainedBox(
@@ -210,7 +211,7 @@ mixin HelperOpener {
                             Icon(UIconsPro.regularRounded.square_code, size: 14).pOnly(right: 8),
                             'Metadata'.text.size(14).bold.make(),
                           ]).pOnly(bottom: 16),
-            
+
                           // actress
                           if (!video.actress.isEmptyOrNull) ...[
                             'Actress:'.text.size(12).bold.make().pOnly(bottom: 4),
@@ -223,12 +224,23 @@ mixin HelperOpener {
                                     .size(11)
                                     .minFontSize(11)
                                     .make()
+                                    .onInkTap(() async {
+                                      try {
+                                        final name = '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}';
+                                        await Get.find<HomeController>().onMenuChange(kMenuExplore);
+                                        final exploreC = Get.find<PageExploreController>();
+                                        await exploreC.onFilterByChange('Actress');
+                                        exploreC.tecSearch.text = name;
+                                        exploreC.onOListSearch(name);
+                                        await exploreC.onOListTap(exploreC.oListFiltered[0]);
+                                      } catch (_) {}
+                                    })
                                     .tooltip(video.actress?[i].nameRomaji == '' ? '${KanaKit().toRomaji(video.actress?[i].nameKana ?? '')}' : '')
                                     .pOnly(right: 8),
                               ],
                             ]).pOnly(bottom: 16),
                           ],
-            
+
                           // category
                           if (!video.category.isEmptyOrNull) ...[
                             'Category:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
@@ -237,58 +249,53 @@ mixin HelperOpener {
                                 FutureBuilder(
                                   future: HelperMisc.decensor(video.category?[i].category ?? ''),
                                   builder: (context, snapshot) {
-                                    return snapshot.hasData
-                                        ? '${snapshot.data}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(right: 8)
-                                        : 0.heightBox;
+                                    return snapshot.hasData ? '${snapshot.data}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(right: 8) : 0.heightBox;
                                   },
                                 ),
                               ],
                             ]).pOnly(bottom: 16),
                           ],
-            
+
                           // series
                           if (!video.series.isEmptyOrNull) ...[
                             'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             FutureBuilder(
                               future: HelperMisc.decensor(video.series ?? ''),
                               builder: (context, snapshot) {
-                                return snapshot.hasData
-                                    ? '${snapshot.data}'.text.underline.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16)
-                                    : 0.heightBox;
+                                return snapshot.hasData ? '${snapshot.data}'.text.underline.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16) : 0.heightBox;
                               },
                             ),
                           ],
-            
+
                           // release date
                           if (!video.releaseDate.isEmptyOrNull) ...[
                             'Release Date:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.releaseDateFormated}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
-            
+
                           // duration
                           if (video.duration != 0) ...[
                             'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.durationFormated}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
-            
+
                           // label
                           if (!video.label.isEmptyOrNull) ...[
                             'Label:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.label}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
-            
+
                           // studio
                           if (!video.studio.isEmptyOrNull) ...[
                             'Studio:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.studio}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
-            
+
                           // director
                           if (!video.director.isEmptyOrNull) ...[
                             'Director:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.director}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
-            
                         ]).p12(),
                       ),
                     ).pSymmetric(h: 16),
@@ -300,7 +307,6 @@ mixin HelperOpener {
         ),
       ),
     );
-
   }
 
   static Future<void> openScreenshot(dynamic item) async {
@@ -576,7 +582,7 @@ mixin HelperOpener {
       });
     } catch (e) {
       e as PlatformException;
-      AppLog.logE('e -> ${e.message}');
+      AppLog.logE('open trailer e -> ${e.message}');
       await HelperToast.warn('${e.message}', duration: 5.seconds);
       HelperLoading.dismiss();
       return;

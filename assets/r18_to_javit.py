@@ -192,6 +192,8 @@ def convert_sql_to_sqlite_fast(sql_file_path, sqlite_db_path):
             "CREATE INDEX IF NOT EXISTS idx_derived_video_title_ja ON derived_video(title_ja);",
             "CREATE INDEX IF NOT EXISTS idx_derived_video_release_date ON derived_video(release_date);",
             "CREATE INDEX IF NOT EXISTS idx_derived_video_dvd_id_title_en ON derived_video (dvd_id, title_en);",
+            "CREATE INDEX IF NOT EXISTS idx_derived_video_series_id ON derived_video (series_id);",
+
 
             # Relasi maker, label, series, site, director
             "CREATE INDEX IF NOT EXISTS idx_derived_video_maker_id ON derived_video(maker_id);",
@@ -244,6 +246,8 @@ def convert_sql_to_sqlite_fast(sql_file_path, sqlite_db_path):
             "CREATE INDEX IF NOT EXISTS idx_dvc_category_content ON derived_video_category(category_id, content_id);",
             "CREATE INDEX IF NOT EXISTS idx_dc_name_id ON derived_category(name_en, id);",
             "CREATE INDEX IF NOT EXISTS idx_dv_release_date_content ON derived_video(release_date, content_id);",
+
+            "CREATE INDEX IF NOT EXISTS idx_dva_composite_content_actress ON derived_video_actress (content_id, actress_id);",
 
         ]
 

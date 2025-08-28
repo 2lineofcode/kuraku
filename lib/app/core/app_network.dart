@@ -9,38 +9,36 @@ import 'app_logging.dart';
 import 'app_setting.dart';
 
 mixin Api {
-  static CacheOptions _defaultCacheOption(String appDirPath) => CacheOptions(
-        store: SembastCacheStore(storePath: appDirPath, cacheStore: 'javit.dio'),
+  // https://pub.dev/packages/dio_cache_interceptor
+  static CacheOptions _cacheOption(String appPath) => CacheOptions(
+        store: SembastCacheStore(storePath: appPath, cacheStore: 'javit.dio'),
         policy: CachePolicy.forceCache,
         priority: CachePriority.high,
-        maxStale: 1825.days,
-        hitCacheOnErrorCodes: [401, 404],
+        maxStale: 1825.days, // 5 years
         keyBuilder: ({headers, required url}) => url.toString(),
-        // keyBuilder: (request) => request.uri.toString(),
         allowPostMethod: false,
       );
 
+  // ** client
   static final _dio = Dio(
     BaseOptions(baseUrl: Env.apiUrl, connectTimeout: 30.seconds, receiveTimeout: 30.seconds),
   )..interceptors.addAll([
-      DioCacheInterceptor(options: _defaultCacheOption(Get.find<AppSettingService>().appPath)),
+      DioCacheInterceptor(options: _cacheOption(Get.find<AppSettingService>().appPath)),
       LogInterceptor(),
     ]);
 
-  static Future<Response> get(String url, {Map<String, dynamic>? queryParameters, bool noCache = false}) async {
+  // ────────────────────────────────────────────────────────────────
+  // ⵌ GET
+  // only method [get] support cache
+  // @params [url] required*
+  // @params [queryParameters]
+  // @params [withCache] default true
+  // ────────────────────────────────────────────────────────────────
+  static Future<Response> get(String url, {Map<String, dynamic>? queryParameters, bool withCache = true}) async {
     final appSettingService = Get.find<AppSettingService>();
-    final cacheOptions = _defaultCacheOption(appSettingService.appPath).copyWith(
-      policy: noCache ? CachePolicy.noCache : CachePolicy.forceCache,
+    final cacheOptions = _cacheOption(appSettingService.appPath).copyWith(
+      policy: withCache ? CachePolicy.noCache : CachePolicy.forceCache,
     );
-
-    // _dio.interceptors.add(
-    //   RetryInterceptor(
-    //     dio: _dio,
-    //     logPrint: AppLog.logD,
-    //     retries: 3,
-    //     retryDelays: [1.seconds, 3.seconds, 5.seconds],
-    //   ),
-    // );
 
     return await _dio.get(
       url,
@@ -70,14 +68,14 @@ mixin Api {
     return await _dio.head(url, data: data);
   }
 
-  static Future<Response> download(
-    String url,
-    String savePath, {
-    void Function(int, int)? onReceiveProgress,
-    Map<String, dynamic>? queryParameters,
-  }) async {
-    return await _dio.download(url, savePath, onReceiveProgress: onReceiveProgress, queryParameters: queryParameters);
-  }
+  // static Future<Response> download(
+  //   String url,
+  //   String savePath, {
+  //   void Function(int, int)? onReceiveProgress,
+  //   Map<String, dynamic>? queryParameters,
+  // }) async {
+  //   return await _dio.download(url, savePath, onReceiveProgress: onReceiveProgress, queryParameters: queryParameters);
+  // }
 }
 
 class LogInterceptor extends Interceptor {

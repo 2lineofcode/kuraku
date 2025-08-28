@@ -7,7 +7,7 @@ import 'package:path/path.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../core/app_setting.dart';
-import 'db_init.dart';
+import '_init_db.dart';
 
 mixin DBR18 {
   static final _db = Get.find<DBService>().dbR18;
@@ -104,7 +104,9 @@ mixin DBR18 {
           v.jacket_full_url as fan_art,                   -- fanart
           v.jacket_thumb_url as poster,                   -- poster
           v.gallery_full_first as ssfirst,                -- screenshot[0]
-          v.gallery_full_last as sslast                   -- screenshot[n]
+          v.gallery_full_last as sslast,                  -- screenshot[n]
+          GROUP_CONCAT(dc.name_en, ', ') AS categories,
+          GROUP_CONCAT(da.name_romaji, ', ') AS actresses
         FROM
           derived_video v
           LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
@@ -112,6 +114,11 @@ mixin DBR18 {
           LEFT JOIN derived_series s ON s.id = v.series_id
           LEFT JOIN derived_label l ON l.id = v.label_id
           LEFT JOIN derived_site site ON site.id = v.site_id
+
+          LEFT JOIN derived_video_category dvc ON dvc.content_id = v.content_id
+          LEFT JOIN derived_category dc on dc.id = dvc.category_id
+          LEFT JOIN derived_video_actress dva ON dva.content_id = v.content_id
+          LEFT JOIN derived_actress da ON da.id = dva.actress_id
         WHERE
           v.dvd_id LIKE ? or v.title_en LIKE ?
         GROUP BY
@@ -123,8 +130,23 @@ mixin DBR18 {
     return maps;
   }
 
-  static Future<List<Map<String, dynamic>>> getAllActress() async {
-    final maps = await _db.rawQuery('''SELECT * FROM derived_actress WHERE name_romaji is NOT NULL''');
+  static Future<List<Map<String, dynamic>>> getAllActress({String? q}) async {
+    var queries = '' ;
+    if (q != null) queries = ' AND name_romaji LIKE "%$q%"';
+
+    final maps = await _db.rawQuery('''
+      SELECT *, name_romaji AS name_en FROM derived_actress 
+      WHERE 1=1
+        AND name_romaji is NOT NULL
+        AND name_romaji GLOB '[a-zA-Z]*'
+        AND name_romaji NOT GLOB '*[0-9]*'
+        AND name_romaji NOT GLOB '*[(-)]*'
+        AND name_romaji NOT GLOB '*[!@#\$%%^&*()_-+=~`{}|:;"<>?,./]*'
+        AND LENGTH(name_romaji) >= 3
+        $queries
+      GROUP BY name_romaji
+      ORDER BY name_romaji
+    ''');
     return maps;
   }
 
@@ -142,9 +164,33 @@ mixin DBR18 {
   }
 
 
-  static Future<List<Map<String, dynamic>>> getAllCategories() async {
+  static Future<List<Map<String, dynamic>>> getAllSeries({String? q}) async {
+    var queries = '' ;
+    if (q != null) queries = ' AND name_en LIKE "%$q%"';
+
     final maps = await _db.rawQuery('''
-        SELECT DISTINCT * FROM derived_category WHERE name_en is NOT NULL 
+      SELECT DISTINCT * FROM derived_series 
+      WHERE 1=1
+        AND name_en is NOT NULL
+        $queries
+      GROUP BY name_en
+      ORDER BY name_en
+    ''');
+    return maps;
+  }
+
+
+  static Future<List<Map<String, dynamic>>> getAllCategories({String? q}) async {
+    var queries = '' ;
+    if (q != null) queries = ' AND name_en LIKE "%$q%"';
+
+    final maps = await _db.rawQuery('''
+        SELECT DISTINCT * FROM derived_category 
+        WHERE 1=1 
+          AND name_en is NOT NULL
+          $queries
+        GROUP BY name_en
+        ORDER BY name_en
       ''');
 
     return maps;
@@ -183,39 +229,53 @@ mixin DBR18 {
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosByActress(int actressId) async {
     final maps = await _db.rawQuery('''
-      SELECT count(*) as total 
-      FROM derived_video_actress 
-      WHERE 1=1
-        AND actress_id = '$actressId'
-    ''');
+      SELECT
+        count(da.id) as total
+      FROM
+        derived_video v
+        JOIN derived_video_actress dva ON dva.content_id = v.content_id
+        JOIN derived_actress da ON da.id = dva.actress_id
+      WHERE
+        v.dvd_id IS NOT NULL
+        AND da.id = ?
+        AND EXISTS (
+          SELECT 1 FROM derived_video_actress dva2
+          WHERE dva2.content_id = v.content_id
+          GROUP BY dva2.content_id
+          HAVING COUNT(dva2.actress_id) = 1
+        );
+    ''', [actressId]);
     return maps[0]['total'] as int;
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosByActress(int actressId) async {
-    final q1 = await _db.query('derived_video_actress', columns: ['content_id'], where: 'actress_id = ?', whereArgs: [actressId]);
-    final listContentId = q1.map((row) => row['content_id'] as String).toList();
-
-    if (listContentId.isEmpty) return [];
-
-    final inClause = List.generate(listContentId.length, (index) => '?').join(', ');
-    final q2 = await _db.rawQuery('''
+    final maps = await _db.rawQuery('''
       SELECT
-          v.content_id as id,                 -- id
-          v.dvd_id as video_code,             -- video_code
-          v.release_date as release_date,     -- release_date
-          v.sample_url AS trailer,            -- trailer
-          v.jacket_full_url as fan_art,       -- fanart
-          v.jacket_thumb_url as poster        -- poster
+        da.id as actress_id,
+        v.content_id as id,
+        v.dvd_id as video_code,
+        v.release_date as release_date,
+        v.sample_url AS trailer,
+        v.jacket_full_url as fan_art,
+        v.jacket_thumb_url as poster
       FROM
-          derived_video v
-      WHERE 1=1
-        AND v.dvd_id IS NOT NULL
-        AND v.content_id IN ($inClause)
+        derived_video v
+      JOIN derived_video_actress dva ON dva.content_id = v.content_id
+      JOIN derived_actress da ON da.id = dva.actress_id
+      WHERE
+        v.dvd_id IS NOT NULL
+      AND da.id = ?
+      AND v.content_id IN (
+        SELECT content_id
+        FROM derived_video_actress
+        GROUP BY content_id
+        HAVING COUNT(actress_id) = 1
+      )
       ORDER BY
         v.release_date DESC
-      LIMIT 10000
-    ''', listContentId);
-    return q2;
+      LIMIT 10000;
+    ''', [actressId]);
+    return maps;
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -233,10 +293,12 @@ mixin DBR18 {
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosByCategory(String categoryName) async {
+    
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,
           v.dvd_id AS video_code, 
+          COALESCE(t.target_en, v.title_en) AS title,
           v.release_date AS release_date,
           v.sample_url AS trailer,
           v.jacket_full_url AS fan_art,
@@ -244,6 +306,7 @@ mixin DBR18 {
         FROM derived_video v
         JOIN derived_video_category vc ON vc.content_id = v.content_id
         JOIN derived_category c ON c.id = vc.category_id
+        LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
         WHERE 1=1
           AND c.name_en = ?
           AND v.dvd_id IS NOT NULL
@@ -273,13 +336,15 @@ mixin DBR18 {
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,
-          v.dvd_id AS video_code, 
+          v.dvd_id AS video_code,
+          COALESCE(t.target_en, v.title_en) AS title,
           v.release_date AS release_date,
           v.sample_url AS trailer,
           v.jacket_full_url AS fan_art,
           v.jacket_thumb_url AS poster
         FROM derived_video v
         JOIN derived_label l ON l.id = v.label_id
+        LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
         WHERE 1=1
           AND l.name_en = ?
           AND v.dvd_id IS NOT NULL
@@ -309,14 +374,16 @@ mixin DBR18 {
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,
-          v.dvd_id AS video_code, 
+          v.dvd_id AS video_code,
+          COALESCE(t.target_en, v.title_en) AS title,
           s.name_en AS series,
           v.release_date AS release_date, 
           v.sample_url AS trailer,
           v.jacket_full_url AS fan_art,
           v.jacket_thumb_url AS poster
         FROM derived_video v
-        JOIN derived_series s ON s.id = v.series_id
+        LEFT JOIN derived_series s ON s.id = v.series_id
+        LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
         WHERE 1=1
           AND s.name_en = ?
           AND v.dvd_id IS NOT NULL
@@ -348,13 +415,15 @@ mixin DBR18 {
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,
-          v.dvd_id AS video_code, 
+          v.dvd_id AS video_code,
+          COALESCE(t.target_en, v.title_en) AS title,
           v.release_date AS release_date,
           v.sample_url AS trailer, 
           v.jacket_full_url AS fan_art,
           v.jacket_thumb_url AS poster
         FROM derived_video v
         JOIN derived_maker m ON m.id = v.maker_id
+        LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
         WHERE 1=1
           AND m.name_en = ? OR m.name_ja = ?
           AND v.dvd_id IS NOT NULL
@@ -383,7 +452,8 @@ mixin DBR18 {
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,
-          v.dvd_id AS video_code, 
+          v.dvd_id AS video_code,
+          COALESCE(t.target_en, v.title_en) AS title,
           v.release_date AS release_date, 
           v.sample_url AS trailer,
           v.jacket_full_url AS fan_art,
@@ -391,6 +461,7 @@ mixin DBR18 {
         FROM derived_video v
         JOIN derived_video_director vd ON vd.content_id = v.content_id
         JOIN derived_director d ON d.id = vd.director_id
+        LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
         WHERE 1=1
           AND d.name_romaji = ? OR d.name_kana = ?
           AND v.dvd_id IS NOT NULL
@@ -419,12 +490,14 @@ mixin DBR18 {
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,
-          v.dvd_id AS video_code, 
+          v.dvd_id AS video_code,
+          COALESCE(t.target_en, v.title_en) AS title,
           v.release_date AS release_date, 
           v.sample_url AS trailer,
           v.jacket_full_url AS fan_art,
           v.jacket_thumb_url AS poster
         FROM derived_video v
+        LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
         WHERE 1=1
           AND v.release_date LIKE ?
           AND v.dvd_id IS NOT NULL
@@ -435,86 +508,4 @@ mixin DBR18 {
     return maps;
   }
 
-
-  // ────────────────────────────────────────────────────────────────
-  // ⵌ advanced search (26 aug 2025)
-  // ────────────────────────────────────────────────────────────────
-  static Future<List<Map<String, dynamic>>> advanceSearch({
-    required List<String> categories,
-    String? startYear,
-    String? endYear,
-    String? actressName,
-  }) async {
-    if (await _validation() == false) return [];
-
-    if (categories.isEmpty) {
-      return [];
-    }
-
-    final inClause = List.generate(categories.length, (index) => '?').join(', ');
-    final List<String> arguments = [...categories];
-
-    final whereClauses = <String>[];
-    if (startYear != null && endYear != null) {
-      whereClauses.add('v.release_date >= ? AND v.release_date <= ?');
-      arguments.add('$startYear-01-01');
-      arguments.add('$endYear-12-31');
-    }
-
-    if (actressName != null && actressName.isNotEmpty) {
-      whereClauses.add('da.image_url LIKE ?');
-      arguments.add('%$actressName%');
-    }
-
-    final whereQuery = whereClauses.isNotEmpty ? 'AND ${whereClauses.join(' AND ')}' : '';
-
-    final maps = await _db.rawQuery('''
-        SELECT
-          v.content_id as id,
-          v.dvd_id as video_code,
-          COALESCE(t.target_en, v.title_en) AS title,
-          v.title_ja,
-          s.name_en as series,
-          COALESCE(m.name_en, m.name_ja) AS studio,
-          l.name_en as label,
-          site.name as site,
-          v.runtime_mins as duration,
-          v.release_date as release_date,
-          v.sample_url as trailer,
-          v.jacket_full_url as fan_art,
-          v.jacket_thumb_url as poster,
-          v.gallery_full_first as ssfirst,
-          v.gallery_full_last as sslast,
-          GROUP_CONCAT(dc.name_en, ', ') AS categories,
-          GROUP_CONCAT(da.name_romaji, ', ') AS actresses
-        FROM derived_video v
-        JOIN (
-          SELECT dvc.content_id
-          FROM derived_video_category dvc
-          JOIN derived_category dc ON dvc.category_id = dc.id
-          WHERE dc.name_en IN ($inClause)
-          GROUP BY dvc.content_id
-          HAVING COUNT(dc.name_en) >= ${categories.length}
-        ) AS filtered_videos ON v.content_id = filtered_videos.content_id
-        LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
-        LEFT JOIN derived_maker m ON m.id = v.maker_id
-        LEFT JOIN derived_series s ON s.id = v.series_id
-        LEFT JOIN derived_label l ON l.id = v.label_id
-        LEFT JOIN derived_site site ON site.id = v.site_id
-        LEFT JOIN derived_video_category dvc ON dvc.content_id = v.content_id
-        LEFT JOIN derived_category dc on dc.id = dvc.category_id
-        LEFT JOIN derived_video_actress dva ON dva.content_id = v.content_id
-        LEFT JOIN derived_actress da ON da.id = dva.actress_id
-        WHERE 1=1
-            AND v.dvd_id IS NOT NULL
-            $whereQuery
-        GROUP BY
-            v.content_id
-      ''', arguments);
-
-      // print query
-      print(arguments);
-
-    return maps;
-  }
 }

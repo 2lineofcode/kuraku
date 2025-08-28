@@ -7,6 +7,7 @@ mixin AppColor {
 
   static Color get selected => Color(0xFF2B2043);
   static Color get unselected => Colors.transparent;
+
   static Color get border => Vx.neutral700.withAlpha(100);
   static Color get container => Vx.neutral900;
 }
