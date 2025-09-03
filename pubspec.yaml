@@ -23,11 +23,6 @@ dependencies:
   dio: ^5.9.0
   dio_cache_interceptor: ^4.0.3
   http_cache_sembast_store: ^1.0.0
-  # http_cache_isar_store: ^2.0.1
-  # http_cache_file_store: ^2.0.1
-  # http_cache_objectbox_store: ^2.0.0
-  # pretty_dio_logger: ^1.4.0
-  # dio_smart_retry: ^7.0.1
 
   # ** ui
   ex_kit: ^0.7.0
@@ -77,7 +72,6 @@ flutter:
   assets:
   - assets/r18_to_javit.py
   - assets/javit_dl
-  - assets/decensor.csv
 
 get_cli:
   sub_folder: false

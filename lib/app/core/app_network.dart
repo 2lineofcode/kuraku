@@ -67,15 +67,6 @@ mixin Api {
   static Future<Response> head(String url, {Map<String, dynamic>? data}) async {
     return await _dio.head(url, data: data);
   }
-
-  // static Future<Response> download(
-  //   String url,
-  //   String savePath, {
-  //   void Function(int, int)? onReceiveProgress,
-  //   Map<String, dynamic>? queryParameters,
-  // }) async {
-  //   return await _dio.download(url, savePath, onReceiveProgress: onReceiveProgress, queryParameters: queryParameters);
-  // }
 }
 
 class LogInterceptor extends Interceptor {

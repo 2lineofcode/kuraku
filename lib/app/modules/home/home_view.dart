@@ -43,7 +43,7 @@ class HomeView extends GetView<HomeController> {
           bodyContent: controller.obx(
             (_) => bodyContent().p8(),
             onLoading: ExUiLoading(
-              message: Obx(() => '${controller.loadingText}'.text.makeCentered()),
+              message: Obx(() => '${controller.loadingText}'.text.align(TextAlign.center).makeCentered()),
             ),
           ),
           footerContent: footerContent(),

@@ -245,7 +245,7 @@ mixin HomeLibrary {
         newVideo.videoPath = video;
         newVideo.category = dataCategory.map((e) => VideoCategory.fromJson(e)).toList();
         newVideo.actress = dataActress.map((e) => VideoActress.fromJson(e)).toList();
-        newVideo.durationFormated = HelperMisc.durationFormat1(newVideo.duration ?? 0);
+        newVideo.durationFormated = HelperMisc.durationFormatDB(newVideo.duration ?? 0);
         newVideo.releaseDateFormated = newVideo.releaseDate?.reformatDate(from: kYMd, to: kMdY);
         newVideo.director = dataDirector?['name_romaji'] ?? '';
         newVideo.fanArt = '${dataVideo['fan_art']}';

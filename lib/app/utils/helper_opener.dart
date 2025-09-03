@@ -92,7 +92,7 @@ mixin HelperOpener {
     video.actress = dataActress.map((e) => VideoActress.fromJson(e)).toList();
     video.director = dataDirector?['name_romaji'] ?? '';
     video.releaseDateFormated = video.releaseDate?.reformatDate(from: kYMd, to: kMdY);
-    video.durationFormated = HelperMisc.durationFormat1(video.duration ?? 0);
+    video.durationFormated = HelperMisc.durationFormatDB(video.duration ?? 0);
 
     HelperLoading.dismiss();
 
@@ -141,7 +141,7 @@ mixin HelperOpener {
                     '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
                       HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
                     }).pSymmetric(v: 8),
-                    '${video.title}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(6).ellipsis.makeCentered().onInkTap(() {
+                    '${HelperDecensor.decensor(video.title)}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(6).ellipsis.makeCentered().onInkTap(() {
                       HelperMisc.copyToClipboard(video.title ?? '', showToast: true);
                     }).tooltip(video.videoPath?.getFileName().noExt() ?? ''),
                     ExDivider().pSymmetric(v: 16),
@@ -225,6 +225,7 @@ mixin HelperOpener {
                                     .minFontSize(11)
                                     .make()
                                     .onInkTap(() async {
+                                      // ** on actress clicked
                                       try {
                                         final name = '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}';
                                         await Get.find<HomeController>().onMenuChange(kMenuExplore);
@@ -246,12 +247,18 @@ mixin HelperOpener {
                             'Category:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             Wrap(children: [
                               for (int i = 0; i < video.category!.length; i++) ...[
-                                FutureBuilder(
-                                  future: HelperMisc.decensor(video.category?[i].category ?? ''),
-                                  builder: (context, snapshot) {
-                                    return snapshot.hasData ? '${snapshot.data}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(right: 8) : 0.heightBox;
-                                  },
-                                ),
+                                '${HelperDecensor.decensor(video.category?[i].category)}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(right: 8).onInkTap(() async {
+                                  // ** on category clicked
+                                  try {
+                                    final name = '${HelperDecensor.decensor(video.category?[i].category)}';
+                                    await Get.find<HomeController>().onMenuChange(kMenuExplore);
+                                    final exploreC = Get.find<PageExploreController>();
+                                    await exploreC.onFilterByChange('Category');
+                                    exploreC.tecSearch.text = name;
+                                    exploreC.onOListSearch(name);
+                                    await exploreC.onOListTap(exploreC.oListFiltered[0]);
+                                  } catch (_) {}
+                                }),
                               ],
                             ]).pOnly(bottom: 16),
                           ],
@@ -259,12 +266,17 @@ mixin HelperOpener {
                           // series
                           if (!video.series.isEmptyOrNull) ...[
                             'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            FutureBuilder(
-                              future: HelperMisc.decensor(video.series ?? ''),
-                              builder: (context, snapshot) {
-                                return snapshot.hasData ? '${snapshot.data}'.text.underline.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16) : 0.heightBox;
-                              },
-                            ),
+                            '${HelperDecensor.decensor(video.series)}'.text.underline.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap((){
+                              // ** on series clicked
+                              try {
+                                final name = '${HelperDecensor.decensor(video.series)}';
+                                Get.find<HomeController>().onMenuChange(kMenuExplore);
+                                final exploreC = Get.find<PageExploreController>();
+                                exploreC.tecSearch.text = name;
+                                exploreC.onOListSearch(name);
+                                exploreC.onOListTap(exploreC.oListFiltered[0]);
+                              } catch (_) {}
+                            })
                           ],
 
                           // release date

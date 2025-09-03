@@ -253,7 +253,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
                 '${item.videoCode}'.text.bold.size(12).ellipsis.make().onInkTap((){
                   HelperMisc.copyToClipboard(item.videoCode, showToast: true);
                 }),
-                '${HelperMisc.decodeHtml(item.title ?? '')}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240).hide(isVisible: item.title != null && item.title != ''),
+                '${HelperDecensor.decensor(item.title ?? '')}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240).hide(isVisible: item.title != null && item.title != ''),
               ]).p8(),
             ).positioned(bottom: 0, left: 0, right: 0),
           ]),

@@ -34,9 +34,14 @@ class PageToolsController extends GetxController with StateMixin {
 
   // **
   final filterBy = ''.obs;
-  final listFilter = <Map<String, dynamic>>[].obs;
-  final listFilterScrollController = FlutterListViewController().obs;
-  final filterItemSelected = ''.obs;
+  final oList = <Map<String, dynamic>>[].obs;
+  final oListScrollController = FlutterListViewController().obs;
+  final oListSelected = ''.obs;
+
+  final oListHoveredIndex = (-1).obs;
+  final oListSelectedIndex = 0.obs;
+  final oListFocusNode = FocusNode();
+
   final tecFilterSearch = TextEditingController();
   final fnFilterSearch = FocusNode();
   final r18ListVideo = <Map<String, dynamic>>[].obs;
@@ -176,31 +181,34 @@ class PageToolsController extends GetxController with StateMixin {
   }
 
   // ** kAdvanceSearch Part ---
-  Future<void> filterByActress({String? q}) async => listFilter.value = await DBR18.getAllActress(q: q);
-  Future<void> filterBySeries({String? q}) async => listFilter.value = await DBR18.getAllSeries(q: q);
-  Future<void> filterByCategories({String? q}) async => listFilter.value = await DBR18.getAllCategories(q: q);
+  Future<void> filterByActress({String? q}) async => oList.value = await DBR18.getAllActress(q: q);
+  Future<void> filterBySeries({String? q}) async => oList.value = await DBR18.getAllSeries(q: q);
+  Future<void> filterByCategories({String? q}) async => oList.value = await DBR18.getAllCategories(q: q);
   Future<void> filterByYear({String? q}) async {
     final yearNow = DateTime.now().year;
     final sub30Year = yearNow - 40;
-    listFilter.value = [];
+    oList.value = [];
     for (var i = sub30Year; i <= yearNow; i++) {
-      listFilter.value.add({'id': i, 'name_en': i.toString()});
+      oList.value.add({'id': i, 'name_en': i.toString()});
     }
-    listFilter.value.sort((a, b) => b['id'].compareTo(a['id']));
+    oList.value.sort((a, b) => b['id'].compareTo(a['id']));
   }
 
-  Future<void> onFilterItemSelected(dynamic item) async {
+  Future<void> onOListTap(dynamic item, int index) async {
     change(0, status: RxStatus.loading());
 
-    filterItemSelected.value = item['name_en'];
+    oListSelectedIndex.value = index;
+    oListFocusNode.requestFocus();
+
+    oListSelected.value = item['name_en'];
     final _selectedId = item['id'];
     var videos = <Map<String, dynamic>>[];
 
     switch (filterBy.value) {
       case kActress: videos = await DBR18.getAllVideosByActress(_selectedId); break;
-      case kSeries: videos = await DBR18.getAllVideosBySeries(filterItemSelected.value); break;
-      case kCategory: videos = await DBR18.getAllVideosByCategory(filterItemSelected.value); break;
-      case kYear: videos = await DBR18.getAllVideosByYear(filterItemSelected.value); break;
+      case kSeries: videos = await DBR18.getAllVideosBySeries(oListSelected.value); break;
+      case kCategory: videos = await DBR18.getAllVideosByCategory(oListSelected.value); break;
+      case kYear: videos = await DBR18.getAllVideosByYear(oListSelected.value); break;
     }
 
     // filter
@@ -233,9 +241,32 @@ class PageToolsController extends GetxController with StateMixin {
     }
   }
 
+
+  void onOListMoveSelectionUp() {
+    try {
+      if (oListSelectedIndex.value > 0) {
+        oListSelectedIndex.value--;
+        final item = oList[oListSelectedIndex.value];
+        onOListTap(item, oListSelectedIndex.value);
+        oListFocusNode.requestFocus();
+      }
+    } catch (_) {}
+  }
+
+  void onOListMoveSelectionDown() {
+    try {
+      if (oListSelectedIndex.value < oList.length - 1) {
+        oListSelectedIndex.value++;
+        final item = oList[oListSelectedIndex.value];
+        onOListTap(item, oListSelectedIndex.value);
+        oListFocusNode.requestFocus();
+      }
+    } catch (_) {}
+  }
+
   Future<void> onResetFilter() async {
     filterBy.value = kSeries;
-    filterItemSelected.value = '';
+    oListSelected.value = '';
     tecFilterSearch.text = '';
     r18ListVideo.value = [];
   }

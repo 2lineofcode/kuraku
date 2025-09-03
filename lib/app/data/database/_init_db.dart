@@ -49,8 +49,7 @@ class DBService extends GetxService {
     files.sort((a, b) => b.path.compareTo(a.path));
 
     if (files.isEmpty) {
-      print('No SQL file found.');
-      exit(1);
+      return await _initializeDatabase();
     }
     
     final r18SqlFile = files.first.path;

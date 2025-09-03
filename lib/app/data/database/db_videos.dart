@@ -6,7 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/v4.dart';
 
 import '../../core/app_logging.dart';
-import '../../utils/helper_misc.dart';
+import '../../utils/helper.dart';
 import '../models/videos_entity.dart';
 import '_init_db.dart';
 
@@ -28,14 +28,14 @@ mixin DBVideos {
     // decensored fix `category`
     if (videos.category != null) {
       for (int i = 0; i < videos.category!.length; i++) {
-        final dec = await HelperMisc.decensor(videos.category![i].category ?? '');
+        final dec = HelperDecensor.decensor(videos.category![i].category);
         videos.category![i].category = dec;
       }
     }
 
     // decensored fix `series`
     if (videos.series.isNotEmptyAndNotNull) {
-      final dec = await HelperMisc.decensor(videos.series);
+      final dec = HelperDecensor.decensor(videos.series);
       videos.series = dec;
     }
 
@@ -93,7 +93,7 @@ mixin DBVideos {
       final maps = await _db.rawQuery('''
         SELECT * FROM $_tableName
         WHERE 1=1
-        AND $column LIKE '%$part$like%'
+          AND $column LIKE '%$part$like%'
       ''');
 
       return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
@@ -106,19 +106,15 @@ mixin DBVideos {
     try {
       final maps = await _db.rawQuery('''
         SELECT * FROM Videos
-        WHERE $column 
-        LIKE '$like%' AND $column NOT LIKE '$like/%/%';
+        WHERE 1=1
+          AND $column LIKE '$like%' 
+          AND $column NOT LIKE '$like/%/%';
       ''');
 
       return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
     } catch (e) {
       throw Exception('${e.toString()}');
     }
-  }
-
-  static Future<List<Videos>> getByID(String id) async {
-    final maps = await _db.query(_tableName, where: 'id = ?', whereArgs: [id]);
-    return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
   }
 
   static Future<Videos> getByCode(String code) async {
@@ -274,9 +270,13 @@ mixin DBVideos {
   // Studio ────────────────────────────────────────────────────────────────
   static Future<List<Map<String, dynamic>>> getAllStudioWithCount() async {
     final rawMaps = await _db.rawQuery('''
-      SELECT DISTINCT studio AS name, COUNT(studio) AS count
+      SELECT DISTINCT 
+        studio AS name, 
+        COUNT(studio) AS count
       FROM Videos
-      WHERE studio IS NOT NULL AND studio != ''
+      WHERE 1=1
+        AND studio IS NOT NULL 
+        AND studio != ''
       GROUP BY studio;
     ''');
 
@@ -288,9 +288,13 @@ mixin DBVideos {
   // Label ────────────────────────────────────────────────────────────────
   static Future<List<Map<String, dynamic>>> getAllLabelWithCount() async {
     final rawMaps = await _db.rawQuery('''
-      SELECT DISTINCT label AS name, COUNT(label) AS count
+      SELECT DISTINCT 
+        label AS name, 
+        COUNT(label) AS count
       FROM Videos
-      WHERE label IS NOT NULL AND label != ''
+      WHERE 1=1
+        AND label IS NOT NULL 
+        AND label != ''
       GROUP BY label;
     ''');
 
@@ -302,9 +306,13 @@ mixin DBVideos {
   // Series ────────────────────────────────────────────────────────────────
   static Future<List<Map<String, dynamic>>> getAllSeriesWithCount() async {
     final rawMaps = await _db.rawQuery('''
-      SELECT DISTINCT series AS name, COUNT(series) AS count
+      SELECT DISTINCT 
+        series AS name, 
+        COUNT(series) AS count
       FROM Videos
-      WHERE series IS NOT NULL AND series != ''
+      WHERE 1=1
+        AND series IS NOT NULL 
+        AND series != ''
       GROUP BY series;
     ''');
     final maps = List<Map<String, dynamic>>.from(rawMaps);
@@ -315,9 +323,13 @@ mixin DBVideos {
   // Director ────────────────────────────────────────────────────────────────
   static Future<List<Map<String, dynamic>>> getAllDirectorWithCount() async {
     final rawMaps = await _db.rawQuery('''
-      SELECT DISTINCT director AS name, COUNT(director) AS count
+      SELECT DISTINCT 
+        director AS name, 
+        COUNT(director) AS count
       FROM Videos
-      WHERE director IS NOT NULL AND director != ''
+      WHERE 1=1 
+        AND director IS NOT NULL 
+        AND director != ''
       GROUP BY director;
     ''');
 
@@ -357,8 +369,9 @@ mixin DBVideos {
         STRFTIME('%Y', release_date) AS name,
         COUNT(*) AS count
       FROM Videos
-      WHERE
-        release_date IS NOT NULL AND release_date != ''
+      WHERE 1=1
+        AND release_date IS NOT NULL 
+        AND release_date != ''
       GROUP BY
         STRFTIME('%Y', release_date)
       ORDER BY

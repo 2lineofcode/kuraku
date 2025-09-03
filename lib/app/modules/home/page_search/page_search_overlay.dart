@@ -14,12 +14,10 @@ import 'package:uicons_pro/uicons_pro.dart';
 import 'package:zoom_hover_pinch_image/zoom_hover_pinch_image.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/app_logging.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
-import '../../../utils/helper_loading.dart';
-import '../../../utils/helper_misc.dart';
-import '../../../utils/helper_opener.dart';
-import '../../../utils/helper_toast.dart';
+import '../../../utils/helper.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
 import '../page_explore/page_explore_controller.dart';
@@ -64,20 +62,50 @@ mixin PageSearchOverlay {
             },
             child: VStack(
               [
-                ExThumbnail(
-                  imageUrl: video.fanArt,
-                  videoPath: video.videoPath,
-                  width: 300,
-                  height: 200,
-                  fitMemory: BoxFit.fitHeight,
-                  fitUrl: BoxFit.contain,
-                ).color(AppColor.selected).onInkTap(() => _openScreenshot(video)),
+                ZStack([
+                  ExThumbnail(
+                    imageUrl: video.fanArt,
+                    videoPath: video.videoPath,
+                    width: 300,
+                    height: 200,
+                    fitMemory: BoxFit.fitHeight,
+                    fitUrl: BoxFit.contain,
+                  ).color(AppColor.selected).onInkTap(() => _openScreenshot(video)),
+
+                  // 
+                  FutureBuilder(
+                    future: _getMediaInfo(video.videoPath ?? ''),
+                    builder: (context, snapshot) {
+
+                      if (snapshot.hasData && snapshot.data != null && snapshot.data!.length > 2) {
+                        _mediaInfo.value = snapshot.data!;
+                      }
+
+                      var output = '';
+                      switch (snapshot.data?[1]) {
+                        case '1080p': output = 'FHD'; break;
+                        case '720p': output = 'HD'; break;
+                        case '480p': output = 'SD'; break;
+                        default: output = 'Potrait';
+                      }
+
+                      return _mediaInfo.value.isNotEmpty
+                          ? Container(
+                              decoration: ExDecorator.box(borderRadius: 0, borderColor: Colors.transparent, fillColor: Vx.black.withAlpha(150)),
+                              child: '$output'.text.size(12).make().p4(),
+                            )
+                          : 0.heightBox;
+                    },
+                  ).positioned(right: 0),
+
+                  //
+                ]),
                 VStack(
                   [
                     '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
                       HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
                     }).pSymmetric(v: 8),
-                    '${video.title}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(3).ellipsis.makeCentered().onInkTap(
+                    '${HelperDecensor.decensor(video.title)}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(3).ellipsis.makeCentered().onInkTap(
                       () {
                         HelperMisc.copyToClipboard(video.title ?? '', showToast: true);
                       },
@@ -185,16 +213,10 @@ mixin PageSearchOverlay {
                             'Category:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             Wrap(children: [
                               for (int i = 0; i < video.category!.length; i++) ...[
-                                FutureBuilder(
-                                  future: HelperMisc.decensor(video.category?[i].category ?? ''),
-                                  builder: (context, snapshot) {
-                                    return snapshot.hasData
-                                        ? '${snapshot.data}'.text.neutral300.underline.size(11).minFontSize(11).make().onInkTap(() async {
-                                            await _onItemCategoryClick(video, i);
-                                          }).pOnly(right: 8)
-                                        : 0.heightBox;
-                                  },
-                                ),
+                                '${HelperDecensor.decensor(video.category?[i].category)}'.text.neutral300.underline.size(11).minFontSize(11).make().onInkTap(() async {
+                                  await _onItemCategoryClick(video, i);
+                                }).pOnly(right: 8)
+
                               ],
                             ]).pOnly(bottom: 16),
                           ],
@@ -202,16 +224,9 @@ mixin PageSearchOverlay {
                           // series
                           if (!video.series.isEmptyOrNull) ...[
                             'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            FutureBuilder(
-                              future: HelperMisc.decensor(video.series ?? ''),
-                              builder: (context, snapshot) {
-                                return snapshot.hasData
-                                    ? '${snapshot.data}'.text.underline.neutral300.size(11).minFontSize(11).make().onInkTap(() async {
-                                        await _onItemSeriesClick(video);
-                                      }).pOnly(bottom: 16)
-                                    : 0.heightBox;
-                              },
-                            ),
+                            '${HelperDecensor.decensor(video.series)}'.text.underline.neutral300.size(11).minFontSize(11).make().onInkTap(() async {
+                              await _onItemSeriesClick(video);
+                            }).pOnly(bottom: 16)
                           ],
 
                           // release date
@@ -244,31 +259,34 @@ mixin PageSearchOverlay {
                             '${video.director}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
 
-                          // ~
-                          GetBuilder(
-                            init: _controller,
-                            builder: (_) => _mediaInfo.isNotEmpty
-                                ? VStack([
-                                    // resolution
-                                    'Res:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                                    '${_mediaInfo[0]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
 
-                                    // filesize
-                                    'File Size:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                                    '${_mediaInfo[2]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
 
-                                    // duration (non jav)
-                                    if (video.duration == 0) ...[
-                                      'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                                      '${_mediaInfo[3]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-                                    ],   
-                                  ])
-                                : VStack([
-                                    'Get More Info'.text.blue300.size(12).underline.make().onInkTap(() async {
-                                      _mediaInfo.value = await _getMediaInfo(video.videoPath ?? '');
-                                      if (_mediaInfo.length > 2) _controller.update();
-                                    }).pOnly(bottom: 16),
-                                  ]),
+                          // ~~~
+                          FutureBuilder(
+                            future: _getMediaInfo(video.videoPath ?? ''),
+                            builder: (context, snapshot) {
+                              if (snapshot.hasData && snapshot.data != null && snapshot.data!.length > 2) {
+                                _mediaInfo.value = snapshot.data!;
+                              }
+
+                              return _mediaInfo.value.isNotEmpty
+                                  ? VStack([
+                                      // resolution
+                                      'Res:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                                      '${_mediaInfo[0]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+
+                                      // filesize
+                                      'File Size:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                                      '${_mediaInfo[2]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+
+                                      // duration (non jav)
+                                      if (video.duration == 0) ...[
+                                        'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                                        '${_mediaInfo[3]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                                      ],  
+                                    ])
+                                  : 0.heightBox;
+                            },
                           ),
 
                           // Path
@@ -530,18 +548,15 @@ mixin PageSearchOverlay {
 
   static Future<List<String>> _getMediaInfo(String path) async {
     final output = <String>[];
-    HelperLoading.show();
     await FFprobeKit.getMediaInformation(path).then((value) async {
-      HelperLoading.dismiss();
       final medinfo = value.getMediaInformation();
       final stream = value.getMediaInformation()?.getStreams().first;
       output.add('${stream?.getWidth()}x${stream?.getHeight()}'); // -- [0] width x height
       output.add('${stream?.getHeight()}p'); // -- [1] resolution
       output.add('${int.parse(medinfo!.getSize()!).toFileSize()}'); // -- [2] file size
-      output.add('${HelperMisc.durationFormat2(num.parse(medinfo.getFormatProperties()!['duration'].toString()))}'); // -- [3] duration
+      output.add('${HelperMisc.durationFormatFFmpeg(num.parse(medinfo.getFormatProperties()!['duration'].toString()))}'); // -- [3] duration
     }).catchError((e) {
-      HelperLoading.dismiss();
-      HelperToast.error('Could not get media info, please check file path, $path');
+      AppLog.logE(e);
     });
 
     return output;

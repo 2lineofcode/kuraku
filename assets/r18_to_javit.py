@@ -1,3 +1,4 @@
+import argparse
 import glob
 import os
 import sqlite3
@@ -276,13 +277,34 @@ def convert_sql_to_sqlite_fast(sql_file_path, sqlite_db_path):
             print("🔌 Koneksi SQLite ditutup.")
 
 if __name__ == "__main__":
-    files = glob.glob("r18*.sql")
+    parser = argparse.ArgumentParser(description="PSQL to SQLite converter")
+    parser.add_argument(
+        "-d", "--dir",
+        default=".",
+        help="Working directory (default: current directory)"
+    )
+    args = parser.parse_args()
+
+    workdir = args.dir
+
+    files = glob.glob(os.path.join(workdir, "r18*.sql"))
 
     if len(files) == 0:
-        print("No SQL file found.")
+        print(f"No SQL file found in {workdir}")
         exit(1)
 
     input_sql_file = files[0]
     now = datetime.datetime.now().strftime("%Y_%m_%d")
-    output_sqlite_db = f'r18_{now}.db'
+    
+    match = re.search(r'\d{4}-\d{2}-\d{2}', input_sql_file)
+    if match:
+        version = match.group(0).replace('-', '_')
+    else:
+        version = now
+
+    output_sqlite_db = os.path.join(workdir, f"r18_{version}.db")
+
+    print(f"Input SQL: {input_sql_file}")
+    print(f"Output DB: {output_sqlite_db}")
+
     convert_sql_to_sqlite_fast(input_sql_file, output_sqlite_db)

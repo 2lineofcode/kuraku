@@ -35,8 +35,16 @@ class PageHomeView extends GetView<PageHomeController> {
         VStack(
           [
             HStack([
-              Icon(UIconsPro.solidRounded.flame, size: 12, color: Colors.amber).pOnly(right: 8),
-              'New Release'.text.size(12).make(),
+              Container(
+                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 90, fillColor: AppColor.container),
+                child: HStack([
+                  Icon(UIconsPro.solidRounded.flame, size: 12, color: Colors.amber).pOnly(right: 8),
+                  'New Release'.text.size(12).make(),
+                ]).pSymmetric(h: 12, v: 4).onInkTap(() {
+                  AppPref.setHomeSecNewRelease(!AppPref.getHomeSecNewRelease());
+                  controller.update();
+                }),
+              ),
               Spacer(),
               GetBuilder(
                 init: controller,
@@ -81,7 +89,7 @@ class PageHomeView extends GetView<PageHomeController> {
                             final video = controller.listNewRelease[index];
                             return buildLayoutFanArt(video);
                           },
-                        ).wh(double.infinity, 150).hide(isVisible: AppPref.getHomeSecNewRelease()),
+                        ).wh(double.infinity, 170).hide(isVisible: AppPref.getHomeSecNewRelease()),
                 );
               },
             ),
@@ -92,8 +100,16 @@ class PageHomeView extends GetView<PageHomeController> {
         VStack(
           [
             HStack([
-              Icon(UIconsPro.solidRounded.shuffle, size: 12, color: Vx.blue300).pOnly(right: 8),
-              'Random Video'.text.size(12).make(),
+              Container(
+                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 90, fillColor: AppColor.container),
+                child: HStack([
+                  Icon(UIconsPro.solidRounded.shuffle, size: 12, color: Vx.blue300).pOnly(right: 8),
+                  'Random Video'.text.size(12).make(),
+                ]).pSymmetric(h: 12, v: 4).onInkTap(() {
+                  AppPref.setHomeSecRandom(!AppPref.getHomeSecRandom());
+                  controller.update();
+                }),
+              ),
               Spacer(),
               GetBuilder(
                 init: controller,
@@ -151,8 +167,16 @@ class PageHomeView extends GetView<PageHomeController> {
         VStack(
           [
             HStack([
-              Icon(UIconsPro.solidRounded.cursor_finger, size: 12, color: Vx.pink300).pOnly(right: 8),
-              'Most Watch'.text.size(12).make(),
+              Container(
+                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 90, fillColor: AppColor.container),
+                child: HStack([
+                  Icon(UIconsPro.solidRounded.cursor_finger, size: 12, color: Vx.pink300).pOnly(right: 8),
+                  'Most Watch'.text.size(12).make(),
+                ]).pSymmetric(h: 12, v: 4).onInkTap(() {
+                  AppPref.setHomeSecMostWatch(!AppPref.getHomeSecMostWatch());
+                  controller.update();
+                }),
+              ),
               Spacer(),
               GetBuilder(
                 init: controller,
@@ -208,8 +232,16 @@ class PageHomeView extends GetView<PageHomeController> {
         VStack(
           [
             HStack([
-              Icon(UIconsPro.solidRounded.square_heart, size: 12, color: Vx.red400).pOnly(right: 8),
-              'Favorite videos'.text.size(12).make(),
+              Container(
+                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 90, fillColor: AppColor.container),
+                child: HStack([
+                  Icon(UIconsPro.solidRounded.square_heart, size: 12, color: Vx.red400).pOnly(right: 8),
+                  'Favorite videos'.text.size(12).make(),
+                ]).pSymmetric(h: 12, v: 4).onInkTap(() {
+                  AppPref.setHomeSecFavorite(!AppPref.getHomeSecFavorite());
+                  controller.update();
+                }),
+              ),
               Spacer(),
               GetBuilder(
                 init: controller,
@@ -266,8 +298,16 @@ class PageHomeView extends GetView<PageHomeController> {
         VStack(
           [
             HStack([
-              Icon(UIconsPro.solidRounded.add_document, size: 12, color: Vx.cyan400).pOnly(right: 8),
-              'Recently Added'.text.size(12).make(),
+              Container(
+                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 90, fillColor: AppColor.container),
+                child: HStack([
+                  Icon(UIconsPro.solidRounded.add_document, size: 12, color: Vx.cyan400).pOnly(right: 8),
+                  'Recently Added'.text.size(12).make(),
+                ]).pSymmetric(h: 12, v: 4).onInkTap(() {
+                  AppPref.setHomeSecNewAdd(!AppPref.getHomeSecNewAdd());
+                  controller.update();
+                }),
+              ),
               Spacer(),
               GetBuilder(
                 init: controller,
@@ -323,8 +363,16 @@ class PageHomeView extends GetView<PageHomeController> {
         VStack(
           [
             HStack([
-              Icon(UIconsPro.solidRounded.popcorn, size: 12, color: Vx.green400).pOnly(right: 8),
-              'Never Watch'.text.size(12).make(),
+              Container(
+                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 90, fillColor: AppColor.container),
+                child: HStack([
+                  Icon(UIconsPro.solidRounded.popcorn, size: 12, color: Vx.green400).pOnly(right: 8),
+                  'Never Watch'.text.size(12).make(),
+                ]).pSymmetric(h: 12, v: 4).onInkTap(() {
+                  AppPref.setHomeSecNeverWatch(!AppPref.getHomeSecNeverWatch());
+                  controller.update();
+                }),
+              ),
               Spacer(),
               GetBuilder(
                 init: controller,
@@ -380,8 +428,16 @@ class PageHomeView extends GetView<PageHomeController> {
         VStack(
           [
             HStack([
-              Icon(UIconsPro.solidRounded.olive_branch_dove, size: 12, color: Vx.lime300).pOnly(right: 8),
-              'Oldest'.text.size(12).make(),
+              Container(
+                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 90, fillColor: AppColor.container),
+                child: HStack([
+                  Icon(UIconsPro.solidRounded.olive_branch_dove, size: 12, color: Vx.lime300).pOnly(right: 8),
+                  'Oldest'.text.size(12).make(),
+                ]).pSymmetric(h: 12, v: 4).onInkTap(() {
+                  AppPref.setHomeSecOldest(!AppPref.getHomeSecOldest());
+                  controller.update();
+                }),
+              ),
               Spacer(),
               GetBuilder(
                 init: controller,
@@ -481,15 +537,15 @@ class PageHomeView extends GetView<PageHomeController> {
         ExThumbnail(
           imageUrl: video.fanArt,
           videoPath: video.videoPath,
-          width: 200,
-          height: 150,
+          width: 250,
+          height: 170,
           fitUrl: BoxFit.cover,
           fitMemory: BoxFit.fitWidth,
         ),
         Container(
           color: Vx.black.withAlpha(150),
           height: 20,
-          width: 200,
+          width: 250,
           child: '${video.videoCode == '' ? video.title?.maxChars(10) : video.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
         ).positioned(bottom: 0),
       ]),

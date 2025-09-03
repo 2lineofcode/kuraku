@@ -3,7 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
 import '../../env.g.dart';
-import '../core/app_logging.dart';
 import 'helper_toast.dart';
 
 mixin HelperMisc {
@@ -43,7 +42,7 @@ mixin HelperMisc {
     return hasValidFormat && !hasBlacklistedPrefix && !hasBlacklistedSuffix;
   }
 
-  static String durationFormat1(num durationInMinutes) {
+  static String durationFormatDB(num durationInMinutes) {
     if (durationInMinutes < 0) {
       return 'Invalid duration';
     }
@@ -62,8 +61,7 @@ mixin HelperMisc {
     }
   }
 
-  // ** for ffmpeg perpose
-  static String durationFormat2(num totalSeconds) {
+  static String durationFormatFFmpeg(num totalSeconds) {
     if (totalSeconds.isNaN || totalSeconds.isInfinite) {
       return 'Invalid Duration';
     }
@@ -109,30 +107,6 @@ mixin HelperMisc {
       toastMessage ??= '[$text] Copied to clipboard';
       HelperToast.info(toastMessage, duration: toastDuration ?? 2.seconds, alignment: alignment);
     }
-  }
-
-  static Future<String?> decensor(String? s) async {
-    if (s == null) return null;
-    String resultString = s;
-
-    try {
-      String fileContent = await rootBundle.loadString('assets/decensor.csv');
-      List<String> lines = fileContent.split('\n');
-
-      for (String line in lines) {
-        String trimmedLine = line.trim();
-        if (trimmedLine.isEmpty) continue;
-
-        List<String> rowDecensor = trimmedLine.split(',');
-        if (rowDecensor.length == 2) {
-          resultString = resultString.replaceAll(rowDecensor[0], rowDecensor[1]);
-        }
-      }
-    } catch (e) {
-      AppLog.logE('Error reading decensor.csv from assets: $e');
-    }
-
-    return resultString;
   }
 
   static String formatActressName(String name) {

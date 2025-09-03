@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
+import '../../../utils/helper_decensor.dart';
 import '../../widgets/widget_thumbnail.dart';
 import 'page_search_controller.dart';
 import 'page_search_overlay.dart';
@@ -81,7 +82,7 @@ class PageSearchView extends GetView<PageSearchController> {
               ).pOnly(right: 12),
               VStack([
                 '${video.videoCode == '' ? video.title?.maxWords(5) : video.videoCode}'.text.bold.ellipsis.make().pSymmetric(v: 8),
-                '${video.title}'.text.xs.maxLines(3).ellipsis.make(),
+                '${HelperDecensor.decensor(video.title)}'.text.xs.maxLines(3).ellipsis.make(),
                 Spacer(),
                 HStack([
                   if (video.releaseDate != '') ...[

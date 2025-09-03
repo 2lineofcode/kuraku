@@ -14,7 +14,7 @@ import '../../core/app_color.dart';
 import '../../core/app_setting.dart';
 import '../../utils/helper_misc.dart';
 
-class ExThumbnailC extends GetxController {
+class _ExThumbnailC extends GetxController {
   final Map<String, Uint8List> _thumbnailCache = {};
 
   Future<String> _getThumbnailDirectory() async {
@@ -76,7 +76,7 @@ class ExThumbnailC extends GetxController {
   }
 }
 
-class ExThumbnail extends GetView<ExThumbnailC> {
+class ExThumbnail extends GetView<_ExThumbnailC> {
   
   final String? imageUrl;
   final String? videoPath;
@@ -107,7 +107,7 @@ class ExThumbnail extends GetView<ExThumbnailC> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(ExThumbnailC());
+    final controller = Get.put(_ExThumbnailC());
 
     if (imageUrl == null || imageUrl == '') {
       return FutureBuilder<Uint8List?>(

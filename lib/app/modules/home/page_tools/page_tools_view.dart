@@ -1,6 +1,9 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_list_view/flutter_list_view.dart';
 import 'package:flutter_popup/flutter_popup.dart';
 import 'package:get/get.dart';
@@ -246,7 +249,7 @@ class PageToolsView extends GetView<PageToolsController> {
           child: VStack(
             [
               HStack([
-                'Filter by: (${controller.listFilter.length})'.text.size(11).minFontSize(11).make(),
+                'Filter by: (${controller.oList.length})'.text.size(11).minFontSize(11).make(),
                 Spacer(),
                 Obx(
                   () => CustomPopup(
@@ -286,39 +289,65 @@ class PageToolsView extends GetView<PageToolsController> {
               CupertinoTextField(
                 controller: controller.tecFilterSearch,
                 focusNode: controller.fnFilterSearch,
-                placeholder: 'Search (${controller.listFilter.length})...',
+                placeholder: 'Search (${controller.oList.length})...',
                 style: TextStyle(color: Vx.white, fontSize: 12),
                 clearButtonMode: OverlayVisibilityMode.editing,
                 prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
                 onSubmitted: (s) {
+                  final prefix = HelperDecensor.censored(s.toTitleCase);
                   switch (controller.filterBy.value) {
                     case kActress: controller.filterByActress(q: s); break;
                     case kSeries: controller.filterBySeries(q: s); break;
-                    case kCategory: controller.filterByCategories(q: s); break;
+                    case kCategory: controller.filterByCategories(q: prefix); break;
                     case kYear: controller.filterByYear(q: s); break;
                   }
                   controller.fnFilterSearch.requestFocus();
-                  controller.listFilterScrollController.value.animToTop();
+                  controller.oListScrollController.value.animToTop();
                 },
               ).pSymmetric(v: 16),
-              FlutterListView(
-                controller: controller.listFilterScrollController.value,
-                delegate: FlutterListViewDelegate(
-                  (context, index) {
-                    final item = controller.listFilter[index];
-                    return VStack(
-                      [
-                        Obx(
-                          () => InkWell(
-                            onTap: () async => await controller.onFilterItemSelected(item),
-                            child: '${item['name_en']}'.text.size(11).minFontSize(11).make().w(double.infinity).p4(),
-                          ).color(item['name_en'] == controller.filterItemSelected.value ? AppColor.selected : Colors.transparent).cornerRadius(2),
-                        ),
-                        Divider(color: AppColor.border, thickness: 0.5),
-                      ],
-                    );
+              FocusScope(
+                autofocus: true,
+                child: RawKeyboardListener(
+                  focusNode: controller.oListFocusNode,
+                  autofocus: true,
+                  onKey: (event) {
+                    if (event is RawKeyDownEvent) {
+                      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                        controller.onOListMoveSelectionDown();
+                      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                        controller.onOListMoveSelectionUp();
+                      }
+                    }
                   },
-                  childCount: controller.listFilter.length,
+                  child: FlutterListView(
+                    controller: controller.oListScrollController.value,
+                    delegate: FlutterListViewDelegate(
+                      (context, index) {
+                        final item = controller.oList[index];
+                        return VStack(
+                          [
+                            Obx(
+                              () {
+                                final isSelected = item['name_en'] == controller.oListSelected.value;
+                                final isHovered = index == controller.oListHoveredIndex.value;
+                                return MouseRegion(
+                                  onEnter: (_) => controller.oListHoveredIndex.value = index,
+                                  onExit: (_) => controller.oListHoveredIndex.value = -1,
+                                  child: InkWell(
+                                    onTap: () async => await controller.onOListTap(item, index),
+                                    child: '${HelperDecensor.decensor(item['name_en'])}'.text.size(11).minFontSize(11).make().w(double.infinity).p4(),
+                                  ).color(isSelected ? AppColor.selected : isHovered ? AppColor.border : Colors.transparent)
+                                      .cornerRadius(8),
+                                );
+                              },
+                            ),
+                            Divider(color: AppColor.border, thickness: 0.5),
+                          ],
+                        );
+                      },
+                      childCount: controller.oList.length,
+                    ),
+                  ),
                 ),
               ).expand(),
             ],
@@ -331,7 +360,10 @@ class PageToolsView extends GetView<PageToolsController> {
           child: controller.obx(
             (state) => VStack(
               [
-                'Result (${controller.r18ListVideo.length})'.text.minFontSize(11).size(11).make().pOnly(bottom: 12),
+                HStack([
+                  '🏷️ ${controller.oListSelected}'.text.minFontSize(11).size(11).maxLines(2).ellipsis.make().expand(),
+                  'Result (${controller.r18ListVideo.length})'.text.minFontSize(11).size(11).make().pOnly(left: 16),
+                ]).pOnly(bottom: 12),
                 vListR18().expand(),
               ],
             ).p12(),
@@ -341,7 +373,7 @@ class PageToolsView extends GetView<PageToolsController> {
             onEmpty: ExUiErrorOrEmpty(
               illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
               title: 'No Data Found',
-              message: 'No Result Found, as you searched for "${controller.filterItemSelected}"',
+              message: 'No Result Found, as you searched for "${controller.oListSelected}"',
             ),
           ),
         ).expand(),
@@ -406,7 +438,7 @@ class PageToolsView extends GetView<PageToolsController> {
                 '${item['video_code']}'.text.bold.size(12).ellipsis.make().onInkTap((){
                   HelperMisc.copyToClipboard(item['video_code'], showToast: true);
                 }),
-                '${HelperMisc.decodeHtml(item['title'] ?? '')}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240).hide(isVisible: item['title'] != null && item['title'] != ''),
+                '${HelperDecensor.decensor(item['title'])}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240).hide(isVisible: item['title'] != null && item['title'] != ''),
               ]).p8(),
             ).positioned(bottom: 0, left: 0, right: 0),
 

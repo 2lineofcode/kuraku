@@ -7,7 +7,7 @@ import '../../../core/app_logging.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
-import '../../../utils/helper_misc.dart';
+import '../../../utils/helper.dart';
 import '../page_search/page_search_overlay.dart';
 
 class PageExploreController extends GetxController {
@@ -28,10 +28,16 @@ class PageExploreController extends GetxController {
   final fnSearch = FocusNode();
   final phSearchText = 'Search...'.obs;
 
+  // olist
   final oList = <OListModel>[].obs;
   final oListFiltered = <OListModel>[].obs;
   final oListSelected = OListModel().obs;
 
+  final oListHoveredIndex = (-1).obs;
+  final oListSelectedIndex = 0.obs;
+  final oListFocusNode = FocusNode();
+
+  // vlist
   final vList = <Videos>[].obs;
   final vListViewMode = kLocal.obs;
 
@@ -60,9 +66,32 @@ class PageExploreController extends GetxController {
     }
   }
 
+  void onOListMoveSelectionUp() {
+    if (oListSelectedIndex.value > 0) {
+      oListSelectedIndex.value--;
+      oListSelected.value = oListFiltered[oListSelectedIndex.value];
+
+      oListFocusNode.requestFocus();
+      onOListTap(oListSelected.value);
+    }
+  }
+
+  void onOListMoveSelectionDown() {
+    if (oListSelectedIndex.value < oListFiltered.length - 1) {
+      oListSelectedIndex.value++;
+      oListSelected.value = oListFiltered[oListSelectedIndex.value];
+
+      oListFocusNode.requestFocus();
+      onOListTap(oListSelected.value);
+    }
+  }
+
   Future<void> onOListTap(OListModel item) async {
     oListSelected.value = item;
     vListViewMode.value = kLocal;
+
+    oListSelectedIndex.value = oListFiltered.indexOf(item);
+    oListFocusNode.requestFocus();
     switch (filterTypeSelected.value) {
       case kActress:
         vList.value = await DBVideos.getAllLike('actress', item.id.toString());
@@ -70,7 +99,7 @@ class PageExploreController extends GetxController {
         break;
       case kCategory:
         vList.value = await DBVideos.getAllLike('category', item.name!, jsonObject: 'category');
-        r18TotalVideo.value = await DBR18.getCountAllVideosByCategory(item.name!);
+        r18TotalVideo.value = await DBR18.getCountAllVideosByCategory(HelperDecensor.censored(item.name));
         break;
       case kPath:
         vList.value = await DBVideos.getAllVideoPath('video_path', item.name!);
@@ -82,7 +111,7 @@ class PageExploreController extends GetxController {
         break;
       case kSeries:
         vList.value = await DBVideos.getAll(where: 'series = ?', whereArgs: [item.name]);
-        r18TotalVideo.value = await DBR18.getCountAllVideosBySeries(item.name!.trim());
+        r18TotalVideo.value = await DBR18.getCountAllVideosBySeries(HelperDecensor.censored(item.name!.trim()));
         break;
       case kStudio:
         vList.value = await DBVideos.getAll(where: 'studio = ?', whereArgs: [item.name]);
@@ -126,10 +155,10 @@ class PageExploreController extends GetxController {
     vListViewMode.value = kR18;
     switch (filterTypeSelected.value) {
       case kActress: r18ListVideo.value = await DBR18.getAllVideosByActress(oListSelected.value.id ?? 0); break;
-      case kCategory: r18ListVideo.value = await DBR18.getAllVideosByCategory(oListSelected.value.name ?? ''); break;
+      case kCategory: r18ListVideo.value = await DBR18.getAllVideosByCategory(HelperDecensor.censored(oListSelected.value.name)); break;
       case kPath: break;
       case kLabel: r18ListVideo.value = await DBR18.getAllVideosByLabel(oListSelected.value.name ?? ''); break;
-      case kSeries: r18ListVideo.value = await DBR18.getAllVideosBySeries(oListSelected.value.name ?? ''); break;
+      case kSeries: r18ListVideo.value = await DBR18.getAllVideosBySeries(HelperDecensor.censored(oListSelected.value.name)); break;
       case kStudio: r18ListVideo.value = await DBR18.getAllVideosByStudio(oListSelected.value.name ?? ''); break;
       case kDirector: r18ListVideo.value = await DBR18.getAllVideosByDirector(oListSelected.value.name ?? ''); break;
       case kYear: r18ListVideo.value = await DBR18.getAllVideosByYear(oListSelected.value.name ?? ''); break;

@@ -1,6 +1,9 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
@@ -8,8 +11,7 @@ import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
-import '../../../utils/helper_misc.dart';
-import '../../../utils/helper_opener.dart';
+import '../../../utils/helper.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
 import 'page_explore_controller.dart';
@@ -62,50 +64,75 @@ class PageExploreView extends GetView<PageExploreController> {
                   Obx(
                     () => controller.oListFiltered.isEmpty
                         ? uiNoData().expand()
-                        : ListView.separated(
-                            itemCount: controller.oListFiltered.length,
-                            separatorBuilder: (context, index) => Divider(color: AppColor.border),
-                            itemBuilder: (context, index) {
-                              final item = controller.oListFiltered[index];
-                              return Obx(
-                                () => InkWell(
-                                  onTap: () => controller.onOListTap(item),
-                                  child: HStack([
-                                    // image
-                                    if (controller.filterTypeSelected.value == kActress) ...[
-                                      item.imgUrl?.trim() != ''
-                                          ? ExThumbnail(
-                                              imageUrl: '${Env.actressUrl}/${item.imgUrl}',
-                                              width: 48,
-                                              height: 48,
-                                              fitUrl: BoxFit.cover,
-                                              withProxy: false,
-                                            ).cornerRadius(90)
-                                          : ExAvatarView(
-                                              source: '',
-                                              height: 48,
-                                              width: 48,
-                                              name: item.name,
-                                            ),
-                                    ],
-
-                                    // path only
-                                    if (controller.filterTypeSelected.value == kPath) ...[
-                                      if (item.name!.contains('/Volumes')) ...[
-                                        'External → ${item.name!.getLastSegments(segment: 1)} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
-                                      ] else ...[
-                                        'Local → ${item.name!.getLastPath()} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
-                                      ],
-                                    ]
-                                    // other ~
-                                    else ...[
-                                      '${item.name} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand()
-                                    ],
-                                  ]).color(item == controller.oListSelected.value ? AppColor.selected : Colors.transparent).cornerRadius(8),
-                                ),
-                              );
+                        : FocusScope(
+                          autofocus: true,
+                          child: RawKeyboardListener(
+                            focusNode: controller.oListFocusNode,
+                            autofocus: true,
+                            onKey: (event) {
+                              if (event is RawKeyDownEvent) {
+                                  if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                                    controller.onOListMoveSelectionDown();
+                                  } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                                    controller.onOListMoveSelectionUp();
+                                  }
+                                }
                             },
-                          ).pOnly(left: 8, top: 8).expand(),
+                            child: ListView.separated(
+                                itemCount: controller.oListFiltered.length,
+                                separatorBuilder: (context, index) => Divider(color: AppColor.border),
+                                itemBuilder: (context, index) {
+                                  final item = controller.oListFiltered[index];
+                                  return Obx(
+                                    () {
+                                      final isSelected = item == controller.oListSelected.value;
+                                      final isHovered = index == controller.oListHoveredIndex.value;
+                                              
+                                      return MouseRegion(
+                                        onEnter: (_) => controller.oListHoveredIndex.value = index,
+                                        onExit: (_) => controller.oListHoveredIndex.value = -1,
+                                        child: InkWell(
+                                          onTap: () => controller.onOListTap(item),
+                                          child: HStack([
+                                            // image
+                                            if (controller.filterTypeSelected.value == kActress) ...[
+                                              item.imgUrl?.trim() != ''
+                                                  ? ExThumbnail(
+                                                      imageUrl: '${Env.actressUrl}/${item.imgUrl}',
+                                                      width: 48,
+                                                      height: 48,
+                                                      fitUrl: BoxFit.cover,
+                                                      withProxy: false,
+                                                    ).cornerRadius(90)
+                                                  : ExAvatarView(
+                                                      source: '',
+                                                      height: 48,
+                                                      width: 48,
+                                                      name: item.name,
+                                                    ),
+                                            ],
+                                              
+                                            // path only
+                                            if (controller.filterTypeSelected.value == kPath) ...[
+                                              if (item.name!.contains('/Volumes')) ...[
+                                                'External → ${item.name!.getLastSegments(segment: 1)} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
+                                              ] else ...[
+                                                'Local → ${item.name!.getLastPath()} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
+                                              ],
+                                            ]
+                                            // other ~
+                                            else ...[
+                                              '${item.name} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand()
+                                            ],
+                                          ]).color(isSelected ? AppColor.selected : isHovered ? AppColor.border : Colors.transparent).cornerRadius(8),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                          ),
+                        ).pOnly(left: 8, top: 8).expand(),
                   ),
                 ],
               ),
@@ -179,16 +206,16 @@ class PageExploreView extends GetView<PageExploreController> {
             ).centered().pOnly(right: 12),
           ],
           VStack([
-            FutureBuilder(
-              future: HelperMisc.decensor(item.name!.trim()),
-              builder: (context, snapshot) {
-                return snapshot.hasData
-                    ? '${KanaKit().isKana(snapshot.data ?? '') ? KanaKit().toRomaji(snapshot.data ?? '') : snapshot.data}'.text.bold.size(12).ellipsis.make().onInkTap(() {
-                        HelperMisc.copyToClipboard(snapshot.data ?? '', showToast: true);
-                      }).pOnly(top: 6, bottom: 4)
-                    : 0.heightBox;
-              },
-            ),
+            '${KanaKit().isKana(HelperDecensor.decensor(item.name!.trim())) ? KanaKit().toRomaji(HelperDecensor.decensor(item.name!.trim())) : HelperDecensor.decensor(item.name!.trim())}'
+                .text
+                .bold
+                .size(12)
+                .ellipsis
+                .make()
+                .onInkTap(() {
+              HelperMisc.copyToClipboard(HelperDecensor.decensor(item.name!.trim()), showToast: true);
+            }).pOnly(top: 6, bottom: 4),
+
             Obx(
               () => HStack([
                 'Local: ${item.count}'
@@ -315,7 +342,7 @@ class PageExploreView extends GetView<PageExploreController> {
                 '${item['video_code']}'.text.bold.size(12).ellipsis.make().onInkTap((){
                   HelperMisc.copyToClipboard(item['video_code'], showToast: true);
                 }),
-                '${HelperMisc.decodeHtml(item['title'] ?? '')}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240).hide(isVisible: item['title'] != null && item['title'] != ''),
+                '${HelperDecensor.decensor(item['title'] ?? '')}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240).hide(isVisible: item['title'] != null && item['title'] != ''),
               ]).p8(),
             ).positioned(bottom: 0, left: 0, right: 0),
 
