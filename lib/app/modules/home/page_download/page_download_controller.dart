@@ -129,14 +129,14 @@ class PageDownloadController extends GetxController {
 
         HelperLoading.show();
         final r18videos = await DBR18.search(s);
+        AppLog.logD('r18videos -> ${r18videos.length}');
         final existVideos = await DBVideos.getAll();
-        HelperLoading.dismiss();
 
         final output = <JavitSearchResult>[];
         for (var i = 0; i < r18videos.length; i++) {
-          if (r18videos[i]['video_code'] == null || r18videos[i]['video_code'].toString().isEmpty) continue;
-          if (HelperMisc.isValidVideoCode(r18videos[i]['video_code']) == false) continue;
-          final hasMatch = existVideos.any((eVid) => r18videos[i]['video_code'].toString() == (eVid.videoCode ?? ''));
+          final videoCode = r18videos[i]['video_code'].toString();
+          if (videoCode.isValidVideoCode() == false) continue;
+          final hasMatch = existVideos.any((eVid) => videoCode == (eVid.videoCode ?? ''));
 
           final actresses = r18videos[i]['actresses'].toString().split(',').map((e) => e.trim()).toList();
           final categories = r18videos[i]['categories'].toString().split(',').map((e) => e.trim()).toList();
@@ -149,11 +149,11 @@ class PageDownloadController extends GetxController {
               durationFormated: '${r18videos[i]['release_date']}',
               releaseDate: '${r18videos[i]['release_date']}',
               title: r18videos[i]['title'],
-              fanArt: r18videos[i]['fan_art'].toString().imgUrl(),
+              fanArt: r18videos[i]['fan_art'].toString().imgUrlFormat(),
               poster: r18videos[i]['poster'],
               trailer: r18videos[i]['trailer'],
               match: hasMatch,
-              isReleased: DateTime.parse(r18videos[i]['release_date'] ?? '').isBefore(DateTime.now()),
+              isReleased: DateTime.tryParse(r18videos[i]['release_date'] ?? '')?.isBefore(DateTime.now()),
               actresses: actresses,
               categories: categories,
             ),
@@ -161,12 +161,13 @@ class PageDownloadController extends GetxController {
         }
 
         videos.value = output;
+        HelperLoading.dismiss();
 
         await scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
 
         if (isFiltered.isTrue) await _onApplyFilter();
       } catch (e) {
-        // AppLog.logE('onSearch dbMode e -> $e');
+        AppLog.logE('onSearch dbMode e -> $e');
       }
     }
   }

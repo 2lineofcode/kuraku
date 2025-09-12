@@ -11,8 +11,8 @@ import '../../../utils/helper.dart';
 import '../page_search/page_search_overlay.dart';
 
 class PageExploreController extends GetxController {
-  final filterTypeSelected = kActress.obs;
-  final filterType = <String>[
+  final menuSelected = kActress.obs;
+  final menus = <String>[
     kActress,
     kCategory,
     kPath,
@@ -51,7 +51,7 @@ class PageExploreController extends GetxController {
     super.onInit();
     AppLog.logI('page explore ==> onInit called');
 
-    await onFilterByChange(kActress);
+    await onMenuChange(kActress);
     await 10.milliseconds.delay();
     phSearchText.value = 'Search (${oList.length})...';
   }
@@ -92,7 +92,7 @@ class PageExploreController extends GetxController {
 
     oListSelectedIndex.value = oListFiltered.indexOf(item);
     oListFocusNode.requestFocus();
-    switch (filterTypeSelected.value) {
+    switch (menuSelected.value) {
       case kActress:
         vList.value = await DBVideos.getAllLike('actress', item.id.toString());
         r18TotalVideo.value = await DBR18.getCountAllVideosByActress(item.id!);
@@ -126,18 +126,25 @@ class PageExploreController extends GetxController {
         r18TotalVideo.value = await DBR18.getCountAllVideosByYear(item.name!.trim());
         break;
       case kCustom:
-        if (oListSelected.value.name == 'New Release') {
-          vList.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date DESC, updated_at DESC', limit: 50);
-        } else if (oListSelected.value.name == 'Favorite') {
-          vList.value = await DBVideos.getAll(where: 'is_favorite = 1', orderBy: 'updated_at DESC');
-        } else if (oListSelected.value.name == 'Non Jav') {
-          vList.value = await DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC', limit: 50);
-        } else if (oListSelected.value.name == 'Most Watch') {
-          vList.value = await DBVideos.getAll(where: 'view_count != 0', orderBy: 'view_count DESC, updated_at DESC', limit: 50);
-        } else if (oListSelected.value.name == 'New Added') {
-          vList.value = await DBVideos.getAll(orderBy: 'created_at DESC', limit: 50);
-        } else if (oListSelected.value.name == 'Never Watch') {
-          vList.value = await DBVideos.getAll(where: 'view_count = 0', limit: 50, orderBy: 'RANDOM()');
+        switch (oListSelected.value.name) {
+          case 'New Release':
+            vList.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date DESC, updated_at DESC', limit: 50);
+            break;
+          case 'Favorite':
+            vList.value = await DBVideos.getAll(where: 'is_favorite = 1', orderBy: 'updated_at DESC');
+            break;
+          case 'Non Jav':
+            vList.value = await DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC');
+            break;
+          case 'Most Watch':
+            vList.value = await DBVideos.getAll(where: 'view_count != 0', orderBy: 'view_count DESC, updated_at DESC');
+            break;
+          case 'New Added':
+            vList.value = await DBVideos.getAll(orderBy: 'created_at DESC', limit: 50);
+            break;
+          case 'Never Watch':
+            vList.value = await DBVideos.getAll(where: 'view_count = 0', orderBy: 'updated_at DESC');
+            break;
         }
         r18TotalVideo.value = 0;
         break;
@@ -153,7 +160,7 @@ class PageExploreController extends GetxController {
   Future<void> onHeaderR18Tap() async {
     if (r18TotalVideo.value == 0) return;
     vListViewMode.value = kR18;
-    switch (filterTypeSelected.value) {
+    switch (menuSelected.value) {
       case kActress: r18ListVideo.value = await DBR18.getAllVideosByActress(oListSelected.value.id ?? 0); break;
       case kCategory: r18ListVideo.value = await DBR18.getAllVideosByCategory(HelperDecensor.censored(oListSelected.value.name)); break;
       case kPath: break;
@@ -169,8 +176,8 @@ class PageExploreController extends GetxController {
     r18ListVideo.value = r18ListVideo.value.take(10000).toList();
     final r18ValidList = <Map<String, dynamic>>[].obs;
     for (int i = 0; i < r18ListVideo.length; i++) {
-      final vcode = HelperMisc.getVideoCode(r18ListVideo[i]['video_code'] ?? '');
-      if (vcode.isNotEmpty && HelperMisc.isValidVideoCode(r18ListVideo[i]['video_code'] ?? '')) {
+      final vcode = r18ListVideo[i]['video_code'].toString();
+      if (vcode.isValidVideoCode()) {
         r18ValidList.add(r18ListVideo[i]);
       }
     }
@@ -197,10 +204,10 @@ class PageExploreController extends GetxController {
     r18ListVideo.refresh();
   }
 
-  Future<void> onFilterByChange(String s) async {
+  Future<void> onMenuChange(String menu) async {
     oList.clear(); vList.clear();
-    filterTypeSelected.value = s;
-    switch (filterTypeSelected.value) {
+    menuSelected.value = menu;
+    switch (menuSelected.value) {
       case kActress: await getActressList(); break;
       case kCategory: await getCategoryList(); break;
       case kPath: await getPathList(); break;
@@ -362,9 +369,9 @@ class PageExploreController extends GetxController {
     final cNewRelease = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date DESC, updated_at DESC', limit: 50);
     final cFavorite = await DBVideos.getAll(where: 'is_favorite = 1', orderBy: 'updated_at DESC');
     final cNewAdded = await DBVideos.getAll(orderBy: 'created_at DESC', limit: 50);
-    final cMostWatch = await DBVideos.getAll(where: 'view_count != 0', orderBy: 'view_count DESC, updated_at DESC', limit: 50);
-    final cNeverWatch = await DBVideos.getAll(where: 'view_count = 0', orderBy: 'updated_at DESC', limit: 50);
-    final cNonJav = await DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC', limit: 50);
+    final cMostWatch = await DBVideos.getAll(where: 'view_count != 0', orderBy: 'view_count DESC, updated_at DESC');
+    final cNeverWatch = await DBVideos.getAll(where: 'view_count = 0', orderBy: 'updated_at DESC');
+    final cNonJav = await DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC');
 
     oList.clear();
     oList.add(OListModel(name: 'New Release', count: cNewRelease.length));

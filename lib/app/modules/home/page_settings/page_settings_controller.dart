@@ -67,11 +67,10 @@ class PageSettingsController extends GetxController {
 
   Future<void> updateR18DB() async {
     try {
-      _getNextUpdate(DateTime lastUpdate, int intervalDays, DateTime today) {
+      DateTime _getNextUpdate(DateTime lastUpdate, int intervalDays, DateTime today) {
         final diffDays = today.difference(lastUpdate).inDays;
         final times = diffDays ~/ intervalDays;
-        final lastUpdateFromNow = lastUpdate.add(Duration(days: times * intervalDays));
-        return lastUpdateFromNow;
+        return lastUpdate.add(Duration(days: times * intervalDays));
       }
 
       final lastUpdate = DateTime(2025, 9, 2);
@@ -81,7 +80,9 @@ class PageSettingsController extends GetxController {
       final lastUpdFromNow = _getNextUpdate(lastUpdate, intervalDays, today);
       final lastUpdFromNowStr = lastUpdFromNow.toStringEx(format: kYMd);
 
-      final isOutdated = lastUpdFromNow.isBefore(DateTime.parse(dbR18Version.string));
+      final dbVersionDate = DateTime.parse(dbR18Version.string);
+      final isOutdated = dbVersionDate.isBefore(lastUpdFromNow);
+
 
       ExAlert.adaptive(
         title: Text('Information', textAlign: TextAlign.left),
@@ -89,7 +90,13 @@ class PageSettingsController extends GetxController {
           12.heightBox,
           Text('Current Version\t: ${DateTime.parse(dbR18Version.string).toStringEx(format: kYMd)}').pOnly(bottom: 4),
           Text('Last Update\t\t\t\t\t\t\t: $lastUpdFromNowStr'),
-          isOutdated ? 0.heightBox : Text('You using lastest version 🔥').pOnly(top: 24),
+          isOutdated
+              ? Text(
+                  '⚠️ Your version is outdated, please update',
+                  textAlign: TextAlign.left,
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ).pOnly(top: 24)
+              : Text('🔥 You are using the latest version', textAlign: TextAlign.left).pOnly(top: 24),
         ]).p4(),
         actions: [
           isOutdated

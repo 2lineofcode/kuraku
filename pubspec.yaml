@@ -49,12 +49,12 @@ dependencies:
   super_drag_and_drop: ^0.9.1
   hotkey_manager: ^0.2.3
   toastification: ^3.0.3
-  ffmpeg_kit_flutter_new: ^2.0.0
-  video_compress: ^3.1.4
   kana_kit: ^2.1.1
   process_run: ^1.2.4
   super_context_menu: ^0.9.1
   glob: 2.1.2
+  ffmpeg_kit_flutter_new: ^2.0.0
+  video_compress: ^3.1.4
   # flutter_system_notifications: ^1.1.1
 
   flutter:

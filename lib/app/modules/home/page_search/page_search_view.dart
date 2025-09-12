@@ -6,7 +6,8 @@ import 'package:get/get.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
-import '../../../utils/helper_decensor.dart';
+import '../../../core/const.dart';
+import '../../../utils/helper.dart';
 import '../../widgets/widget_thumbnail.dart';
 import 'page_search_controller.dart';
 import 'page_search_overlay.dart';
@@ -103,14 +104,17 @@ class PageSearchView extends GetView<PageSearchController> {
   }
 
   Widget modeGridView() {
+    final double width = 150;
+    final double height = 230;
+
     return GridView.builder(
       controller: controller.scrollController,
       padding: EdgeInsets.all(8),
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 120,
+        maxCrossAxisExtent: width,
         mainAxisSpacing: 12,
         crossAxisSpacing: 8,
-        childAspectRatio: 120 / 200,
+        childAspectRatio: width / height,
       ),
       itemCount: controller.videos.length,
       itemBuilder: (context, i) {
@@ -122,16 +126,26 @@ class PageSearchView extends GetView<PageSearchController> {
               ExThumbnail(
                 imageUrl: item.fanArt,
                 videoPath: item.videoPath,
-                width: 120,
-                height: 200,
-                prefix: 2.5,
-              ).wh(120, 200),
+                width: width,
+                height: height,
+                prefix: 2.1,
+              ).wh(width, height),
+              if (item.releaseDate != '')
+                '${item.releaseDate?.reformatDate(from: kYMd, to: kMdY) ?? ''.maxWords(1)}'
+                    .text
+                    .size(10)
+                    .minFontSize(10)
+                    .make()
+                    .pSymmetric(h: 4)
+                    .wh(80, 17)
+                    .color(Vx.black.withAlpha(200))
+                    .positioned(),
               Container(
                 color: Vx.black.withAlpha(150),
-                width: 120,
+                width: width,
                 height: 20,
                 child: '${item.videoCode == '' ? item.title?.maxChars(10) : item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
-              ).positioned(bottom: 0),
+              ).positioned(bottom: 0, right: 0, left: 0),
             ]),
           ).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(item)),
         );

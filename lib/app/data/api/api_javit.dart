@@ -11,7 +11,7 @@ const kProviderMissAV = 'missav';
 
 mixin ApiJavit {
   static Future<JavitMetadata> getMetadata({required String code}) async {
-    if (!HelperMisc.isValidVideoCode(code) || code == '') {
+    if (code.isValidVideoCode() == false) {
       throw Exception('Invalid video code for $code');
     }
 

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +8,7 @@ import 'package:overlayment/overlayment.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../core/app_color.dart';
+import '../../core/app_logging.dart';
 import '../../core/const.dart';
 import '../../data/database/db_library.dart';
 import '../../data/database/db_r18.dart';
@@ -77,7 +80,7 @@ mixin HomeLibrary {
                             child: ' ${item.totalVideo} '.text.size(9).minFontSize(9).make(),
                           ),
                         ]),
-                        '${HelperMisc.getLastSegments(item.rootFolder!)}'.text.size(10).minFontSize(10).neutral500.make(),
+                        '${item.rootFolder!.getLastSegments()}'.text.size(10).minFontSize(10).neutral500.make(),
                       ]).expand(),
                       IconButton(
                         onPressed: () async => {
@@ -114,9 +117,13 @@ mixin HomeLibrary {
   static Future<void> openDialogAddorEditLibrary({Library? library, bool isFromDrop = false}) async {
     final tfAlias = TextEditingController(text: library?.alias);
     final tfRootPath = TextEditingController(text: library?.rootFolder);
+    final fnRootPath = FocusNode();
+    final fnAlias = FocusNode();
     final librarySelected = Library().obs;
     final isClicked = false.obs;
     final totalVideo = 0.obs;
+
+    if (isFromDrop) fnAlias.requestFocus();
 
     ExAlert.adaptive(
       isDismissible: false,
@@ -137,6 +144,7 @@ mixin HomeLibrary {
           CupertinoTextField(
             readOnly: true,
             controller: tfRootPath,
+            focusNode: fnRootPath,
             placeholder: '<Select Path>',
             placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
             prefix: Icon(UIconsPro.regularRounded.folder, size: 13).pOnly(left: 8),
@@ -154,15 +162,27 @@ mixin HomeLibrary {
                   }
                   isClicked.value = false;
                 });
+      
+                fnAlias.requestFocus();
               }
             },
           ).pOnly(bottom: 16),
           CupertinoTextField(
             controller: tfAlias,
+            focusNode: fnAlias,
             placeholder: 'Alias',
             placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
             prefix: Icon(UIconsPro.regularRounded.tags, size: 14).pOnly(left: 8),
             style: TextStyle(fontSize: 13, color: Vx.white),
+            onSubmitted: (value) async {
+              await onSubmit(
+                alias: tfAlias.text,
+                rootPath: tfRootPath.text,
+                library: library,
+                isFromDrop: isFromDrop,
+                librarySelected: librarySelected.value,
+              );
+            },
           ).pOnly(bottom: 16),
           Obx(() => totalVideo.value != 0 ? Text('Total Video: ${totalVideo.value}') : 0.heightBox),
         ],
@@ -183,31 +203,47 @@ mixin HomeLibrary {
         CupertinoDialogAction(
           child: Text('Submit', style: TextStyle(fontSize: 13)),
           onPressed: () async {
-            // edit mode
-            if (library != null) {
-              library.alias = tfAlias.text;
-              library.rootFolder = tfRootPath.text;
-
-              if (isFromDrop) {
-                Get.back();
-                await DBLibrary.add(library);
-                await doAddorEditVideoFromLibrary(library);
-              } else {
-                Get.back();
-                await DBLibrary.update(library);
-              }
-              return;
-            }
-
-            // add mode
-            librarySelected.value.alias = tfAlias.text;
-            await DBLibrary.add(librarySelected.value);
-            Get.back();
-            await doAddorEditVideoFromLibrary(librarySelected.value);
+            await onSubmit(
+              alias: tfAlias.text,
+              rootPath: tfRootPath.text,
+              library: library,
+              isFromDrop: isFromDrop,
+              librarySelected: librarySelected.value,
+            );
           },
         ),
       ],
     );
+  }
+
+  static Future<void> onSubmit({required String alias, required String rootPath, required Library? library, required bool isFromDrop, required Library librarySelected}) async {
+    // validate
+    if (alias.isEmpty || rootPath.isEmpty) {
+      await HelperToast.error('Please fill all field');
+      return;
+    }
+
+    // edit mode
+    if (library != null) {
+      library.alias = alias;
+      library.rootFolder = rootPath;
+
+      if (isFromDrop) {
+        Get.back();
+        await DBLibrary.add(library);
+        await doAddorEditVideoFromLibrary(library);
+      } else {
+        Get.back();
+        await DBLibrary.update(library);
+      }
+      return;
+    }
+
+    // add mode
+    librarySelected.alias = alias;
+    await DBLibrary.add(librarySelected);
+    Get.back();
+    await doAddorEditVideoFromLibrary(librarySelected);
   }
 
   // ** MAIN PROCESS
@@ -217,13 +253,13 @@ mixin HomeLibrary {
     }
 
     for (int index = 0; index < library.videos!.length; index++) {
-      final video = library.videos![index];
+      final videoPath = library.videos![index];
       _homeController.footerText.value = '◎ ${index + 1} of ${library.videos!.length}';
 
       _homeController.change(200, status: RxStatus.loading());
       _homeController.loadingText.value = 'Progress: ${index + 1} of ${library.videos!.length} (${((index + 1) * 100 / library.videos!.length).toInt()}%)';
 
-      final videoCode = HelperMisc.getVideoCode(HelperMisc.getLastPath(video));
+      final videoCode = videoPath.getFileName().getVideoCode();
 
       if (videoCode != '') {
         final dataVideo = await DBR18.getVideo(videoCode);
@@ -234,15 +270,23 @@ mixin HomeLibrary {
         if (dataVideo == null) {
           final newVideo = Videos();
           newVideo.rootPath = library.rootFolder ?? '';
-          newVideo.videoPath = video;
-          newVideo.title = video.getFileName().noExt();
+          newVideo.videoPath = videoPath;
+          newVideo.title = videoPath.getFileName().noExt();
+
+          // ** new [filesize & quality]
+          try {
+            newVideo.filesize = File(videoPath).lengthSync();
+          } catch (e) {
+            AppLog.logE(e);
+          }
+
           await DBVideos.add(newVideo);
           continue;
         }
 
         final newVideo = Videos.fromJson(dataVideo);
         newVideo.rootPath = library.rootFolder ?? '';
-        newVideo.videoPath = video;
+        newVideo.videoPath = videoPath;
         newVideo.category = dataCategory.map((e) => VideoCategory.fromJson(e)).toList();
         newVideo.actress = dataActress.map((e) => VideoActress.fromJson(e)).toList();
         newVideo.durationFormated = HelperMisc.durationFormatDB(newVideo.duration ?? 0);
@@ -269,17 +313,33 @@ mixin HomeLibrary {
           }
           newVideo.screenshot = ss;
 
+
+          // ** new [filesize & quality]
+          try {
+            newVideo.filesize = File(videoPath).lengthSync();
+          } catch (e) {
+            AppLog.logE(e);
+          }
+
           await DBVideos.add(newVideo);
           _homeController.footerText.value = '◎ Inserting: $videoCode';
         }
       }
 
-      // else
+      // else => no video_code (non-jav)
       else {
         final newVideo = Videos();
         newVideo.rootPath = library.rootFolder ?? '';
-        newVideo.videoPath = video;
-        newVideo.title = video.getFileName().noExt();
+        newVideo.videoPath = videoPath;
+        newVideo.title = videoPath.getFileName().noExt();
+
+        // ** new [filesize & quality]
+        try {
+          newVideo.filesize = File(videoPath).lengthSync();
+        } catch (e) {
+          AppLog.logE(e);
+        }
+
         await DBVideos.add(newVideo);
         _homeController.footerText.value = '◎ Inserting non metadata: $videoCode';
       }

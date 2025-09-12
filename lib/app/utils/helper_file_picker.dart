@@ -37,7 +37,7 @@ mixin HelperFilePicker {
 
       final item = Library(
         totalVideo: videoFiles.length,
-        alias: HelperMisc.getLastPath(selectedDirectory),
+        alias: selectedDirectory.getLastPath(),
         rootFolder: selectedDirectory,
         subFolder: subfolders.map((e) => e.path).toList(),
         videos: videoFiles.map((e) => e.path).toList(),

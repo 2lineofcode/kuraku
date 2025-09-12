@@ -34,6 +34,8 @@ class Videos {
   List<String>? screenshot;
   String? site;
   int? isFavorite = 0;
+  num? filesize = 0;
+  String? quality;
   String? createdAt;
   String? updatedAt;
 
@@ -63,6 +65,8 @@ class Videos {
     this.screenshot,
     this.site,
     this.isFavorite,
+    this.filesize,
+    this.quality,
     this.createdAt,
     this.updatedAt
   });
@@ -94,6 +98,8 @@ class Videos {
     screenshot = json['screenshot'] == null || (json['screenshot'] as String).isEmpty ? null : List<String>.from(jsonDecode(json['screenshot']));
     site = json['site'] ?? '';
     isFavorite = json['is_favorite'] ?? 0;
+    filesize = json['filesize'] ?? 0;
+    quality = json['quality'] ?? '';
     createdAt = json['created_at'] ?? '';
     updatedAt = json['updated_at'] ?? '';
   }
@@ -142,6 +148,8 @@ class Videos {
 
     data['site'] = site;
     data['is_favorite'] = isFavorite;
+    data['filesize'] = filesize;
+    data['quality'] = quality;
     data['created_at'] = createdAt ?? DateTime.now().toStringEx();
     data['updated_at'] = updatedAt ?? DateTime.now().toStringEx();
     return data;

@@ -10,6 +10,7 @@ import 'package:get/get.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/const.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_thumbnail.dart';
@@ -34,9 +35,9 @@ class PageToolsView extends GetView<PageToolsController> {
               () => ExButtonOutline(
                 label: item,
                 labelSize: 12,
-                labelColor: controller.toolSelected.value == item ? Vx.white : Vx.neutral500,
-                borderColor: controller.toolSelected.value == item ? AppColor.selected : AppColor.container,
-                backgroundColor: controller.toolSelected.value == item ? AppColor.selected : AppColor.container,
+                labelColor: controller.menuSelected.value == item ? Vx.white : Vx.neutral500,
+                borderColor: controller.menuSelected.value == item ? AppColor.selected : AppColor.container,
+                backgroundColor: controller.menuSelected.value == item ? AppColor.selected : AppColor.container,
                 onPressed: () => controller.onMenuChange(item),
               ).pOnly(right: 8),
             );
@@ -45,7 +46,7 @@ class PageToolsView extends GetView<PageToolsController> {
 
         // content
         Obx(() {
-          switch (controller.toolSelected.value) {
+          switch (controller.menuSelected.value) {
             case kDuplicate:
               return buildUIFindDuplicate().expand();
             case kTodo:
@@ -69,46 +70,61 @@ class PageToolsView extends GetView<PageToolsController> {
           Obx(() => 'Total Duplicate: ${controller.totalDupVideos}'.text.make()),
           Spacer(),
         ]).pOnly(bottom: 12),
-        Table(
-          columnWidths: const {
-            0: FlexColumnWidth(1),
-            1: FlexColumnWidth(4),
-          },
-          border: TableBorder.all(width: 0.5, color: Vx.neutral700),
-          children: [
-            TableRow(
-              decoration: BoxDecoration(color: AppColor.container),
-              children: [
-                'Code'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                'Path'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-              ],
-            ),
-            ...List.generate(
-              controller.dupVideos.length,
-              (index) {
-                final item = controller.dupVideos[index];
-                return TableRow(
-                  children: [
-                    // code
-                    '${item.videoCode}'.text.ellipsis.size(12).make().p12().onInkTap(() {
-                      PageSearchOverlay.onItemTap(item);
-                    }),
-
-                    if (item.videoPath!.contains('/Volumes')) ...[
-                      'External → ${item.videoPath!.toString().getLastSegments(segment: 1)}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
-                        await PageSearchOverlay.onItemTap(item);
-                      }),
-                    ] else ...[
-                      'Local → ${item.videoPath!.toString().getLastPath()}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
-                        await PageSearchOverlay.onItemTap(item);
-                      }),
+        controller.totalDupVideos.value == 0
+            ? ExUiErrorOrEmpty(
+                child: VStack([
+                  Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32).pOnly(bottom: 16).centered(),
+                  'No Data'.text.bold.makeCentered().pOnly(bottom: 8),
+                  'No Data Duplicate Found 🔥'.text.size(12).makeCentered().pOnly(bottom: 12),
+                ]).centered(),
+              ).pOnly(top: 110)
+            : Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(1),
+                  1: FlexColumnWidth(4),
+                },
+                border: TableBorder.all(width: 0.5, color: Vx.neutral700),
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(color: AppColor.container),
+                    children: [
+                      'Code'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                      'Path'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                      'Filesize'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
                     ],
-                  ],
-                );
-              },
-            ),
-          ],
-        ),
+                  ),
+                  ...List.generate(
+                    controller.dupVideos.length,
+                    (index) {
+                      final item = controller.dupVideos[index];
+                      return TableRow(
+                        children: [
+                          // code
+                          '${item.videoCode}'.text.ellipsis.size(12).make().p12().onInkTap(() {
+                            PageSearchOverlay.onItemTap(item);
+                          }),
+
+                          // path
+                          if (item.videoPath!.contains('/Volumes')) ...[
+                            'External → ${item.videoPath!.getLastSegments(segment: 1)}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
+                              await PageSearchOverlay.onItemTap(item);
+                            }),
+                          ] else ...[
+                            'Local → ${item.videoPath!.getLastPath()}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
+                              await PageSearchOverlay.onItemTap(item);
+                            }),
+                          ],
+
+                          // size
+                          '${item.filesize?.toFileSize()}'.text.ellipsis.size(12).make().p12().onInkTap(() async {
+                            await PageSearchOverlay.onItemTap(item);
+                          }),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
       ],
     ).pOnly(left: 8).scrollVertical();
   }
@@ -124,56 +140,69 @@ class PageToolsView extends GetView<PageToolsController> {
             onPressed: () => controller.addTodo(),
           ),
         ]).pOnly(bottom: 12),
-        Table(
-          columnWidths: const {
-            0: FlexColumnWidth(4),
-            1: FlexColumnWidth(1),
-          },
-          border: TableBorder.all(width: 0.5, color: Vx.neutral700),
-          children: [
-            TableRow(
-              decoration: BoxDecoration(color: AppColor.container),
-              children: [
-                'Todo'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                'Action'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-              ],
-            ),
-            ...List.generate(
-              controller.todos.length,
-              (index) {
-                final item = controller.todos[index];
-                return TableRow(
-                  children: [
-                    // code
-                    '${item.message}'.text.ellipsis.size(12).make().p12().onInkTap(() {
-                      final code = item.message?.replaceAll('✔︎', '').trim() ?? '';
-                      final isValidCode = HelperMisc.isValidVideoCode(code);
-                      if (isValidCode) {
-                        var video = <String, dynamic>{};
-                        video['video_code'] = code;
-                        HelperOpener.openVideoInfo(video);
-                      }
-                    }),
+        controller.todos.isEmptyOrNull
+            ? ExUiErrorOrEmpty(
+                child: VStack([
+                  Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32).pOnly(bottom: 16).centered(),
+                  'No Data Found'.text.bold.makeCentered().pOnly(bottom: 2),
+                  'You can add todo by clicking the button below'.text.size(12).makeCentered().pOnly(bottom: 12),
+                  ExButtonText(
+                      label: 'Add New Todo',
+                      labelSize: 13,
+                      isLabelBold: true,
+                      onPressed: () => controller.addTodo(),
+                  ).centered(),
+                ]).centered(),
+              ).pOnly(top: 110)
+            : Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(4),
+                  1: FlexColumnWidth(1),
+                },
+                border: TableBorder.all(width: 0.5, color: Vx.neutral700),
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(color: AppColor.container),
+                    children: [
+                      'Todo'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                      'Action'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                    ],
+                  ),
+                  ...List.generate(
+                    controller.todos.length,
+                    (index) {
+                      final item = controller.todos[index];
+                      return TableRow(
+                        children: [
+                          // code
+                          '${item.message}'.text.ellipsis.size(12).make().p12().onInkTap(() {
+                            final code = item.message?.replaceAll('✔︎', '').trim() ?? '';
+                            if (code.isValidVideoCode()) {
+                              var video = <String, dynamic>{};
+                              video['video_code'] = code;
+                              HelperOpener.openVideoInfo(video);
+                            }
+                          }),
 
-                    // action
-                    HStack(
-                      [
-                        IconButton(
-                          icon: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral400),
-                          onPressed: () => controller.itemTodosSearch(controller.todos[index].message ?? ''),
-                        ),
-                        IconButton(
-                          icon: Icon(UIconsPro.regularRounded.trash, size: 14, color: Vx.neutral400),
-                          onPressed: () => controller.deleteTodos(controller.todos[index]),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
-        ),
+                          // action
+                          HStack(
+                            [
+                              IconButton(
+                                icon: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral400),
+                                onPressed: () => controller.itemTodosSearch(controller.todos[index].message ?? ''),
+                              ),
+                              IconButton(
+                                icon: Icon(UIconsPro.regularRounded.trash, size: 14, color: Vx.neutral400),
+                                onPressed: () => controller.deleteTodos(controller.todos[index]),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
       ],
     ).pOnly(left: 8).scrollVertical();
   }
@@ -184,12 +213,30 @@ class PageToolsView extends GetView<PageToolsController> {
         HStack([
           Obx(() => 'Top ${controller.top100LargeFile.length} Large File'.text.make()),
           Spacer(),
+          Obx(
+            () => ExButtonText(
+              label: 'Some file still dont have data quality, Scan now?',
+              labelSize: 12,
+              onPressed: () async => controller.updateDBVideoQuality(),
+            ).pOnly(right: 12).hide(isVisible: controller.isHasDataNonHaveQuality.isFalse),
+          ),
         ]).pOnly(bottom: 12),
+
+        controller.top100LargeFile.isEmpty
+            ? ExUiErrorOrEmpty(
+                child: VStack([
+                  Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32).pOnly(bottom: 16).centered(),
+                  'No Data'.text.bold.makeCentered().pOnly(bottom: 8),
+                  'No Data Found, please add some data'.text.size(12).makeCentered().pOnly(bottom: 12),
+                ]).centered(),
+              ).pOnly(top: 110)
+            : 
         Table(
           columnWidths: const {
             0: FlexColumnWidth(1),
             1: FlexColumnWidth(3),
             2: FlexColumnWidth(1),
+            3: FlexColumnWidth(1),
           },
           border: TableBorder.all(width: 0.5, color: Vx.neutral700),
           children: [
@@ -198,7 +245,8 @@ class PageToolsView extends GetView<PageToolsController> {
               children: [
                 'Code'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
                 'Path'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                'Size'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                'Quality'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                'Filesize'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
               ],
             ),
             ...List.generate(
@@ -208,26 +256,36 @@ class PageToolsView extends GetView<PageToolsController> {
                 return TableRow(
                   children: [
                     // code
-                    '${item['code']}'.text.ellipsis.size(12).make().p12().onInkTap(() async {
-                      final video = await DBVideos.getByVideoPath(item['path'] ?? '');
+                    '${item.videoCode.isNotEmptyAndNotNull ? item.videoCode : 'NON-JAV'}'
+                        .text
+                        .color(item.videoCode.isNotEmptyAndNotNull ? null : Vx.red300)
+                        .ellipsis
+                        .size(12)
+                        .make()
+                        .p12()
+                        .onInkTap(() async {
+                      final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
                       await PageSearchOverlay.onItemTap(video[0]);
                     }),
 
                     // path
-                    if (item['path']!.contains('/Volumes')) ...[
-                      'External → ${item['path']!.toString().getLastSegments(segment: 1)}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
-                        final video = await DBVideos.getByVideoPath(item['path'] ?? '');
+                    if (item.videoPath!.contains('/Volumes')) ...[
+                      'External → ${item.videoPath!.getLastSegments(segment: 1)}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
+                        final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
                         await PageSearchOverlay.onItemTap(video[0]);
                       }),
                     ] else ...[
-                      'Local → ${item['path']!.toString().getLastPath()}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
-                        final video = await DBVideos.getByVideoPath(item['path'] ?? '');
+                      'Local → ${item.videoPath!.getLastPath()}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
+                        final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
                         await PageSearchOverlay.onItemTap(video[0]);
                       }),
                     ],
 
+                    // quality
+                    '${HelperMisc.formatVideoQuality(item.quality??'')}'.text.ellipsis.make().tooltip(item.quality ?? '').p12(),
+                    
                     // size
-                    '${item['size']}'.text.ellipsis.make().p12(),
+                    '${item.filesize?.toFileSize()}'.text.ellipsis.make().p12(),
                   ],
                 );
               },
@@ -293,17 +351,7 @@ class PageToolsView extends GetView<PageToolsController> {
                 style: TextStyle(color: Vx.white, fontSize: 12),
                 clearButtonMode: OverlayVisibilityMode.editing,
                 prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
-                onSubmitted: (s) {
-                  final prefix = HelperDecensor.censored(s.toTitleCase);
-                  switch (controller.filterBy.value) {
-                    case kActress: controller.filterByActress(q: s); break;
-                    case kSeries: controller.filterBySeries(q: s); break;
-                    case kCategory: controller.filterByCategories(q: prefix); break;
-                    case kYear: controller.filterByYear(q: s); break;
-                  }
-                  controller.fnFilterSearch.requestFocus();
-                  controller.oListScrollController.value.animToTop();
-                },
+                onSubmitted: (s) async => await controller.onSearchFilter(s),
               ).pSymmetric(v: 16),
               FocusScope(
                 autofocus: true,
@@ -433,7 +481,7 @@ class PageToolsView extends GetView<PageToolsController> {
             Container(
               color: Vx.black.withAlpha(150),
               width: 300,
-              height: item['title'] != null && item['title'] != '' ? 62 : 33,
+              height: item['title'] != null && item['title'] != '' ? 63 : 33,
               child: VStack([
                 '${item['video_code']}'.text.bold.size(12).ellipsis.make().onInkTap((){
                   HelperMisc.copyToClipboard(item['video_code'], showToast: true);
@@ -443,10 +491,10 @@ class PageToolsView extends GetView<PageToolsController> {
             ).positioned(bottom: 0, left: 0, right: 0),
 
             Container(
-              color: Vx.black.withAlpha(150),
+              color: Vx.black.withAlpha(200),
               width: 70,
               height: 18,
-              child: '${item['release_date']}'.text.size(9).minFontSize(9).align(TextAlign.center).ellipsis.makeCentered(),
+              child: '${item['release_date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(9).minFontSize(9).align(TextAlign.center).ellipsis.makeCentered(),
             ).positioned(left: 0),
 
             // ** open trailer

@@ -234,7 +234,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
                 .cornerRadius(12)
                 .onInkTap(() => HelperOpener.openTrailer(item))
                 .positioned(right: 8, top: 4)
-                .hide(isVisible: HelperMisc.isValidVideoCode(item.videoCode ?? '')),
+                .hide(isVisible: item.videoCode?.isValidVideoCode() ?? false),
 
             // ** open screenshot
             Icon(UIconsPro.regularRounded.picture, size: 12)
@@ -243,12 +243,12 @@ class PageDownloadView extends GetView<PageDownloadController> {
                 .cornerRadius(12)
                 .onInkTap(() => HelperOpener.openScreenshot(item))
                 .positioned(right: 8, top: 36)
-                .hide(isVisible: HelperMisc.isValidVideoCode(item.videoCode ?? '')),
+                .hide(isVisible: item.videoCode?.isValidVideoCode() ?? false),
 
             Container(
               color: Vx.black.withAlpha(150),
               width: 300,
-              height: item.title != null && item.title != '' ? 62 : 33,
+              height: item.title != null && item.title != '' ? 63 : 33,
               child: VStack([
                 '${item.videoCode}'.text.bold.size(12).ellipsis.make().onInkTap((){
                   HelperMisc.copyToClipboard(item.videoCode, showToast: true);

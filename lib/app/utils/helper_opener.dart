@@ -29,6 +29,7 @@ import '../data/models/videos_entity.dart';
 import '../modules/home/home_controller.dart';
 import '../modules/home/page_explore/page_explore_controller.dart';
 import '../modules/home/page_home/page_home_controller.dart';
+import '../modules/home/page_tools/page_tools_controller.dart';
 import '../modules/widgets/widget_chiwie_custom.dart';
 import '../modules/widgets/widget_thumbnail.dart';
 import 'helper.dart';
@@ -67,13 +68,13 @@ mixin HelperOpener {
 
     // ** -> from download page
     if (item is JavitSearchResult) {
-      final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
+      final fixCode = item.videoCode?.getVideoCode() ?? '';
       dataVideo = await DBR18.getVideo(fixCode);
     }
 
     // ** -> from library
     else if (item is Videos) {
-      final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
+      final fixCode = item.videoCode?.getVideoCode() ?? '';
       dataVideo = await DBR18.getVideo(fixCode);
     }
 
@@ -227,13 +228,28 @@ mixin HelperOpener {
                                     .onInkTap(() async {
                                       // ** on actress clicked
                                       try {
-                                        final name = '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}';
-                                        await Get.find<HomeController>().onMenuChange(kMenuExplore);
-                                        final exploreC = Get.find<PageExploreController>();
-                                        await exploreC.onFilterByChange('Actress');
-                                        exploreC.tecSearch.text = name;
-                                        exploreC.onOListSearch(name);
-                                        await exploreC.onOListTap(exploreC.oListFiltered[0]);
+                                        final check = await DBVideos.getByActress(video.actress?[i].nameRomaji ?? '');
+                                        if (check.isNotEmpty) {
+                                          final homeC = Get.find<HomeController>();
+                                          final exploreC = Get.find<PageExploreController>();
+                                          final name = '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}';
+
+                                          await homeC.onMenuChange(kMenuExplore);
+                                          await exploreC.onMenuChange(kActress);
+                                          exploreC.tecSearch.text = name;
+                                          exploreC.onOListSearch(name);
+                                          await exploreC.onOListTap(exploreC.oListFiltered[0]);
+                                        } else {
+                                          final homeC = Get.find<HomeController>();
+                                          final toolC = Get.find<PageToolsController>();
+                                          final name = '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}';
+                                          await homeC.onMenuChange(kMenuTools);
+                                          await toolC.onMenuChange(kAdvanceSearch);
+                                          toolC.filterBy.value = kActress;
+                                          toolC.tecFilterSearch.text = name;
+                                          await toolC.onSearchFilter(name);
+                                          await toolC.onOListTap(toolC.oList[0], 0);
+                                        }
                                       } catch (_) {}
                                     })
                                     .tooltip(video.actress?[i].nameRomaji == '' ? '${KanaKit().toRomaji(video.actress?[i].nameKana ?? '')}' : '')
@@ -250,10 +266,11 @@ mixin HelperOpener {
                                 '${HelperDecensor.decensor(video.category?[i].category)}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(right: 8).onInkTap(() async {
                                   // ** on category clicked
                                   try {
-                                    final name = '${HelperDecensor.decensor(video.category?[i].category)}';
-                                    await Get.find<HomeController>().onMenuChange(kMenuExplore);
+                                    final homeC = Get.find<HomeController>();
                                     final exploreC = Get.find<PageExploreController>();
-                                    await exploreC.onFilterByChange('Category');
+                                    final name = '${HelperDecensor.decensor(video.category?[i].category)}';
+                                    await homeC.onMenuChange(kMenuExplore);
+                                    await exploreC.onMenuChange(kCategory);
                                     exploreC.tecSearch.text = name;
                                     exploreC.onOListSearch(name);
                                     await exploreC.onOListTap(exploreC.oListFiltered[0]);
@@ -266,15 +283,33 @@ mixin HelperOpener {
                           // series
                           if (!video.series.isEmptyOrNull) ...[
                             'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${HelperDecensor.decensor(video.series)}'.text.underline.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap((){
+                            '${HelperDecensor.decensor(video.series)}'.text.underline.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() async {
                               // ** on series clicked
                               try {
-                                final name = '${HelperDecensor.decensor(video.series)}';
-                                Get.find<HomeController>().onMenuChange(kMenuExplore);
-                                final exploreC = Get.find<PageExploreController>();
-                                exploreC.tecSearch.text = name;
-                                exploreC.onOListSearch(name);
-                                exploreC.onOListTap(exploreC.oListFiltered[0]);
+                                await Overlayment.dismissLast();
+                                final check = await DBVideos.getBySeries(video.series?? '');
+
+                                if (check.isNotEmpty) {
+                                  final homeC = Get.find<HomeController>();
+                                  final exploreC = Get.find<PageExploreController>();
+                                  final name = '${HelperDecensor.decensor(video.series)}';
+                                  await homeC.onMenuChange(kMenuExplore);
+                                  await exploreC.onMenuChange(kSeries);
+                                  exploreC.tecSearch.text = name;
+                                  exploreC.onOListSearch(name);
+                                  await exploreC.onOListTap(exploreC.oListFiltered[0]);
+                                } else {
+                                  final homeC = Get.find<HomeController>();
+                                  final toolC = Get.find<PageToolsController>();
+                                  final name = '${HelperDecensor.decensor(video.series)}';
+                                  await homeC.onMenuChange(kMenuTools);
+                                  await toolC.onMenuChange(kAdvanceSearch);
+                                  toolC.filterBy.value = kSeries;
+                                  toolC.tecFilterSearch.text = name;
+                                  await toolC.onSearchFilter(name);
+                                  await toolC.onOListTap(toolC.oList[0], 0);
+                                }
+
                               } catch (_) {}
                             })
                           ],
@@ -327,13 +362,13 @@ mixin HelperOpener {
 
     // ** -> from download page
     if (item is JavitSearchResult) {
-      final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
+      final fixCode = item.videoCode?.getVideoCode() ?? '';
       dataVideo = await DBR18.getVideo(fixCode);
     }
 
     // ** -> from library
     else if (item is Videos) {
-      final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
+      final fixCode = item.videoCode?.getVideoCode() ?? '';
       dataVideo = await DBR18.getVideo(fixCode);
     }
 
@@ -505,13 +540,13 @@ mixin HelperOpener {
 
     // ** -> from download page
     if (item is JavitSearchResult) {
-      final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
+      final fixCode = item.videoCode?.getVideoCode() ?? '';
       dataVideo = await DBR18.getVideo(fixCode);
     }
 
     // ** -> from library
     else if (item is Videos) {
-      final fixCode = HelperMisc.getVideoCode(item.videoCode ?? '');
+      final fixCode = item.videoCode?.getVideoCode() ?? '';
       dataVideo = await DBR18.getVideo(fixCode);
     }
 

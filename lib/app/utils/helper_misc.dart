@@ -6,17 +6,8 @@ import '../../env.g.dart';
 import 'helper_toast.dart';
 
 mixin HelperMisc {
-  static String getLastPath(String path) => path.split('/').last;
 
-  static String getLastSegments(String path, {int n = 4}) {
-    if (path.isEmpty) return '';
-    List<String> segments = path.split('/').where((s) => s.isNotEmpty).toList();
-    if (segments.length <= n) return path;
-    segments = segments.sublist(segments.length - n);
-    return '.../${segments.join('/')}';
-  }
-
-  static String getVideoCode(String fileName) {
+  static String __getVideoCode(String fileName) {
     final List<RegExp> expressions = [
       RegExp(r'([a-zA-Z]{2,})-([0-9]{3,})'),
     ];
@@ -25,7 +16,9 @@ mixin HelperMisc {
     return match != null ? '${match.group(1)?.toUpperCase()}-${match.group(2)}' : '';
   }
 
-  static bool isValidVideoCode(String code) {
+  static bool __isValidVideoCode(String code) {
+    if (code.trim().isEmpty) return false;
+
     const _blacklistedPrefixes = [
       'TK', '7', '9', 'K9', 'FTKT', 'GOOE', 'JTKT', 'GTKT', 'DDMP', 'DMPXA', 'USTD', 
       'VWBS', 'HPXR', 'VWAS', 'TCBD', 'DAXA', 'TWUSS', 'PJXF', 'KKC', 'GNXF', 'JAXA', 'UHB', 
@@ -40,6 +33,14 @@ mixin HelperMisc {
     final hasBlacklistedPrefix = _blacklistedPrefixes.any((prefix) => code.startsWith(prefix));
     final hasBlacklistedSuffix = _blacklistedSuffixes.any((suffix) => code.endsWith(suffix));
     return hasValidFormat && !hasBlacklistedPrefix && !hasBlacklistedSuffix;
+  }
+
+  static String __getLastSegments(String path, {int n = 4}) {
+    if (path.isEmpty) return '';
+    List<String> segments = path.split('/').where((s) => s.isNotEmpty).toList();
+    if (segments.length <= n) return path;
+    segments = segments.sublist(segments.length - n);
+    return '.../${segments.join('/')}';
   }
 
   static String durationFormatDB(num durationInMinutes) {
@@ -82,11 +83,11 @@ mixin HelperMisc {
       if (remainingMilliseconds > 0) {
         //
       } else if (totalSeconds == 0) {
-        return '0 detik';
+        return '0 second';
       }
     }
 
-    if (parts.isEmpty) return '0 detik';
+    if (parts.isEmpty) return '0 second';
 
     return parts.join(', ');
   }
@@ -136,24 +137,43 @@ mixin HelperMisc {
     }
   }
 
-  static String decodeHtml(String htmlString) {
-    String decodedString = htmlString.replaceAll('&quot;', '"');
-    decodedString = decodedString.replaceAll('&amp;', '&');
-    return decodedString;
+  static String formatVideoQuality(String quality) {
+    if (quality.isEmptyOrNull) return '';
+
+    const Map<String, String> videoQualities = {
+      '3840x2160': '4K',
+      '2560x1440': '2K (QHD)',
+      '2048x1080': '2K (DCI)',
+      '1920x1080': 'FHD (1080p)',
+      '1280x720': 'HD (720p)',
+      '854x480': 'SD (480p)',
+    };
+
+    final knownQuality = videoQualities[quality];
+    if (knownQuality != null) {
+      return knownQuality;
+    }
+
+    final parts = quality.split('x');
+    final height = int.tryParse(parts[1]);
+    if (height! >= 1080)  return 'FHD (Potrait)';
+    else if (height >= 720) return 'HD (Potrait)';
+    else if (height >= 480) return 'SD (Potrait)';
+    else if (height >= 360) return '360p (Potrait)';
+    else if (height >= 240) return '240p (Potrait)';
+    else if (height >= 144) return '144p (Potrait)';
+    return 'Unknown';
   }
 }
 
 extension HelperMiscExt on String {
+  String getVideoCode() => HelperMisc.__getVideoCode(this);
+  bool isValidVideoCode() => HelperMisc.__isValidVideoCode(this);
   String noExt() => replaceAll('.mp4', '').replaceAll('mp4', '');
   String getExt() => split('.').last;
   String getFileName() => split('/').last;
-  String getVideoCode() => HelperMisc.getVideoCode(this);
   String getLastPath() => split('/').last;
-  String getLastSegments({int segment = 4}) => HelperMisc.getLastSegments(this, n: segment);
-  String removeExt() => split('.').sublist(0, split('.').length - 1).join('.');
-  String removePath() => split('/').sublist(0, split('/').length - 1).join('/');
-  String removeFileName() => split('/').sublist(0, split('/').length - 1).join('/');
-  String removeFileExt() => split('.').sublist(0, split('.').length - 1).join('.');
-  String removeFileExt2() => split('.').sublist(0, split('.').length - 2).join('.');
-  String imgUrl() => '${Env.imgUrl}/$this.jpg';
+  String getLastSegments({int segment = 4}) => HelperMisc.__getLastSegments(this, n: segment);
+  String getFilePath() => split('/').sublist(0, split('/').length - 1).join('/');
+  String imgUrlFormat() => '${Env.imgUrl}/$this.jpg';
 }

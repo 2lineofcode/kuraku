@@ -72,33 +72,13 @@ mixin PageSearchOverlay {
                     fitUrl: BoxFit.contain,
                   ).color(AppColor.selected).onInkTap(() => _openScreenshot(video)),
 
-                  // 
-                  FutureBuilder(
-                    future: _getMediaInfo(video.videoPath ?? ''),
-                    builder: (context, snapshot) {
-
-                      if (snapshot.hasData && snapshot.data != null && snapshot.data!.length > 2) {
-                        _mediaInfo.value = snapshot.data!;
-                      }
-
-                      var output = '';
-                      switch (snapshot.data?[1]) {
-                        case '1080p': output = 'FHD'; break;
-                        case '720p': output = 'HD'; break;
-                        case '480p': output = 'SD'; break;
-                        default: output = 'Potrait';
-                      }
-
-                      return _mediaInfo.value.isNotEmpty
-                          ? Container(
-                              decoration: ExDecorator.box(borderRadius: 0, borderColor: Colors.transparent, fillColor: Vx.black.withAlpha(150)),
-                              child: '$output'.text.size(12).make().p4(),
-                            )
-                          : 0.heightBox;
-                    },
-                  ).positioned(right: 0),
-
-                  //
+                  // quality
+                  if (video.quality.isNotEmptyAndNotNull) ...[
+                    Container(
+                      decoration: ExDecorator.box(borderRadius: 0, borderColor: Colors.transparent, fillColor: Vx.black.withAlpha(190)),
+                      child: '${HelperMisc.formatVideoQuality(video.quality ?? '')}'.text.bold.amber500.size(12).make().p4(),
+                    ).positioned(right: 0),
+                  ],
                 ]),
                 VStack(
                   [
@@ -261,6 +241,16 @@ mixin PageSearchOverlay {
 
 
 
+                          VStack([
+                            // resolution
+                            'Res:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            '${video.quality}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+
+                            // filesize
+                            'File Size:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            '${video.filesize?.toFileSize()}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                          ]),
+
                           // ~~~
                           FutureBuilder(
                             future: _getMediaInfo(video.videoPath ?? ''),
@@ -271,19 +261,11 @@ mixin PageSearchOverlay {
 
                               return _mediaInfo.value.isNotEmpty
                                   ? VStack([
-                                      // resolution
-                                      'Res:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                                      '${_mediaInfo[0]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-
-                                      // filesize
-                                      'File Size:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                                      '${_mediaInfo[2]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-
                                       // duration (non jav)
                                       if (video.duration == 0) ...[
                                         'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                                         '${_mediaInfo[3]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
-                                      ],  
+                                      ],
                                     ])
                                   : 0.heightBox;
                             },
@@ -506,7 +488,7 @@ mixin PageSearchOverlay {
     final name = '${video.actress?[index].nameRomaji == '' ? '${video.actress?[index].nameKana}' : '${video.actress?[index].nameRomaji}'}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
-    await exploreC.onFilterByChange(kActress);
+    await exploreC.onMenuChange(kActress);
     exploreC.tecSearch.text = name;
     exploreC.onOListSearch(name);
     await exploreC.onOListTap(exploreC.oListFiltered[0]);
@@ -517,7 +499,7 @@ mixin PageSearchOverlay {
     final name = '${video.category?[index].category}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
-    await exploreC.onFilterByChange(kCategory);
+    await exploreC.onMenuChange(kCategory);
     exploreC.tecSearch.text = name;
     exploreC.onOListSearch(name);
     await exploreC.onOListTap(exploreC.oListFiltered[0]);
@@ -528,7 +510,7 @@ mixin PageSearchOverlay {
     final name = '${video.series}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
-    await exploreC.onFilterByChange(kSeries);
+    await exploreC.onMenuChange(kSeries);
     exploreC.tecSearch.text = name;
     exploreC.onOListSearch(name);
     await exploreC.onOListTap(exploreC.oListFiltered[0]);
@@ -539,7 +521,7 @@ mixin PageSearchOverlay {
     final directory = p.dirname(video.videoPath ?? '');
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
-    await exploreC.onFilterByChange(kPath);
+    await exploreC.onMenuChange(kPath);
     exploreC.tecSearch.text = directory;
     exploreC.onOListSearch(directory);
     await exploreC.onOListTap(exploreC.oListFiltered[0]);
@@ -556,7 +538,7 @@ mixin PageSearchOverlay {
       output.add('${int.parse(medinfo!.getSize()!).toFileSize()}'); // -- [2] file size
       output.add('${HelperMisc.durationFormatFFmpeg(num.parse(medinfo.getFormatProperties()!['duration'].toString()))}'); // -- [3] duration
     }).catchError((e) {
-      AppLog.logE(e);
+      AppLog.logE('_getMediaInfo [$path] -> $e');
     });
 
     return output;

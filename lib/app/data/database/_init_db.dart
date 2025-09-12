@@ -131,6 +131,8 @@ class DBService extends GetxService {
         view_count                       INTEGER,
         site                             TEXT,
         is_favorite                      INTEGER,
+        filesize                         INTEGER,  -- mb/gb
+        quality                          TEXT,  -- 4k | 2k | fhd | hd | sd
         created_at                       TEXT,
         updated_at                       TEXT
       )

@@ -1,11 +1,10 @@
-import 'dart:io';
-import 'dart:math' as math;
-
 import 'package:ex_kit/ex.dart';
+import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_list_view/flutter_list_view.dart';
 import 'package:get/get.dart';
 import 'package:uuid/v4.dart';
+import 'package:video_compress/video_compress.dart';
 
 import '../../../core/app_logging.dart';
 import '../../../data/database/db_history.dart';
@@ -19,8 +18,8 @@ import '../page_download/page_download_controller.dart';
 import '../page_explore/page_explore_controller.dart';
 
 class PageToolsController extends GetxController with StateMixin {
-  final menus = [kDuplicate, kTopLargeFile, kTodo, kAdvanceSearch].obs;
-  final toolSelected = ''.obs;
+  final menus = [kTopLargeFile, kDuplicate, kAdvanceSearch, kTodo].obs;
+  final menuSelected = ''.obs;
 
   // **
   final dupVideos = <Videos>[].obs;
@@ -30,7 +29,8 @@ class PageToolsController extends GetxController with StateMixin {
   final todos = <History>[].obs;
 
   // **
-  final top100LargeFile = <Map<String, dynamic>>[].obs;
+  final isHasDataNonHaveQuality = true.obs;
+  final top100LargeFile = <Videos>[].obs;
 
   // **
   final filterBy = ''.obs;
@@ -50,18 +50,23 @@ class PageToolsController extends GetxController with StateMixin {
   Future<void> onInit() async {
     super.onInit();
     AppLog.logI('page tools ==> onInit called');
-    await getDuplicateVideos();
-    toolSelected.value = kDuplicate;
+    await getTopLargeFile();
+    await checkIsHasDataNonHaveVideoQuality();
+    menuSelected.value = kTopLargeFile;
     await onResetFilter();
     await filterBySeries();
+
     change(200, status: RxStatus.success());
   }
 
   Future<void> onMenuChange(String menu) async {
-    toolSelected.value = menu;
+    menuSelected.value = menu;
     if (menu == kDuplicate) await getDuplicateVideos();
     if (menu == kTodo) await getTodos();
-    if (menu == kTopLargeFile) await getTopLargeFile();
+    if (menu == kTopLargeFile) {
+      await getTopLargeFile();
+      await checkIsHasDataNonHaveVideoQuality();
+    }
     if (menu == kAdvanceSearch) { }
   }
 
@@ -131,53 +136,43 @@ class PageToolsController extends GetxController with StateMixin {
   // ** kTopLargeFile Part ---
   Future<void> getTopLargeFile() async {
     top100LargeFile.clear();
-    final videos = await DBVideos.getAll();
-
-    List<Map<String, dynamic>> tempFileList = [];
-
-    for (var i = 0; i < videos.length; i++) {
-      final path = videos[i].videoPath ?? '';
-
-      final file = File(path);
-
-      if (await file.exists()) {
-        try {
-          final int sizeInBytes = await file.length();
-
-          tempFileList.add({
-            'code': videos[i].videoCode != null && videos[i].videoCode!.isNotEmpty ? videos[i].videoCode : videos[i].title ?? '',
-            'title': videos[i].title ?? '',
-            'path': path,
-            'sizeInBytes': sizeInBytes,
-          });
-        } catch (e) {
-          print('Error getting file size for $path: $e');
-        }
-      }
-    }
-
-    if (tempFileList.isNotEmpty) {
-      tempFileList.sort((a, b) => b['sizeInBytes'].compareTo(a['sizeInBytes']));
-      final top100 = tempFileList.take(100).toList();
-      final formattedList = top100.map((fileData) {
-        return {
-          'code': fileData['code'],
-          'title': fileData['title'],
-          'path': fileData['path'],
-          'size': _formatFileSize(fileData['sizeInBytes']),
-        };
-      }).toList();
-
-      top100LargeFile.value = formattedList;
-      top100LargeFile.refresh();
-    }
+    top100LargeFile.value = await DBVideos.getAll(
+      where: 'filesize > 0',
+      orderBy: 'filesize DESC',
+      limit: 100,
+    );
   }
 
-  String _formatFileSize(int bytes) {
-    if (bytes <= 0) return '0 B';
-    const suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-    final i = (math.log(bytes) / math.log(1024)).floor();
-    return '${(bytes / math.pow(1024, i)).toStringAsFixed(2)} ${suffixes[i]}';
+  Future<void> checkIsHasDataNonHaveVideoQuality() async {
+    final vid = await DBVideos.getAll(where: 'quality IS NULL OR quality = ""');
+    isHasDataNonHaveQuality.value = vid.isEmpty;
+  }
+
+  Future<void> updateDBVideoQuality() async {
+    HelperLoading.show(isDismissible: false);
+    final home = Get.find<HomeController>();
+    final videos = await DBVideos.getAll(where: 'quality IS NULL OR quality = ""');
+    for (var video in videos) {
+      final percentage = (videos.indexOf(video) + 1) * 100 / videos.length;
+      home.footerText.value = 'Scanning ${videos.indexOf(video) + 1}/${videos.length} | (${percentage.toStringAsFixed(2)}%)';
+      try {
+        final medInfo = await VideoCompress.getMediaInfo(video.videoPath!);
+        if (medInfo.width == null) continue;
+        video.quality = '${medInfo.width}x${medInfo.height}';
+        await DBVideos.update(video);
+        
+      } catch (e) {
+        AppLog.logD('(ffmpeg) -> ${video.videoPath}');
+        await FFprobeKit.getMediaInformation(video.videoPath!).then((medInfo) {
+          if (medInfo.getMediaInformation() == null) return;
+          final stream = medInfo.getMediaInformation()?.getStreams().first;
+          video.quality = '${stream?.getWidth()}x${stream?.getHeight()}';
+          DBVideos.update(video);
+        });
+      }
+    }
+    await Get.find<HomeController>().onRefreshAllContent();
+    HelperLoading.dismiss();
   }
 
   // ** kAdvanceSearch Part ---
@@ -214,7 +209,8 @@ class PageToolsController extends GetxController with StateMixin {
     // filter
     r18ListVideo.value = [];
     for (var i = 0; i < videos.length; i++) {
-      if (HelperMisc.isValidVideoCode(videos[i]['video_code'].toString())) {
+      final videoCode = videos[i]['video_code'].toString();
+      if (videoCode.isValidVideoCode()) {
         r18ListVideo.value.add(videos[i]);
       }
     }
@@ -262,6 +258,18 @@ class PageToolsController extends GetxController with StateMixin {
         oListFocusNode.requestFocus();
       }
     } catch (_) {}
+  }
+
+  Future<void> onSearchFilter(String s) async {
+    final prefix = HelperDecensor.censored(s.toTitleCase);
+    switch (filterBy.value) {
+      case kActress: await filterByActress(q: s); break;
+      case kSeries: await filterBySeries(q: s); break;
+      case kCategory: await filterByCategories(q: prefix); break;
+      case kYear: await filterByYear(q: s); break;
+    }
+    fnFilterSearch.requestFocus();
+    oListScrollController.value.animToTop();
   }
 
   Future<void> onResetFilter() async {

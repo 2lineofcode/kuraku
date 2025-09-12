@@ -11,6 +11,7 @@ import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
+import '../../../core/const.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
@@ -26,16 +27,16 @@ class PageExploreView extends GetView<PageExploreController> {
         'Filter By'.text.size(12).make().pOnly(bottom: 16),
         ListView.builder(
           scrollDirection: Axis.horizontal,
-          itemCount: controller.filterType.length,
+          itemCount: controller.menus.length,
           itemBuilder: (context, index) {
             return Obx(
               () => ExButtonOutline(
-                label: controller.filterType[index],
+                label: controller.menus[index],
                 labelSize: 12,
-                labelColor: controller.filterTypeSelected.value == controller.filterType[index] ? Vx.white : Vx.neutral500,
-                borderColor: controller.filterTypeSelected.value == controller.filterType[index] ? AppColor.selected : AppColor.container,
-                backgroundColor: controller.filterTypeSelected.value == controller.filterType[index] ? AppColor.selected : AppColor.container,
-                onPressed: () => controller.onFilterByChange(controller.filterType[index]),
+                labelColor: controller.menuSelected.value == controller.menus[index] ? Vx.white : Vx.neutral500,
+                borderColor: controller.menuSelected.value == controller.menus[index] ? AppColor.selected : AppColor.container,
+                backgroundColor: controller.menuSelected.value == controller.menus[index] ? AppColor.selected : AppColor.container,
+                onPressed: () => controller.onMenuChange(controller.menus[index]),
               ).pOnly(right: 8),
             );
           },
@@ -95,7 +96,7 @@ class PageExploreView extends GetView<PageExploreController> {
                                           onTap: () => controller.onOListTap(item),
                                           child: HStack([
                                             // image
-                                            if (controller.filterTypeSelected.value == kActress) ...[
+                                            if (controller.menuSelected.value == kActress) ...[
                                               item.imgUrl?.trim() != ''
                                                   ? ExThumbnail(
                                                       imageUrl: '${Env.actressUrl}/${item.imgUrl}',
@@ -113,7 +114,7 @@ class PageExploreView extends GetView<PageExploreController> {
                                             ],
                                               
                                             // path only
-                                            if (controller.filterTypeSelected.value == kPath) ...[
+                                            if (controller.menuSelected.value == kPath) ...[
                                               if (item.name!.contains('/Volumes')) ...[
                                                 'External → ${item.name!.getLastSegments(segment: 1)} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
                                               ] else ...[
@@ -251,14 +252,17 @@ class PageExploreView extends GetView<PageExploreController> {
   }
 
   Widget vListLocal() {
+    final double width = 160;
+    final double height = 230;
+
     return GridView.builder(
       padding: EdgeInsets.all(8),
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 140,
-        mainAxisExtent: 200,
+        maxCrossAxisExtent: width,
+        mainAxisExtent: height,
         mainAxisSpacing: 12,
         crossAxisSpacing: 8,
-        childAspectRatio: 140 / 200,
+        childAspectRatio: width / height,
       ),
       itemCount: controller.vList.length,
       itemBuilder: (context, i) {
@@ -270,14 +274,18 @@ class PageExploreView extends GetView<PageExploreController> {
               ExThumbnail(
                 imageUrl: item.fanArt,
                 videoPath: item.videoPath,
-                width: 140,
-                height: 200,
-                prefix: 2.15,
-              ).wh(140, 200),
+                width: width,
+                height: height,
+                prefix: 2.1,
+              ).wh(width, height),
+
+              if (item.releaseDate != null && item.releaseDate != '') ...[
+              '${item.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().wh(80, 17).color(Vx.black.withAlpha(200)).positioned(),
+              ],
 
               Container(
                 color: Vx.black.withAlpha(150),
-                width: 140,
+                width: width,
                 height: 20,
                 child: '${item.videoCode == '' ? item.title?.maxChars(10) : item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
               ).positioned(bottom: 0, left: 0, right: 0),
@@ -337,7 +345,7 @@ class PageExploreView extends GetView<PageExploreController> {
             Container(
               color: Vx.black.withAlpha(150),
               width: 300,
-              height: item['title'] != null && item['title'] != '' ? 62 : 33,
+              height: item['title'] != null && item['title'] != '' ? 63 : 33,
               child: VStack([
                 '${item['video_code']}'.text.bold.size(12).ellipsis.make().onInkTap((){
                   HelperMisc.copyToClipboard(item['video_code'], showToast: true);
@@ -346,13 +354,15 @@ class PageExploreView extends GetView<PageExploreController> {
               ]).p8(),
             ).positioned(bottom: 0, left: 0, right: 0),
 
-            Container(
-              color: Vx.black.withAlpha(150),
-              width: 70,
-              height: 18,
-              child: '${item['release_date']}'.text.size(9).minFontSize(9).align(TextAlign.center).ellipsis.makeCentered(),
-            ).positioned(left: 0),
-
+            if (item['release_date'] != null && item['release_date'] != '') ...[
+              Container(
+                color: Vx.black.withAlpha(150),
+                width: 70,
+                height: 18,
+                child: '${item['release_date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(9).minFontSize(9).align(TextAlign.center).ellipsis.makeCentered(),
+              ).positioned(left: 0),
+            ],
+            
             // ** open trailer
             Icon(UIconsPro.regularRounded.play, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
               HelperOpener.openTrailer(item);

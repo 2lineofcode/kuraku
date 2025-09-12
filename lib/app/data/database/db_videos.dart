@@ -117,11 +117,6 @@ mixin DBVideos {
     }
   }
 
-  static Future<Videos> getByCode(String code) async {
-    final maps = await _db.query(_tableName, where: 'video_code = ?', whereArgs: [code]);
-    return Videos.fromJson(maps.first);
-  }
-
   static Future<List<Videos>> search(String s) async {
     final maps = await _db.rawQuery('''
       SELECT * FROM $_tableName 
@@ -133,10 +128,30 @@ mixin DBVideos {
     return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
   }
 
+  // ** get_by
+  static Future<Videos> getByCode(String code) async {
+    final maps = await _db.query(_tableName, where: 'video_code = ?', whereArgs: [code]);
+    return Videos.fromJson(maps.first);
+  }
+
   static Future<List<Videos>> getByVideoPath(String videoPath) async {
     final maps = await _db.query(_tableName, where: 'video_path = ?', whereArgs: [videoPath]);
     return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
   }
+
+  static Future<List<Videos>> getBySeries(String series) async {
+    final maps = await _db.query(_tableName, where: 'series = ?', whereArgs: [series]);
+    return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
+  }
+
+   static Future<List<Videos>> getByActress(String actressName) async {
+    final maps = await _db.rawQuery('''
+      SELECT * FROM "Videos" WHERE json_extract(actress, '\$[0].name_romaji') LIKE ?
+    ''', ['%$actressName%']);
+    return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
+  }
+
+  // ** end get_by
 
   static Future<int> getCount() async {
     final maps = await _db.query(_tableName);

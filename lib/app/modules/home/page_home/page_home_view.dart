@@ -6,6 +6,7 @@ import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_pref.dart';
+import '../../../core/const.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../widgets/widgets.dart';
 import '../home_controller.dart';
@@ -66,7 +67,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   onPressed: () async {
                     await Get.find<HomeController>().onMenuChange(kMenuExplore);
                     final exploreC = Get.find<PageExploreController>();
-                    await exploreC.onFilterByChange(kCustom);
+                    await exploreC.onMenuChange(kCustom);
                     exploreC.tecSearch.text = 'New Release';
                     exploreC.onOListSearch('New Release');
                     await exploreC.onOListTap(exploreC.oListFiltered[0]);
@@ -87,7 +88,7 @@ class PageHomeView extends GetView<PageHomeController> {
                           scrollDirection: Axis.horizontal,
                           itemBuilder: (context, index) {
                             final video = controller.listNewRelease[index];
-                            return buildLayoutFanArt(video);
+                            return buildLayoutFanArt(video, showReleaseDate: true);
                           },
                         ).wh(double.infinity, 170).hide(isVisible: AppPref.getHomeSecNewRelease()),
                 );
@@ -131,7 +132,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   onPressed: () async {
                     await Get.find<HomeController>().onMenuChange(kMenuExplore);
                     final exploreC = Get.find<PageExploreController>();
-                    await exploreC.onFilterByChange(kCustom);
+                    await exploreC.onMenuChange(kCustom);
                     exploreC.tecSearch.text = 'Random';
                     exploreC.onOListSearch('Random');
                     await exploreC.onOListTap(exploreC.oListFiltered[0]);
@@ -156,7 +157,7 @@ class PageHomeView extends GetView<PageHomeController> {
                             final video = controller.listRandom[index];
                             return buildLayoutPoster(video, showViewCount: false);
                           },
-                        ).wh(double.infinity, 200).hide(isVisible: AppPref.getHomeSecRandom()),
+                        ).wh(double.infinity, 210).hide(isVisible: AppPref.getHomeSecRandom()),
                 );
               },
             ),
@@ -198,7 +199,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   onPressed: () async {
                     await Get.find<HomeController>().onMenuChange(kMenuExplore);
                     final exploreC = Get.find<PageExploreController>();
-                    await exploreC.onFilterByChange(kCustom);
+                    await exploreC.onMenuChange(kCustom);
                     exploreC.tecSearch.text = 'Most Watch';
                     exploreC.onOListSearch('Most Watch');
                     await exploreC.onOListTap(exploreC.oListFiltered[0]);
@@ -221,7 +222,7 @@ class PageHomeView extends GetView<PageHomeController> {
                             final video = controller.listTop10Watch[index];
                             return buildLayoutPoster(video, showViewCount: true);
                           },
-                        ).wh(double.infinity, 200).hide(isVisible: AppPref.getHomeSecMostWatch()),
+                        ).wh(double.infinity, 210).hide(isVisible: AppPref.getHomeSecMostWatch()),
                 );
               },
             ),
@@ -263,7 +264,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 onPressed: () async {
                   await Get.find<HomeController>().onMenuChange(kMenuExplore);
                   final exploreC = Get.find<PageExploreController>();
-                  await exploreC.onFilterByChange(kCustom);
+                  await exploreC.onMenuChange(kCustom);
                   exploreC.tecSearch.text = 'Favorite';
                   exploreC.onOListSearch('Favorite');
                   await exploreC.onOListTap(exploreC.oListFiltered[0]);
@@ -287,7 +288,7 @@ class PageHomeView extends GetView<PageHomeController> {
                             final video = controller.listFavorite[index];
                             return buildLayoutPoster(video, showViewCount: false);
                           },
-                        ).wh(double.infinity, 200).hide(isVisible: AppPref.getHomeSecFavorite()),
+                        ).wh(double.infinity, 210).hide(isVisible: AppPref.getHomeSecFavorite()),
                 );
               },
             ),
@@ -329,7 +330,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   onPressed: () async {
                     await Get.find<HomeController>().onMenuChange(kMenuExplore);
                     final exploreC = Get.find<PageExploreController>();
-                    await exploreC.onFilterByChange(kCustom);
+                    await exploreC.onMenuChange(kCustom);
                     exploreC.tecSearch.text = 'New Added';
                     exploreC.onOListSearch('New Added');
                     await exploreC.onOListTap(exploreC.oListFiltered[0]);
@@ -352,7 +353,7 @@ class PageHomeView extends GetView<PageHomeController> {
                             final video = controller.listNewAdded[index];
                             return buildLayoutPoster(video, showViewCount: false);
                           },
-                        ).wh(double.infinity, 200).hide(isVisible: AppPref.getHomeSecNewAdd()),
+                        ).wh(double.infinity, 210).hide(isVisible: AppPref.getHomeSecNewAdd()),
                 );
               },
             ),
@@ -394,7 +395,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   onPressed: () async {
                     await Get.find<HomeController>().onMenuChange(kMenuExplore);
                     final exploreC = Get.find<PageExploreController>();
-                    await exploreC.onFilterByChange(kCustom);
+                    await exploreC.onMenuChange(kCustom);
                     exploreC.tecSearch.text = 'Never Watch';
                     exploreC.onOListSearch('Never Watch');
                     await exploreC.onOListTap(exploreC.oListFiltered[0]);
@@ -417,7 +418,7 @@ class PageHomeView extends GetView<PageHomeController> {
                             final video = controller.listNeverWatch[index];
                             return buildLayoutPoster(video, showViewCount: false);
                           },
-                        ).wh(double.infinity, 200).hide(isVisible: AppPref.getHomeSecNeverWatch()),
+                        ).wh(double.infinity, 210).hide(isVisible: AppPref.getHomeSecNeverWatch()),
                 );
               },
             ),
@@ -459,7 +460,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   onPressed: () async {
                     await Get.find<HomeController>().onMenuChange(kMenuExplore);
                     final exploreC = Get.find<PageExploreController>();
-                    await exploreC.onFilterByChange(kCustom);
+                    await exploreC.onMenuChange(kCustom);
                     exploreC.tecSearch.text = 'Oldest';
                     exploreC.onOListSearch('Oldest');
                     await exploreC.onOListTap(exploreC.oListFiltered[0]);
@@ -482,7 +483,7 @@ class PageHomeView extends GetView<PageHomeController> {
                             final video = controller.listOldest[index];
                             return buildLayoutPoster(video, showViewCount: false);
                           },
-                        ).wh(double.infinity, 200).hide(isVisible: AppPref.getHomeSecOldest()),
+                        ).wh(double.infinity, 210).hide(isVisible: AppPref.getHomeSecOldest()),
                 );
               },
             ),
@@ -530,45 +531,58 @@ class PageHomeView extends GetView<PageHomeController> {
   // ────────────────────────────────────────────────────────────────
   // ⵌ ~
   // ────────────────────────────────────────────────────────────────
-  Widget buildLayoutFanArt(Videos video) {
+  Widget buildLayoutFanArt(
+    Videos video, {
+    bool showViewCount = false,
+    bool showReleaseDate = false,
+  }) {
+    final double width = 260;
     return Container(
       color: AppColor.container,
       child: ZStack([
         ExThumbnail(
           imageUrl: video.fanArt,
           videoPath: video.videoPath,
-          width: 250,
+          width: width,
           height: 170,
           fitUrl: BoxFit.cover,
           fitMemory: BoxFit.fitWidth,
         ),
+        showViewCount ? ' View: ${video.viewCount}'.text.size(10).minFontSize(10).make().wh(70, 17).color(Vx.black.withAlpha(200)).positioned() : 0.heightBox,
+        showReleaseDate ? ' ${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().wh(80, 17).color(Vx.black.withAlpha(200)).positioned() : 0.heightBox,
         Container(
           color: Vx.black.withAlpha(150),
           height: 20,
-          width: 250,
+          width: width,
           child: '${video.videoCode == '' ? video.title?.maxChars(10) : video.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
         ).positioned(bottom: 0),
       ]),
     ).cornerRadius(8).pOnly(right: 8).onInkTap(() => PageSearchOverlay.onItemTap(video));
   }
 
-  Widget buildLayoutPoster(Videos video, {bool showViewCount = false}) {
+  Widget buildLayoutPoster(
+    Videos video, {
+    bool showViewCount = false,
+    bool showReleaseDate = false,
+  }) {
+    final double width = 135;
     return Container(
       color: AppColor.container,
       child: ZStack([
         ExThumbnail(
           imageUrl: video.fanArt,
           videoPath: video.videoPath,
-          width: 120,
-          height: 200,
-          prefix: 2.5,
+          width: width,
+          height: 210,
+          prefix: 2.3,
           fitUrl: BoxFit.fitWidth,
         ),
-        showViewCount ? ' View: ${video.viewCount}'.text.size(10).minFontSize(10).make().wh(63, 17).color(Vx.black.withAlpha(150)).positioned() : 0.heightBox,
+        showViewCount ? ' View: ${video.viewCount}'.text.size(10).minFontSize(10).make().wh(56, 17).color(Vx.black.withAlpha(200)).positioned() : 0.heightBox,
+        showReleaseDate ? ' ${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().wh(80, 17).color(Vx.black.withAlpha(200)).positioned() : 0.heightBox,
         Container(
           color: Vx.black.withAlpha(150),
           height: 20,
-          width: 120,
+          width: width,
           child: '${video.videoCode == '' ? video.title?.maxChars(10) : video.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
         ).positioned(bottom: 0),
       ]),
