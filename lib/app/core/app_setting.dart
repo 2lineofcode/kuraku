@@ -60,7 +60,7 @@ class AppSettingService extends GetxService {
     await pref.writeIfNull('_kHomeSecOldest', true);
 
     // print all pref
-    await pref.getKeys().forEach((key) => print('pref key: $key, value: ${pref.read(key)}'));
+    // await pref.getKeys().forEach((key) => print('pref key: $key, value: ${pref.read(key)}'));
   }
 
   // ────────────────────────────────────────────────────────────────

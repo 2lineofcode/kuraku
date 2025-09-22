@@ -184,28 +184,25 @@ class PageDownloadView extends GetView<PageDownloadController> {
             ).wh(300, 200),
 
             // ** match (already have )
-            Container(
+            _buildOverlayContainer(
               color: Colors.green.withAlpha(100),
-              width: 300,
-              height: 200,
-            ).hide(isVisible: item.match == true),
+              isVisible: item.match == true,
+            ),
 
             // ** is_released (false)
-            Container(
+            _buildOverlayContainer(
               color: Colors.red.withAlpha(70),
-              width: 300,
-              height: 200,
-            ).hide(isVisible: item.isReleased == false && controller.currentMode.value == 'db'),
+              isVisible: item.isReleased == false && controller.currentMode.value == 'db',
+            ),
 
             // ** has Clicked
             GetBuilder(
               init: HomeController(),
               builder: (controller) {
-                return Container(
+                return _buildOverlayContainer(
                   color: Colors.blue.withAlpha(100),
-                  width: 300,
-                  height: 200,
-                ).hide(isVisible: item.isClicked == true);
+                  isVisible: item.isClicked == true,
+                );
               },
             ),
 
@@ -262,5 +259,13 @@ class PageDownloadView extends GetView<PageDownloadController> {
         });
       },
     );
+  }
+
+  Widget _buildOverlayContainer({required Color color, required bool isVisible}) {
+    return Container(
+      color: color,
+      width: 300,
+      height: 200,
+    ).hide(isVisible: isVisible);
   }
 }

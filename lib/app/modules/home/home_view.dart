@@ -88,23 +88,16 @@ class HomeView extends GetView<HomeController> {
   }
 
   Widget sideMenuContent() {
-    final menuList = <Map<String, dynamic>>[
-      {'icon': UIconsPro.regularRounded.comet, 'name': kMenuHome},
-      {'icon': UIconsPro.regularRounded.magnifying_glass_wave, 'name': kMenuSearch},
-      {'icon': UIconsPro.regularRounded.book_alt, 'name': kMenuExplore},
-      {'icon': UIconsPro.regularRounded.display_arrow_down, 'name': kMenuDownload},
-      {'icon': UIconsPro.regularRounded.customization, 'name': kMenuTools},
-      {'icon': UIconsPro.regularRounded.operating_system_upgrade, 'name': kMenuSetting},
-    ];
-
     if (controller.sideMenuWidth.value != 180) {
+
+      // ** MINI MODE
       return VStack(
         [
           ListView.builder(
             physics: NeverScrollableScrollPhysics(),
-            itemCount: menuList.length,
+            itemCount: controller.menus.length,
             itemBuilder: (context, index) {
-              final item = menuList[index];
+              final item = controller.menus[index];
               return Obx(
                 () => InkWell(
                   onTap: () => controller.onMenuChange(item['name']),
@@ -123,14 +116,16 @@ class HomeView extends GetView<HomeController> {
           ).wh(60, 280).pOnly(top: 16),
           ],
       );
-    } 
+    }
+
+    // ** NORMAL MODE
     return VStack(
       [
         ListView.builder(
           physics: NeverScrollableScrollPhysics(),
-          itemCount: menuList.length,
+          itemCount: controller.menus.length,
           itemBuilder: (context, index) {
-            final item = menuList[index];
+            final item = controller.menus[index];
             return Obx(
               () => InkWell(
                 onTap: () => controller.onMenuChange(item['name']),

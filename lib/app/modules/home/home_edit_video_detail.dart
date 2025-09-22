@@ -12,6 +12,8 @@ import '../widgets/widgets.dart';
 import 'home_controller.dart';
 
 mixin HomeEditVideoDetail {
+
+  // ~
   static Future<void> onEditVideoDetail(Videos video) async {
     final tecTitle = TextEditingController(text: video.title ?? '');
     final tecFanArt = TextEditingController(text: video.fanArt ?? '');

@@ -11,203 +11,44 @@ import '../../../utils/helper.dart';
 import '../page_search/page_search_overlay.dart';
 
 class PageExploreController extends GetxController {
-  final menuSelected = kActress.obs;
-  final menus = <String>[
-    kActress,
-    kCategory,
-    kPath,
-    kSeries,
-    kLabel,
-    kStudio,
-    kDirector,
-    kYear,
-    kCustom,
-  ];
+  // ** part: [top] Menu
+  final menus = <String>[kActress, kCategory, kPath, kSeries, kLabel, kStudio, kDirector, kYear, kCustom];
+  final currentMenuSelected = kActress.obs;
 
-  final tecSearch = TextEditingController();
-  final fnSearch = FocusNode();
-  final phSearchText = 'Search...'.obs;
+  // ** part: [left] List & Search
+  final tecSearchLeft = TextEditingController();
+  final fnSearchLeft = FocusNode();
+  final phSearchLeft = 'Search...'.obs;
 
-  // olist
-  final oList = <OListModel>[].obs;
-  final oListFiltered = <OListModel>[].obs;
-  final oListSelected = OListModel().obs;
+  final leftList = <LeftListModel>[].obs;
+  final leftListFiltered = <LeftListModel>[].obs;
+  final leftListSelected = LeftListModel().obs;
+  final leftListHoveredIndex = (-1).obs;
+  final leftListSelectedIndex = 0.obs;
+  final leftListFocusNode = FocusNode();
 
-  final oListHoveredIndex = (-1).obs;
-  final oListSelectedIndex = 0.obs;
-  final oListFocusNode = FocusNode();
-
-  // vlist
-  final vList = <Videos>[].obs;
-  final vListViewMode = kLocal.obs;
-
-  // r18
-  final r18TotalVideo = 0.obs;
-  final r18ListVideo = <Map<String, dynamic>>[].obs;
-
+  // ** part: [right] Videos
+  final rightListViewMode = kLocal.obs;
+  final rightListLocal = <Videos>[].obs;
+  final rightListR18 = <Map<String, dynamic>>[].obs;
+  final rightListR18TotalVideo = 0.obs;
 
   @override
   Future<void> onInit() async {
     super.onInit();
     AppLog.logI('page explore ==> onInit called');
-
     await onMenuChange(kActress);
     await 10.milliseconds.delay();
-    phSearchText.value = 'Search (${oList.length})...';
-  }
-
-  void onOListSearch(String s) {
-    final query = s.toLowerCase();
-    if (query.isEmpty) {
-      oListFiltered.assignAll(oList);
-    } else {
-      final result = oList.where((item) => item.name!.toLowerCase().contains(query)).toList();
-      oListFiltered.assignAll(result);
-    }
-  }
-
-  void onOListMoveSelectionUp() {
-    if (oListSelectedIndex.value > 0) {
-      oListSelectedIndex.value--;
-      oListSelected.value = oListFiltered[oListSelectedIndex.value];
-
-      oListFocusNode.requestFocus();
-      onOListTap(oListSelected.value);
-    }
-  }
-
-  void onOListMoveSelectionDown() {
-    if (oListSelectedIndex.value < oListFiltered.length - 1) {
-      oListSelectedIndex.value++;
-      oListSelected.value = oListFiltered[oListSelectedIndex.value];
-
-      oListFocusNode.requestFocus();
-      onOListTap(oListSelected.value);
-    }
-  }
-
-  Future<void> onOListTap(OListModel item) async {
-    oListSelected.value = item;
-    vListViewMode.value = kLocal;
-
-    oListSelectedIndex.value = oListFiltered.indexOf(item);
-    oListFocusNode.requestFocus();
-    switch (menuSelected.value) {
-      case kActress:
-        vList.value = await DBVideos.getAllLike('actress', item.id.toString());
-        r18TotalVideo.value = await DBR18.getCountAllVideosByActress(item.id!);
-        break;
-      case kCategory:
-        vList.value = await DBVideos.getAllLike('category', item.name!, jsonObject: 'category');
-        r18TotalVideo.value = await DBR18.getCountAllVideosByCategory(HelperDecensor.censored(item.name));
-        break;
-      case kPath:
-        vList.value = await DBVideos.getAllVideoPath('video_path', item.name!);
-        r18TotalVideo.value = 0;
-        break;
-      case kLabel:
-        vList.value = await DBVideos.getAll(where: 'label = ?', whereArgs: [item.name]);
-        r18TotalVideo.value = await DBR18.getCountAllVideosByLabel(item.name!);
-        break;
-      case kSeries:
-        vList.value = await DBVideos.getAll(where: 'series = ?', whereArgs: [item.name]);
-        r18TotalVideo.value = await DBR18.getCountAllVideosBySeries(HelperDecensor.censored(item.name!.trim()));
-        break;
-      case kStudio:
-        vList.value = await DBVideos.getAll(where: 'studio = ?', whereArgs: [item.name]);
-        r18TotalVideo.value = await DBR18.getCountAllVideosByStudio(item.name!.trim());
-        break;
-      case kDirector:
-        vList.value = await DBVideos.getAll(where: 'director = ?', whereArgs: [item.name]);
-        r18TotalVideo.value = await DBR18.getCountAllVideosByDirector(item.name!.trim());
-        break;
-      case kYear:
-        vList.value = await DBVideos.getAllLike('release_date', item.name ?? '');
-        r18TotalVideo.value = await DBR18.getCountAllVideosByYear(item.name!.trim());
-        break;
-      case kCustom:
-        switch (oListSelected.value.name) {
-          case 'New Release':
-            vList.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date DESC, updated_at DESC', limit: 50);
-            break;
-          case 'Favorite':
-            vList.value = await DBVideos.getAll(where: 'is_favorite = 1', orderBy: 'updated_at DESC');
-            break;
-          case 'Non Jav':
-            vList.value = await DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC');
-            break;
-          case 'Most Watch':
-            vList.value = await DBVideos.getAll(where: 'view_count != 0', orderBy: 'view_count DESC, updated_at DESC');
-            break;
-          case 'New Added':
-            vList.value = await DBVideos.getAll(orderBy: 'created_at DESC', limit: 50);
-            break;
-          case 'Never Watch':
-            vList.value = await DBVideos.getAll(where: 'view_count = 0', orderBy: 'updated_at DESC');
-            break;
-        }
-        r18TotalVideo.value = 0;
-        break;
-    }
-  }
-
-  Future<void> onVListTap(Videos item) async {
-    await PageSearchOverlay.onItemTap(item);
-  }
-
-  Future<void> onHeaderLocalTap() async => vListViewMode.value = 'Local';
-
-  Future<void> onHeaderR18Tap() async {
-    if (r18TotalVideo.value == 0) return;
-    vListViewMode.value = kR18;
-    switch (menuSelected.value) {
-      case kActress: r18ListVideo.value = await DBR18.getAllVideosByActress(oListSelected.value.id ?? 0); break;
-      case kCategory: r18ListVideo.value = await DBR18.getAllVideosByCategory(HelperDecensor.censored(oListSelected.value.name)); break;
-      case kPath: break;
-      case kLabel: r18ListVideo.value = await DBR18.getAllVideosByLabel(oListSelected.value.name ?? ''); break;
-      case kSeries: r18ListVideo.value = await DBR18.getAllVideosBySeries(HelperDecensor.censored(oListSelected.value.name)); break;
-      case kStudio: r18ListVideo.value = await DBR18.getAllVideosByStudio(oListSelected.value.name ?? ''); break;
-      case kDirector: r18ListVideo.value = await DBR18.getAllVideosByDirector(oListSelected.value.name ?? ''); break;
-      case kYear: r18ListVideo.value = await DBR18.getAllVideosByYear(oListSelected.value.name ?? ''); break;
-      case kCustom: break;
-    }
-
-    // sort
-    r18ListVideo.value = r18ListVideo.value.take(10000).toList();
-    final r18ValidList = <Map<String, dynamic>>[].obs;
-    for (int i = 0; i < r18ListVideo.length; i++) {
-      final vcode = r18ListVideo[i]['video_code'].toString();
-      if (vcode.isValidVideoCode()) {
-        r18ValidList.add(r18ListVideo[i]);
-      }
-    }
-
-    // r18TotalVideo.value = r18ValidList.length;
-    r18ListVideo.value = r18ValidList.value.take(100000).toList();
-    r18ListVideo.value.unique((item) => item['video_code']);
-    r18TotalVideo.value = r18ListVideo.length;
-
-    r18ListVideo.value.sort((a, b) => b['release_date'].compareTo(a['release_date']));
-
-    // check has match video by code
-    r18ListVideo.assignAll(r18ListVideo.map((r18Item) {
-      final Map<String, dynamic> mutableR18Item = Map.from(r18Item);
-      final hasMatch = vList.any((vItem) => r18Item['video_code'].toString() == (vItem.videoCode!));
-      mutableR18Item['match'] = hasMatch;
-      mutableR18Item['is_clicked'] = false;
-
-      final releaseDate = DateTime.parse(r18Item['release_date'] ?? '');
-      mutableR18Item['is_released'] = releaseDate.isBefore(DateTime.now());
-      return mutableR18Item;
-    }).toList());
-
-    r18ListVideo.refresh();
+    phSearchLeft.value = 'Search (${leftList.length})...';
   }
 
   Future<void> onMenuChange(String menu) async {
-    oList.clear(); vList.clear();
-    menuSelected.value = menu;
-    switch (menuSelected.value) {
+    leftList.clear();
+    rightListLocal.clear();
+    rightListR18.clear();
+    currentMenuSelected.value = menu;
+
+    switch (currentMenuSelected.value) {
       case kActress: await getActressList(); break;
       case kCategory: await getCategoryList(); break;
       case kPath: await getPathList(); break;
@@ -217,17 +58,173 @@ class PageExploreController extends GetxController {
       case kDirector: await getDirectorList(); break;
       case kYear: await getYearList(); break;
       case kCustom: await getCustomList(); break;
-
     }
+
     await 10.milliseconds.delay();
-    phSearchText.value = 'Search (${oList.length})...';
-    tecSearch.text = '';
-    vListViewMode.value = 'Local';
+    phSearchLeft.value = 'Search (${leftList.length})...';
+    tecSearchLeft.text = '';
+    rightListViewMode.value = kLocal;
+  }
+
+
+  // ────────────────────────────────────────────────────────────────
+  // ** ⵌ [LEFT PART]
+  // ────────────────────────────────────────────────────────────────
+  void onLeftListDoSearch(String q) {
+    final query = q.toLowerCase();
+    if (query.isEmpty) {
+      leftListFiltered.assignAll(leftList);
+    } else {
+      final result = leftList.where((item) => item.name!.toLowerCase().contains(query)).toList();
+      leftListFiltered.assignAll(result);
+    }
+  }
+
+  void onLeftListKeyPressedArrowUp() {
+    if (leftListSelectedIndex.value > 0) {
+      leftListSelectedIndex.value--;
+      leftListSelected.value = leftListFiltered[leftListSelectedIndex.value];
+      onLeftListTap(leftListSelected.value);
+      leftListFocusNode.requestFocus();
+    }
+  }
+
+  void onLeftListKeyPressedArrowDown() {
+    if (leftListSelectedIndex.value < leftListFiltered.length - 1) {
+      leftListSelectedIndex.value++;
+      leftListSelected.value = leftListFiltered[leftListSelectedIndex.value];
+      onLeftListTap(leftListSelected.value);
+      leftListFocusNode.requestFocus();
+    }
+  }
+
+  Future<void> onLeftListTap(LeftListModel item) async {
+    leftListSelected.value = item;
+    rightListViewMode.value = kLocal;
+    leftListSelectedIndex.value = leftListFiltered.indexOf(item);
+    leftListFocusNode.requestFocus();
+
+    switch (currentMenuSelected.value) {
+      case kActress:
+        rightListLocal.value = await DBVideos.getAllLike('actress', item.id.toString());
+        rightListR18TotalVideo.value = await DBR18.getCountAllVideosByActress(item.id!);
+        break;
+      case kCategory:
+        rightListLocal.value = await DBVideos.getAllLike('category', item.name!, jsonObject: 'category');
+        rightListR18TotalVideo.value = await DBR18.getCountAllVideosByCategory(HelperDecensor.censored(item.name));
+        break;
+      case kPath:
+        rightListLocal.value = await DBVideos.getAllVideoPath('video_path', item.name!);
+        rightListR18TotalVideo.value = 0;
+        break;
+      case kLabel:
+        rightListLocal.value = await DBVideos.getAll(where: 'label = ?', whereArgs: [item.name]);
+        rightListR18TotalVideo.value = await DBR18.getCountAllVideosByLabel(item.name!);
+        break;
+      case kSeries:
+        rightListLocal.value = await DBVideos.getAll(where: 'series = ?', whereArgs: [item.name]);
+        rightListR18TotalVideo.value = await DBR18.getCountAllVideosBySeries(HelperDecensor.censored(item.name!.trim()));
+        break;
+      case kStudio:
+        rightListLocal.value = await DBVideos.getAll(where: 'studio = ?', whereArgs: [item.name]);
+        rightListR18TotalVideo.value = await DBR18.getCountAllVideosByStudio(item.name!.trim());
+        break;
+      case kDirector:
+        rightListLocal.value = await DBVideos.getAll(where: 'director = ?', whereArgs: [item.name]);
+        rightListR18TotalVideo.value = await DBR18.getCountAllVideosByDirector(item.name!.trim());
+        break;
+      case kYear:
+        rightListLocal.value = await DBVideos.getAllLike('release_date', item.name ?? '');
+        rightListR18TotalVideo.value = await DBR18.getCountAllVideosByYear(item.name!.trim());
+        break;
+      case kCustom:
+        switch (leftListSelected.value.name) {
+          case 'New Release':
+            rightListLocal.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date DESC, updated_at DESC', limit: 50);
+            break;
+          case 'Favorite':
+            rightListLocal.value = await DBVideos.getAll(where: 'is_favorite = 1', orderBy: 'updated_at DESC');
+            break;
+          case 'Non Jav':
+            rightListLocal.value = await DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC');
+            break;
+          case 'Most Watch':
+            rightListLocal.value = await DBVideos.getAll(where: 'view_count != 0', orderBy: 'view_count DESC, updated_at DESC');
+            break;
+          case 'New Added':
+            rightListLocal.value = await DBVideos.getAll(orderBy: 'created_at DESC', limit: 50);
+            break;
+          case 'Never Watch':
+            rightListLocal.value = await DBVideos.getAll(where: 'view_count = 0', orderBy: 'updated_at DESC');
+            break;
+        }
+        rightListR18TotalVideo.value = 0;
+        break;
+    }
+  }
+
+
+  // ────────────────────────────────────────────────────────────────
+  // ** ⵌ [ RIGHT PART ]
+  // ────────────────────────────────────────────────────────────────
+  Future<void> onRightListTap(Videos item) async {
+    await PageSearchOverlay.onItemTap(item);
+  }
+
+  Future<void> onSectionLocalTap() async => rightListViewMode.value = kLocal;
+
+  Future<void> onSectionR18Tap() async {
+    if (rightListR18TotalVideo.value == 0) return;
+    rightListViewMode.value = kR18;
+
+    switch (currentMenuSelected.value) {
+      case kActress: rightListR18.value = await DBR18.getAllVideosByActress(leftListSelected.value.id ?? 0); break;
+      case kCategory: rightListR18.value = await DBR18.getAllVideosByCategory(HelperDecensor.censored(leftListSelected.value.name)); break;
+      case kPath: break;
+      case kLabel: rightListR18.value = await DBR18.getAllVideosByLabel(leftListSelected.value.name ?? ''); break;
+      case kSeries: rightListR18.value = await DBR18.getAllVideosBySeries(HelperDecensor.censored(leftListSelected.value.name)); break;
+      case kStudio: rightListR18.value = await DBR18.getAllVideosByStudio(leftListSelected.value.name ?? ''); break;
+      case kDirector: rightListR18.value = await DBR18.getAllVideosByDirector(leftListSelected.value.name ?? ''); break;
+      case kYear: rightListR18.value = await DBR18.getAllVideosByYear(leftListSelected.value.name ?? ''); break;
+      case kCustom: break;
+    }
+
+    // Filter, sort, and match
+    rightListR18.value = rightListR18.value.take(10000).toList();
+    final _filtered = <Map<String, dynamic>>[].obs;
+    for (int i = 0; i < rightListR18.length; i++) {
+      final vidCode = rightListR18[i]['video_code'].toString();
+      if (vidCode.isValidVideoCode()) {
+        _filtered.add(rightListR18[i]);
+      }
+    }
+
+    rightListR18.value = _filtered.value.take(100000).toList();
+    rightListR18.value.unique((item) => item['video_code']);
+    rightListR18TotalVideo.value = rightListR18.length;
+
+    rightListR18.value.sort((a, b) => b['release_date'].compareTo(a['release_date']));
+
+    // check has match video by code
+    rightListR18.assignAll(rightListR18.map((r18) {
+      final Map<String, dynamic> _mutableItem = Map.from(r18);
+      final hasMatch = rightListLocal.any((vItem) => r18['video_code'].toString() == (vItem.videoCode!));
+      _mutableItem['match'] = hasMatch;
+      _mutableItem['is_clicked'] = false;
+
+      final releaseDate = DateTime.parse(r18['release_date'] ?? '');
+      _mutableItem['is_released'] = releaseDate.isBefore(DateTime.now());
+      return _mutableItem;
+    }).toList());
+
+    rightListR18.refresh();
   }
 
   // ────────────────────────────────────────────────────────────────
+  // ** ⵌ Data Fetching
+  // ────────────────────────────────────────────────────────────────
   Future<void> getActressList() async {
-    oList.clear();
+    leftList.clear();
     final items = await DBVideos.getAllActressWithCount();
 
     for (var item in items) {
@@ -238,7 +235,7 @@ class PageExploreController extends GetxController {
       final count = item['count'] as int;
 
       if (id != null) {
-        oList.add(OListModel(
+        leftList.add(LeftListModel(
           id: id,
           name: nameRomaji != null && nameRomaji.isNotEmpty ? nameRomaji : nameKana,
           imgUrl: imageUrl,
@@ -246,12 +243,12 @@ class PageExploreController extends GetxController {
         ));
       }
     }
-    oListFiltered.assignAll(oList);
+    leftListFiltered.assignAll(leftList);
   }
 
   // ────────────────────────────────────────────────────────────────
   Future<void> getCategoryList() async {
-    oList.clear();
+    leftList.clear();
     final items = await DBVideos.getAllCategoryWithCount();
 
     for (var item in items) {
@@ -260,29 +257,29 @@ class PageExploreController extends GetxController {
       final int count = item['count'] as int;
 
       if (id != null) {
-        oList.add(OListModel(id: id, name: name, count: count));
+        leftList.add(LeftListModel(id: id, name: name, count: count));
       }
     }
-    oListFiltered.assignAll(oList);
+    leftListFiltered.assignAll(leftList);
   }
 
   // ────────────────────────────────────────────────────────────────
   Future<void> getPathList() async {
-    oList.clear();
+    leftList.clear();
     final directoryData = await DBVideos.getAllPathWithCount();
 
     for (var item in directoryData) {
-      oList.add(OListModel(
+      leftList.add(LeftListModel(
         name: item['name'],
         count: item['count'],
       ));
     }
-    oListFiltered.assignAll(oList);
+    leftListFiltered.assignAll(leftList);
   }
 
   // ────────────────────────────────────────────────────────────────
   Future<void> getLabelList() async {
-    oList.clear();
+    leftList.clear();
     final items = await DBVideos.getAllLabelWithCount();
 
     for (var item in items) {
@@ -291,15 +288,15 @@ class PageExploreController extends GetxController {
       final int count = item['count'] as int;
 
       if (id != null) {
-        oList.add(OListModel(id: id, name: name, count: count));
+        leftList.add(LeftListModel(id: id, name: name, count: count));
       }
     }
-    oListFiltered.assignAll(oList);
+    leftListFiltered.assignAll(leftList);
   }
 
   // ────────────────────────────────────────────────────────────────
   Future<void> getSeriesList() async {
-    oList.clear();
+    leftList.clear();
     final items = await DBVideos.getAllSeriesWithCount();
 
     for (var item in items) {
@@ -308,15 +305,15 @@ class PageExploreController extends GetxController {
       final int count = item['count'] as int;
 
       if (id != null) {
-        oList.add(OListModel(id: id, name: name, count: count));
+        leftList.add(LeftListModel(id: id, name: name, count: count));
       }
     }
-    oListFiltered.assignAll(oList);
+    leftListFiltered.assignAll(leftList);
   }
 
   // ────────────────────────────────────────────────────────────────
   Future<void> getStudioList() async {
-    oList.clear();
+    leftList.clear();
     final items = await DBVideos.getAllStudioWithCount();
 
     for (var item in items) {
@@ -325,15 +322,15 @@ class PageExploreController extends GetxController {
       final int count = item['count'] as int;
 
       if (id != null) {
-        oList.add(OListModel(id: id, name: name, count: count));
+        leftList.add(LeftListModel(id: id, name: name, count: count));
       }
     }
-    oListFiltered.assignAll(oList);
+    leftListFiltered.assignAll(leftList);
   }
 
   // ────────────────────────────────────────────────────────────────
   Future<void> getDirectorList() async {
-    oList.clear();
+    leftList.clear();
     final items = await DBVideos.getAllDirectorWithCount();
 
     for (var item in items) {
@@ -342,15 +339,15 @@ class PageExploreController extends GetxController {
       final int count = item['count'] as int;
 
       if (id != null) {
-        oList.add(OListModel(id: id, name: name, count: count));
+        leftList.add(LeftListModel(id: id, name: name, count: count));
       }
     }
-    oListFiltered.assignAll(oList);
+    leftListFiltered.assignAll(leftList);
   }
 
   // ────────────────────────────────────────────────────────────────
   Future<void> getYearList() async {
-    oList.clear();
+    leftList.clear();
     final items = await DBVideos.getAllReleaseYearWithCount();
 
     for (var item in items) {
@@ -359,10 +356,10 @@ class PageExploreController extends GetxController {
       final int count = item['count'] as int;
 
       if (id != null) {
-        oList.add(OListModel(id: id, name: name, count: count));
+        leftList.add(LeftListModel(id: id, name: name, count: count));
       }
     }
-    oListFiltered.assignAll(oList);
+    leftListFiltered.assignAll(leftList);
   }
 
   Future<void> getCustomList() async {
@@ -373,27 +370,26 @@ class PageExploreController extends GetxController {
     final cNeverWatch = await DBVideos.getAll(where: 'view_count = 0', orderBy: 'updated_at DESC');
     final cNonJav = await DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC');
 
-    oList.clear();
-    oList.add(OListModel(name: 'New Release', count: cNewRelease.length));
-    oList.add(OListModel(name: 'Favorite', count: cFavorite.length));
-    oList.add(OListModel(name: 'Non Jav', count: cNonJav.length));
-    oList.add(OListModel(name: 'Most Watch', count: cMostWatch.length));
-    oList.add(OListModel(name: 'New Added', count: cNewAdded.length));
-    oList.add(OListModel(name: 'Never Watch', count: cNeverWatch.length));
-    oListFiltered.assignAll(oList);
+    leftList.clear();
+    leftList.add(LeftListModel(name: 'New Release', count: cNewRelease.length));
+    leftList.add(LeftListModel(name: 'Favorite', count: cFavorite.length));
+    leftList.add(LeftListModel(name: 'Non Jav', count: cNonJav.length));
+    leftList.add(LeftListModel(name: 'Most Watch', count: cMostWatch.length));
+    leftList.add(LeftListModel(name: 'New Added', count: cNewAdded.length));
+    leftList.add(LeftListModel(name: 'Never Watch', count: cNeverWatch.length));
+    leftListFiltered.assignAll(leftList);
   }
 
 }
 
 // ────────────────────────────────────────────────────────────────
 // ────────────────────────────────────────────────────────────────
-class OListModel {
+class LeftListModel {
   dynamic id;
   String? name;
   String? imgUrl;
   int? count;
-
-  OListModel({this.id, this.name, this.imgUrl, this.count});
+  LeftListModel({this.id, this.name, this.imgUrl, this.count});
 }
 
 // filter type
@@ -407,6 +403,6 @@ const kDirector = 'Director';
 const kYear = 'Year';
 const kCustom = 'Custom';
 
-// viewMode
+// view mode
 const kLocal = 'Local';
 const kR18 = 'R18';

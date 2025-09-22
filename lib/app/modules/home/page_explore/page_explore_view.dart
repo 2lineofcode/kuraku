@@ -23,7 +23,21 @@ class PageExploreView extends GetView<PageExploreController> {
   Widget build(BuildContext context) {
     return VStack(
       [
-        // Filter By
+        _buildFilterMenu().pOnly(bottom: 24),
+        HStack(
+          [
+            _buildLeftPart(),
+            Container(height: double.infinity, color: AppColor.container).w(1).pSymmetric(h: 8),
+            _buildRightPart().expand(),
+          ],
+        ).expand(),
+      ],
+    );
+  }
+
+  Widget _buildFilterMenu() {
+    return VStack(
+      [
         'Filter By'.text.size(12).make().pOnly(bottom: 16),
         ListView.builder(
           scrollDirection: Axis.horizontal,
@@ -33,152 +47,154 @@ class PageExploreView extends GetView<PageExploreController> {
               () => ExButtonOutline(
                 label: controller.menus[index],
                 labelSize: 12,
-                labelColor: controller.menuSelected.value == controller.menus[index] ? Vx.white : Vx.neutral500,
-                borderColor: controller.menuSelected.value == controller.menus[index] ? AppColor.selected : AppColor.container,
-                backgroundColor: controller.menuSelected.value == controller.menus[index] ? AppColor.selected : AppColor.container,
+                labelColor: controller.currentMenuSelected.value == controller.menus[index] ? Vx.white : Vx.neutral500,
+                borderColor: controller.currentMenuSelected.value == controller.menus[index] ? AppColor.selected : AppColor.container,
+                backgroundColor: controller.currentMenuSelected.value == controller.menus[index] ? AppColor.selected : AppColor.container,
                 onPressed: () => controller.onMenuChange(controller.menus[index]),
               ).pOnly(right: 8),
             );
           },
         ).wh(double.infinity, 30),
-
-        24.heightBox,
-        HStack(
-          [
-            Container(
-              width: 200,
-              height: double.infinity,
-              color: Colors.transparent,
-              child: VStack(
-                [
-                  Obx(
-                    () => CupertinoTextField(
-                      controller: controller.tecSearch,
-                      focusNode: controller.fnSearch,
-                      placeholder: controller.phSearchText.value,
-                      style: TextStyle(color: Vx.white, fontSize: 12),
-                      clearButtonMode: OverlayVisibilityMode.editing,
-                      prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
-                      onChanged: (s) => controller.onOListSearch(s),
-                    ).pSymmetric(v: 8),
-                  ),
-                  Obx(
-                    () => controller.oListFiltered.isEmpty
-                        ? uiNoData().expand()
-                        : FocusScope(
-                          autofocus: true,
-                          child: RawKeyboardListener(
-                            focusNode: controller.oListFocusNode,
-                            autofocus: true,
-                            onKey: (event) {
-                              if (event is RawKeyDownEvent) {
-                                  if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                                    controller.onOListMoveSelectionDown();
-                                  } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                                    controller.onOListMoveSelectionUp();
-                                  }
-                                }
-                            },
-                            child: ListView.separated(
-                                itemCount: controller.oListFiltered.length,
-                                separatorBuilder: (context, index) => Divider(color: AppColor.border),
-                                itemBuilder: (context, index) {
-                                  final item = controller.oListFiltered[index];
-                                  return Obx(
-                                    () {
-                                      final isSelected = item == controller.oListSelected.value;
-                                      final isHovered = index == controller.oListHoveredIndex.value;
-                                              
-                                      return MouseRegion(
-                                        onEnter: (_) => controller.oListHoveredIndex.value = index,
-                                        onExit: (_) => controller.oListHoveredIndex.value = -1,
-                                        child: InkWell(
-                                          onTap: () => controller.onOListTap(item),
-                                          child: HStack([
-                                            // image
-                                            if (controller.menuSelected.value == kActress) ...[
-                                              item.imgUrl?.trim() != ''
-                                                  ? ExThumbnail(
-                                                      imageUrl: '${Env.actressUrl}/${item.imgUrl}',
-                                                      width: 48,
-                                                      height: 48,
-                                                      fitUrl: BoxFit.cover,
-                                                      withProxy: false,
-                                                    ).cornerRadius(90)
-                                                  : ExAvatarView(
-                                                      source: '',
-                                                      height: 48,
-                                                      width: 48,
-                                                      name: item.name,
-                                                    ),
-                                            ],
-                                              
-                                            // path only
-                                            if (controller.menuSelected.value == kPath) ...[
-                                              if (item.name!.contains('/Volumes')) ...[
-                                                'External → ${item.name!.getLastSegments(segment: 1)} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
-                                              ] else ...[
-                                                'Local → ${item.name!.getLastPath()} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
-                                              ],
-                                            ]
-                                            // other ~
-                                            else ...[
-                                              '${item.name} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand()
-                                            ],
-                                          ]).color(isSelected ? AppColor.selected : isHovered ? AppColor.border : Colors.transparent).cornerRadius(8),
-                                        ),
-                                      );
-                                    },
-                                  );
-                                },
-                              ),
-                          ),
-                        ).pOnly(left: 8, top: 8).expand(),
-                  ),
-                ],
-              ),
-            ),
-            Container(height: double.infinity, color: AppColor.container).w(1).pSymmetric(h: 8),
-
-            // ~
-            Container(
-              height: double.infinity,
-              color: Colors.transparent,
-              child: VStack([
-                Obx(() => buildHeader()),
-                Obx(
-                  () => controller.vList.isEmpty
-                      ? ExUiErrorOrEmpty(
-                          illustration: Icon(
-                          CupertinoIcons.chevron_left_2,
-                          size: 32,
-                        ).pOnly(bottom: 12),
-                        message: 'Please select left area first',
-                        
-                        ).expand()
-                      : controller.vListViewMode.value == kLocal
-                          ? vListLocal().expand()
-                          : vListR18().expand(),
-                ),
-              ]),
-            ).expand(),
-          ],
-        ).expand(),
       ],
     );
   }
 
-  Widget uiNoData() {
-    return ExUiErrorOrEmpty(
-      illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
-      title: 'No Data Found',
-      message: 'No Result Found, as you searched for "${controller.tecSearch.text}"',
+  Widget _buildLeftPart() {
+    return Container(
+      width: 200,
+      height: double.infinity,
+      color: Colors.transparent,
+      child: VStack(
+        [
+          Obx(
+            () => CupertinoTextField(
+              controller: controller.tecSearchLeft,
+              focusNode: controller.fnSearchLeft,
+              placeholder: controller.phSearchLeft.value,
+              style: TextStyle(color: Vx.white, fontSize: 12),
+              clearButtonMode: OverlayVisibilityMode.editing,
+              prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+              onChanged: (s) => controller.onLeftListDoSearch(s),
+            ).pSymmetric(v: 8),
+          ),
+          Obx(
+            () => controller.leftListFiltered.isEmpty
+                ? _buildUiNoData().expand()
+                : FocusScope(
+                    autofocus: true,
+                    child: RawKeyboardListener(
+                      focusNode: controller.leftListFocusNode,
+                      autofocus: true,
+                      onKey: (event) {
+                        if (event is RawKeyDownEvent) {
+                          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                            controller.onLeftListKeyPressedArrowDown();
+                          } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                            controller.onLeftListKeyPressedArrowUp();
+                          }
+                        }
+                      },
+                      child: ListView.separated(
+                        itemCount: controller.leftListFiltered.length,
+                        separatorBuilder: (context, index) => Divider(color: AppColor.border),
+                        itemBuilder: (context, index) {
+                          final item = controller.leftListFiltered[index];
+                          return Obx(
+                            () {
+                              final isSelected = item == controller.leftListSelected.value;
+                              final isHovered = index == controller.leftListHoveredIndex.value;
+
+                              return MouseRegion(
+                                onEnter: (_) => controller.leftListHoveredIndex.value = index,
+                                onExit: (_) => controller.leftListHoveredIndex.value = -1,
+                                child: InkWell(
+                                  onTap: () => controller.onLeftListTap(item),
+                                  child: HStack([
+                                    // image
+                                    if (controller.currentMenuSelected.value == kActress) ...[
+                                      item.imgUrl?.trim() != ''
+                                          ? ExThumbnail(
+                                              imageUrl: '${Env.actressUrl}/${item.imgUrl}',
+                                              width: 48,
+                                              height: 48,
+                                              fitUrl: BoxFit.cover,
+                                              withProxy: false,
+                                            ).cornerRadius(90)
+                                          : ExAvatarView(
+                                              source: '',
+                                              height: 48,
+                                              width: 48,
+                                              name: item.name,
+                                            ),
+                                    ],
+
+                                    // path only
+                                    if (controller.currentMenuSelected.value == kPath) ...[
+                                      if (item.name!.contains('/Volumes')) ...[
+                                        'External → ${item.name!.getLastSegments(segment: 1)} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
+                                      ] else ...[
+                                        'Local → ${item.name!.getLastPath()} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
+                                      ],
+                                    ]
+                                    // other ~
+                                    else ...[
+                                      '${item.name} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand()
+                                    ],
+                                  ])
+                                      .color(isSelected
+                                          ? AppColor.selected
+                                          : isHovered
+                                              ? AppColor.border
+                                              : Colors.transparent)
+                                      .cornerRadius(8),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ).pOnly(left: 8, top: 8).expand(),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget buildHeader() {
-    if (controller.vList.isEmpty) return Container();
-    final item = controller.oListSelected.value;
+  Widget _buildRightPart() {
+    return Container(
+      height: double.infinity,
+      color: Colors.transparent,
+      child: VStack([
+        Obx(() => _buildSectionHeader()),
+        Obx(
+          () => controller.rightListLocal.isEmpty
+              ? ExUiErrorOrEmpty(
+                  illustration: Icon(CupertinoIcons.chevron_left_2, size: 32).pOnly(bottom: 12),
+                  message: 'Please select left area first',
+                ).expand()
+              : controller.rightListViewMode.value == kLocal
+                  ? _buildVListLocal().expand()
+                  : _buildVListR18().expand(),
+        ),
+      ]),
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // ⵌ REUSABLE WIDGETS
+  // ────────────────────────────────────────────────────────────────
+  Widget _buildUiNoData() {
+    return ExUiErrorOrEmpty(
+      illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
+      title: 'No Data Found',
+      message: 'No Result Found, as you searched for "${controller.tecSearchLeft.text}"',
+    );
+  }
+
+  Widget _buildSectionHeader() {
+    if (controller.rightListLocal.isEmpty) return Container();
+    final item = controller.leftListSelected.value;
     return Container(
       width: double.infinity,
       height: 50,
@@ -216,33 +232,32 @@ class PageExploreView extends GetView<PageExploreController> {
                 .onInkTap(() {
               HelperMisc.copyToClipboard(HelperDecensor.decensor(item.name!.trim()), showToast: true);
             }).pOnly(top: 6, bottom: 4),
-
             Obx(
               () => HStack([
-                'Local: ${item.count}'
+                '$kLocal: ${item.count}'
                     .text
                     .size(10)
                     .minFontSize(10)
                     .maxLines(1)
                     .make()
                     .pOnly(left: 12, right: 12)
-                    .color(controller.vListViewMode.value == kLocal ? AppColor.selected : AppColor.unselected)
+                    .color(controller.rightListViewMode.value == kLocal ? AppColor.selected : AppColor.unselected)
                     .cornerRadius(8)
-                    .onInkTap(() async => await controller.onHeaderLocalTap())
+                    .onInkTap(() async => await controller.onSectionLocalTap())
                     .pOnly(right: 12),
-                'R18: ${controller.r18TotalVideo}'
+                '$kR18: ${controller.rightListR18TotalVideo}'
                     .text
                     .size(10)
                     .minFontSize(10)
                     .maxLines(1)
                     .make()
                     .pOnly(left: 12, right: 12)
-                    .color(controller.vListViewMode.value == kR18 ? AppColor.selected : AppColor.unselected)
+                    .color(controller.rightListViewMode.value == kR18 ? AppColor.selected : AppColor.unselected)
                     .cornerRadius(8)
                     .pOnly(right: 12)
-                    .onInkTap(() async => await controller.onHeaderR18Tap())
+                    .onInkTap(() async => await controller.onSectionR18Tap())
                     .pOnly(right: 12)
-                    .hide(isVisible: controller.r18TotalVideo.value != 0),
+                    .hide(isVisible: controller.rightListR18TotalVideo.value != 0),
               ]),
             ),
           ]).expand(),
@@ -251,7 +266,7 @@ class PageExploreView extends GetView<PageExploreController> {
     ).pOnly(bottom: 12);
   }
 
-  Widget vListLocal() {
+  Widget _buildVListLocal() {
     final double width = 160;
     final double height = 230;
 
@@ -262,11 +277,11 @@ class PageExploreView extends GetView<PageExploreController> {
         mainAxisExtent: height,
         mainAxisSpacing: 12,
         crossAxisSpacing: 8,
-        childAspectRatio: width / height,
+        // childAspectRatio: width / height,
       ),
-      itemCount: controller.vList.length,
+      itemCount: controller.rightListLocal.length,
       itemBuilder: (context, i) {
-        final item = controller.vList[i];
+        final item = controller.rightListLocal[i];
         return RepaintBoundary(
           child: Container(
             color: AppColor.container,
@@ -276,13 +291,11 @@ class PageExploreView extends GetView<PageExploreController> {
                 videoPath: item.videoPath,
                 width: width,
                 height: height,
-                prefix: 2.1,
+                prefix: 2.12,
               ).wh(width, height),
-
               if (item.releaseDate != null && item.releaseDate != '') ...[
-              '${item.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().wh(80, 17).color(Vx.black.withAlpha(200)).positioned(),
+                '${item.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().pSymmetric(h: 4).wh(80, 17).color(Vx.black.withAlpha(200)).positioned(),
               ],
-
               Container(
                 color: Vx.black.withAlpha(150),
                 width: width,
@@ -290,13 +303,13 @@ class PageExploreView extends GetView<PageExploreController> {
                 child: '${item.videoCode == '' ? item.title?.maxChars(10) : item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
               ).positioned(bottom: 0, left: 0, right: 0),
             ]),
-          ).cornerRadius(8).onInkTap(() => controller.onVListTap(item)),
+          ).cornerRadius(8).onInkTap(() => controller.onRightListTap(item)),
         );
       },
     );
   }
 
-  Widget vListR18() {
+  Widget _buildVListR18() {
     return GridView.builder(
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 300,
@@ -305,9 +318,9 @@ class PageExploreView extends GetView<PageExploreController> {
         crossAxisSpacing: 8,
         childAspectRatio: 300 / 200,
       ),
-      itemCount: controller.r18ListVideo.length,
+      itemCount: controller.rightListR18.length,
       itemBuilder: (context, i) {
-        final item = controller.r18ListVideo[i];
+        final item = controller.rightListR18[i];
         return ZStack(
           [
             ExThumbnail(
@@ -317,28 +330,25 @@ class PageExploreView extends GetView<PageExploreController> {
             ).wh(300, 200).cornerRadius(8),
 
             // ** match (already have )
-            Container(
+            _buildOverlayContainer(
               color: Colors.green.withAlpha(100),
-              width: 300,
-              height: 200,
-            ).hide(isVisible: item['match'] == true),
+              isVisible: item['match'] == true,
+            ),
 
-            // ** is_released (false) 
-            Container(
+            // ** is_released (false)
+            _buildOverlayContainer(
               color: Colors.red.withAlpha(70),
-              width: 300,
-              height: 200,
-            ).hide(isVisible: item['is_released'] == false),
+              isVisible: item['is_released'] == false,
+            ),
 
             // ** has Clicked
             GetBuilder(
               init: HomeController(),
               builder: (controller) {
-                return Container(
+                return _buildOverlayContainer(
                   color: Colors.blue.withAlpha(100),
-                  width: 300,
-                  height: 200,
-                ).hide(isVisible: item['is_clicked'] == true);
+                  isVisible: item['is_clicked'] == true,
+                );
               },
             ),
 
@@ -347,7 +357,7 @@ class PageExploreView extends GetView<PageExploreController> {
               width: 300,
               height: item['title'] != null && item['title'] != '' ? 63 : 33,
               child: VStack([
-                '${item['video_code']}'.text.bold.size(12).ellipsis.make().onInkTap((){
+                '${item['video_code']}'.text.bold.size(12).ellipsis.make().onInkTap(() {
                   HelperMisc.copyToClipboard(item['video_code'], showToast: true);
                 }),
                 '${HelperDecensor.decensor(item['title'] ?? '')}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240).hide(isVisible: item['title'] != null && item['title'] != ''),
@@ -362,7 +372,7 @@ class PageExploreView extends GetView<PageExploreController> {
                 child: '${item['release_date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(9).minFontSize(9).align(TextAlign.center).ellipsis.makeCentered(),
               ).positioned(left: 0),
             ],
-            
+
             // ** open trailer
             Icon(UIconsPro.regularRounded.play, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
               HelperOpener.openTrailer(item);
@@ -372,10 +382,17 @@ class PageExploreView extends GetView<PageExploreController> {
             Icon(UIconsPro.regularRounded.picture, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
               HelperOpener.openScreenshot(item);
             }).positioned(right: 8, top: 36),
-
           ],
         ).onInkTap(() async => await HelperOpener.openVideoInfo(item)).pOnly(bottom: 12);
       },
     );
+  }
+
+  Widget _buildOverlayContainer({required Color color, required bool isVisible}) {
+    return Container(
+      color: color,
+      width: 300,
+      height: 200,
+    ).hide(isVisible: isVisible);
   }
 }

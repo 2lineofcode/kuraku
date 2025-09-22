@@ -78,84 +78,7 @@ class _JavItState extends State<JavIt> with WindowListener {
         getPages: AppPages.routes,
         defaultTransition: Transition.fadeIn,
         debugShowCheckedModeBanner: false,
-        onReady: () {
-          var files = Glob('r18*.db').listSync(root: Get.find<AppSettingService>().appPath);
-          files.sort((a, b) => b.path.compareTo(a.path));
-          if (files.isEmpty) {
-            ExAlert.adaptive(
-              isDismissible: false,
-              title: Text('Ups'),
-              content: Text('Database `r18` not found, to use all features of this app, click download & install first'),
-              actions: [
-                CupertinoDialogAction(
-                  child: Text('Download & Install', style: TextStyle(color: Vx.red500, fontSize: 13)),
-                  onPressed: () async {
-                    final appSetting = Get.find<AppSettingService>();
-                    final home = Get.find<HomeController>();
-                    Get.back();
-
-                    home.change(0, status: RxStatus.loading());
-                    home.loadingText.value = 'Preparing...';
-
-                    // ** download
-                    try {
-                      _getNextUpdate(DateTime lastUpdate, int intervalDays, DateTime today) {
-                        final diffDays = today.difference(lastUpdate).inDays;
-                        final times = diffDays ~/ intervalDays;
-                        final lastUpdateFromNow = lastUpdate.add(Duration(days: times * intervalDays));
-                        return lastUpdateFromNow;
-                      }
-
-                      final lastUpdate = DateTime(2025, 9, 2);
-                      final intervalDays = 7;
-                      final today = DateTime.now();
-
-                      final lastUpdFromNow = _getNextUpdate(lastUpdate, intervalDays, today);
-                      final lastUpdFromNowStr = lastUpdFromNow.toStringEx(format: kYMd);
-
-                      final serverUrl = 'https://r18dotdev.s3.eu-west-1.wasabisys.com/dumps';
-                      final outputFileName = 'r18dotdev_dump_$lastUpdFromNowStr.sql.gz';
-
-                      await Dio().download(
-                        '$serverUrl/$outputFileName',
-                        '${appSetting.appPath}/$outputFileName',
-                        onReceiveProgress: (received, total) {
-                          final percent = ((received / total) * 100).toStringAsFixed(0);
-                          home.footerText.value = 'DO NOT CLOSE APP | Downloading ($percent%) ...';
-                          home.loadingText.value = 'DO NOT CLOSE APP \n\n Downloading ($percent%) ...';
-                        },
-                      );
-
-                      home.footerText.value = 'DO NOT CLOSE APP | Extracting...';
-                      home.loadingText.value = 'DO NOT CLOSE APP \n\n Extracting...';
-                      await shell.run('gunzip "${appSetting.appPath}/$outputFileName"');
-
-                      home.footerText.value = 'DO NOT CLOSE APP | Importing... will take 4-15 minutes..';
-                      home.loadingText.value = 'DO NOT CLOSE APP \n\n Importing... will take 4-15 minutes..\n converting psql into sqlite3';
-                      await shell.run(
-                        'python3 ${appSetting.appPath}/r18_to_javit.py -d "${appSetting.appPath}"',
-                        onProcess: (process) async {
-                          await process.exitCode.then((code) async {
-                            if (code == 1) {
-                              home.footerText.value = 'Task Failed. Please restart app...';
-                              home.change(0, status: RxStatus.error());
-                            }
-
-                            if (code == 0) {
-                              await HelperToast.success('Task Done. Please restart app...');
-                              home.footerText.value = 'Task Done. Please restart app...';
-                              home.loadingText.value = 'Task Done \n\n Please restart app...';
-                            }
-                          });
-                        },
-                      );
-                    } catch (_) {}
-                  },
-                ),
-              ],
-            );
-          }
-        },
+        onReady: () async => await _checkApplicationIsReady(),
       ),
     );
   }
@@ -176,5 +99,86 @@ class _JavItState extends State<JavIt> with WindowListener {
   void onWindowLeaveFullScreen([int? windowId]) {
     Get.forceAppUpdate();
     AppLog.logD('onWindowLeaveFullScreen');
+  }
+
+  Future<void> _checkApplicationIsReady() async {
+    var files = Glob('r18*.db').listSync(root: Get.find<AppSettingService>().appPath);
+    files.sort((a, b) => b.path.compareTo(a.path));
+    if (files.isEmpty) {
+      ExAlert.adaptive(
+        isDismissible: false,
+        title: Text('Ups'),
+        content: Text('Database `r18` not found, to use all features of this app, click download & install first'),
+        actions: [
+          CupertinoDialogAction(
+            child: Text('Download & Install', style: TextStyle(color: Vx.red500, fontSize: 13)),
+            onPressed: () async {
+              final appSetting = Get.find<AppSettingService>();
+              final home = Get.find<HomeController>();
+              Get.back();
+
+              home.change(0, status: RxStatus.loading());
+              home.loadingText.value = 'Preparing...';
+
+              // ** download
+              try {
+                _getNextUpdate(DateTime lastUpdate, int intervalDays, DateTime today) {
+                  final diffDays = today.difference(lastUpdate).inDays;
+                  final times = diffDays ~/ intervalDays;
+                  final lastUpdateFromNow = lastUpdate.add(Duration(days: times * intervalDays));
+                  return lastUpdateFromNow;
+                }
+
+                final lastUpdate = DateTime(2025, 9, 2);
+                final intervalDays = 7;
+                final today = DateTime.now();
+
+                final lastUpdFromNow = _getNextUpdate(lastUpdate, intervalDays, today);
+                final lastUpdFromNowStr = lastUpdFromNow.toStringEx(format: kYMd);
+
+                final serverUrl = 'https://r18dotdev.s3.eu-west-1.wasabisys.com/dumps';
+                final outputFileName = 'r18dotdev_dump_$lastUpdFromNowStr.sql.gz';
+
+                await Dio().download(
+                  '$serverUrl/$outputFileName',
+                  '${appSetting.appPath}/$outputFileName',
+                  onReceiveProgress: (received, total) {
+                    final percent = ((received / total) * 100).toStringAsFixed(0);
+                    home.footerText.value = 'DO NOT CLOSE APP | Downloading ($percent%) ...';
+                    home.loadingText.value = 'DO NOT CLOSE APP \n\n Downloading ($percent%) ...';
+                  },
+                );
+
+                home.footerText.value = 'DO NOT CLOSE APP | Extracting...';
+                home.loadingText.value = 'DO NOT CLOSE APP \n\n Extracting...';
+                await shell.run('gunzip "${appSetting.appPath}/$outputFileName"');
+
+                home.footerText.value = 'DO NOT CLOSE APP | Importing... will take 4-15 minutes..';
+                home.loadingText.value = 'DO NOT CLOSE APP \n\n Importing... will take 4-15 minutes..\n converting psql into sqlite3';
+                await shell.run(
+                  'python3 ${appSetting.appPath}/r18_to_javit.py -d "${appSetting.appPath}"',
+                  onProcess: (process) async {
+                    await process.exitCode.then((code) async {
+                      if (code == 1) {
+                        home.footerText.value = 'Task Failed. Please restart app...';
+                        home.change(0, status: RxStatus.error());
+                      }
+
+                      if (code == 0) {
+                        await HelperToast.success('Task Done. Please restart app...');
+                        home.footerText.value = 'Task Done. Please restart app...';
+                        home.loadingText.value = 'Task Done \n\n Please restart app...';
+                      }
+                    });
+                  },
+                );
+              } catch (_) {}
+            },
+          ),
+        ],
+      );
+    } else {
+      AppLog.logS('=== 💎 Application is ready, without any issue 💎 ===');
+    }
   }
 }

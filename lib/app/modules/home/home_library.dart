@@ -21,9 +21,13 @@ import '../../utils/helper_opener.dart';
 import '../../utils/helper_toast.dart';
 import 'home_controller.dart';
 
+/// A mixin for managing library-related functionalities in the home screen.
 mixin HomeLibrary {
-  static final _homeController = Get.find<HomeController>();
+  static final _home = Get.find<HomeController>();
 
+  /// Displays the library menu as an overlay panel.
+  /// This menu shows a list of libraries, allows adding new ones,
+  /// and rescanning existing ones.
   static Future<void> openMenuLibrary(List<Library> library) async {
     await Overlayment.show(
       context: Get.context,
@@ -114,6 +118,8 @@ mixin HomeLibrary {
     );
   }
 
+  /// Opens a dialog to add or edit a library.
+  /// This dialog handles input for the library's alias and root path.
   static Future<void> openDialogAddorEditLibrary({Library? library, bool isFromDrop = false}) async {
     final tfAlias = TextEditingController(text: library?.alias);
     final tfRootPath = TextEditingController(text: library?.rootFolder);
@@ -127,15 +133,14 @@ mixin HomeLibrary {
 
     ExAlert.adaptive(
       isDismissible: false,
-      icon: 'aa'.text.make(),
       title: HStack(
         [
           Text(
-            library != null ? 'ⵌ ${library.alias}' : 'ⵌ Add to Library',
+            library != null ? 'ⵌ Edit `${library.alias}`' : 'ⵌ New',
             style: TextStyle(fontWeight: FontWeight.bold),
             textAlign: TextAlign.left,
-          ),
-          Spacer(),
+            overflow: TextOverflow.ellipsis,
+          ).expand(),
           ExCloseButton(),
         ],
       ).pOnly(bottom: 16),
@@ -199,7 +204,6 @@ mixin HomeLibrary {
           ),
         ],
 
-        //
         CupertinoDialogAction(
           child: Text('Submit', style: TextStyle(fontSize: 13)),
           onPressed: () async {
@@ -216,14 +220,22 @@ mixin HomeLibrary {
     );
   }
 
-  static Future<void> onSubmit({required String alias, required String rootPath, required Library? library, required bool isFromDrop, required Library librarySelected}) async {
-    // validate
+  /// Handles the submission logic for adding or editing a library.
+  /// Validates input and performs the appropriate database operations.
+  static Future<void> onSubmit({
+    required String alias,
+    required String rootPath,
+    required Library? library,
+    required bool isFromDrop,
+    required Library librarySelected,
+  }) async {
+    // Validate fields
     if (alias.isEmpty || rootPath.isEmpty) {
       await HelperToast.error('Please fill all field');
       return;
     }
 
-    // edit mode
+    // Edit mode
     if (library != null) {
       library.alias = alias;
       library.rootFolder = rootPath;
@@ -239,14 +251,19 @@ mixin HomeLibrary {
       return;
     }
 
-    // add mode
+    // Add mode
     librarySelected.alias = alias;
     await DBLibrary.add(librarySelected);
     Get.back();
     await doAddorEditVideoFromLibrary(librarySelected);
   }
 
-  // ** MAIN PROCESS
+
+  // ────────────────────────────────────────────────────────────────
+  // ** MAIN PROCESSES
+  /// Processes and adds/edits videos from a specific library.
+  /// Scans for video files and updates the database with metadata if available.
+  // ────────────────────────────────────────────────────────────────
   static Future<void> doAddorEditVideoFromLibrary(Library library) async {
     if (library.videos == null || library.videos!.isEmpty) {
       return;
@@ -254,10 +271,10 @@ mixin HomeLibrary {
 
     for (int index = 0; index < library.videos!.length; index++) {
       final videoPath = library.videos![index];
-      _homeController.footerText.value = '◎ ${index + 1} of ${library.videos!.length}';
+      _home.footerText.value = '◎ ${index + 1} of ${library.videos!.length}';
 
-      _homeController.change(200, status: RxStatus.loading());
-      _homeController.loadingText.value = 'Progress: ${index + 1} of ${library.videos!.length} (${((index + 1) * 100 / library.videos!.length).toInt()}%)';
+      _home.change(200, status: RxStatus.loading());
+      _home.loadingText.value = 'Progress: ${index + 1} of ${library.videos!.length} (${((index + 1) * 100 / library.videos!.length).toInt()}%)';
 
       final videoCode = videoPath.getFileName().getVideoCode();
 
@@ -273,12 +290,8 @@ mixin HomeLibrary {
           newVideo.videoPath = videoPath;
           newVideo.title = videoPath.getFileName().noExt();
 
-          // ** new [filesize & quality]
-          try {
-            newVideo.filesize = File(videoPath).lengthSync();
-          } catch (e) {
-            AppLog.logE(e);
-          }
+          final file = File(videoPath);
+          if (file.existsSync()) newVideo.filesize = file.lengthSync();
 
           await DBVideos.add(newVideo);
           continue;
@@ -295,35 +308,24 @@ mixin HomeLibrary {
         newVideo.fanArt = '${dataVideo['fan_art']}';
         newVideo.poster = '${dataVideo['poster']}';
 
+        // Logic for screenshot
         if (dataVideo['sslast'] != null) {
-          final ss = <String>[];
+          final screenshots = <String>[];
           final n = dataVideo['sslast'].toString().split('-').last;
           for (var i = 0; i < int.parse(n); i++) {
             final filename = '${dataVideo['ssfirst']}';
-
-            if (!filename.contains('jp-')) {
-              final part = filename.allBefore('-');
-              final prefix = '${part}jp-${i + 1}';
-              ss.add(prefix);
-            } else {
-              final part = filename.removeLast(1);
-              final prefix = '$part${i + 1}';
-              ss.add(prefix);
-            }
+            final part = filename.allBefore('-');
+            final suffix = filename.contains('jp-') ? '' : 'jp-';
+            screenshots.add('$part$suffix${i + 1}');
           }
-          newVideo.screenshot = ss;
-
-
-          // ** new [filesize & quality]
-          try {
-            newVideo.filesize = File(videoPath).lengthSync();
-          } catch (e) {
-            AppLog.logE(e);
-          }
-
-          await DBVideos.add(newVideo);
-          _homeController.footerText.value = '◎ Inserting: $videoCode';
+          newVideo.screenshot = screenshots;
         }
+
+        final file = File(videoPath);
+        if (file.existsSync()) newVideo.filesize = file.lengthSync();
+
+        await DBVideos.add(newVideo);
+        _home.footerText.value = '◎ Inserting: $videoCode';
       }
 
       // else => no video_code (non-jav)
@@ -333,56 +335,59 @@ mixin HomeLibrary {
         newVideo.videoPath = videoPath;
         newVideo.title = videoPath.getFileName().noExt();
 
-        // ** new [filesize & quality]
-        try {
-          newVideo.filesize = File(videoPath).lengthSync();
-        } catch (e) {
-          AppLog.logE(e);
-        }
+        final file = File(videoPath);
+        if (file.existsSync()) newVideo.filesize = file.lengthSync();
 
         await DBVideos.add(newVideo);
-        _homeController.footerText.value = '◎ Inserting non metadata: $videoCode';
+        _home.footerText.value = '◎ Inserting non metadata: $videoCode';
       }
     }
 
-    _homeController.footerText.value = '◎ Commit ${library.videos!.length} Videos';
+    _home.footerText.value = '◎ Commit ${library.videos!.length} Videos';
     await 100.milliseconds.delay();
-    await _homeController.onRefreshAllContent();
+    await _home.onRefreshAllContent();
   }
 
+  /// Deletes all videos associated with a specific library.
   static Future<void> doDeleteVideoFromLibrary(Library library) async {
     await DBVideos.deleteByRootPath(library.rootFolder ?? '');
     await DBLibrary.delete(library);
-    await _homeController.onRefreshAllContent();
+    await _home.onRefreshAllContent();
   }
 
+  /// Rescans a single library to find new or deleted videos.
+  /// Updates the library record and performs add/delete operations on videos.
   static Future<void> doRescanVideoFromLibrary(Library library) async {
     try {
       final oldData = library;
       final newData = await HelperFilePicker.scanFolderAndSubFolder(library.rootFolder ?? '');
 
+      if (newData == null) return;
+
       final pathToAdd = <String>[];
       final pathToDelete = <String>[];
 
-      for (final newVideo in newData!.videos ?? []) {
+      for (final newVideo in newData.videos ?? []) {
         if (oldData.videos == null || !oldData.videos!.contains(newVideo)) {
           pathToAdd.add(newVideo);
         }
       }
 
       for (final oldVideo in oldData.videos ?? []) {
-        if (newData.videos == null || !newData.videos!.contains(oldVideo)) {
+        if (!newData.videos!.contains(oldVideo)) {
           pathToDelete.add(oldVideo);
         }
       }
 
-      // update library
+      // Update library
       oldData.totalVideo = newData.totalVideo;
       oldData.videos = newData.videos;
       await DBLibrary.update(oldData);
 
       if (pathToAdd.isNotEmpty) {
-        await doAddorEditVideoFromLibrary(oldData);
+        // Need to create a new library object with only the new videos
+        final libraryWithNewVideos = Library(videos: pathToAdd, rootFolder: oldData.rootFolder);
+        await doAddorEditVideoFromLibrary(libraryWithNewVideos);
         await HelperToast.info('${library.alias} | Added ${pathToAdd.length} videos');
       }
 
@@ -391,19 +396,21 @@ mixin HomeLibrary {
           await DBVideos.deleteByVideoPath(pathToDelete[i]);
         }
         await HelperToast.info('${library.alias} | Deleted ${pathToDelete.length} videos');
-        await Get.find<HomeController>().onRefreshAllContent();
+        await _home.onRefreshAllContent();
       }
     } catch (e) {
+      AppLog.logE(e);
       // await HelperToast.error(e.toString());
     }
   }
 
+  /// Rescans all existing libraries.
   static Future<void> doRescanAllVideoFromLibrary(List<Library> libraries) async {
     if (libraries.isEmpty) return;
-    _homeController.footerText.value = '◎ Rescanning...';
+    _home.footerText.value = '◎ Rescanning...';
     for (final library in libraries) {
       await doRescanVideoFromLibrary(library);
     }
-    _homeController.footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
+    _home.footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
   }
 }

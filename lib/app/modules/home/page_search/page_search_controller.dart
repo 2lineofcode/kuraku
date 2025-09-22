@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -18,7 +19,8 @@ class PageSearchController extends GetxController {
   final fnSearch = FocusNode();
   final phSearch = ''.obs;
 
-  final scrollController = ScrollController();
+  final scrollGridController = ScrollController();
+  final scrollListController = ScrollController();
   final scrollOffset = 0.0.obs;
 
   final viewModeSelected = kGrid.obs; // grid | list
@@ -26,7 +28,7 @@ class PageSearchController extends GetxController {
 
   @override
   Future<void> onInit() async {
-    if (scrollOffset.value > 0) scrollController.jumpTo(scrollOffset.value);
+    if (scrollOffset.value > 0) scrollGridController.jumpTo(scrollOffset.value);
     
     super.onInit();
     AppLog.logI('page search ==> onInit called');
@@ -105,6 +107,15 @@ class PageSearchController extends GetxController {
   }
 
   Future<void> onSearch() async {
+    try {
+      if (viewModeSelected.value == kGrid) {
+        scrollGridController.animToTop();
+      } else {
+        scrollListController.animToTop();
+      }
+    } 
+    catch (_) {}
+
     if (tecSearch.text.isEmpty) {
       await onReset();
       return;

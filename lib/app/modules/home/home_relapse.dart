@@ -10,7 +10,11 @@ import '../../data/database/db_relapse.dart';
 import '../../data/models/relapse_entity.dart';
 import 'page_settings/page_settings_controller.dart';
 
+/// A mixin for managing relapse-related functionalities.
 mixin HomeRelapse {
+
+  /// Displays the relapse timeline as an overlay panel.
+  /// This panel shows a list of relapse dates and the total count.
   static Future<void> openMenuRelapse() async {
     final relapse = <Map<String, dynamic>>[].obs;
     final countAll = 0.obs;
@@ -50,10 +54,6 @@ mixin HomeRelapse {
               separatorBuilder: (context, index) => Divider(),
               itemBuilder: (context, index) {
                 final item = relapse[index];
-                // return ListTile(
-                //   title: '${item['date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(12).bold.make(),
-                //   trailing: '${item['count']} times'.text.size(10).minFontSize(10).make(),
-                // );
                 return HStack([
                   Icon(UIconsPro.solidRounded.minus, size: 12).pOnly(left: 8, right: 12),
                   VStack([
@@ -71,6 +71,7 @@ mixin HomeRelapse {
     );
   }
 
+  /// Adds a new relapse entry to the database and updates the UI.
   static Future<void> _onRelapse() async {
     await DBRelapse.add(Relapse(date: DateTime.now().toStringEx(format: kYMd)));
     await Get.find<PageSettingsController>().onInit();

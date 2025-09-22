@@ -99,6 +99,10 @@ mixin HelperOpener {
 
     final _focusNode = FocusNode();
 
+    final _home = Get.find<HomeController>();
+    final _explore = Get.find<PageExploreController>();
+    final _tool = Get.find<PageToolsController>();
+
     await Overlayment.show(
       context: Get.context,
       OverPanel(
@@ -176,12 +180,12 @@ mixin HelperOpener {
 
                           try {
                             item['is_clicked'] = true;
-                            Get.find<HomeController>().update();
+                            _home.update();
                           } catch (_) {}
 
                           try {
                             item.isClicked = true;
-                            Get.find<HomeController>().update();
+                            _home.update();
                           } catch (_) {}
                         },
                       ),
@@ -229,26 +233,21 @@ mixin HelperOpener {
                                       // ** on actress clicked
                                       try {
                                         final check = await DBVideos.getByActress(video.actress?[i].nameRomaji ?? '');
-                                        if (check.isNotEmpty) {
-                                          final homeC = Get.find<HomeController>();
-                                          final exploreC = Get.find<PageExploreController>();
-                                          final name = '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}';
+                                        final name = '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}';
 
-                                          await homeC.onMenuChange(kMenuExplore);
-                                          await exploreC.onMenuChange(kActress);
-                                          exploreC.tecSearch.text = name;
-                                          exploreC.onOListSearch(name);
-                                          await exploreC.onOListTap(exploreC.oListFiltered[0]);
+                                        if (check.isNotEmpty) {
+                                          await _home.onMenuChange(kMenuExplore);
+                                          await _explore.onMenuChange(kActress);
+                                          _explore.tecSearchLeft.text = name;
+                                          _explore.onLeftListDoSearch(name);
+                                          await _explore.onLeftListTap(_explore.leftListFiltered[0]);
                                         } else {
-                                          final homeC = Get.find<HomeController>();
-                                          final toolC = Get.find<PageToolsController>();
-                                          final name = '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}';
-                                          await homeC.onMenuChange(kMenuTools);
-                                          await toolC.onMenuChange(kAdvanceSearch);
-                                          toolC.filterBy.value = kActress;
-                                          toolC.tecFilterSearch.text = name;
-                                          await toolC.onSearchFilter(name);
-                                          await toolC.onOListTap(toolC.oList[0], 0);
+                                          await _home.onMenuChange(kMenuTools);
+                                          await _tool.onMenuChange(kAdvanceSearch);
+                                          _tool.currentFilterBy.value = kActress;
+                                          _tool.tecFilterSearchLeft.text = name;
+                                          await _tool.onLeftListDoSearch(name);
+                                          await _tool.onLeftListTap(_tool.leftList[0], 0);
                                         }
                                       } catch (_) {}
                                     })
@@ -265,15 +264,14 @@ mixin HelperOpener {
                               for (int i = 0; i < video.category!.length; i++) ...[
                                 '${HelperDecensor.decensor(video.category?[i].category)}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(right: 8).onInkTap(() async {
                                   // ** on category clicked
+                                  final name = '${HelperDecensor.decensor(video.category?[i].category)}';
+
                                   try {
-                                    final homeC = Get.find<HomeController>();
-                                    final exploreC = Get.find<PageExploreController>();
-                                    final name = '${HelperDecensor.decensor(video.category?[i].category)}';
-                                    await homeC.onMenuChange(kMenuExplore);
-                                    await exploreC.onMenuChange(kCategory);
-                                    exploreC.tecSearch.text = name;
-                                    exploreC.onOListSearch(name);
-                                    await exploreC.onOListTap(exploreC.oListFiltered[0]);
+                                    await _home.onMenuChange(kMenuExplore);
+                                    await _explore.onMenuChange(kCategory);
+                                    _explore.tecSearchLeft.text = name;
+                                    _explore.onLeftListDoSearch(name);
+                                    await _explore.onLeftListTap(_explore.leftListFiltered[0]);
                                   } catch (_) {}
                                 }),
                               ],
@@ -288,26 +286,21 @@ mixin HelperOpener {
                               try {
                                 await Overlayment.dismissLast();
                                 final check = await DBVideos.getBySeries(video.series?? '');
+                                final name = '${HelperDecensor.decensor(video.series)}';
 
                                 if (check.isNotEmpty) {
-                                  final homeC = Get.find<HomeController>();
-                                  final exploreC = Get.find<PageExploreController>();
-                                  final name = '${HelperDecensor.decensor(video.series)}';
-                                  await homeC.onMenuChange(kMenuExplore);
-                                  await exploreC.onMenuChange(kSeries);
-                                  exploreC.tecSearch.text = name;
-                                  exploreC.onOListSearch(name);
-                                  await exploreC.onOListTap(exploreC.oListFiltered[0]);
+                                  await _home.onMenuChange(kMenuExplore);
+                                  await _explore.onMenuChange(kSeries);
+                                  _explore.tecSearchLeft.text = name;
+                                  _explore.onLeftListDoSearch(name);
+                                  await _explore.onLeftListTap(_explore.leftListFiltered[0]);
                                 } else {
-                                  final homeC = Get.find<HomeController>();
-                                  final toolC = Get.find<PageToolsController>();
-                                  final name = '${HelperDecensor.decensor(video.series)}';
-                                  await homeC.onMenuChange(kMenuTools);
-                                  await toolC.onMenuChange(kAdvanceSearch);
-                                  toolC.filterBy.value = kSeries;
-                                  toolC.tecFilterSearch.text = name;
-                                  await toolC.onSearchFilter(name);
-                                  await toolC.onOListTap(toolC.oList[0], 0);
+                                  await _home.onMenuChange(kMenuTools);
+                                  await _tool.onMenuChange(kAdvanceSearch);
+                                  _tool.currentFilterBy.value = kSeries;
+                                  _tool.tecFilterSearchLeft.text = name;
+                                  await _tool.onLeftListDoSearch(name);
+                                  await _tool.onLeftListTap(_tool.leftList[0], 0);
                                 }
 
                               } catch (_) {}
@@ -379,23 +372,17 @@ mixin HelperOpener {
 
     final video = Videos.fromJson(dataVideo ?? {});
 
+    // Logic for screenshot
     if (dataVideo?['sslast'] != null) {
-      final ss = <String>[];
+      final screenshots = <String>[];
       final n = dataVideo?['sslast'].toString().split('-').last;
       for (var i = 0; i < int.parse(n!); i++) {
         final filename = '${dataVideo?['ssfirst']}';
-
-        if (!filename.contains('jp-')) {
-          final part = filename.allBefore('-');
-          final prefix = '${part}jp-${i + 1}';
-          ss.add(prefix);
-        } else {
-          final part = filename.removeLast(1);
-          final prefix = '$part${i + 1}';
-          ss.add(prefix);
-        }
+        final part = filename.allBefore('-');
+        final suffix = filename.contains('jp-') ? '' : 'jp-';
+        screenshots.add('$part$suffix${i + 1}');
       }
-      video.screenshot = ss;
+      video.screenshot = screenshots;
     }
 
     HelperLoading.dismiss();

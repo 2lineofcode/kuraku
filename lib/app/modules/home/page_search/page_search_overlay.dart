@@ -93,7 +93,7 @@ mixin PageSearchOverlay {
 
                     ExDivider().pSymmetric(v: 16),
 
-                    // action
+                    // ** action
                     HStack(
                       [
                         Spacer(),
@@ -155,7 +155,7 @@ mixin PageSearchOverlay {
                   ],
                 ).pSymmetric(h: 16),
 
-                // metadata
+                // ** metadata
                 Expanded(
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minHeight: 100),
@@ -283,7 +283,7 @@ mixin PageSearchOverlay {
 
                         ]).p12(),
                       ),
-                    ).pSymmetric(h: 16),
+                    ).pSymmetric(h: 16).pOnly(bottom: 12),
                   ),
                 ),
               ],
@@ -489,9 +489,9 @@ mixin PageSearchOverlay {
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
     await exploreC.onMenuChange(kActress);
-    exploreC.tecSearch.text = name;
-    exploreC.onOListSearch(name);
-    await exploreC.onOListTap(exploreC.oListFiltered[0]);
+    exploreC.tecSearchLeft.text = name;
+    exploreC.onLeftListDoSearch(name);
+    await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
     await Overlayment.dismissLast();
   }
 
@@ -500,9 +500,9 @@ mixin PageSearchOverlay {
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
     await exploreC.onMenuChange(kCategory);
-    exploreC.tecSearch.text = name;
-    exploreC.onOListSearch(name);
-    await exploreC.onOListTap(exploreC.oListFiltered[0]);
+    exploreC.tecSearchLeft.text = name;
+    exploreC.onLeftListDoSearch(name);
+    await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
     await Overlayment.dismissLast();
   }
 
@@ -511,9 +511,9 @@ mixin PageSearchOverlay {
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
     await exploreC.onMenuChange(kSeries);
-    exploreC.tecSearch.text = name;
-    exploreC.onOListSearch(name);
-    await exploreC.onOListTap(exploreC.oListFiltered[0]);
+    exploreC.tecSearchLeft.text = name;
+    exploreC.onLeftListDoSearch(name);
+    await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
     await Overlayment.dismissLast();
   }
 
@@ -522,9 +522,9 @@ mixin PageSearchOverlay {
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
     await exploreC.onMenuChange(kPath);
-    exploreC.tecSearch.text = directory;
-    exploreC.onOListSearch(directory);
-    await exploreC.onOListTap(exploreC.oListFiltered[0]);
+    exploreC.tecSearchLeft.text = directory;
+    exploreC.onLeftListDoSearch(directory);
+    await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
     await Overlayment.dismissLast();
   }
 
@@ -538,7 +538,7 @@ mixin PageSearchOverlay {
       output.add('${int.parse(medinfo!.getSize()!).toFileSize()}'); // -- [2] file size
       output.add('${HelperMisc.durationFormatFFmpeg(num.parse(medinfo.getFormatProperties()!['duration'].toString()))}'); // -- [3] duration
     }).catchError((e) {
-      AppLog.logE('_getMediaInfo [$path] -> $e');
+      AppLog.logE('PageSearchOverlay._getMediaInfo [$path] -> $e');
     });
 
     return output;

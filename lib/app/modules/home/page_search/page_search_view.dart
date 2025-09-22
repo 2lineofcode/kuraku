@@ -7,6 +7,7 @@ import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/const.dart';
+import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_thumbnail.dart';
 import 'page_search_controller.dart';
@@ -60,55 +61,68 @@ class PageSearchView extends GetView<PageSearchController> {
   }
 
   // ────────────────────────────────────────────────────────────────
-  // ⵌ seperate
+  // ⵌ REUSABLE WIDGETS
   // ────────────────────────────────────────────────────────────────
   Widget modeListView() {
     return ListView.separated(
+      controller: controller.scrollListController,
       itemCount: controller.videos.length,
       separatorBuilder: (context, index) => 12.heightBox,
       itemBuilder: (context, index) {
-        final video = controller.videos[index];
+        final item = controller.videos[index];
         return Container(
           color: AppColor.container,
-          child: HStack(
-            crossAlignment: CrossAxisAlignment.start,
-            alignment: MainAxisAlignment.start,
-            [
-              ExThumbnail(
-                imageUrl: video.fanArt,
-                videoPath: video.videoPath,
-                width: 200,
-                height: 120,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              ZStack([
+                ExThumbnail(
+                imageUrl: item.fanArt,
+                videoPath: item.videoPath,
+                width: 250,
+                height: 150,
                 fitUrl: BoxFit.cover,
               ).pOnly(right: 12),
+              _buildReleaseDateOverlay(item),
+
+              ]),
               VStack([
-                '${video.videoCode == '' ? video.title?.maxWords(5) : video.videoCode}'.text.bold.ellipsis.make().pSymmetric(v: 8),
-                '${HelperDecensor.decensor(video.title)}'.text.xs.maxLines(3).ellipsis.make(),
+                '${item.videoCode == '' ? item.title?.maxWords(5) : item.videoCode}'.text.bold.ellipsis.make().pSymmetric(v: 8),
+                '${HelperDecensor.decensor(item.title)}'.text.size(12).maxLines(3).ellipsis.make(),
                 Spacer(),
                 HStack([
-                  if (video.releaseDate != '') ...[
-                    Icon(UIconsPro.regularRounded.calendar_minus, size: 10).pOnly(right: 6),
-                    '${video.releaseDateFormated}'.text.size(10).minFontSize(10).make().pOnly(right: 12),
+                  if (item.quality != '') ...[
+                    Icon(UIconsPro.regularRounded.hdd, size: 12, color: Vx.amber300).pOnly(right: 6),
+                    '${HelperMisc.formatVideoQuality(item.quality ?? '').maxWords(1)}'.text.amber300.size(12).minFontSize(12).make().pOnly(right: 12),
                   ],
-                  if (video.series != '') ...[
-                    Icon(UIconsPro.regularRounded.tags, size: 10, color: Vx.purple200).pOnly(right: 6),
-                    '${video.series}'.text.size(10).purple200.maxLines(1).ellipsis.minFontSize(10).make().pOnly(right: 12).expand(),
+                  if (item.filesize != 0) ...[
+                    Icon(UIconsPro.regularRounded.file, size: 12).pOnly(right: 6),
+                    '${item.filesize?.toFileSize()}'.text.size(12).maxLines(1).ellipsis.minFontSize(12).make().pOnly(right: 12).expand(),
                   ],
-                ]).pOnly(bottom: 8),
+                ]).pOnly(bottom: 4),
+                HStack(
+                  [
+                    if (item.series != '') ...[
+                      Icon(UIconsPro.regularRounded.tags, size: 12, color: Vx.purple300).pOnly(right: 6),
+                      '${HelperDecensor.decensor(item.series)}'.text.purple300.size(12).minFontSize(12).maxLines(1).ellipsis.make().pOnly(right: 12).expand(),
+                    ],
+                  ],
+                ).pOnly(bottom: 4),
               ]).pOnly(right: 12).expand(),
             ],
           ),
-        ).wh(200, 120).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(video));
+        ).wh(250, 150).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(item));
       },
     );
   }
 
   Widget modeGridView() {
-    final double width = 150;
-    final double height = 230;
+    double width = 150;
+    double height = 230;
 
     return GridView.builder(
-      controller: controller.scrollController,
+      controller: controller.scrollGridController,
       padding: EdgeInsets.all(8),
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: width,
@@ -130,26 +144,31 @@ class PageSearchView extends GetView<PageSearchController> {
                 height: height,
                 prefix: 2.1,
               ).wh(width, height),
-              if (item.releaseDate != '')
-                '${item.releaseDate?.reformatDate(from: kYMd, to: kMdY) ?? ''.maxWords(1)}'
-                    .text
-                    .size(10)
-                    .minFontSize(10)
-                    .make()
-                    .pSymmetric(h: 4)
-                    .wh(80, 17)
-                    .color(Vx.black.withAlpha(200))
-                    .positioned(),
-              Container(
-                color: Vx.black.withAlpha(150),
-                width: width,
-                height: 20,
-                child: '${item.videoCode == '' ? item.title?.maxChars(10) : item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
-              ).positioned(bottom: 0, right: 0, left: 0),
+              _buildReleaseDateOverlay(item),
+              _buildVideoTitleOverlay(item, width),
             ]),
           ).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(item)),
         );
       },
     );
+  }
+
+  /// Builds the video title overlay with a dark background.
+  Widget _buildVideoTitleOverlay(Videos item, double width) {
+    return Container(
+      color: Vx.black.withAlpha(150),
+      width: width,
+      height: 20,
+      child: '${item.videoCode == '' ? item.title?.maxChars(10) : item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
+    ).positioned(bottom: 0, right: 0, left: 0);
+  }
+
+  /// Builds the release date overlay.
+  Widget _buildReleaseDateOverlay(Videos item) {
+    if (item.releaseDate == null || item.releaseDate!.isEmpty) {
+      return 0.heightBox;
+    }
+
+    return '${item.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().pSymmetric(h: 4).wh(80, 17).color(Vx.black.withAlpha(200)).positioned();
   }
 }

@@ -14,84 +14,123 @@ import '../../../data/models/history_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../home_controller.dart';
-import '../page_download/page_download_controller.dart';
 import '../page_explore/page_explore_controller.dart';
 
 class PageToolsController extends GetxController with StateMixin {
+  // ** part: top menu
   final menus = [kTopLargeFile, kDuplicate, kAdvanceSearch, kTodo].obs;
-  final menuSelected = ''.obs;
+  final currentMenuSelected = kTopLargeFile.obs;
 
-  // **
-  final dupVideos = <Videos>[].obs;
-  final totalDupVideos = 0.obs;
+  // ** part: large filesize
+  final isHasDataNotScanned = true.obs; // is has data not scanned filesize & resolution
+  final topLargeFileSizeList = <Videos>[].obs;
 
-  // **
-  final todos = <History>[].obs;
+  // ** part: duplicate video
+  final duplicateVideoList = <Videos>[].obs;
 
-  // **
-  final isHasDataNonHaveQuality = true.obs;
-  final top100LargeFile = <Videos>[].obs;
+  // ** part: todo
+  final todoList = <History>[].obs;
 
-  // **
-  final filterBy = ''.obs;
-  final oList = <Map<String, dynamic>>[].obs;
-  final oListScrollController = FlutterListViewController().obs;
-  final oListSelected = ''.obs;
+  // ** part: advance search
+  // -> left part
+  final currentFilterBy = kSeries.obs;
+  final tecFilterSearchLeft = TextEditingController();
+  final fnFilterSearchLeft = FocusNode();
 
-  final oListHoveredIndex = (-1).obs;
-  final oListSelectedIndex = 0.obs;
-  final oListFocusNode = FocusNode();
+  final leftList = <Map<String, dynamic>>[].obs;
+  final leftListScrollController = FlutterListViewController().obs;
+  final leftListSelected = ''.obs;
+  final leftListHoveredIndex = (-1).obs;
+  final leftListSelectedIndex = 0.obs;
+  final leftListFocusNode = FocusNode();
 
-  final tecFilterSearch = TextEditingController();
-  final fnFilterSearch = FocusNode();
-  final r18ListVideo = <Map<String, dynamic>>[].obs;
+  // -> right part
+  final rightList = <Map<String, dynamic>>[].obs;
 
   @override
   Future<void> onInit() async {
     super.onInit();
     AppLog.logI('page tools ==> onInit called');
-    await getTopLargeFile();
-    await checkIsHasDataNonHaveVideoQuality();
-    menuSelected.value = kTopLargeFile;
-    await onResetFilter();
+    await getTopLargeFileSize();
+    await checkIsHasDataNotScanned();
+    await onReset();
     await filterBySeries();
 
     change(200, status: RxStatus.success());
   }
 
   Future<void> onMenuChange(String menu) async {
-    menuSelected.value = menu;
-    if (menu == kDuplicate) await getDuplicateVideos();
-    if (menu == kTodo) await getTodos();
-    if (menu == kTopLargeFile) {
-      await getTopLargeFile();
-      await checkIsHasDataNonHaveVideoQuality();
+    currentMenuSelected.value = menu;
+    switch (menu) {
+      case kTopLargeFile: await getTopLargeFileSize(); await checkIsHasDataNotScanned(); break;
+      case kDuplicate: await getDuplicateVideos(); break;
+      case kAdvanceSearch: break;
+      case kTodo: await getTodos(); break;
     }
-    if (menu == kAdvanceSearch) { }
   }
 
-  // ** kFindDuplicate Part ---
+  // ────────────────────────────────────────────────────────────────
+  // ** part: kTopLargeFile
+  // ────────────────────────────────────────────────────────────────
+  Future<void> getTopLargeFileSize() async {
+    topLargeFileSizeList.clear();
+    topLargeFileSizeList.value = await DBVideos.getAll(
+      where: 'filesize > 0',
+      orderBy: 'filesize DESC',
+      limit: 100,
+    );
+  }
+
+  Future<void> checkIsHasDataNotScanned() async {
+    final vid = await DBVideos.getAll(where: 'quality IS NULL OR quality = ""');
+    isHasDataNotScanned.value = vid.isEmpty;
+  }
+
+  Future<void> scanAndUpdateDBVideoQuality() async {
+    HelperLoading.show(isDismissible: false);
+    final home = Get.find<HomeController>();
+    final videos = await DBVideos.getAll(where: 'quality IS NULL OR quality = ""');
+    for (var video in videos) {
+      final percentage = (videos.indexOf(video) + 1) * 100 / videos.length;
+      home.footerText.value = 'Scanning ${videos.indexOf(video) + 1}/${videos.length} | (${percentage.toStringAsFixed(2)}%)';
+      try {
+        final medInfo = await VideoCompress.getMediaInfo(video.videoPath!);
+        if (medInfo.width == null) continue;
+        video.quality = '${medInfo.width}x${medInfo.height}';
+        await DBVideos.update(video);
+      } catch (e) {
+        AppLog.logD('error, try (ffmpeg) way -> ${video.videoPath}');
+        await FFprobeKit.getMediaInformation(video.videoPath!).then((medInfo) {
+          if (medInfo.getMediaInformation() == null) return;
+          final stream = medInfo.getMediaInformation()?.getStreams().first;
+          video.quality = '${stream?.getWidth()}x${stream?.getHeight()}';
+          DBVideos.update(video);
+        });
+      }
+    }
+    await Get.find<HomeController>().onRefreshAllContent();
+    HelperLoading.dismiss();
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // ** part: kFindDuplicate
+  // ────────────────────────────────────────────────────────────────
   Future<void> getDuplicateVideos() async {
-    dupVideos.value = await DBVideos.getListDuplicateVideos();
-    totalDupVideos.value = (dupVideos.length / 2).toInt();
+    duplicateVideoList.value = await DBVideos.getListDuplicateVideos();
   }
 
-  // ** kTodo Part ---
+  // ────────────────────────────────────────────────────────────────
+  // ** part: kTodo
+  // ────────────────────────────────────────────────────────────────
   Future<void> getTodos() async {
     final todoo = await DBHistory.getAll(where: 'type = ?', whereArgs: ['todo']);
     for (var todo in todoo) {
       try {
-        final xvid = await DBVideos.getByCode(todo.message ?? '');
-        if (todo.message == xvid.videoCode) todo.message = '✔︎ ${todo.message}';
+        final existVideo = await DBVideos.getByCode(todo.message ?? '');
+        if (todo.message == existVideo.videoCode) todo.message = '✔︎ ${todo.message}';
       } catch (_) {}
     }
-    todos.value = todoo;
-  }
-
-  Future<void> itemTodosSearch(String s) async {
-    await Get.find<HomeController>().onMenuChange(kMenuDownload);
-    Get.find<PageDownloadController>().tecSearch.text = s;
-    await Get.find<PageDownloadController>().onSearch(s);
+    todoList.value = todoo;
   }
 
   Future<void> deleteTodos(History todo) async {
@@ -133,104 +172,64 @@ class PageToolsController extends GetxController with StateMixin {
     );
   }
 
-  // ** kTopLargeFile Part ---
-  Future<void> getTopLargeFile() async {
-    top100LargeFile.clear();
-    top100LargeFile.value = await DBVideos.getAll(
-      where: 'filesize > 0',
-      orderBy: 'filesize DESC',
-      limit: 100,
-    );
-  }
-
-  Future<void> checkIsHasDataNonHaveVideoQuality() async {
-    final vid = await DBVideos.getAll(where: 'quality IS NULL OR quality = ""');
-    isHasDataNonHaveQuality.value = vid.isEmpty;
-  }
-
-  Future<void> updateDBVideoQuality() async {
-    HelperLoading.show(isDismissible: false);
-    final home = Get.find<HomeController>();
-    final videos = await DBVideos.getAll(where: 'quality IS NULL OR quality = ""');
-    for (var video in videos) {
-      final percentage = (videos.indexOf(video) + 1) * 100 / videos.length;
-      home.footerText.value = 'Scanning ${videos.indexOf(video) + 1}/${videos.length} | (${percentage.toStringAsFixed(2)}%)';
-      try {
-        final medInfo = await VideoCompress.getMediaInfo(video.videoPath!);
-        if (medInfo.width == null) continue;
-        video.quality = '${medInfo.width}x${medInfo.height}';
-        await DBVideos.update(video);
-        
-      } catch (e) {
-        AppLog.logD('(ffmpeg) -> ${video.videoPath}');
-        await FFprobeKit.getMediaInformation(video.videoPath!).then((medInfo) {
-          if (medInfo.getMediaInformation() == null) return;
-          final stream = medInfo.getMediaInformation()?.getStreams().first;
-          video.quality = '${stream?.getWidth()}x${stream?.getHeight()}';
-          DBVideos.update(video);
-        });
-      }
-    }
-    await Get.find<HomeController>().onRefreshAllContent();
-    HelperLoading.dismiss();
-  }
-
-  // ** kAdvanceSearch Part ---
-  Future<void> filterByActress({String? q}) async => oList.value = await DBR18.getAllActress(q: q);
-  Future<void> filterBySeries({String? q}) async => oList.value = await DBR18.getAllSeries(q: q);
-  Future<void> filterByCategories({String? q}) async => oList.value = await DBR18.getAllCategories(q: q);
+  // ────────────────────────────────────────────────────────────────
+  // ** part: kAdvanceSearch
+  // ────────────────────────────────────────────────────────────────
+  Future<void> filterByActress({String? q}) async => leftList.value = await DBR18.getAllActress(q: q);
+  Future<void> filterBySeries({String? q}) async => leftList.value = await DBR18.getAllSeries(q: q);
+  Future<void> filterByCategories({String? q}) async => leftList.value = await DBR18.getAllCategories(q: q);
   Future<void> filterByYear({String? q}) async {
     final yearNow = DateTime.now().year;
     final sub30Year = yearNow - 40;
-    oList.value = [];
+    leftList.value = [];
     for (var i = sub30Year; i <= yearNow; i++) {
-      oList.value.add({'id': i, 'name_en': i.toString()});
+      leftList.value.add({'id': i, 'name_en': i.toString()});
     }
-    oList.value.sort((a, b) => b['id'].compareTo(a['id']));
+    leftList.value.sort((a, b) => b['id'].compareTo(a['id']));
   }
 
-  Future<void> onOListTap(dynamic item, int index) async {
+  Future<void> onLeftListTap(dynamic item, int index) async {
     change(0, status: RxStatus.loading());
 
-    oListSelectedIndex.value = index;
-    oListFocusNode.requestFocus();
+    leftListSelectedIndex.value = index;
+    leftListFocusNode.requestFocus();
 
-    oListSelected.value = item['name_en'];
+    leftListSelected.value = item['name_en'];
     final _selectedId = item['id'];
     var videos = <Map<String, dynamic>>[];
 
-    switch (filterBy.value) {
+    switch (currentFilterBy.value) {
       case kActress: videos = await DBR18.getAllVideosByActress(_selectedId); break;
-      case kSeries: videos = await DBR18.getAllVideosBySeries(oListSelected.value); break;
-      case kCategory: videos = await DBR18.getAllVideosByCategory(oListSelected.value); break;
-      case kYear: videos = await DBR18.getAllVideosByYear(oListSelected.value); break;
+      case kSeries: videos = await DBR18.getAllVideosBySeries(leftListSelected.value); break;
+      case kCategory: videos = await DBR18.getAllVideosByCategory(leftListSelected.value); break;
+      case kYear: videos = await DBR18.getAllVideosByYear(leftListSelected.value); break;
     }
 
     // filter
-    r18ListVideo.value = [];
+    rightList.value = [];
     for (var i = 0; i < videos.length; i++) {
       final videoCode = videos[i]['video_code'].toString();
       if (videoCode.isValidVideoCode()) {
-        r18ListVideo.value.add(videos[i]);
+        rightList.value.add(videos[i]);
       }
     }
 
     // check has match video by code
     final vList = await DBVideos.getAll();
-    r18ListVideo.assignAll(r18ListVideo.map((r18Item) {
-      final Map<String, dynamic> mutableR18Item = Map.from(r18Item);
-      final hasMatch = vList.any((vItem) => r18Item['video_code'].toString() == (vItem.videoCode!));
-      mutableR18Item['match'] = hasMatch;
-      mutableR18Item['is_clicked'] = false;
+    rightList.assignAll(rightList.map((r18) {
+      final Map<String, dynamic> _mutableItem = Map.from(r18);
+      final hasMatch = vList.any((vItem) => r18['video_code'].toString() == (vItem.videoCode!));
+      _mutableItem['match'] = hasMatch;
+      _mutableItem['is_clicked'] = false;
 
-      final releaseDate = DateTime.parse(r18Item['release_date'] ?? '');
-      mutableR18Item['is_released'] = releaseDate.isBefore(DateTime.now());
-      return mutableR18Item;
+      final releaseDate = DateTime.parse(r18['release_date'] ?? '');
+      _mutableItem['is_released'] = releaseDate.isBefore(DateTime.now());
+      return _mutableItem;
     }).toList());
 
-    r18ListVideo.refresh();
+    rightList.refresh();
 
-    if (r18ListVideo.isNotEmpty) {
+    if (rightList.isNotEmpty) {
       change(200, status: RxStatus.success());
     } else {
       change(200, status: RxStatus.empty());
@@ -238,49 +237,49 @@ class PageToolsController extends GetxController with StateMixin {
   }
 
 
-  void onOListMoveSelectionUp() {
+  void onLeftListKeyPressedArrowUp() {
     try {
-      if (oListSelectedIndex.value > 0) {
-        oListSelectedIndex.value--;
-        final item = oList[oListSelectedIndex.value];
-        onOListTap(item, oListSelectedIndex.value);
-        oListFocusNode.requestFocus();
+      if (leftListSelectedIndex.value > 0) {
+        leftListSelectedIndex.value--;
+        final item = leftList[leftListSelectedIndex.value];
+        onLeftListTap(item, leftListSelectedIndex.value);
+        leftListFocusNode.requestFocus();
       }
     } catch (_) {}
   }
 
-  void onOListMoveSelectionDown() {
+  void onLeftListKeyPressedArrowDown() {
     try {
-      if (oListSelectedIndex.value < oList.length - 1) {
-        oListSelectedIndex.value++;
-        final item = oList[oListSelectedIndex.value];
-        onOListTap(item, oListSelectedIndex.value);
-        oListFocusNode.requestFocus();
+      if (leftListSelectedIndex.value < leftList.length - 1) {
+        leftListSelectedIndex.value++;
+        final item = leftList[leftListSelectedIndex.value];
+        onLeftListTap(item, leftListSelectedIndex.value);
+        leftListFocusNode.requestFocus();
       }
     } catch (_) {}
   }
 
-  Future<void> onSearchFilter(String s) async {
-    final prefix = HelperDecensor.censored(s.toTitleCase);
-    switch (filterBy.value) {
-      case kActress: await filterByActress(q: s); break;
-      case kSeries: await filterBySeries(q: s); break;
+  Future<void> onLeftListDoSearch(String q) async {
+    final prefix = HelperDecensor.censored(q.toTitleCase);
+    switch (currentFilterBy.value) {
+      case kActress: await filterByActress(q: q); break;
+      case kSeries: await filterBySeries(q: q); break;
       case kCategory: await filterByCategories(q: prefix); break;
-      case kYear: await filterByYear(q: s); break;
+      case kYear: await filterByYear(q: q); break;
     }
-    fnFilterSearch.requestFocus();
-    oListScrollController.value.animToTop();
+    fnFilterSearchLeft.requestFocus();
+    leftListScrollController.value.animToTop();
   }
 
-  Future<void> onResetFilter() async {
-    filterBy.value = kSeries;
-    oListSelected.value = '';
-    tecFilterSearch.text = '';
-    r18ListVideo.value = [];
+  Future<void> onReset() async {
+    currentFilterBy.value = kSeries;
+    leftListSelected.value = '';
+    tecFilterSearchLeft.text = '';
+    rightList.value = [];
   }
 }
 
-// ** Constants ---
+// ** filter type
 const kDuplicate = 'Duplicate Videos';
 const kTodo = 'Todo';
 const kTopLargeFile = 'Large File';

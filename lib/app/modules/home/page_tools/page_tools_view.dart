@@ -26,51 +26,140 @@ class PageToolsView extends GetView<PageToolsController> {
     return VStack(
       [
         // header
-        ListView.builder(
-          itemCount: controller.menus.length,
-          scrollDirection: Axis.horizontal,
-          itemBuilder: (context, index) {
-            final item = controller.menus[index];
-            return Obx(
-              () => ExButtonOutline(
-                label: item,
-                labelSize: 12,
-                labelColor: controller.menuSelected.value == item ? Vx.white : Vx.neutral500,
-                borderColor: controller.menuSelected.value == item ? AppColor.selected : AppColor.container,
-                backgroundColor: controller.menuSelected.value == item ? AppColor.selected : AppColor.container,
-                onPressed: () => controller.onMenuChange(item),
-              ).pOnly(right: 8),
-            );
-          },
-        ).h(30).pOnly(bottom: 16),
+        _buildMenu().h(30).pOnly(bottom: 16),
 
         // content
         Obx(() {
-          switch (controller.menuSelected.value) {
-            case kDuplicate:
-              return buildUIFindDuplicate().expand();
-            case kTodo:
-              return buildUITodo().expand();
-            case kTopLargeFile:
-              return buildUITopLargeFile().expand();
-            case kAdvanceSearch:
-              return buildUIAdvanceSearch().expand();
-            default:
-              return Container();
+          switch (controller.currentMenuSelected.value) {
+            case kTopLargeFile: return uiTopLargeFileSize().expand();
+            case kDuplicate: return uiDuplicateVideo().expand();
+            case kTodo: return uiTODO().expand();
+            case kAdvanceSearch: return uiAdvanceSearch().expand();
+            default: return Container();
           }
         })
       ],
     );
   }
 
-  Widget buildUIFindDuplicate() {
+  Widget _buildMenu() {
+    return ListView.builder(
+      itemCount: controller.menus.length,
+      scrollDirection: Axis.horizontal,
+      itemBuilder: (context, index) {
+        final item = controller.menus[index];
+        return Obx(
+          () => ExButtonOutline(
+            label: item,
+            labelSize: 12,
+            labelColor: controller.currentMenuSelected.value == item ? Vx.white : Vx.neutral500,
+            borderColor: controller.currentMenuSelected.value == item ? AppColor.selected : AppColor.container,
+            backgroundColor: controller.currentMenuSelected.value == item ? AppColor.selected : AppColor.container,
+            onPressed: () => controller.onMenuChange(item),
+          ).pOnly(right: 8),
+        );
+      },
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // ⵌ ~ content
+  // ────────────────────────────────────────────────────────────────
+  Widget uiTopLargeFileSize() {
     return VStack(
       [
         HStack([
-          Obx(() => 'Total Duplicate: ${controller.totalDupVideos}'.text.make()),
+          Obx(() => 'Top ${controller.topLargeFileSizeList.length} Large File'.text.make()),
+          Spacer(),
+          Obx(
+            () => ExButtonText(
+              label: 'Some file still dont have data quality, Scan now?',
+              labelSize: 12,
+              onPressed: () async => controller.scanAndUpdateDBVideoQuality(),
+            ).pOnly(right: 12).hide(isVisible: controller.isHasDataNotScanned.isFalse),
+          ),
+        ]).pOnly(bottom: 12),
+        controller.topLargeFileSizeList.isEmpty
+            ? ExUiErrorOrEmpty(
+                child: VStack([
+                  Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32).pOnly(bottom: 16).centered(),
+                  'No Data'.text.bold.makeCentered().pOnly(bottom: 8),
+                  'No Data Found, please add some data'.text.size(12).makeCentered().pOnly(bottom: 12),
+                ]).centered(),
+              ).pOnly(top: 110)
+            : Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(1),
+                  1: FlexColumnWidth(3),
+                  2: FlexColumnWidth(1),
+                  3: FlexColumnWidth(1),
+                },
+                border: TableBorder.all(width: 0.5, color: Vx.neutral700),
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(color: AppColor.container),
+                    children: [
+                      'Code'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                      'Path'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                      'Quality'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                      'Size'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                    ],
+                  ),
+                  ...List.generate(
+                    controller.topLargeFileSizeList.length,
+                    (index) {
+                      var item = controller.topLargeFileSizeList[index];
+                      return TableRow(
+                        children: [
+                          // code
+                          '${item.videoCode.isNotEmptyAndNotNull ? item.videoCode : 'NON-JAV'}'
+                              .text
+                              .color(item.videoCode.isNotEmptyAndNotNull ? null : Vx.red300)
+                              .ellipsis
+                              .size(12)
+                              .make()
+                              .p12()
+                              .onInkTap(() async {
+                            final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
+                            await PageSearchOverlay.onItemTap(video[0]);
+                          }),
+
+                          // path
+                          if (item.videoPath!.contains('/Volumes')) ...[
+                            'External → ${item.videoPath!.getLastSegments(segment: 1)}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
+                              final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
+                              await PageSearchOverlay.onItemTap(video[0]);
+                            }),
+                          ] else ...[
+                            'Local → ${item.videoPath!.getLastPath()}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
+                              final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
+                              await PageSearchOverlay.onItemTap(video[0]);
+                            }),
+                          ],
+
+                          // quality
+                          '${HelperMisc.formatVideoQuality(item.quality ?? '')}'.text.ellipsis.make().tooltip(item.quality ?? '').p12(),
+
+                          // size
+                          '${item.filesize?.toFileSize()}'.text.ellipsis.make().p12(),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+      ],
+    ).pOnly(left: 8).scrollVertical();
+  }
+
+  Widget uiDuplicateVideo() {
+    return VStack(
+      [
+        HStack([
+          Obx(() => 'Total Duplicate: ${(controller.duplicateVideoList.length / 2).toInt()}'.text.make()),
           Spacer(),
         ]).pOnly(bottom: 12),
-        controller.totalDupVideos.value == 0
+        controller.duplicateVideoList.isEmpty
             ? ExUiErrorOrEmpty(
                 child: VStack([
                   Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32).pOnly(bottom: 16).centered(),
@@ -90,13 +179,13 @@ class PageToolsView extends GetView<PageToolsController> {
                     children: [
                       'Code'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
                       'Path'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                      'Filesize'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                      'Size'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
                     ],
                   ),
                   ...List.generate(
-                    controller.dupVideos.length,
+                    controller.duplicateVideoList.length,
                     (index) {
-                      final item = controller.dupVideos[index];
+                      final item = controller.duplicateVideoList[index];
                       return TableRow(
                         children: [
                           // code
@@ -129,28 +218,28 @@ class PageToolsView extends GetView<PageToolsController> {
     ).pOnly(left: 8).scrollVertical();
   }
 
-  Widget buildUITodo() {
+  Widget uiTODO() {
     return VStack(
       [
         HStack([
-          Obx(() => 'Total Todo: ${controller.todos.length}'.text.make()),
+          Obx(() => 'Total Todo: ${controller.todoList.length}'.text.make()),
           Spacer(),
           IconButton(
             icon: Icon(UIconsPro.regularRounded.plus, size: 14),
             onPressed: () => controller.addTodo(),
           ),
         ]).pOnly(bottom: 12),
-        controller.todos.isEmptyOrNull
+        controller.todoList.isEmptyOrNull
             ? ExUiErrorOrEmpty(
                 child: VStack([
                   Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32).pOnly(bottom: 16).centered(),
                   'No Data Found'.text.bold.makeCentered().pOnly(bottom: 2),
                   'You can add todo by clicking the button below'.text.size(12).makeCentered().pOnly(bottom: 12),
                   ExButtonText(
-                      label: 'Add New Todo',
-                      labelSize: 13,
-                      isLabelBold: true,
-                      onPressed: () => controller.addTodo(),
+                    label: 'Add New Todo',
+                    labelSize: 13,
+                    isLabelBold: true,
+                    onPressed: () => controller.addTodo(),
                   ).centered(),
                 ]).centered(),
               ).pOnly(top: 110)
@@ -169,9 +258,9 @@ class PageToolsView extends GetView<PageToolsController> {
                     ],
                   ),
                   ...List.generate(
-                    controller.todos.length,
+                    controller.todoList.length,
                     (index) {
-                      final item = controller.todos[index];
+                      final item = controller.todoList[index];
                       return TableRow(
                         children: [
                           // code
@@ -188,12 +277,8 @@ class PageToolsView extends GetView<PageToolsController> {
                           HStack(
                             [
                               IconButton(
-                                icon: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral400),
-                                onPressed: () => controller.itemTodosSearch(controller.todos[index].message ?? ''),
-                              ),
-                              IconButton(
                                 icon: Icon(UIconsPro.regularRounded.trash, size: 14, color: Vx.neutral400),
-                                onPressed: () => controller.deleteTodos(controller.todos[index]),
+                                onPressed: () => controller.deleteTodos(controller.todoList[index]),
                               ),
                             ],
                           ),
@@ -207,232 +292,158 @@ class PageToolsView extends GetView<PageToolsController> {
     ).pOnly(left: 8).scrollVertical();
   }
 
-  Widget buildUITopLargeFile() {
-    return VStack(
-      [
-        HStack([
-          Obx(() => 'Top ${controller.top100LargeFile.length} Large File'.text.make()),
-          Spacer(),
-          Obx(
-            () => ExButtonText(
-              label: 'Some file still dont have data quality, Scan now?',
-              labelSize: 12,
-              onPressed: () async => controller.updateDBVideoQuality(),
-            ).pOnly(right: 12).hide(isVisible: controller.isHasDataNonHaveQuality.isFalse),
-          ),
-        ]).pOnly(bottom: 12),
+  Widget uiAdvanceSearch() {
+    return HStack([
+      _buildLeftPart().pOnly(right: 12),
+      _buildRightPart().expand(),
+    ]).pOnly(left: 8);
+  }
 
-        controller.top100LargeFile.isEmpty
-            ? ExUiErrorOrEmpty(
-                child: VStack([
-                  Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32).pOnly(bottom: 16).centered(),
-                  'No Data'.text.bold.makeCentered().pOnly(bottom: 8),
-                  'No Data Found, please add some data'.text.size(12).makeCentered().pOnly(bottom: 12),
-                ]).centered(),
-              ).pOnly(top: 110)
-            : 
-        Table(
-          columnWidths: const {
-            0: FlexColumnWidth(1),
-            1: FlexColumnWidth(3),
-            2: FlexColumnWidth(1),
-            3: FlexColumnWidth(1),
-          },
-          border: TableBorder.all(width: 0.5, color: Vx.neutral700),
-          children: [
-            TableRow(
-              decoration: BoxDecoration(color: AppColor.container),
-              children: [
-                'Code'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                'Path'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                'Quality'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                'Filesize'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-              ],
+  // ────────────────────────────────────────────────────────────────
+  // ⵌ REUSABLE WIDGETS
+  // ────────────────────────────────────────────────────────────────
+  Widget _buildLeftPart() {
+    return Container(
+      width: 220,
+      height: Get.height,
+      decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
+      child: VStack(
+        [
+          HStack([
+            'Filter by: (${controller.leftList.length})'.text.size(11).minFontSize(11).make(),
+            Spacer(),
+            Obx(
+              () => CustomPopup(
+                content: VStack([
+                  // Actress
+                  '${controller.currentFilterBy.value == kActress ? '◉' : '◎'} $kActress'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
+                    controller.currentFilterBy.value = kActress;
+                    await controller.filterByActress();
+                    Get.back();
+                  }),
+
+                  // Series
+                  '${controller.currentFilterBy.value == kSeries ? '◉' : '◎'} $kSeries'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
+                    controller.currentFilterBy.value = kSeries;
+                    await controller.filterBySeries();
+                    Get.back();
+                  }),
+
+                  // Category
+                  '${controller.currentFilterBy.value == kCategory ? '◉' : '◎'} $kCategory'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
+                    controller.currentFilterBy.value = kCategory;
+                    await controller.filterByCategories();
+                    Get.back();
+                  }),
+
+                  // Year
+                  '${controller.currentFilterBy.value == kYear ? '◉' : '◎'} $kYear'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
+                    controller.currentFilterBy.value = kYear;
+                    await controller.filterByYear();
+                    Get.back();
+                  }),
+                ]),
+                child: '${controller.currentFilterBy}'.text.minFontSize(11).size(11).make().pSymmetric(h: 8).box.color(AppColor.selected).make().cornerRadius(4),
+              ),
             ),
-            ...List.generate(
-              controller.top100LargeFile.length,
-              (index) {
-                var item = controller.top100LargeFile[index];
-                return TableRow(
-                  children: [
-                    // code
-                    '${item.videoCode.isNotEmptyAndNotNull ? item.videoCode : 'NON-JAV'}'
-                        .text
-                        .color(item.videoCode.isNotEmptyAndNotNull ? null : Vx.red300)
-                        .ellipsis
-                        .size(12)
-                        .make()
-                        .p12()
-                        .onInkTap(() async {
-                      final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
-                      await PageSearchOverlay.onItemTap(video[0]);
-                    }),
-
-                    // path
-                    if (item.videoPath!.contains('/Volumes')) ...[
-                      'External → ${item.videoPath!.getLastSegments(segment: 1)}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
-                        final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
-                        await PageSearchOverlay.onItemTap(video[0]);
-                      }),
-                    ] else ...[
-                      'Local → ${item.videoPath!.getLastPath()}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
-                        final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
-                        await PageSearchOverlay.onItemTap(video[0]);
-                      }),
-                    ],
-
-                    // quality
-                    '${HelperMisc.formatVideoQuality(item.quality??'')}'.text.ellipsis.make().tooltip(item.quality ?? '').p12(),
-                    
-                    // size
-                    '${item.filesize?.toFileSize()}'.text.ellipsis.make().p12(),
-                  ],
-                );
+          ]),
+          CupertinoTextField(
+            controller: controller.tecFilterSearchLeft,
+            focusNode: controller.fnFilterSearchLeft,
+            placeholder: 'Search (${controller.leftList.length})...',
+            style: TextStyle(color: Vx.white, fontSize: 12),
+            clearButtonMode: OverlayVisibilityMode.editing,
+            prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+            onSubmitted: (s) async => await controller.onLeftListDoSearch(s),
+          ).pSymmetric(v: 16),
+          FocusScope(
+            autofocus: true,
+            child: RawKeyboardListener(
+              focusNode: controller.leftListFocusNode,
+              autofocus: true,
+              onKey: (event) {
+                if (event is RawKeyDownEvent) {
+                  if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                    controller.onLeftListKeyPressedArrowDown();
+                  } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                    controller.onLeftListKeyPressedArrowUp();
+                  }
+                }
               },
-            ),
-          ],
-        ),
-      ],
-    ).pOnly(left: 8).scrollVertical();
-  }
-
-  Widget buildUIAdvanceSearch() {
-    return HStack(
-      [
-        // r1
-        Container(
-          width: 220,
-          height: Get.height,
-          decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
-          child: VStack(
-            [
-              HStack([
-                'Filter by: (${controller.oList.length})'.text.size(11).minFontSize(11).make(),
-                Spacer(),
-                Obx(
-                  () => CustomPopup(
-                    content: VStack([
-                      // Actress
-                      '${controller.filterBy.value == kActress ? '◉' : '◎'} $kActress'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
-                        controller.filterBy.value = kActress;
-                        await controller.filterByActress();
-                        Get.back();
-                      }),
-
-                      // Series
-                      '${controller.filterBy.value == kSeries ? '◉' : '◎'} $kSeries'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
-                        controller.filterBy.value = kSeries;
-                        await controller.filterBySeries();
-                        Get.back();
-                      }),
-
-                      // Category
-                      '${controller.filterBy.value == kCategory ? '◉' : '◎'} $kCategory'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
-                        controller.filterBy.value = kCategory;
-                        await controller.filterByCategories();
-                        Get.back();
-                      }),
-
-                      // Year
-                      '${controller.filterBy.value == kYear ? '◉' : '◎'} $kYear'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
-                        controller.filterBy.value = kYear;
-                        await controller.filterByYear();
-                        Get.back();
-                      }),
-                    ]),
-                    child: '${controller.filterBy}'.text.minFontSize(11).size(11).make().pSymmetric(h: 8).box.color(AppColor.selected).make().cornerRadius(4),
-                  ),
-                ),
-              ]),
-              CupertinoTextField(
-                controller: controller.tecFilterSearch,
-                focusNode: controller.fnFilterSearch,
-                placeholder: 'Search (${controller.oList.length})...',
-                style: TextStyle(color: Vx.white, fontSize: 12),
-                clearButtonMode: OverlayVisibilityMode.editing,
-                prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
-                onSubmitted: (s) async => await controller.onSearchFilter(s),
-              ).pSymmetric(v: 16),
-              FocusScope(
-                autofocus: true,
-                child: RawKeyboardListener(
-                  focusNode: controller.oListFocusNode,
-                  autofocus: true,
-                  onKey: (event) {
-                    if (event is RawKeyDownEvent) {
-                      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                        controller.onOListMoveSelectionDown();
-                      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                        controller.onOListMoveSelectionUp();
-                      }
-                    }
+              child: FlutterListView(
+                controller: controller.leftListScrollController.value,
+                delegate: FlutterListViewDelegate(
+                  (context, index) {
+                    final item = controller.leftList[index];
+                    return VStack(
+                      [
+                        Obx(
+                          () {
+                            final isSelected = item['name_en'] == controller.leftListSelected.value;
+                            final isHovered = index == controller.leftListHoveredIndex.value;
+                            return MouseRegion(
+                              onEnter: (_) => controller.leftListHoveredIndex.value = index,
+                              onExit: (_) => controller.leftListHoveredIndex.value = -1,
+                              child: InkWell(
+                                onTap: () async => await controller.onLeftListTap(item, index),
+                                child: '${HelperDecensor.decensor(item['name_en'])}'.text.size(11).minFontSize(11).make().w(double.infinity).p4(),
+                              )
+                                  .color(isSelected ? AppColor.selected : isHovered ? AppColor.border : Colors.transparent)
+                                  .cornerRadius(8),
+                            );
+                          },
+                        ),
+                        Divider(color: AppColor.border, thickness: 0.5),
+                      ],
+                    );
                   },
-                  child: FlutterListView(
-                    controller: controller.oListScrollController.value,
-                    delegate: FlutterListViewDelegate(
-                      (context, index) {
-                        final item = controller.oList[index];
-                        return VStack(
-                          [
-                            Obx(
-                              () {
-                                final isSelected = item['name_en'] == controller.oListSelected.value;
-                                final isHovered = index == controller.oListHoveredIndex.value;
-                                return MouseRegion(
-                                  onEnter: (_) => controller.oListHoveredIndex.value = index,
-                                  onExit: (_) => controller.oListHoveredIndex.value = -1,
-                                  child: InkWell(
-                                    onTap: () async => await controller.onOListTap(item, index),
-                                    child: '${HelperDecensor.decensor(item['name_en'])}'.text.size(11).minFontSize(11).make().w(double.infinity).p4(),
-                                  ).color(isSelected ? AppColor.selected : isHovered ? AppColor.border : Colors.transparent)
-                                      .cornerRadius(8),
-                                );
-                              },
-                            ),
-                            Divider(color: AppColor.border, thickness: 0.5),
-                          ],
-                        );
-                      },
-                      childCount: controller.oList.length,
-                    ),
-                  ),
+                  childCount: controller.leftList.length,
                 ),
-              ).expand(),
-            ],
-          ).p12(),
-        ).pOnly(right: 12),
-
-        // r2
-        Container(
-          decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
-          child: controller.obx(
-            (state) => VStack(
-              [
-                HStack([
-                  '🏷️ ${controller.oListSelected}'.text.minFontSize(11).size(11).maxLines(2).ellipsis.make().expand(),
-                  'Result (${controller.r18ListVideo.length})'.text.minFontSize(11).size(11).make().pOnly(left: 16),
-                ]).pOnly(bottom: 12),
-                vListR18().expand(),
-              ],
-            ).p12(),
-            onLoading: ExUiLoading(
-              message: 'Loading...'.text.size(11).minFontSize(11).makeCentered(),
+              ),
             ),
-            onEmpty: ExUiErrorOrEmpty(
-              illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
-              title: 'No Data Found',
-              message: 'No Result Found, as you searched for "${controller.oListSelected}"',
-            ),
-          ),
-        ).expand(),
-      ],
-    ).pOnly(left: 8);
+          ).expand(),
+        ],
+      ).p12(),
+    );
   }
 
-  // ────────────────────────────────────────────────────────────────
-  // ⵌ ~
-  // ────────────────────────────────────────────────────────────────
-  Widget vListR18() {
+  Widget _buildRightPart() {
+
+    if (controller.leftListSelected.isEmpty) {
+      return Container(
+        decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
+        child: ExUiErrorOrEmpty(
+          illustration: Icon(CupertinoIcons.chevron_left_2, size: 32).pOnly(bottom: 12),
+          message: 'Please select left area first',
+        ),
+      );
+    }
+
+    return Container(
+      decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
+      child: controller.obx(
+        (state) => VStack(
+          [
+            HStack([
+              '🏷️ ${controller.leftListSelected}'.text.minFontSize(11).size(11).maxLines(2).ellipsis.make().expand(),
+              'Result (${controller.rightList.length})'.text.minFontSize(11).size(11).make().pOnly(left: 16),
+            ]).pOnly(bottom: 12),
+            _buildVideoList().expand(),
+          ],
+        ).p12(),
+        onLoading: ExUiLoading(
+          message: 'Loading...'.text.size(11).minFontSize(11).makeCentered(),
+        ),
+        onEmpty: ExUiErrorOrEmpty(
+          illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
+          title: 'No Data Found',
+          message: 'No Result Found, as you searched for "${controller.leftListSelected}"',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideoList() {
     return GridView.builder(
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 300,
@@ -441,9 +452,9 @@ class PageToolsView extends GetView<PageToolsController> {
         crossAxisSpacing: 8,
         childAspectRatio: 300 / 200,
       ),
-      itemCount: controller.r18ListVideo.length,
+      itemCount: controller.rightList.length,
       itemBuilder: (context, i) {
-        final item = controller.r18ListVideo[i];
+        final item = controller.rightList[i];
         return ZStack(
           [
             ExThumbnail(
@@ -453,28 +464,25 @@ class PageToolsView extends GetView<PageToolsController> {
             ).wh(300, 200).cornerRadius(8),
 
             // ** match (already have )
-            Container(
+            _buildOverlayContainer(
               color: Colors.green.withAlpha(100),
-              width: 300,
-              height: 200,
-            ).hide(isVisible: item['match'] == true),
+              isVisible: item['match'] == true,
+            ),
 
             // ** is_released (false)
-            Container(
+            _buildOverlayContainer(
               color: Colors.red.withAlpha(70),
-              width: 300,
-              height: 200,
-            ).hide(isVisible: item['is_released'] == false),
+              isVisible: item['is_released'] == false,
+            ),
 
             // ** has Clicked
             GetBuilder(
               init: HomeController(),
               builder: (controller) {
-                return Container(
+                return _buildOverlayContainer(
                   color: Colors.blue.withAlpha(100),
-                  width: 300,
-                  height: 200,
-                ).hide(isVisible: item['is_clicked'] == true);
+                  isVisible: item['is_clicked'] == true,
+                );
               },
             ),
 
@@ -483,7 +491,7 @@ class PageToolsView extends GetView<PageToolsController> {
               width: 300,
               height: item['title'] != null && item['title'] != '' ? 63 : 33,
               child: VStack([
-                '${item['video_code']}'.text.bold.size(12).ellipsis.make().onInkTap((){
+                '${item['video_code']}'.text.bold.size(12).ellipsis.make().onInkTap(() {
                   HelperMisc.copyToClipboard(item['video_code'], showToast: true);
                 }),
                 '${HelperDecensor.decensor(item['title'])}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240).hide(isVisible: item['title'] != null && item['title'] != ''),
@@ -510,5 +518,13 @@ class PageToolsView extends GetView<PageToolsController> {
         ).onInkTap(() async => await HelperOpener.openVideoInfo(item)).pOnly(bottom: 12);
       },
     );
+  }
+
+  Widget _buildOverlayContainer({required Color color, required bool isVisible}) {
+    return Container(
+      color: color,
+      width: 300,
+      height: 200,
+    ).hide(isVisible: isVisible);
   }
 }

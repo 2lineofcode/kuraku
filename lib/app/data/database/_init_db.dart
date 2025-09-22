@@ -43,7 +43,6 @@ class DBService extends GetxService {
     );
   }
 
-  // TODO: auto detect r18*.db and take latest version, fix version base on filename
   Future<Database> _initializeR18Database() async {
     var files = Glob('r18*.db').listSync(root: appPath);
     files.sort((a, b) => b.path.compareTo(a.path));
@@ -53,7 +52,6 @@ class DBService extends GetxService {
     }
     
     final r18SqlFile = files.first.path;
-    AppLog.logS('Using DB file: $r18SqlFile');
 
     final date = r18SqlFile.allBetween('r18_', '.db').replaceAll('_', '').toInt();
     var path = join(appPath, r18SqlFile);
@@ -202,7 +200,6 @@ class DBService extends GetxService {
     await DBVideos.deleteAll();
     await DBHistory.deleteAll();
     await DBPlaylist.deleteAllHeader();
-    // await DBRelapse.deleteAll();
     await vacumDB();
   }
 

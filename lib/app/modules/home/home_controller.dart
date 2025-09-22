@@ -5,6 +5,7 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
+import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
@@ -22,13 +23,21 @@ import 'page_settings/page_settings_controller.dart';
 import 'page_tools/page_tools_controller.dart';
 
 class HomeController extends GetxController with StateMixin {
+  final menus = <Map<String, dynamic>>[
+    {'icon': UIconsPro.regularRounded.comet, 'name': kMenuHome},
+    {'icon': UIconsPro.regularRounded.magnifying_glass_wave, 'name': kMenuSearch},
+    {'icon': UIconsPro.regularRounded.book_alt, 'name': kMenuExplore},
+    {'icon': UIconsPro.regularRounded.display_arrow_down, 'name': kMenuDownload},
+    {'icon': UIconsPro.regularRounded.customization, 'name': kMenuTools},
+    {'icon': UIconsPro.regularRounded.operating_system_upgrade, 'name': kMenuSetting},
+  ];
   final currentMenuSelected = kMenuHome.obs;
-  final loadingText = 'Please wait...'.obs;
-  final footerText = ''.obs;
-  final library = <Library>[].obs;
 
-  // new feat
+  final loadingText = '...'.obs;
+  final footerText = ''.obs;
   final sideMenuWidth = 180.0.obs;
+
+  final library = <Library>[].obs;
 
   @override
   Future<void> onInit() async {
@@ -40,11 +49,6 @@ class HomeController extends GetxController with StateMixin {
 
     sideMenuWidth.value = AppPref.getAppHideSideMenu() ? 65 : 180;
     change(200, status: RxStatus.success());
-  }
-
-  void onOpenLibrary() async {
-    library.value = await DBLibrary.getAll();
-    await HomeLibrary.openMenuLibrary(library);
   }
 
   Future<void> onRefreshAllContent() async {
@@ -59,7 +63,6 @@ class HomeController extends GetxController with StateMixin {
       footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
       change(200, status: RxStatus.success());
     } catch (e) {
-      // footerSum.value = 'Error: $e';
       ExAlert.adaptive(
         title: Text('Ups'),
         content: Text('${e.toString()}'),
@@ -76,10 +79,19 @@ class HomeController extends GetxController with StateMixin {
     }
   }
 
+  void onOpenLibrary() async {
+    library.value = await DBLibrary.getAll();
+    await HomeLibrary.openMenuLibrary(library);
+  }
+
   Future<void> onMenuChange(String menu) async {
     currentMenuSelected.value = menu;
   }
 
+
+  // ──────────────────────────────────────────────────────────────
+  // onDropEvent
+  // ──────────────────────────────────────────────────────────────
   Future<void> onDropEvent(PerformDropEvent event) async {
     final item = event.session.items.first;
     final reader = item.dataReader!;
@@ -101,8 +113,8 @@ class HomeController extends GetxController with StateMixin {
 }
 
 // ────────────────────────────────────────────────────────────────
+// # menu const
 // ────────────────────────────────────────────────────────────────
-// # menus
 const kMenuHome = 'Home';
 const kMenuSearch = 'Search';
 const kMenuExplore = 'Explore';

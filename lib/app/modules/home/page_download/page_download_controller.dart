@@ -29,18 +29,12 @@ import '../../../utils/helper_toast.dart';
 import '../../widgets/widget_auto_complate.dart';
 import '../home_controller.dart';
 
-const kLangEn = 'en';
-const kLangId = 'id';
-// ---
-const kModeNet = 'net';
-const kModeDB = 'db';
-
 class PageDownloadController extends GetxController {
   final tecSearch = TextEditingController();
   final fnSearch = FocusNode();
   final phSearch = ''.obs;
   final currentLang = kLangEn.obs;
-  final currentMode = kModeNet.obs;
+  final currentMode = kModeDB.obs;
   final scrollController = ScrollController();
 
   final response = JavitSearch().obs;
@@ -77,17 +71,19 @@ class PageDownloadController extends GetxController {
   }
 
   Future<void> onSearch(String s) async {
+
+    if (s.isEmpty) {
+      await onReset();
+      return;
+    }
+
     // ** net mode
     if (currentMode.value == kModeNet) {
       try {
-        if (s.isEmpty) {
-          await onReset();
-          return;
-        }
-
+        
         HelperLoading.show();
         response.value = await ApiJavit.search(s: s, lang: currentLang.value, page: currentPage.value);
-        final existVid = await DBVideos.getAll();
+        final existVideo = await DBVideos.getAll();
 
         if (response.value.result == null || response.value.result!.isEmpty) {
           if (retryCount.value < 2) {
@@ -105,7 +101,7 @@ class PageDownloadController extends GetxController {
         for (JavitSearchResult video in response.value.result ?? []) {
           video.isUncensoredLeak = video.videoCode?.contains('UNCENSORED-LEAK');
           video.videoCode = video.videoCode?.replaceAll('-UNCENSORED-LEAK', '');
-          video.match = existVid.any((eVid) => video.videoCode == eVid.videoCode);
+          video.match = existVideo.any((eVid) => video.videoCode == eVid.videoCode);
           videos.add(video);
         }
 
@@ -122,10 +118,6 @@ class PageDownloadController extends GetxController {
     // ** db mode
     else {
       try {
-        if (s.isEmpty) {
-          await onReset();
-          return;
-        }
 
         HelperLoading.show();
         final r18videos = await DBR18.search(s);
@@ -699,3 +691,13 @@ class PageDownloadController extends GetxController {
     return jsonEncode(o);
   }
 }
+
+// ────────────────────────────────────────────────────────────────
+// ⵌ const
+// ────────────────────────────────────────────────────────────────
+// language
+const kLangEn = 'en';
+const kLangId = 'id';
+// search mode
+const kModeNet = 'net';
+const kModeDB = 'db';
