@@ -4,17 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
 
-import '../../../env.g.dart';
 import '../../core/app_color.dart';
 import '../../core/app_logging.dart';
 import '../../data/models/videos_entity.dart';
+import '../../utils/helper.dart';
 import '../widgets/widgets.dart';
 import 'home_controller.dart';
 
 mixin HomeEditVideoDetail {
 
   // ~
-  static Future<void> onEditVideoDetail(Videos video) async {
+  static Future<void> onEditMetadata(Videos video) async {
     final tecTitle = TextEditingController(text: video.title ?? '');
     final tecFanArt = TextEditingController(text: video.fanArt ?? '');
     final tecReleaseDate = TextEditingController(text: video.releaseDate ?? '');
@@ -71,7 +71,7 @@ mixin HomeEditVideoDetail {
                     final item = video.actress?[index];
                     return VStack([
                       ExThumbnail(
-                        imageUrl: '${Env.actressUrl}/${item?.imageUrl ?? ''}',
+                        imageUrl: '${item?.imageUrl?.genAvatarUrl()}',
                         width: 48,
                         height: 48,
                         fitUrl: BoxFit.cover,

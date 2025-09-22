@@ -8,7 +8,7 @@ import '_init_db.dart';
 
 mixin DBLibrary {
   static final _db = Get.find<DBService>().dbMain;
-  static final _tableName = 'Library';
+  static final _tableName = 'library';
 
   static Future<bool> _validation(Library library) async {
     final isDuplicateRootFolder = await getByRootFolder(library.rootFolder ?? '');

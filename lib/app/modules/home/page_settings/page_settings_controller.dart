@@ -9,9 +9,9 @@ import '../../../core/app_logging.dart';
 import '../../../core/app_setting.dart';
 import '../../../core/const.dart';
 import '../../../data/database/_init_db.dart';
+import '../../../data/database/db_activity.dart';
 import '../../../data/database/db_library.dart';
 import '../../../data/database/db_r18.dart';
-import '../../../data/database/db_relapse.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../utils/helper_toast.dart';
 import '../home_controller.dart';
@@ -40,19 +40,18 @@ class PageSettingsController extends GetxController {
     totalLibrary.value = await DBLibrary.getCount();
     totalVideos.value = await DBVideos.getCount();
     r18TotalVideo.value = await DBR18.getCountAllVideos();
-    lastRelapse.value = await DBRelapse.getLastRelapse();
-    if (lastRelapse.value.isNotBlank) {
-      lastRelapse.value = lastRelapse.value.ago(format: kYMd);
-    }
-  }
-
-  Future<void> onResetRelapse() async {
-    await _openDialogConfirm(
-      onYes: () async {
-        await DBRelapse.deleteAll();
-        Get.back();
-      },
+    
+    final _last = await DBActivity.getAll(
+      where: 'type = ?',
+      whereArgs: [kActivityTypeRelapse],
+      orderBy: 'created_at DESC',
     );
+    if (_last.isNotEmpty) {
+      lastRelapse.value = _last[0].createdAt?.reformatDate(to: 'MMM, d y HH:mm') ?? '';
+    } else {
+      lastRelapse.value = '-';
+    }
+
   }
 
   Future<void> onResetAll() async {
@@ -92,7 +91,7 @@ class PageSettingsController extends GetxController {
           Text('Last Update\t\t\t\t\t\t\t: $lastUpdFromNowStr'),
           isOutdated
               ? Text(
-                  '⚠️ Your version is outdated, please update',
+                  '🔥 New Version Database R18 is avaiable',
                   textAlign: TextAlign.left,
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ).pOnly(top: 24)

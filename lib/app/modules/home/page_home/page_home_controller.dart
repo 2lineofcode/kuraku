@@ -3,9 +3,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 
 import '../../../core/app_logging.dart';
-import '../../../data/database/db_playlist.dart';
+import '../../../data/database/db_collection.dart';
 import '../../../data/database/db_videos.dart';
-import '../../../data/models/playlist_entity.dart';
+import '../../../data/models/collection_entity.dart';
 import '../../../data/models/videos_entity.dart';
 
 class PageHomeController extends GetxController {
@@ -16,7 +16,7 @@ class PageHomeController extends GetxController {
   final listRandom = <Videos>[].obs;
   final listNeverWatch = <Videos>[].obs;
   final listOldest = <Videos>[].obs;
-  final listPlaylistHeader = <PlaylistHeader>[].obs;
+  final listPlaylistHeader = <Collection>[].obs;
   final totalVideo = 0.obs;
 
   @override
@@ -72,12 +72,12 @@ class PageHomeController extends GetxController {
 
   Future<void> getListPlaylistHeader() async {
     listPlaylistHeader.clear();
-    listPlaylistHeader.value = await DBPlaylist.getAllHeader();
+    listPlaylistHeader.value = await DBCollection.getAll();
     listPlaylistHeader.sort((a, b) => b.createdAt!.compareTo(a.createdAt!));
     listPlaylistHeader.value = listPlaylistHeader.take(50).toList();
   }
 
-  Future<void> addOrEditPlaylist({PlaylistHeader? header}) async {
+  Future<void> addOrEditPlaylist({Collection? header}) async {
     final tecName = TextEditingController();
     final tecCover = TextEditingController();
 
@@ -111,7 +111,7 @@ class PageHomeController extends GetxController {
           CupertinoDialogAction(
             child: Text('Delete', style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () async {
-              await DBPlaylist.deleteHeader(header);
+              await DBCollection.delete(header);
               await getListPlaylistHeader();
               Get.back();
             },
@@ -121,8 +121,8 @@ class PageHomeController extends GetxController {
           child: Text('Submit', style: TextStyle(fontSize: 13)),
           onPressed: () async {
             if (header == null) {
-              final header = PlaylistHeader(name: tecName.text, cover: tecCover.text);
-              await DBPlaylist.addHeader(header);
+              final header = Collection(name: tecName.text, cover: tecCover.text);
+              await DBCollection.add(header);
               await getListPlaylistHeader();
               Get.back();
             }
@@ -130,7 +130,7 @@ class PageHomeController extends GetxController {
             else {
               header.name = tecName.text;
               header.cover = tecCover.text;
-              await DBPlaylist.updateHeader(header);
+              await DBCollection.update(header);
               await getListPlaylistHeader();
               Get.back();
             }

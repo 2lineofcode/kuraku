@@ -3,14 +3,13 @@ import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_list_view/flutter_list_view.dart';
 import 'package:get/get.dart';
-import 'package:uuid/v4.dart';
 import 'package:video_compress/video_compress.dart';
 
 import '../../../core/app_logging.dart';
-import '../../../data/database/db_history.dart';
+import '../../../data/database/db_activity.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
-import '../../../data/models/history_entity.dart';
+import '../../../data/models/activity_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../home_controller.dart';
@@ -29,7 +28,7 @@ class PageToolsController extends GetxController with StateMixin {
   final duplicateVideoList = <Videos>[].obs;
 
   // ** part: todo
-  final todoList = <History>[].obs;
+  final todoList = <Activity>[].obs;
 
   // ** part: advance search
   // -> left part
@@ -123,18 +122,18 @@ class PageToolsController extends GetxController with StateMixin {
   // ** part: kTodo
   // ────────────────────────────────────────────────────────────────
   Future<void> getTodos() async {
-    final todoo = await DBHistory.getAll(where: 'type = ?', whereArgs: ['todo']);
+    final todoo = await DBActivity.getAll(where: 'type = ?', whereArgs: [kActivityTypeTodo]);
     for (var todo in todoo) {
       try {
-        final existVideo = await DBVideos.getByCode(todo.message ?? '');
-        if (todo.message == existVideo.videoCode) todo.message = '✔︎ ${todo.message}';
+        final existVideo = await DBVideos.getByCode(todo.content ?? '');
+        if (todo.content == existVideo.videoCode) todo.content = '✔︎ ${todo.content}';
       } catch (_) {}
     }
     todoList.value = todoo;
   }
 
-  Future<void> deleteTodos(History todo) async {
-    await DBHistory.delete(todo);
+  Future<void> deleteTodos(Activity todo) async {
+    await DBActivity.delete(todo);
     await getTodos();
   }
 
@@ -152,8 +151,8 @@ class PageToolsController extends GetxController with StateMixin {
         style: TextStyle(color: Vx.white, fontSize: 12),
         placeholder: 'TODO',
         onSubmitted: (value) async {
-          final newTodo = History(id: UuidV4().generate(), type: 'todo', message: value);
-          await DBHistory.add(newTodo);
+          final newTodo = Activity(type: kActivityTypeTodo, content: value);
+          await DBActivity.add(newTodo);
           await getTodos();
           Get.back();
         },
@@ -162,8 +161,8 @@ class PageToolsController extends GetxController with StateMixin {
         CupertinoDialogAction(
           child: Text('Save', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           onPressed: () async {
-            final newTodo = History(id: UuidV4().generate(), type: 'todo', message: tecTodo.text);
-            await DBHistory.add(newTodo);
+            final newTodo = Activity(type: kActivityTypeTodo, content: tecTodo.text);
+            await DBActivity.add(newTodo);
             await getTodos();
             Get.back();
           },

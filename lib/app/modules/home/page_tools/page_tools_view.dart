@@ -66,8 +66,17 @@ class PageToolsView extends GetView<PageToolsController> {
   // ⵌ ~ content
   // ────────────────────────────────────────────────────────────────
   Widget uiTopLargeFileSize() {
+    if (controller.topLargeFileSizeList.isEmpty) {
+      return ExUiErrorOrEmpty(
+         illustration: Icon(UIconsPro.regularRounded.square_dashed_circle_plus, size: 128),
+        title: '~ Fresh ~',
+        message: 'Hi There, Select Or Drag & Drop your JAV Folder Here',
+      );
+    }
+
     return VStack(
       [
+        // ** header
         HStack([
           Obx(() => 'Top ${controller.topLargeFileSizeList.length} Large File'.text.make()),
           Spacer(),
@@ -79,146 +88,158 @@ class PageToolsView extends GetView<PageToolsController> {
             ).pOnly(right: 12).hide(isVisible: controller.isHasDataNotScanned.isFalse),
           ),
         ]).pOnly(bottom: 12),
-        controller.topLargeFileSizeList.isEmpty
-            ? ExUiErrorOrEmpty(
-                child: VStack([
-                  Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32).pOnly(bottom: 16).centered(),
-                  'No Data'.text.bold.makeCentered().pOnly(bottom: 8),
-                  'No Data Found, please add some data'.text.size(12).makeCentered().pOnly(bottom: 12),
-                ]).centered(),
-              ).pOnly(top: 110)
-            : Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(1),
-                  1: FlexColumnWidth(3),
-                  2: FlexColumnWidth(1),
-                  3: FlexColumnWidth(1),
-                },
-                border: TableBorder.all(width: 0.5, color: Vx.neutral700),
+
+        // ** content
+        Expanded(
+          child: Table(
+            columnWidths: const {
+              0: FlexColumnWidth(1),
+              1: FlexColumnWidth(3),
+              2: FlexColumnWidth(1),
+              3: FlexColumnWidth(1),
+            },
+            border: TableBorder.all(width: 0.5, color: Vx.neutral700),
+            children: [
+              TableRow(
+                decoration: BoxDecoration(color: AppColor.container),
                 children: [
-                  TableRow(
-                    decoration: BoxDecoration(color: AppColor.container),
-                    children: [
-                      'Code'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                      'Path'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                      'Quality'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                      'Size'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                    ],
-                  ),
-                  ...List.generate(
-                    controller.topLargeFileSizeList.length,
-                    (index) {
-                      var item = controller.topLargeFileSizeList[index];
-                      return TableRow(
-                        children: [
-                          // code
-                          '${item.videoCode.isNotEmptyAndNotNull ? item.videoCode : 'NON-JAV'}'
-                              .text
-                              .color(item.videoCode.isNotEmptyAndNotNull ? null : Vx.red300)
-                              .ellipsis
-                              .size(12)
-                              .make()
-                              .p12()
-                              .onInkTap(() async {
-                            final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
-                            await PageSearchOverlay.onItemTap(video[0]);
-                          }),
-
-                          // path
-                          if (item.videoPath!.contains('/Volumes')) ...[
-                            'External → ${item.videoPath!.getLastSegments(segment: 1)}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
-                              final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
-                              await PageSearchOverlay.onItemTap(video[0]);
-                            }),
-                          ] else ...[
-                            'Local → ${item.videoPath!.getLastPath()}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
-                              final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
-                              await PageSearchOverlay.onItemTap(video[0]);
-                            }),
-                          ],
-
-                          // quality
-                          '${HelperMisc.formatVideoQuality(item.quality ?? '')}'.text.ellipsis.make().tooltip(item.quality ?? '').p12(),
-
-                          // size
-                          '${item.filesize?.toFileSize()}'.text.ellipsis.make().p12(),
-                        ],
-                      );
-                    },
-                  ),
+                  'Code'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                  'Path'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                  'Quality'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                  'Size'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
                 ],
               ),
+              ...List.generate(
+                controller.topLargeFileSizeList.length,
+                (index) {
+                  var item = controller.topLargeFileSizeList[index];
+                  return TableRow(
+                    children: [
+                      // code
+                      '${item.videoCode.isNotEmptyAndNotNull ? item.videoCode : 'NON-JAV'}'
+                          .text
+                          .color(item.videoCode.isNotEmptyAndNotNull ? null : Vx.red300)
+                          .ellipsis
+                          .size(12)
+                          .make()
+                          .p12()
+                          .onInkTap(() async {
+                        final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
+                        await PageSearchOverlay.onItemTap(video[0]);
+                      }),
+
+                      // path
+                      if (item.videoPath!.contains('/Volumes')) ...[
+                        'External → ${item.videoPath!.getLastSegments(segment: 1)}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
+                          final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
+                          await PageSearchOverlay.onItemTap(video[0]);
+                        }),
+                      ] else ...[
+                        'Local → ${item.videoPath!.getLastPath()}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
+                          final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
+                          await PageSearchOverlay.onItemTap(video[0]);
+                        }),
+                      ],
+
+                      // quality
+                      '${HelperMisc.formatVideoQuality(item.quality ?? '')}'.text.ellipsis.make().tooltip(item.quality ?? '').p12(),
+
+                      // size
+                      '${item.filesize?.toFileSize()}'.text.ellipsis.make().p12(),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ).scrollVertical(),
+        ),
       ],
-    ).pOnly(left: 8).scrollVertical();
+    ).pOnly(left: 8);
   }
 
   Widget uiDuplicateVideo() {
+    if (controller.duplicateVideoList.isEmpty) {
+      return ExUiErrorOrEmpty(
+        illustration: Icon(UIconsPro.regularRounded.flame, size: 128),
+        title: '~ No Data Duplicate Found 🔥 ~',
+      );
+    }
+
     return VStack(
       [
         HStack([
           Obx(() => 'Total Duplicate: ${(controller.duplicateVideoList.length / 2).toInt()}'.text.make()),
           Spacer(),
         ]).pOnly(bottom: 12),
-        controller.duplicateVideoList.isEmpty
-            ? ExUiErrorOrEmpty(
-                child: VStack([
-                  Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32).pOnly(bottom: 16).centered(),
-                  'No Data'.text.bold.makeCentered().pOnly(bottom: 8),
-                  'No Data Duplicate Found 🔥'.text.size(12).makeCentered().pOnly(bottom: 12),
-                ]).centered(),
-              ).pOnly(top: 110)
-            : Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(1),
-                  1: FlexColumnWidth(4),
-                },
-                border: TableBorder.all(width: 0.5, color: Vx.neutral700),
+        Expanded(
+          child: Table(
+            columnWidths: const {
+              0: FlexColumnWidth(1),
+              1: FlexColumnWidth(4),
+            },
+            border: TableBorder.all(width: 0.5, color: Vx.neutral700),
+            children: [
+              TableRow(
+                decoration: BoxDecoration(color: AppColor.container),
                 children: [
-                  TableRow(
-                    decoration: BoxDecoration(color: AppColor.container),
-                    children: [
-                      'Code'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                      'Path'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                      'Size'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                    ],
-                  ),
-                  ...List.generate(
-                    controller.duplicateVideoList.length,
-                    (index) {
-                      final item = controller.duplicateVideoList[index];
-                      return TableRow(
-                        children: [
-                          // code
-                          '${item.videoCode}'.text.ellipsis.size(12).make().p12().onInkTap(() {
-                            PageSearchOverlay.onItemTap(item);
-                          }),
-
-                          // path
-                          if (item.videoPath!.contains('/Volumes')) ...[
-                            'External → ${item.videoPath!.getLastSegments(segment: 1)}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
-                              await PageSearchOverlay.onItemTap(item);
-                            }),
-                          ] else ...[
-                            'Local → ${item.videoPath!.getLastPath()}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
-                              await PageSearchOverlay.onItemTap(item);
-                            }),
-                          ],
-
-                          // size
-                          '${item.filesize?.toFileSize()}'.text.ellipsis.size(12).make().p12().onInkTap(() async {
-                            await PageSearchOverlay.onItemTap(item);
-                          }),
-                        ],
-                      );
-                    },
-                  ),
+                  'Code'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                  'Path'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                  'Size'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
                 ],
               ),
+              ...List.generate(
+                controller.duplicateVideoList.length,
+                (index) {
+                  final item = controller.duplicateVideoList[index];
+                  return TableRow(
+                    children: [
+                      // code
+                      '${item.videoCode}'.text.ellipsis.size(12).make().p12().onInkTap(() {
+                        PageSearchOverlay.onItemTap(item);
+                      }),
+
+                      // path
+                      if (item.videoPath!.contains('/Volumes')) ...[
+                        'External → ${item.videoPath!.getLastSegments(segment: 1)}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
+                          await PageSearchOverlay.onItemTap(item);
+                        }),
+                      ] else ...[
+                        'Local → ${item.videoPath!.getLastPath()}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
+                          await PageSearchOverlay.onItemTap(item);
+                        }),
+                      ],
+
+                      // size
+                      '${item.filesize?.toFileSize()}'.text.ellipsis.size(12).make().p12().onInkTap(() async {
+                        await PageSearchOverlay.onItemTap(item);
+                      }),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ).scrollVertical(),
+        ),
       ],
-    ).pOnly(left: 8).scrollVertical();
+    ).pOnly(left: 8);
   }
 
   Widget uiTODO() {
+    if (controller.todoList.isEmpty) {
+      return ExUiErrorOrEmpty(
+        child: VStack([
+          Icon(UIconsPro.regularRounded.to_do_alt, size: 128).pOnly(bottom: 16).centered(),
+          'No Data TODO'.text.bold.makeCentered().pOnly(bottom: 2),
+          'You can add todo by clicking the button below'.text.size(12).makeCentered().pOnly(bottom: 12),
+          ExButtonText(
+            label: 'Add New Todo',
+            labelSize: 13,
+            isLabelBold: true,
+            onPressed: () => controller.addTodo(),
+          ).centered(),
+        ]).centered(),
+      );
+    }
     return VStack(
       [
         HStack([
@@ -229,67 +250,55 @@ class PageToolsView extends GetView<PageToolsController> {
             onPressed: () => controller.addTodo(),
           ),
         ]).pOnly(bottom: 12),
-        controller.todoList.isEmptyOrNull
-            ? ExUiErrorOrEmpty(
-                child: VStack([
-                  Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32).pOnly(bottom: 16).centered(),
-                  'No Data Found'.text.bold.makeCentered().pOnly(bottom: 2),
-                  'You can add todo by clicking the button below'.text.size(12).makeCentered().pOnly(bottom: 12),
-                  ExButtonText(
-                    label: 'Add New Todo',
-                    labelSize: 13,
-                    isLabelBold: true,
-                    onPressed: () => controller.addTodo(),
-                  ).centered(),
-                ]).centered(),
-              ).pOnly(top: 110)
-            : Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(4),
-                  1: FlexColumnWidth(1),
-                },
-                border: TableBorder.all(width: 0.5, color: Vx.neutral700),
+        Expanded(
+          child: Table(
+            columnWidths: const {
+              0: FlexColumnWidth(4),
+              1: FlexColumnWidth(1),
+            },
+            border: TableBorder.all(width: 0.5, color: Vx.neutral700),
+            children: [
+              TableRow(
+                decoration: BoxDecoration(color: AppColor.container),
                 children: [
-                  TableRow(
-                    decoration: BoxDecoration(color: AppColor.container),
-                    children: [
-                      'Todo'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                      'Action'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                    ],
-                  ),
-                  ...List.generate(
-                    controller.todoList.length,
-                    (index) {
-                      final item = controller.todoList[index];
-                      return TableRow(
-                        children: [
-                          // code
-                          '${item.message}'.text.ellipsis.size(12).make().p12().onInkTap(() {
-                            final code = item.message?.replaceAll('✔︎', '').trim() ?? '';
-                            if (code.isValidVideoCode()) {
-                              var video = <String, dynamic>{};
-                              video['video_code'] = code;
-                              HelperOpener.openVideoInfo(video);
-                            }
-                          }),
-
-                          // action
-                          HStack(
-                            [
-                              IconButton(
-                                icon: Icon(UIconsPro.regularRounded.trash, size: 14, color: Vx.neutral400),
-                                onPressed: () => controller.deleteTodos(controller.todoList[index]),
-                              ),
-                            ],
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                  'Todo'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                  'Action'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
                 ],
               ),
+              ...List.generate(
+                controller.todoList.length,
+                (index) {
+                  final item = controller.todoList[index];
+                  return TableRow(
+                    children: [
+                      // code
+                      '${item.content}'.text.ellipsis.size(12).make().p12().onInkTap(() {
+                        final code = item.content?.replaceAll('✔︎', '').trim() ?? '';
+                        if (code.isValidVideoCode()) {
+                          var video = <String, dynamic>{};
+                          video['video_code'] = code;
+                          HelperOpener.openVideoInfo(video);
+                        }
+                      }),
+
+                      // action
+                      HStack(
+                        [
+                          IconButton(
+                            icon: Icon(UIconsPro.regularRounded.trash, size: 14, color: Vx.neutral400),
+                            onPressed: () => controller.deleteTodos(controller.todoList[index]),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ).scrollVertical(),
+        ),
       ],
-    ).pOnly(left: 8).scrollVertical();
+    ).pOnly(left: 8);
   }
 
   Widget uiAdvanceSearch() {
@@ -413,7 +422,7 @@ class PageToolsView extends GetView<PageToolsController> {
       return Container(
         decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
         child: ExUiErrorOrEmpty(
-          illustration: Icon(CupertinoIcons.chevron_left_2, size: 32).pOnly(bottom: 12),
+          illustration: Icon(CupertinoIcons.chevron_left_2, size: 64).pOnly(bottom: 12),
           message: 'Please select left area first',
         ),
       );

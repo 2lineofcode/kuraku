@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:uuid/v4.dart';
 
 import '../../../core/app_logging.dart';
+import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
@@ -33,13 +34,16 @@ class PageExploreController extends GetxController {
   final rightListR18 = <Map<String, dynamic>>[].obs;
   final rightListR18TotalVideo = 0.obs;
 
+  final isFresh = true.obs;
+
+
   @override
   Future<void> onInit() async {
     super.onInit();
     AppLog.logI('page explore ==> onInit called');
     await onMenuChange(kActress);
-    await 10.milliseconds.delay();
     phSearchLeft.value = 'Search (${leftList.length})...';
+    isFresh.value = await DBVideos.getCount() == 0;
   }
 
   Future<void> onMenuChange(String menu) async {
@@ -60,7 +64,6 @@ class PageExploreController extends GetxController {
       case kCustom: await getCustomList(); break;
     }
 
-    await 10.milliseconds.delay();
     phSearchLeft.value = 'Search (${leftList.length})...';
     tecSearchLeft.text = '';
     rightListViewMode.value = kLocal;
@@ -156,6 +159,22 @@ class PageExploreController extends GetxController {
             break;
           case 'Never Watch':
             rightListLocal.value = await DBVideos.getAll(where: 'view_count = 0', orderBy: 'updated_at DESC');
+            break;
+          case '🟢 Star Rank':
+            await ApiJavit.ranking().then( (res) {
+              rightListLocal.value.clear();
+              final videos = <Videos>[];
+              final result = res['result'] as List;
+              for (var item in result) {
+                videos.add(Videos(
+                  id: item['avatar'].toString().allBetween('actress/', '-t.jpg'),
+                  videoCode: item['rank'],
+                  title: item['name'],
+                  fanArt: item['avatar'],
+                ));
+              }
+              rightListLocal.value = videos;
+            });
             break;
         }
         rightListR18TotalVideo.value = 0;
@@ -377,6 +396,7 @@ class PageExploreController extends GetxController {
     leftList.add(LeftListModel(name: 'Most Watch', count: cMostWatch.length));
     leftList.add(LeftListModel(name: 'New Added', count: cNewAdded.length));
     leftList.add(LeftListModel(name: 'Never Watch', count: cNeverWatch.length));
+    leftList.add(LeftListModel(name: '🟢 Star Rank', count: 0));
     leftListFiltered.assignAll(leftList);
   }
 

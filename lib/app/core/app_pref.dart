@@ -39,9 +39,9 @@ mixin AppPref {
   static void setDownloadMode(String value) => _pref.write(_kDownloadMode, value);
   static String downloadMode = _kDownloadMode;
 
-  static int getDownloadChunk() => _pref.read(_kDownloadChunk) ?? 2;
-  static void setDownloadChunk(int value) => _pref.write(_kDownloadChunk, value);
-  static String downloadChunk = _kDownloadChunk;
+  static int getDownloadWorker() => _pref.read(_kDownloadWorker) ?? 2;
+  static void setDownloadWorker(int value) => _pref.write(_kDownloadWorker, value);
+  static String downloadChunk = _kDownloadWorker;
 
 
   // ** [home segment]
@@ -91,7 +91,7 @@ const _kAppHideSideMenu = '_kAppHideSideMenu';
 const _kDownloadPath = '_kDownloadPath';
 const _kDownloadLang = '_kDownloadLang';
 const _kDownloadMode = '_kDownloadMode';
-const _kDownloadChunk = '_kDownloadChunk';
+const _kDownloadWorker = '_kDownloadChunk';
 
 const _kHomeSecNewRelease = '_kHomeSecNewRelease';
 const _kHomeSecFavorite = '_kHomeSecFavorite';

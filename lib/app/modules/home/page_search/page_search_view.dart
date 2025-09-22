@@ -15,8 +15,21 @@ import 'page_search_overlay.dart';
 
 class PageSearchView extends GetView<PageSearchController> {
   const PageSearchView({super.key});
+
   @override
   Widget build(BuildContext context) {
+    return Obx(
+      () => controller.isFresh.isFalse
+          ? buildPage()
+          : ExUiErrorOrEmpty(
+              illustration: Icon(UIconsPro.regularRounded.square_dashed_circle_plus, size: 128),
+              title: '~ Fresh ~',
+              message: 'Hi There, Select Or Drag & Drop your JAV Folder Here',
+            ),
+    );
+  }
+
+  Widget buildPage() {
     return VStack(
       [
         HStack([
@@ -145,7 +158,10 @@ class PageSearchView extends GetView<PageSearchController> {
                 prefix: 2.1,
               ).wh(width, height),
               _buildReleaseDateOverlay(item),
-              _buildVideoTitleOverlay(item, width),
+              _buildVideoCodeOverlay(item, width),
+              _buildFlagIDSubOverlay(item),
+              _buildFlagENSubOverlay(item),
+              _buildFlagUncensoredOverlay(item),
             ]),
           ).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(item)),
         );
@@ -154,7 +170,7 @@ class PageSearchView extends GetView<PageSearchController> {
   }
 
   /// Builds the video title overlay with a dark background.
-  Widget _buildVideoTitleOverlay(Videos item, double width) {
+  Widget _buildVideoCodeOverlay(Videos item, double width) {
     return Container(
       color: Vx.black.withAlpha(150),
       width: width,
@@ -169,6 +185,27 @@ class PageSearchView extends GetView<PageSearchController> {
       return 0.heightBox;
     }
 
-    return '${item.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().pSymmetric(h: 4).wh(80, 17).color(Vx.black.withAlpha(200)).positioned();
+    return '${item.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().pSymmetric(h: 4).wh(80, 17).color(Vx.black.withAlpha(150)).positioned();
+  }
+
+  Widget _buildFlagIDSubOverlay(Videos item) {
+    if (item.videoPath?.isHasIdSub() == false) {
+      return 0.heightBox;
+    }
+    return 'ID-SUB'.text.makeCentered().pSymmetric(h: 4).wh(double.infinity, 17).color(Vx.blue500.withAlpha(200)).positioned(bottom: 20, right: 0, left: 0);
+  }
+
+  Widget _buildFlagENSubOverlay(Videos item) {
+    if (item.videoPath?.isHasEnSub() == false) {
+      return 0.heightBox;
+    }
+    return 'EN-SUB'.text.makeCentered().pSymmetric(h: 4).wh(double.infinity, 17).color(Vx.purple500.withAlpha(150)).positioned(bottom: 20, right: 0, left: 0);
+  }
+
+  Widget _buildFlagUncensoredOverlay(Videos item) {
+    if (item.videoPath?.isHasUncensored() == false) {
+      return 0.heightBox;
+    }
+    return 'REDUCE MOSAIC'.text.makeCentered().pSymmetric(h: 4).wh(double.infinity, 17).color(Vx.red500.withAlpha(150)).positioned(bottom: 20, right: 0, left: 0);
   }
 }

@@ -23,9 +23,9 @@ class PageHomeView extends GetView<PageHomeController> {
       () => controller.totalVideo.value != 0
           ? buildPage()
           : ExUiErrorOrEmpty(
-              illustration: Icon(UIconsPro.regularRounded.mug_hot_alt),
+              illustration: Icon(UIconsPro.regularRounded.square_dashed_circle_plus, size: 128),
               title: '~ Fresh ~',
-              message: 'No Data Found, Please Add New Library First or just \n`drag your JAV Video Folder here`',
+              message: 'Hi There, Select Or Drag & Drop your JAV Folder Here',
             ),
     );
   }
@@ -51,6 +51,7 @@ class PageHomeView extends GetView<PageHomeController> {
           refreshAction: controller.getListRandom,
           layoutBuilder: (video) => buildLayoutPoster(video, showViewCount: false),
           emptyLayoutBuilder: buildLayoutEmptyPoster,
+          showDirectToExplore: false,
         ),
         _buildVideoSection(
           title: 'Most Watch',
@@ -62,7 +63,7 @@ class PageHomeView extends GetView<PageHomeController> {
           emptyLayoutBuilder: buildLayoutEmptyPoster,
         ),
         _buildVideoSection(
-          title: 'Favorite videos',
+          title: 'Favorite',
           icon: Icon(UIconsPro.solidRounded.square_heart, size: 12, color: Vx.red400),
           list: controller.listFavorite,
           prefKey: AppPref.homeSecFavorite,
@@ -71,7 +72,7 @@ class PageHomeView extends GetView<PageHomeController> {
           emptyLayoutBuilder: buildLayoutEmptyPoster,
         ),
         _buildVideoSection(
-          title: 'Recently Added',
+          title: 'New Added',
           icon: Icon(UIconsPro.solidRounded.add_document, size: 12, color: Vx.cyan400),
           list: controller.listNewAdded,
           prefKey: AppPref.homeSecNewAdd,
@@ -96,6 +97,7 @@ class PageHomeView extends GetView<PageHomeController> {
           refreshAction: controller.getListOldest,
           layoutBuilder: (video) => buildLayoutPoster(video, showViewCount: false),
           emptyLayoutBuilder: buildLayoutEmptyPoster,
+          showDirectToExplore: false,
         ),
         _buildPlaylistSection(),
       ],
@@ -113,6 +115,7 @@ class PageHomeView extends GetView<PageHomeController> {
     required Widget Function() emptyLayoutBuilder,
     double? width,
     double? height,
+    bool? showDirectToExplore = true,
   }) {
     return VStack(
       [
@@ -145,17 +148,21 @@ class PageHomeView extends GetView<PageHomeController> {
               );
             },
           ),
-          IconButton(
-            icon: Icon(UIconsPro.regularRounded.book_alt, size: 12),
-            onPressed: () async {
-              await Get.find<HomeController>().onMenuChange(kMenuExplore);
-              final exploreC = Get.find<PageExploreController>();
-              await exploreC.onMenuChange(kCustom);
-              exploreC.tecSearchLeft.text = title;
-              exploreC.onLeftListDoSearch(title);
-              await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
-            },
-          ),
+
+          if (showDirectToExplore == true) ...[
+            IconButton(
+              icon: Icon(UIconsPro.regularRounded.book_alt, size: 12),
+              onPressed: () async {
+                await Get.find<HomeController>().onMenuChange(kMenuExplore);
+                final exploreC = Get.find<PageExploreController>();
+                await exploreC.onMenuChange(kCustom);
+                exploreC.tecSearchLeft.text = title;
+                exploreC.onLeftListDoSearch(title);
+                await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
+              },
+            ),
+          ],
+
           IconButton(
             icon: Icon(UIconsPro.regularRounded.rotate_right, size: 12),
             onPressed: refreshAction,

@@ -9,28 +9,40 @@ import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
-import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
 import '../../../core/const.dart';
+import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
+import '../page_tools/page_tools_controller.dart';
 import 'page_explore_controller.dart';
 
 class PageExploreView extends GetView<PageExploreController> {
   const PageExploreView({super.key});
+
   @override
   Widget build(BuildContext context) {
+    return Obx(
+      () => controller.isFresh.isFalse
+          ? buildPage()
+          : ExUiErrorOrEmpty(
+              illustration: Icon(UIconsPro.regularRounded.square_dashed_circle_plus, size: 128),
+              title: '~ Fresh ~',
+              message: 'Hi There, Select Or Drag & Drop your JAV Folder Here',
+            ),
+    );
+  }
+
+  Widget buildPage() {
     return VStack(
       [
         _buildFilterMenu().pOnly(bottom: 24),
-        HStack(
-          [
-            _buildLeftPart(),
-            Container(height: double.infinity, color: AppColor.container).w(1).pSymmetric(h: 8),
-            _buildRightPart().expand(),
-          ],
-        ).expand(),
+        HStack([
+          _buildLeftPart(),
+          Container(height: double.infinity, color: AppColor.container).w(1).pSymmetric(h: 8),
+          _buildRightPart().expand(),
+        ]).expand(),
       ],
     );
   }
@@ -114,7 +126,7 @@ class PageExploreView extends GetView<PageExploreController> {
                                     if (controller.currentMenuSelected.value == kActress) ...[
                                       item.imgUrl?.trim() != ''
                                           ? ExThumbnail(
-                                              imageUrl: '${Env.actressUrl}/${item.imgUrl}',
+                                              imageUrl: '${item.imgUrl?.genAvatarUrl()}',
                                               width: 48,
                                               height: 48,
                                               fitUrl: BoxFit.cover,
@@ -138,14 +150,10 @@ class PageExploreView extends GetView<PageExploreController> {
                                     ]
                                     // other ~
                                     else ...[
-                                      '${item.name} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand()
+                                      '${item.name} ${item.count != 0 ? '(${item.count})' : ''}'.text.size(12).maxLines(3).ellipsis.make().p8().expand()
                                     ],
                                   ])
-                                      .color(isSelected
-                                          ? AppColor.selected
-                                          : isHovered
-                                              ? AppColor.border
-                                              : Colors.transparent)
+                                      .color(isSelected ? AppColor.selected : isHovered ? AppColor.border : Colors.transparent)
                                       .cornerRadius(8),
                                 ),
                               );
@@ -170,7 +178,7 @@ class PageExploreView extends GetView<PageExploreController> {
         Obx(
           () => controller.rightListLocal.isEmpty
               ? ExUiErrorOrEmpty(
-                  illustration: Icon(CupertinoIcons.chevron_left_2, size: 32).pOnly(bottom: 12),
+                  illustration: Icon(CupertinoIcons.chevron_left_2, size: 64).pOnly(bottom: 12),
                   message: 'Please select left area first',
                 ).expand()
               : controller.rightListViewMode.value == kLocal
@@ -186,8 +194,7 @@ class PageExploreView extends GetView<PageExploreController> {
   // ────────────────────────────────────────────────────────────────
   Widget _buildUiNoData() {
     return ExUiErrorOrEmpty(
-      illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
-      title: 'No Data Found',
+      illustration: Icon(UIconsPro.regularRounded.search, size: 64).pOnly(bottom: 24),
       message: 'No Result Found, as you searched for "${controller.tecSearchLeft.text}"',
     );
   }
@@ -207,7 +214,7 @@ class PageExploreView extends GetView<PageExploreController> {
             item.imgUrl?.trim() == ''
                 ? ExAvatarView(source: '', name: item.name, size: 32).pOnly(right: 12)
                 : ExThumbnail(
-                    imageUrl: '${Env.actressUrl}/${item.imgUrl}',
+                    imageUrl: '${item.imgUrl?.genAvatarUrl()}',
                     width: 32,
                     height: 32,
                     fitUrl: BoxFit.cover,
@@ -277,11 +284,49 @@ class PageExploreView extends GetView<PageExploreController> {
         mainAxisExtent: height,
         mainAxisSpacing: 12,
         crossAxisSpacing: 8,
-        // childAspectRatio: width / height,
       ),
       itemCount: controller.rightListLocal.length,
       itemBuilder: (context, i) {
         final item = controller.rightListLocal[i];
+
+        if (controller.currentMenuSelected.value == kCustom && controller.leftListSelected.value.name == '🟢 Star Rank') {
+          return Container(
+            color: AppColor.container,
+            child: ZStack([
+              ExAvatarView(
+                source: item.fanArt ?? '',
+                width: 90,
+                height: 90,
+              ).wh(90, 90).cornerRadius(90).centered().positioned(top: 55, left: 0, right: 0),
+              '${item.title}'.text.makeCentered().positioned(bottom: 40, left: 0, right: 0),
+              Container(
+                color: Vx.black.withAlpha(150),
+                width: width,
+                height: 20,
+                child: '${item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
+              ).positioned(bottom: 0, left: 0, right: 0),
+            ]),
+          ).onInkTap(() async {
+            try {
+              final _home = Get.find<HomeController>();
+              final _tool = Get.find<PageToolsController>();
+
+              final id = item.id.toInt();
+              final name = '${item.title}';
+
+              await _home.onMenuChange(kMenuTools);
+              await _tool.onMenuChange(kAdvanceSearch);
+              
+              _tool.currentFilterBy.value = kActress;
+              _tool.tecFilterSearchLeft.text = name;
+              await _tool.onLeftListDoSearch(name);
+
+              final _item = {'id': id, 'name_en': name};
+              await _tool.onLeftListTap(_item, 0);
+            } catch (_) {}
+          });
+        }
+
         return RepaintBoundary(
           child: Container(
             color: AppColor.container,
@@ -302,6 +347,10 @@ class PageExploreView extends GetView<PageExploreController> {
                 height: 20,
                 child: '${item.videoCode == '' ? item.title?.maxChars(10) : item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
               ).positioned(bottom: 0, left: 0, right: 0),
+
+              _buildFlagENSubOverlay(item),
+              _buildFlagIDSubOverlay(item),
+              _buildFlagUncensoredOverlay(item),
             ]),
           ).cornerRadius(8).onInkTap(() => controller.onRightListTap(item)),
         );
@@ -394,5 +443,26 @@ class PageExploreView extends GetView<PageExploreController> {
       width: 300,
       height: 200,
     ).hide(isVisible: isVisible);
+  }
+
+  Widget _buildFlagIDSubOverlay(Videos item) {
+    if (item.videoPath?.isHasIdSub() == false) {
+      return 0.heightBox;
+    }
+    return 'ID-SUB'.text.makeCentered().pSymmetric(h: 4).wh(double.infinity, 17).color(Vx.blue500.withAlpha(200)).positioned(bottom: 20, right: 0, left: 0);
+  }
+
+  Widget _buildFlagENSubOverlay(Videos item) {
+    if (item.videoPath?.isHasEnSub() == false) {
+      return 0.heightBox;
+    }
+    return 'EN-SUB'.text.makeCentered().pSymmetric(h: 4).wh(double.infinity, 17).color(Vx.purple500.withAlpha(150)).positioned(bottom: 20, right: 0, left: 0);
+  }
+
+  Widget _buildFlagUncensoredOverlay(Videos item) {
+    if (item.videoPath?.isHasUncensored() == false) {
+      return 0.heightBox;
+    }
+    return 'REDUCE MOSAIC'.text.makeCentered().pSymmetric(h: 4).wh(double.infinity, 17).color(Vx.red500.withAlpha(150)).positioned(bottom: 20, right: 0, left: 0);
   }
 }

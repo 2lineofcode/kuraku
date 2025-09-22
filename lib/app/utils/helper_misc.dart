@@ -1,47 +1,13 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 
 import '../../env.g.dart';
+import '../core/const.dart';
 import 'helper_toast.dart';
 
 mixin HelperMisc {
-
-  static String __getVideoCode(String fileName) {
-    final List<RegExp> expressions = [
-      RegExp(r'([a-zA-Z]{2,})-([0-9]{3,})'),
-    ];
-    final matches = expressions.map((exp) => exp.firstMatch(fileName)).toList();
-    final match = matches.firstWhere((m) => m != null, orElse: () => null);
-    return match != null ? '${match.group(1)?.toUpperCase()}-${match.group(2)}' : '';
-  }
-
-  static bool __isValidVideoCode(String code) {
-    if (code.trim().isEmpty) return false;
-
-    const _blacklistedPrefixes = [
-      'TK', '7', '9', 'K9', 'FTKT', 'GOOE', 'JTKT', 'GTKT', 'DDMP', 'DMPXA', 'USTD', 
-      'VWBS', 'HPXR', 'VWAS', 'TCBD', 'DAXA', 'TWUSS', 'PJXF', 'KKC', 'GNXF', 'JAXA', 'UHB', 
-      'BPUH', 'GNXT', 'ZTKT', 'PB', 'D1', 'D2', 'D3', 'DK',
-    ];
-    const _blacklistedSuffixes = [
-      'BOD', 'DOD', 'Ta', 'Tb', 'Tc', 'Td', 'Te', 
-      'TK', 'TK1', 'TK2', 'TK3', 'EC', '4D', '5D', 'DL',
-    ];
-
-    final hasValidFormat = RegExp(r'^[a-zA-Z]{2,}-[0-9]{3,}$').hasMatch(code);
-    final hasBlacklistedPrefix = _blacklistedPrefixes.any((prefix) => code.startsWith(prefix));
-    final hasBlacklistedSuffix = _blacklistedSuffixes.any((suffix) => code.endsWith(suffix));
-    return hasValidFormat && !hasBlacklistedPrefix && !hasBlacklistedSuffix;
-  }
-
-  static String __getLastSegments(String path, {int n = 4}) {
-    if (path.isEmpty) return '';
-    List<String> segments = path.split('/').where((s) => s.isNotEmpty).toList();
-    if (segments.length <= n) return path;
-    segments = segments.sublist(segments.length - n);
-    return '.../${segments.join('/')}';
-  }
 
   static String durationFormatDB(num durationInMinutes) {
     if (durationInMinutes < 0) {
@@ -164,16 +130,125 @@ mixin HelperMisc {
     else if (height >= 144) return '144p (Potrait)';
     return 'Unknown';
   }
+
+  static String timeAgo(String format, String datetime) {
+    try {
+      final date = datetime.toDateEx(format: format);
+      final now = DateTime.now();
+      final diff = now.difference(date);
+
+      if (diff.inDays == 0) {
+        return 'Today';
+      } else if (diff.inDays == 1) {
+        return 'Yesterday';
+      } else if (diff.inDays > 1 && diff.inDays <= 7) {
+        return '${diff.inDays} days ago';
+      } else {
+        return date.toStringEx(format: kMdY);
+      }
+    } catch (e) {
+      return 'Invalid Date';
+    }
+  }
+
 }
 
-extension HelperMiscExt on String {
-  String getVideoCode() => HelperMisc.__getVideoCode(this);
-  bool isValidVideoCode() => HelperMisc.__isValidVideoCode(this);
+// ────────────────────────────────────────────────────────────────
+// ⵌ private class
+// ────────────────────────────────────────────────────────────────
+mixin _JavitExtension {
+  static String __getVideoCode(String fileName) {
+    final List<RegExp> expressions = [
+      RegExp(r'([a-zA-Z]{2,})-([0-9]{3,})'),
+    ];
+    final matches = expressions.map((exp) => exp.firstMatch(fileName)).toList();
+    final match = matches.firstWhere((m) => m != null, orElse: () => null);
+    return match != null ? '${match.group(1)?.toUpperCase()}-${match.group(2)}' : '';
+  }
+
+  static bool __isValidVideoCode(String code) {
+    if (code.trim().isEmpty) return false;
+
+    const _blacklistedPrefixes = [
+      'TK', '7', '9', 'K9', 'FTKT', 'GOOE', 'JTKT', 'GTKT', 'DDMP', 'DMPXA', 'USTD', 
+      'VWBS', 'HPXR', 'VWAS', 'TCBD', 'DAXA', 'TWUSS', 'PJXF', 'KKC', 'GNXF', 'JAXA', 'UHB', 
+      'BPUH', 'GNXT', 'ZTKT', 'PB', 'D1', 'D2', 'D3', 'DK',
+    ];
+    const _blacklistedSuffixes = [
+      'BOD', 'DOD', 'Ta', 'Tb', 'Tc', 'Td', 'Te', 
+      'TK', 'TK1', 'TK2', 'TK3', 'EC', '4D', '5D', 'DL',
+    ];
+
+    final hasValidFormat = RegExp(r'^[a-zA-Z]{2,}-[0-9]{3,}$').hasMatch(code);
+    final hasBlacklistedPrefix = _blacklistedPrefixes.any((prefix) => code.startsWith(prefix));
+    final hasBlacklistedSuffix = _blacklistedSuffixes.any((suffix) => code.endsWith(suffix));
+    return hasValidFormat && !hasBlacklistedPrefix && !hasBlacklistedSuffix;
+  }
+
+  static String __getLastSegments(String path, {int n = 4}) {
+    if (path.isEmpty) return '';
+    List<String> segments = path.split('/').where((s) => s.isNotEmpty).toList();
+    if (segments.length <= n) return path;
+    segments = segments.sublist(segments.length - n);
+    return '.../${segments.join('/')}';
+  }
+
+  static bool __isHasEnSub(String filepath) {
+    final filename = filepath.toLowerCase();
+    if (filename.getVideoCode() == '') return false;
+
+    final detect = ['-en', '-sub'];
+    for (final d in detect) if (filename.contains(d)) return true;
+    return false;
+  }
+
+  static bool __isHasIdSub(String filepath) {
+    final filename = filepath.toLowerCase();
+    if (filename.getVideoCode() == '') return false;
+
+    final detect = ['-id', 'indo'];
+    for (final d in detect) if (filename.contains(d)) return true;
+    return false;
+  }
+
+  static bool __isHasUncensored(String filepath) {
+    final filename = filepath.toLowerCase();
+    if (filename.getVideoCode() == '') return false;
+
+    final detect = ['-un', '-rm', 'reducing mosaic'];
+    for (final d in detect) if (filename.contains(d)) return true;
+    return false;
+  }
+}
+
+
+extension JavitExtString on String {
+  String getVideoCode() => _JavitExtension.__getVideoCode(this);
+  bool isValidVideoCode() => _JavitExtension.__isValidVideoCode(this);
   String noExt() => replaceAll('.mp4', '').replaceAll('mp4', '');
   String getExt() => split('.').last;
   String getFileName() => split('/').last;
   String getLastPath() => split('/').last;
-  String getLastSegments({int segment = 4}) => HelperMisc.__getLastSegments(this, n: segment);
+  String getLastSegments({int segment = 4}) => _JavitExtension.__getLastSegments(this, n: segment);
   String getFilePath() => split('/').sublist(0, split('/').length - 1).join('/');
-  String imgUrlFormat() => '${Env.imgUrl}/$this.jpg';
+
+  // ---
+  String genImageUrl() => '${Env.imgUrl}/$this.jpg';
+  String genAvatarUrl() => '${Env.actressUrl}/$this';
+  String genTrailerUrl() => '${Env.vidUrl}$this';
+
+  // ---
+  bool isHasEnSub() => _JavitExtension.__isHasEnSub(this);
+  bool isHasIdSub() => _JavitExtension.__isHasIdSub(this);
+  bool isHasUncensored() => _JavitExtension.__isHasUncensored(this);
+}
+
+extension JavitExtDateTime on DateTime {
+  bool isSameDay(DateTime other) {
+    return year == other.year && month == other.month && day == other.day;
+  }
+}
+
+extension JavitExtNumber on num {
+  String numberFormat() => NumberFormat.currency(locale: 'id', symbol: '', decimalDigits: 0).format(this);
 }

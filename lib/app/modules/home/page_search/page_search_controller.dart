@@ -21,21 +21,21 @@ class PageSearchController extends GetxController {
 
   final scrollGridController = ScrollController();
   final scrollListController = ScrollController();
-  final scrollOffset = 0.0.obs;
 
   final viewModeSelected = kGrid.obs; // grid | list
   final videos = <Videos>[].obs;
+  final isFresh = true.obs;
 
   @override
   Future<void> onInit() async {
-    if (scrollOffset.value > 0) scrollGridController.jumpTo(scrollOffset.value);
-    
     super.onInit();
     AppLog.logI('page search ==> onInit called');
     viewModeSelected.value = kGrid;
-    videos.value = await DBVideos.getAll();
+    isFresh.value = await DBVideos.getCount() == 0;
+    phSearch.value = 'Video Code or Title or Path...'; // await DBVideos.getRandomVideoCode();
+    await onReset();
     videos.shuffle();
-    phSearch.value = await DBVideos.getRandomVideoCode();
+
   }
 
   Future<void> renewMetadata(Videos videos) async {
@@ -107,14 +107,11 @@ class PageSearchController extends GetxController {
   }
 
   Future<void> onSearch() async {
-    try {
-      if (viewModeSelected.value == kGrid) {
-        scrollGridController.animToTop();
-      } else {
-        scrollListController.animToTop();
-      }
-    } 
-    catch (_) {}
+    if (viewModeSelected.value == kGrid) {
+      if (scrollGridController.hasClients) scrollGridController.animToTop();
+    } else {
+      if (scrollListController.hasClients) scrollListController.animToTop();
+    }
 
     if (tecSearch.text.isEmpty) {
       await onReset();

@@ -12,7 +12,7 @@ import '_init_db.dart';
 
 mixin DBVideos {
   static final _db = Get.find<DBService>().dbMain;
-  static final _tableName = 'Videos';
+  static final _tableName = 'videos';
 
   static Future<bool> _validation(Videos videos) async {
     final isDuplicateVideoPath = await getByVideoPath(videos.videoPath ?? '');
@@ -105,7 +105,7 @@ mixin DBVideos {
   static Future<List<Videos>> getAllVideoPath(String column, String like) async {
     try {
       final maps = await _db.rawQuery('''
-        SELECT * FROM Videos
+        SELECT * FROM $_tableName
         WHERE 1=1
           AND $column LIKE '$like%' 
           AND $column NOT LIKE '$like/%/%';
@@ -146,7 +146,7 @@ mixin DBVideos {
 
    static Future<List<Videos>> getByActress(String actressName) async {
     final maps = await _db.rawQuery('''
-      SELECT * FROM "Videos" WHERE json_extract(actress, '\$[0].name_romaji') LIKE ?
+      SELECT * FROM $_tableName WHERE json_extract(actress, '\$[0].name_romaji') LIKE ?
     ''', ['%$actressName%']);
     return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
   }
@@ -167,12 +167,14 @@ mixin DBVideos {
   static Future<void> addToFavorite(Videos video) async {
     final upd = video;
     upd.isFavorite = 1;
+    upd.updatedAt = DateTime.now().toStringEx();
     await _db.update(_tableName, upd.toJson(), where: 'id = ?', whereArgs: [video.id]);
   }
 
   static Future<void> removeFromFavorite(Videos video) async {
     final upd = video;
     upd.isFavorite = 0;
+    upd.updatedAt = DateTime.now().toStringEx();
     await _db.update(_tableName, upd.toJson(), where: 'id = ?', whereArgs: [video.id]);
   }
 
@@ -182,7 +184,7 @@ mixin DBVideos {
 
   static Future<String> getRandomVideoCode() async {
     final maps = await _db.query(_tableName, orderBy: 'RANDOM()', limit: 1, where: 'video_code IS NOT NULL AND video_code != ""');
-    if (maps.isEmpty) return 'Search...';
+    if (maps.isEmpty) return 'Search by Code or Title...';
     return maps.first['video_code'] as String;
   }
 
@@ -288,7 +290,7 @@ mixin DBVideos {
       SELECT DISTINCT 
         studio AS name, 
         COUNT(studio) AS count
-      FROM Videos
+      FROM $_tableName
       WHERE 1=1
         AND studio IS NOT NULL 
         AND studio != ''
@@ -306,7 +308,7 @@ mixin DBVideos {
       SELECT DISTINCT 
         label AS name, 
         COUNT(label) AS count
-      FROM Videos
+      FROM $_tableName
       WHERE 1=1
         AND label IS NOT NULL 
         AND label != ''
@@ -324,7 +326,7 @@ mixin DBVideos {
       SELECT DISTINCT 
         series AS name, 
         COUNT(series) AS count
-      FROM Videos
+      FROM $_tableName
       WHERE 1=1
         AND series IS NOT NULL 
         AND series != ''
@@ -341,7 +343,7 @@ mixin DBVideos {
       SELECT DISTINCT 
         director AS name, 
         COUNT(director) AS count
-      FROM Videos
+      FROM $_tableName
       WHERE 1=1 
         AND director IS NOT NULL 
         AND director != ''
@@ -383,7 +385,7 @@ mixin DBVideos {
       SELECT
         STRFTIME('%Y', release_date) AS name,
         COUNT(*) AS count
-      FROM Videos
+      FROM $_tableName
       WHERE 1=1
         AND release_date IS NOT NULL 
         AND release_date != ''
@@ -401,10 +403,10 @@ mixin DBVideos {
 
   static Future<List<Videos>> getListDuplicateVideos() async {
     final maps = await _db.rawQuery('''
-        SELECT * FROM "Videos" v
+        SELECT * FROM $_tableName v
         WHERE v.video_code IN (
           SELECT video_code
-          FROM "Videos"
+          FROM $_tableName
           WHERE video_code != '' AND video_code IS NOT NULL
           GROUP BY video_code
           HAVING COUNT(video_code) > 1

@@ -6,7 +6,7 @@ import 'package:get/get.dart';
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
 import '../../../data/database/_init_db.dart';
-import '../../../utils/helper_opener.dart';
+import '../../../utils/helper.dart';
 import 'page_settings_controller.dart';
 
 class PageSettingsView extends GetView<PageSettingsController> {
@@ -65,7 +65,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                       HStack([
                         'R18 Total Video'.text.size(11).minFontSize(11).neutral400.make(),
                         Spacer(),
-                        '${controller.r18TotalVideo}'.text.size(11).minFontSize(11).bold.make(),
+                        '${controller.r18TotalVideo.value.numberFormat()}'.text.size(11).minFontSize(11).bold.make(),
                       ]).pOnly(bottom: 8),
                       HStack([
                         'R18 Version'.text.size(11).minFontSize(11).neutral400.make(),
@@ -100,12 +100,6 @@ class PageSettingsView extends GetView<PageSettingsController> {
                         height: 32,
                         onPressed: () => HelperOpener.openFolder(controller.appSetting.appPath),
                       ).pOnly(bottom: 8),
-                      ExButtonText(
-                        label: '🔄 Relapse',
-                        labelSize: 12,
-                        height: 32,
-                        onPressed: () => controller.onResetRelapse(),
-                      ).pOnly(bottom: 8).hide(),
                       ExButtonText(
                         label: 'Update R18 DB',
                         labelSize: 12,

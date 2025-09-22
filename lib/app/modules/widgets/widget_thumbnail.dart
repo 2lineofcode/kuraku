@@ -138,8 +138,8 @@ class ExThumbnail extends GetView<_ExThumbnailC> {
         maxWidth: fastImageRenderWidth,
         maxHeight: height,
         child: CachedNetworkImage(
-          key: Key(withProxy == true ? '${imageUrl?.imgUrlFormat()}' : '${imageUrl ?? ''}'),
-          imageUrl: withProxy == true ? '${imageUrl?.imgUrlFormat()}' : '${imageUrl ?? ''}',
+          key: Key(withProxy == true ? '${imageUrl?.genImageUrl()}' : '${imageUrl ?? ''}'),
+          imageUrl: withProxy == true ? '${imageUrl?.genImageUrl()}' : '${imageUrl ?? ''}',
           fit: fitUrl,
           width: fastImageRenderWidth,
           height: height,

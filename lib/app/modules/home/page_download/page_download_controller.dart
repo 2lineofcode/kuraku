@@ -9,7 +9,6 @@ import 'package:overlayment/overlayment.dart';
 import 'package:process_run/process_run.dart' as shell;
 import 'package:process_run/stdio.dart';
 import 'package:uicons_pro/uicons_pro.dart';
-import 'package:uuid/v4.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
@@ -17,11 +16,11 @@ import '../../../core/app_pref.dart';
 import '../../../core/app_setting.dart';
 import '../../../core/const.dart';
 import '../../../data/api/api_javit.dart';
-import '../../../data/database/db_history.dart';
+import '../../../data/database/db_activity.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/__javit_search_entity.dart';
-import '../../../data/models/history_entity.dart';
+import '../../../data/models/activity_entity.dart';
 import '../../../utils/helper_loading.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
@@ -109,7 +108,9 @@ class PageDownloadController extends GetxController {
         fnSearch.requestFocus();
         HelperLoading.dismiss();
 
-        await scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
+        if (scrollController.hasClients) {
+          await scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
+        }
       } catch (e) {
         // AppLog.logE('onSearch netMode e -> $e');
       }
@@ -121,7 +122,6 @@ class PageDownloadController extends GetxController {
 
         HelperLoading.show();
         final r18videos = await DBR18.search(s);
-        AppLog.logD('r18videos -> ${r18videos.length}');
         final existVideos = await DBVideos.getAll();
 
         final output = <JavitSearchResult>[];
@@ -141,7 +141,7 @@ class PageDownloadController extends GetxController {
               durationFormated: '${r18videos[i]['release_date']}',
               releaseDate: '${r18videos[i]['release_date']}',
               title: r18videos[i]['title'],
-              fanArt: r18videos[i]['fan_art'].toString().imgUrlFormat(),
+              fanArt: r18videos[i]['fan_art'].toString().genImageUrl(),
               poster: r18videos[i]['poster'],
               trailer: r18videos[i]['trailer'],
               match: hasMatch,
@@ -155,7 +155,9 @@ class PageDownloadController extends GetxController {
         videos.value = output;
         HelperLoading.dismiss();
 
-        await scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
+        if (scrollController.hasClients) {
+          await scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
+        }
 
         if (isFiltered.isTrue) await _onApplyFilter();
       } catch (e) {
@@ -186,6 +188,7 @@ class PageDownloadController extends GetxController {
     videos.value = [];
     currentLang.value = AppPref.getDownloadLang();
     currentMode.value = AppPref.getDownloadMode();
+    tecSearch.text = '';
     fnSearch.requestFocus();
   }
 
@@ -310,7 +313,7 @@ class PageDownloadController extends GetxController {
                           ),
                         ).expand(),
                       ),
-                      '${currentRange.value.start.toInt()} - ${currentRange.value.end.toInt()}'.text.size(11).make().pOnly(left: 24),
+                      Obx(() => '${currentRange.value.start.toInt()} - ${currentRange.value.end.toInt()}'.text.size(11).make().pOnly(left: 24)),
                     ],
                   ),
                 ],
@@ -392,12 +395,17 @@ class PageDownloadController extends GetxController {
   // ~ Download ────────────────────────────────────────────────────────────────
   Future<void> openDownloadLog() async {
     Get.back();
-    final data = await DBHistory.getAll(where: 'type = ?', whereArgs: ['download'], orderBy: 'updated_at DESC');
+    final data = await DBActivity.getAll(
+      where: 'type = ?',
+      whereArgs: [kActivityTypeDownload],
+      orderBy: 'updated_at DESC',
+      groupBy: 'json_extract(content, "\$.filename")',
+    );
     await Overlayment.show(
         context: Get.context,
         OverPanel(
           alignment: Alignment.center,
-          width: Get.width * 0.8,
+          width: 680,
           height: Get.height * 0.5,
           animation: OverSlideAnimation(
             beginAlignment: Alignment.bottomCenter,
@@ -407,7 +415,7 @@ class PageDownloadController extends GetxController {
           child: VStack([
             'Downloads'.text.bold.make().pOnly(bottom: 12),
 
-            // actions
+            // ** actions
             HStack(
               [
                 ExButtonElevated(
@@ -423,19 +431,29 @@ class PageDownloadController extends GetxController {
                 ).pOnly(right: 6),
                 ExButtonElevated(
                   height: 38,
-                  child: HStack(
-                    [
-                      Icon(UIconsPro.regularRounded.loading, size: 11, color: Vx.red300).pOnly(right: 8),
-                      'Clear Log'.text.size(11).minFontSize(11).red300.make(),
-                    ],
-                  ),
+                  child: HStack([
+                    Icon(UIconsPro.regularRounded.progress_complete, size: 11, color: Vx.amber300).pOnly(right: 8),
+                    'Clear Complete Task'.text.size(11).minFontSize(11).amber300.make(),
+                  ]),
+                  onPressed: () async {
+                      await DBActivity.deleteAll(where: 'type = ? AND content LIKE ?', whereArgs: [kActivityTypeDownload, '%finish%']);
+                      await Overlayment.dismissLast();
+                      await openDownloadLog();
+                    }
+                ).pOnly(right: 8),
+                ExButtonElevated(
+                  height: 38,
+                  child: HStack([
+                    Icon(UIconsPro.regularRounded.trash, size: 11, color: Vx.red300).pOnly(right: 8),
+                    'Clear All Log'.text.size(11).minFontSize(11).red300.make(),
+                  ]),
                   onPressed: () {
                     Overlayment.dismissLast();
                     ExAlert.adaptive(title: Text('Are you sure?', style: TextStyle(fontSize: 14)), content: Text('Clear all download log?', style: TextStyle(fontSize: 12)).pOnly(top: 8), actions: [
                       CupertinoDialogAction(
                         child: Text('Yes', style: TextStyle(color: Vx.red500, fontSize: 13)),
                         onPressed: () async {
-                          await DBHistory.deleteAll(where: 'type = ?', whereArgs: ['download']);
+                          await DBActivity.deleteAll(where: 'type = ?', whereArgs: [kActivityTypeDownload]);
                           await openDownloadLog();
                         },
                       ),
@@ -452,82 +470,109 @@ class PageDownloadController extends GetxController {
               ],
             ).pOnly(bottom: 12),
 
-            // table
-            SizedBox(
-              height: Get.height * 0.30,
-              child: SingleChildScrollView(
-                child: Table(
-                  border: TableBorder.all(color: AppColor.border),
-                  columnWidths: const {
-                    0: FlexColumnWidth(2),
-                    1: FlexColumnWidth(3),
-                    2: FlexColumnWidth(1),
-                    3: FlexColumnWidth(1),
-                  },
-                  children: [
-                    TableRow(
-                      decoration: BoxDecoration(color: AppColor.container),
-                      children: [
-                        'Name'.text.size(11).minFontSize(11).bold.make().p8(),
-                        'Url'.text.size(11).minFontSize(11).bold.make().p8(),
-                        'Status'.text.size(11).minFontSize(11).bold.make().p8(),
-                        'Added'.text.size(11).minFontSize(11).bold.make().p8(),
-                        'DL Time'.text.size(11).minFontSize(11).bold.make().p8(),
-                      ],
-                    ),
+            // ** body
+            data.isEmpty 
+            ? ExUiErrorOrEmpty(
+              illustration: Icon(UIconsPro.regularRounded.empty_set, size: 32),
+              title: 'No Data Download Log',
+              message: 'Add some by click `+` button',
+              bgColor: AppColor.container,
+            ).expand()
+            : Expanded(
+              child: Table(
+                border: TableBorder.all(color: AppColor.border),
+                columnWidths: const {
+                  0: FlexColumnWidth(2),
+                  1: FlexColumnWidth(3),
+                  2: FlexColumnWidth(1),
+                  3: FlexColumnWidth(1),
+                  4: FlexColumnWidth(1),
+                },
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(color: AppColor.container),
+                    children: [
+                      'Name'.text.size(11).minFontSize(11).bold.make().p8(),
+                      'Url'.text.size(11).minFontSize(11).bold.make().p8(),
+                      'Status'.text.size(11).minFontSize(11).bold.make().p8(),
+                      'Added'.text.size(11).minFontSize(11).bold.make().p8(),
+                      'DL Time'.text.size(11).minFontSize(11).bold.make().p8(),
+                      'Action'.text.size(11).minFontSize(11).bold.make().p8(),
+                    ],
+                  ),
+              
+                  // items
+                  ...List.generate(
+                    data.length,
+                    (index) {
+                      final item = data[index];
+                      final jsonData = jsonDecode(item.content ?? '');
+                      final dt1 = DateTime.parse(item.createdAt ?? '');
+                      final dt2 = DateTime.parse(item.updatedAt ?? '');
+                      final diff = dt2.difference(dt1);
+                      final totalSeconds = diff.inSeconds;
+                      final finishTime = totalSeconds > 0 ? '${(totalSeconds ~/ 60).toString().padLeft(2, '0')}:${(totalSeconds % 60).toString().padLeft(2, '0')}' : '';
+                      final statusIcon = () {
+                        switch (jsonData['ev']) {
+                          case 'finish': return '✅';
+                          case 'failed': return '❌';
+                          default: return '🏃🏻';
+                        }
+                      }();
 
-                    // items
-                    ...List.generate(
-                      data.length,
-                      (index) {
-                        final item = data[index];
-                        final jsonData = jsonDecode(item.message ?? '');
-                        final dt1 = DateTime.parse(item.createdAt ?? '');
-                        final dt2 = DateTime.parse(item.updatedAt ?? '');
-                        final diff = dt2.difference(dt1);
-                        int totalSeconds = diff.inSeconds;
-                        int minutes = totalSeconds ~/ 60;
-                        int seconds = totalSeconds % 60;
-                        String formattedTime = '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-                        String result = '';
-                        if (formattedTime != '00:00') result = '$formattedTime';
-
-                        var status = jsonData['ev'];
-                        if (status == 'finish') status = '✅';
-                        else if (status == 'failed') status = '❌';
-
-                        return TableRow(
-                          children: [
-                            HStack(
-                              [
-                                Icon(UIconsPro.regularRounded.folder, size: 11).pOnly(left: 8).onInkTap(() {
-                                  HelperOpener.openFilePath('${jsonData['dir']}/${jsonData['filename']}.mp4');
-                                }),
-                                '${jsonData['filename']}'.text.size(12).minFontSize(12).maxLines(1).ellipsis.make().p(6).onInkTap(() {
-                                  HelperMisc.copyToClipboard(jsonData['filename'], showToast: true);
-                                }).expand(),
-                              ],
-                            ),
-                            '${jsonData['url']}'.text.size(12).minFontSize(12).maxLines(1).ellipsis.make().p(6).onInkTap(() {
-                              HelperMisc.copyToClipboard(jsonData['url'], showToast: true);
+                      var createdAt = item.createdAt?.toDateEx();
+                      var addedTime = createdAt != null && createdAt.isSameDay(DateTime.now()) ? '• ${item.createdAt!.reformatDate(to: 'HH:mm')}' : item.createdAt?.reformatDate(to: 'yy/M/d');
+              
+                      return TableRow(
+                        children: [
+                          // -> Filename
+                          HStack(
+                            [
+                              Icon(UIconsPro.regularRounded.folder, size: 11).pOnly(left: 8).onInkTap(() {
+                                HelperOpener.openFilePath('${jsonData['dir']}/${jsonData['filename']}.mp4');
+                              }),
+                              '${jsonData['filename']}'.text.size(12).minFontSize(12).maxLines(1).ellipsis.make().p(6).onInkTap(() {
+                                HelperMisc.copyToClipboard(jsonData['filename'], showToast: true);
+                              }).expand(),
+                            ],
+                          ),
+                          // -> URL
+                          '${jsonData['url']}'.text.size(12).minFontSize(12).maxLines(1).ellipsis.make().p(6).onInkTap(() {
+                            HelperMisc.copyToClipboard(jsonData['url'], showToast: true);
+                          }),
+                          // -> Status
+                          '$statusIcon'.text.size(12).minFontSize(12).maxLines(1).ellipsis.makeCentered().p(6).tooltip('${jsonData['ev']}'),
+                          // -> Added Time
+                          '$addedTime'.text.size(12).minFontSize(12).make().p(6).tooltip('${item.createdAt?.reformatDate(to: 'yy/M/d HH:mm:ss')}'),
+                          // -> Finish Time
+                          '$finishTime'.text.size(12).minFontSize(12).make().p(6).tooltip(HelperMisc.durationFormatFFmpeg(totalSeconds)),
+                          // -> Action
+                          HStack([
+                            if (statusIcon == '❌') ...[
+                              Icon(UIconsPro.regularRounded.rotate_left, size: 12).p4().onInkTap(() async {
+                                await startProcessDownload('hls', jsonData['url'], jsonData['dir'], jsonData['filename'], worker: 1);
+                                await Overlayment.dismissLast();
+                              }),
+                            ],
+                            Icon(UIconsPro.regularRounded.trash, size: 12).p4().tooltip('delete log').onInkTap(() async {
+                              await DBActivity.deleteByFilename(jsonData['filename']);
+                              await Overlayment.dismissLast();
+                              await openDownloadLog();
                             }),
-                            '$status'.text.size(12).minFontSize(12).maxLines(1).ellipsis.makeCentered().p(6),
-                            '${item.createdAt?.reformatDate(to: 'yy/M/d')}'.text.size(12).minFontSize(12).make().p(6),
-                            '$result'.text.size(12).minFontSize(12).make().p(6),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
-                ).p(0),
-              ),
+                          ]).centered().p(6),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ).scrollVertical(),
             ),
           ]).p12(),
         ));
   }
 
   Future<void> openDialogDownload() async {
-    final tecChunk = TextEditingController(text: AppPref.getDownloadChunk().toString());
+    final tecChunk = TextEditingController(text: AppPref.getDownloadWorker().toString());
     final tecUrl = TextEditingController();
     final tecDir = TextEditingController();
     final fnUrl = FocusNode();
@@ -565,7 +610,7 @@ class PageDownloadController extends GetxController {
                 prefix: Icon(UIconsPro.regularRounded.download, size: 13).pOnly(left: 8),
                 placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
                 style: TextStyle(fontSize: 13, color: Vx.white),
-                onChanged: (s) => AppPref.setDownloadChunk(s.toInt() ?? 1),
+                onChanged: (s) => AppPref.setDownloadWorker(s.toInt() ?? 1),
               ).w(90),
             ],
           ).pOnly(bottom: 12),
@@ -575,6 +620,9 @@ class PageDownloadController extends GetxController {
             prefix: Icon(UIconsPro.regularRounded.link, size: 13).pOnly(left: 8),
             placeholder: 'Url',
             style: TextStyle(fontSize: 12, color: Vx.white),
+            onChanged: (value) {
+              tecFilename.text = value.split('/').last;
+            },
           ).pOnly(bottom: 12),
           CupertinoTextField(
             controller: tecFilename,
@@ -602,7 +650,7 @@ class PageDownloadController extends GetxController {
     );
   }
 
-  Future<void> startProcessDownload(String type, String url, String dir, String filename) async {
+  Future<void> startProcessDownload(String type, String url, String dir, String filename, {int? worker}) async {
     if (url.isEmpty || dir.isEmpty || filename.isEmpty) {
       await HelperToast.warn('Please fill all fields');
       return;
@@ -618,12 +666,12 @@ class PageDownloadController extends GetxController {
         return;
       }
 
-      // log to history
-      final id = UuidV4().generate();
-      await DBHistory.add(History(id: id, type: 'download', message: genJsonFormat('start', url, dir, filename)));
+      // log to activity
+      // final id = UuidV4().generate();
+      await DBActivity.add(Activity(type: kActivityTypeDownload, content: genJsonFormat('start', url, dir, filename)));
 
       await shell.run(
-        '${appSetting.appPath}/javit_dl $type -u "$url" -d "$dir" -o "$filename" -w ${AppPref.getDownloadChunk()}',
+        '${appSetting.appPath}/javit_dl $type -u "$url" -d "$dir" -o "$filename" -w ${ worker ?? AppPref.getDownloadWorker()}',
         commandVerbose: false,
         verbose: false,
         onProcess: (process) async {
@@ -642,14 +690,20 @@ class PageDownloadController extends GetxController {
               downloadStdout.value = 'Download Failed 🔴';
               Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
               await HelperToast.error('Download Failed 🔴');
-              await DBHistory.update(History(id: id, type: 'download', message: genJsonFormat('failed', url, dir, filename)));
+              
+              final currentActivity = await DBActivity.getByFilename(filename);
+              currentActivity.content = genJsonFormat('failed', url, dir, filename);
+              await DBActivity.update(currentActivity);
             }
 
             if (code == 0) {
               downloadStdout.value = 'Download Finished ✅';
               Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
               await HelperToast.success('Download Finished ✅');
-              await DBHistory.update(History(id: id, type: 'download', message: genJsonFormat('finish', url, dir, filename)));
+
+              final currentActivity = await DBActivity.getByFilename(filename);
+              currentActivity.content = genJsonFormat('finish', url, dir, filename);
+              await DBActivity.update(currentActivity);
             }
 
             process.kill();

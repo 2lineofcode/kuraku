@@ -47,7 +47,7 @@ mixin HomeLibrary {
               Spacer(),
               IconButton(
                 icon: Icon(UIconsPro.regularRounded.refresh, size: 13),
-                tooltip: 'Rescan All Video',
+                tooltip: 'Rescan All Folders',
                 onPressed: () {
                   Overlayment.dismissLast();
                   doRescanAllVideoFromLibrary(library);
@@ -76,28 +76,29 @@ mixin HomeLibrary {
                   itemBuilder: (context, index) {
                     final item = library[index];
                     return HStack([
-                      VStack([
-                        HStack([
+                      HStack([
+                        IconButton(
+                          onPressed: () => HelperOpener.openFolder(item.rootFolder ?? ''),
+                          icon: Icon(UIconsPro.regularRounded.folder, size: 14),
+                          tooltip: 'Open Folder `${item.alias}`',
+                        ).pOnly(right: 8),
+                        VStack([
                           '${item.alias}'.text.ellipsis.make().pOnly(right: 8),
-                          Container(
-                            decoration: ExDecorator.box(borderRadius: 90, fillColor: AppColor.container),
-                            child: ' ${item.totalVideo} '.text.size(9).minFontSize(9).make(),
-                          ),
+                          '${item.rootFolder!.getLastSegments()}'.text.size(10).minFontSize(10).neutral500.make(),
                         ]),
-                        '${item.rootFolder!.getLastSegments()}'.text.size(10).minFontSize(10).neutral500.make(),
                       ]).expand(),
+
+                      Container(
+                        decoration: ExDecorator.box(borderRadius: 90, fillColor: AppColor.selected, borderColor: AppColor.selected),
+                        child: ' ${item.totalVideo} '.text.size(11).minFontSize(11).make(),
+                      ),
                       IconButton(
+                        icon: Icon(UIconsPro.regularRounded.refresh, size: 12),
+                        tooltip: 'Rescan Folder `${item.alias}`',
                         onPressed: () async => {
                           await Overlayment.dismissLast(),
                           doRescanVideoFromLibrary(item),
                         },
-                        icon: Icon(UIconsPro.regularRounded.back_up, size: 14),
-                        tooltip: 'Rescan Folder `${item.alias}`',
-                      ),
-                      IconButton(
-                        onPressed: () => HelperOpener.openFolder(item.rootFolder ?? ''),
-                        icon: Icon(UIconsPro.regularRounded.folder_camera, size: 14),
-                        tooltip: 'Open Folder `${item.alias}`',
                       ),
                     ]).onInkTap(() async {
                       await Overlayment.dismissLast();
@@ -105,14 +106,17 @@ mixin HomeLibrary {
                     });
                   },
                 ).expand(),
-          Divider().pSymmetric(v: 4),
-          HStack([
-            Spacer(),
-            VStack([
+
+          Container(
+            width: double.infinity,
+            decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
+            child: HStack([
               'Total Folder: ${await DBLibrary.getCount()}'.text.size(12).make(),
+              Spacer(),
               'Total Video: ${await DBVideos.getCount()}'.text.size(12).make(),
-            ]),
-          ]).pOnly(bottom: 8),
+            ]).p12(),
+          ).pSymmetric(v: 12),
+          
         ]).p8(),
       ),
     );
@@ -311,12 +315,12 @@ mixin HomeLibrary {
         // Logic for screenshot
         if (dataVideo['sslast'] != null) {
           final screenshots = <String>[];
-          final n = dataVideo['sslast'].toString().split('-').last;
-          for (var i = 0; i < int.parse(n); i++) {
-            final filename = '${dataVideo['ssfirst']}';
-            final part = filename.allBefore('-');
-            final suffix = filename.contains('jp-') ? '' : 'jp-';
-            screenshots.add('$part$suffix${i + 1}');
+          final total = int.parse(dataVideo['sslast'].toString().split('-').last);
+          final filename = dataVideo['ssfirst'].toString();
+          final base = filename.contains('jp-') ? filename.removeLast(1) : '${filename.allBefore('-')}jp-';
+
+          for (var i = 1; i <= total; i++) {
+            screenshots.add('$base$i');
           }
           newVideo.screenshot = screenshots;
         }
@@ -344,7 +348,7 @@ mixin HomeLibrary {
     }
 
     _home.footerText.value = '◎ Commit ${library.videos!.length} Videos';
-    await 100.milliseconds.delay();
+    await 10.milliseconds.delay();
     await _home.onRefreshAllContent();
   }
 

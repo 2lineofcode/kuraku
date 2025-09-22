@@ -375,12 +375,12 @@ mixin HelperOpener {
     // Logic for screenshot
     if (dataVideo?['sslast'] != null) {
       final screenshots = <String>[];
-      final n = dataVideo?['sslast'].toString().split('-').last;
-      for (var i = 0; i < int.parse(n!); i++) {
-        final filename = '${dataVideo?['ssfirst']}';
-        final part = filename.allBefore('-');
-        final suffix = filename.contains('jp-') ? '' : 'jp-';
-        screenshots.add('$part$suffix${i + 1}');
+      final total = int.parse(dataVideo!['sslast'].toString().split('-').last);
+      final filename = dataVideo['ssfirst'].toString();
+      final base = filename.contains('jp-') ? filename.removeLast(1) : '${filename.allBefore('-')}jp-';
+
+      for (var i = 1; i <= total; i++) {
+        screenshots.add('$base$i');
       }
       video.screenshot = screenshots;
     }
@@ -572,7 +572,7 @@ mixin HelperOpener {
       return;
     }
 
-    await Api.head('${Env.vidUrl}$trailerUrl').then((s) {
+    await Api.head('${trailerUrl.genTrailerUrl()}').then((s) {
       // ** file mode
       trailerUrl = trailerUrl;
       AppLog.logD('FILE MODE -> $trailerUrl');
@@ -592,14 +592,7 @@ mixin HelperOpener {
       AppLog.logD('HLS MODE -> $prefix2');
     });
 
-    // ** DEBUG
-    final proxyUrl = Env.vidUrl;
-    // trailerUrl = 'https://media.javtrailers.com/hlsvideo/freepv/j/jur/jur00132/playlist.m3u8';
-    // trailerUrl = 'https://media.javtrailers.com/litevideo/freepv/1/18s/18sprd1085/18sprd1085_dmb_w.mp4';
-    final joinUrl = '${proxyUrl.trim()}${trailerUrl.trim()}';
-    // ** END DEBUG
-
-    AppLog.logD('out -> $joinUrl');
+    final joinUrl = '${trailerUrl.trim().genTrailerUrl()}';
 
     try {
       cachePlayer = CachedVideoPlayerPlus.networkUrl(

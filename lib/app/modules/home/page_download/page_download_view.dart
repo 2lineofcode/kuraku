@@ -136,7 +136,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
         Obx(
           () => controller.videos.isEmpty
               ? ExUiErrorOrEmpty(
-                  illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
+                  illustration: Icon(UIconsPro.regularRounded.search, size: 128),
                   title: controller.currentPage.value == 0 ? '~ Type Something ~' : 'No Data Found',
                   message: controller.currentPage.value == 0 ? 'you can type "Video Code" or "Title" to search' : 'No Result Found, as you searched for "${controller.tecSearch.text}"',
                 ).expand()

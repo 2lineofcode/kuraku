@@ -1,28 +1,23 @@
 # TODO
 
+** common
+    - fix no image: https://img3.javmost.com/images/480/GAS-499.webp
+    - add config (use proxi)
+    
 
-* ubah explore -> item -> download -> langsung aja open web (search mode) ✅
-* ubah download -> item -> open video info dulu ✅
-* advance search move to download db mode ✅
-* cicil refrector code, prepare to open source + document in code
+** change db playlist -> collection
+    - id
+    - type              -- playlist | actress_fav
+    - name
+    - video_id
+    - created_at
+    - updated_at
 
-* general
-    - need check `net_thumbnail` key is duplicate?
-    - add manual edit metadata?
-* home
-    - add show all
-* search
-    - add direct to advance search?
-* explore  ✅
-    - add new tab (custom) ✅
-        - new release  ✅
-        - favorite ✅
-        - new added ✅
-        
-        - most watch ✅
-        - never watch ✅
-        - non jav ✅
-* download
-    - re-ui log ✅
-* settings
-    - think and improve update db mekanisme
+** change db history -> activity
+    - id
+    - type              -- todo | download | relapse
+    - content           -- dynamic (text/json)
+    - created_at
+    - updated_at
+
+** remove db relapse -> join to activity

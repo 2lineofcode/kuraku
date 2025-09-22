@@ -1,19 +1,23 @@
 import 'dart:convert';
-import 'dart:core';
 
-class History {
+
+class Collection {
   String? id;
   String? type;
-  String? message;
+  String? name;
+  String? cover;
+  String? videoId;
   String? createdAt;
   String? updatedAt;
 
-  History({this.id, this.type, this.message, this.createdAt, this.updatedAt});
+  Collection({this.id, this.type, this.name, this.cover, this.videoId, this.createdAt, this.updatedAt});
 
-  History.fromJson(Map<String, dynamic> json) {
+  Collection.fromJson(Map<String, dynamic> json) {
     id = json['id'];
     type = json['type'];
-    message = json['message'];
+    name = json['name'];
+    cover = json['cover'];
+    videoId = json['video_id'];
     createdAt = json['created_at'];
     updatedAt = json['updated_at'];
   }
@@ -22,13 +26,13 @@ class History {
     final data = <String, dynamic>{};
     data['id'] = id;
     data['type'] = type;
-    data['message'] = message;
+    data['name'] = name;
+    data['cover'] = cover;
+    data['video_id'] = videoId;
     data['created_at'] = createdAt;
     data['updated_at'] = updatedAt;
     return data;
   }
-
-
 
   @override
   String toString() {

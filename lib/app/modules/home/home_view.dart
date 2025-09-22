@@ -74,7 +74,7 @@ class HomeView extends GetView<HomeController> {
         //   tooltip: 'Refresh All Content (⌘+R)',
         // ),
         IconButton(
-          icon: Icon(UIconsPro.regularRounded.calendar_minus, size: 14),
+          icon: Icon(UIconsPro.regularRounded.banana, size: 14),
           onPressed: () => HomeRelapse.openMenuRelapse(),
           tooltip: 'Relapse :(',
         ),
