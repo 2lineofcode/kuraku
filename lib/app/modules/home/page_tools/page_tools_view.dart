@@ -1,5 +1,3 @@
-// ignore_for_file: deprecated_member_use
-
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -82,9 +80,9 @@ class PageToolsView extends GetView<PageToolsController> {
           Spacer(),
           Obx(
             () => ExButtonText(
-              label: 'Some file still dont have data quality, Scan now?',
+              label: 'Some file still dont have metadata (resolution), Scan now?',
               labelSize: 12,
-              onPressed: () async => controller.scanAndUpdateDBVideoQuality(),
+              onPressed: () async => controller.scanAndUpdateDBVideoRes(),
             ).pOnly(right: 12).hide(isVisible: controller.isHasDataNotScanned.isFalse),
           ),
         ]).pOnly(bottom: 12),
@@ -125,19 +123,19 @@ class PageToolsView extends GetView<PageToolsController> {
                           .p12()
                           .onInkTap(() async {
                         final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
-                        await PageSearchOverlay.onItemTap(video[0]);
+                        await PageSearchOverlay.onItemTap(video!);
                       }),
 
                       // path
-                      if (item.videoPath!.contains('/Volumes')) ...[
+                      if (HelperMisc.isExternalDrive(item.videoPath)) ...[
                         'External → ${item.videoPath!.getLastSegments(segment: 1)}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
                           final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
-                          await PageSearchOverlay.onItemTap(video[0]);
+                          await PageSearchOverlay.onItemTap(video!);
                         }),
                       ] else ...[
                         'Local → ${item.videoPath!.getLastPath()}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
                           final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
-                          await PageSearchOverlay.onItemTap(video[0]);
+                          await PageSearchOverlay.onItemTap(video!);
                         }),
                       ],
 
@@ -199,7 +197,7 @@ class PageToolsView extends GetView<PageToolsController> {
                       }),
 
                       // path
-                      if (item.videoPath!.contains('/Volumes')) ...[
+                      if (HelperMisc.isExternalDrive(item.videoPath)) ...[
                         'External → ${item.videoPath!.getLastSegments(segment: 1)}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
                           await PageSearchOverlay.onItemTap(item);
                         }),
@@ -367,11 +365,11 @@ class PageToolsView extends GetView<PageToolsController> {
           ).pSymmetric(v: 16),
           FocusScope(
             autofocus: true,
-            child: RawKeyboardListener(
+            child: KeyboardListener(
               focusNode: controller.leftListFocusNode,
               autofocus: true,
-              onKey: (event) {
-                if (event is RawKeyDownEvent) {
+              onKeyEvent: (event) {
+                if (event is KeyDownEvent) {
                   if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
                     controller.onLeftListKeyPressedArrowDown();
                   } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
@@ -496,7 +494,7 @@ class PageToolsView extends GetView<PageToolsController> {
             ),
 
             Container(
-              color: Vx.black.withAlpha(150),
+              color: AppColor.black180,
               width: 300,
               height: item['title'] != null && item['title'] != '' ? 63 : 33,
               child: VStack([
@@ -508,10 +506,10 @@ class PageToolsView extends GetView<PageToolsController> {
             ).positioned(bottom: 0, left: 0, right: 0),
 
             Container(
-              color: Vx.black.withAlpha(200),
-              width: 70,
+              color: AppColor.black180,
+              width: 75,
               height: 18,
-              child: '${item['release_date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(9).minFontSize(9).align(TextAlign.center).ellipsis.makeCentered(),
+              child: '${item['release_date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).align(TextAlign.center).ellipsis.makeCentered(),
             ).positioned(left: 0),
 
             // ** open trailer

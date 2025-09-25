@@ -1,5 +1,3 @@
-// ignore_for_file: deprecated_member_use
-
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +11,7 @@ import '../../../core/app_color.dart';
 import '../../../core/const.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
-import '../../widgets/widget_thumbnail.dart';
+import '../../widgets/widgets.dart';
 import '../home_controller.dart';
 import '../page_tools/page_tools_controller.dart';
 import 'page_explore_controller.dart';
@@ -94,11 +92,11 @@ class PageExploreView extends GetView<PageExploreController> {
                 ? _buildUiNoData().expand()
                 : FocusScope(
                     autofocus: true,
-                    child: RawKeyboardListener(
+                    child: KeyboardListener(
                       focusNode: controller.leftListFocusNode,
                       autofocus: true,
-                      onKey: (event) {
-                        if (event is RawKeyDownEvent) {
+                      onKeyEvent: (event) {
+                        if (event is KeyDownEvent) {
                           if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
                             controller.onLeftListKeyPressedArrowDown();
                           } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
@@ -142,7 +140,7 @@ class PageExploreView extends GetView<PageExploreController> {
 
                                     // path only
                                     if (controller.currentMenuSelected.value == kPath) ...[
-                                      if (item.name!.contains('/Volumes')) ...[
+                                      if (HelperMisc.isExternalDrive(item.name)) ...[
                                         'External → ${item.name!.getLastSegments(segment: 1)} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
                                       ] else ...[
                                         'Local → ${item.name!.getLastPath()} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
@@ -204,19 +202,20 @@ class PageExploreView extends GetView<PageExploreController> {
     final item = controller.leftListSelected.value;
     return Container(
       width: double.infinity,
-      height: 50,
+      height: 56,
       decoration: ExDecorator.box(borderColor: AppColor.border),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (item.imgUrl != null) ...[
+          // ** actress only
+          if (controller.currentMenuSelected.value == kActress) ...[
             item.imgUrl?.trim() == ''
-                ? ExAvatarView(source: '', name: item.name, size: 32).pOnly(right: 12)
+                ? ExAvatarView(source: '', name: item.name, size: 42).centered().pOnly(right: 12)
                 : ExThumbnail(
                     imageUrl: '${item.imgUrl?.genAvatarUrl()}',
-                    width: 32,
-                    height: 32,
+                    width: 42,
+                    height: 42,
                     fitUrl: BoxFit.cover,
                     withProxy: false,
                   ).cornerRadius(90).centered().pOnly(right: 12),
@@ -224,7 +223,7 @@ class PageExploreView extends GetView<PageExploreController> {
             ExAvatarView(
               source: '',
               name: item.name ?? '',
-              size: 32,
+              size: 42,
               bgColor: AppColor.selected,
               textSize: 12,
             ).centered().pOnly(right: 12),
@@ -238,13 +237,13 @@ class PageExploreView extends GetView<PageExploreController> {
                 .make()
                 .onInkTap(() {
               HelperMisc.copyToClipboard(HelperDecensor.decensor(item.name!.trim()), showToast: true);
-            }).pOnly(top: 6, bottom: 4),
+            }).pOnly(top: 6, bottom: 6),
             Obx(
               () => HStack([
                 '$kLocal: ${item.count}'
                     .text
-                    .size(10)
-                    .minFontSize(10)
+                    .size(11)
+                    .minFontSize(11)
                     .maxLines(1)
                     .make()
                     .pOnly(left: 12, right: 12)
@@ -254,8 +253,8 @@ class PageExploreView extends GetView<PageExploreController> {
                     .pOnly(right: 12),
                 '$kR18: ${controller.rightListR18TotalVideo}'
                     .text
-                    .size(10)
-                    .minFontSize(10)
+                    .size(11)
+                    .minFontSize(11)
                     .maxLines(1)
                     .make()
                     .pOnly(left: 12, right: 12)
@@ -268,6 +267,17 @@ class PageExploreView extends GetView<PageExploreController> {
               ]),
             ),
           ]).expand(),
+
+          CupertinoTextField(
+            controller: controller.tecSearchRight,
+            focusNode: controller.fnSearchRight,
+            clearButtonMode: OverlayVisibilityMode.editing,
+            placeholder: controller.phSearchRight.value,
+            style: TextStyle(color: Vx.white, fontSize: 14),
+            prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+            onChanged: (q) => controller.onRightListDoSearch(q),
+          ).w(120).centered().pOnly(right: 12).hide(isVisible: controller.rightListViewMode.value == kR18),
+
         ],
       ).pSymmetric(h: 8),
     ).pOnly(bottom: 12);
@@ -300,7 +310,7 @@ class PageExploreView extends GetView<PageExploreController> {
               ).wh(90, 90).cornerRadius(90).centered().positioned(top: 55, left: 0, right: 0),
               '${item.title}'.text.makeCentered().positioned(bottom: 40, left: 0, right: 0),
               Container(
-                color: Vx.black.withAlpha(150),
+                color: AppColor.black180,
                 width: width,
                 height: 20,
                 child: '${item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
@@ -328,31 +338,41 @@ class PageExploreView extends GetView<PageExploreController> {
         }
 
         return RepaintBoundary(
-          child: Container(
-            color: AppColor.container,
-            child: ZStack([
-              ExThumbnail(
-                imageUrl: item.fanArt,
-                videoPath: item.videoPath,
-                width: width,
-                height: height,
-                prefix: 2.12,
-              ).wh(width, height),
-              if (item.releaseDate != null && item.releaseDate != '') ...[
-                '${item.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().pSymmetric(h: 4).wh(80, 17).color(Vx.black.withAlpha(200)).positioned(),
-              ],
-              Container(
-                color: Vx.black.withAlpha(150),
-                width: width,
-                height: 20,
-                child: '${item.videoCode == '' ? item.title?.maxChars(10) : item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
-              ).positioned(bottom: 0, left: 0, right: 0),
-
-              _buildFlagENSubOverlay(item),
-              _buildFlagIDSubOverlay(item),
-              _buildFlagUncensoredOverlay(item),
-            ]),
-          ).cornerRadius(8).onInkTap(() => controller.onRightListTap(item)),
+          child: DoubleTap(
+            onSingleTap: () => controller.onRightListTap(item),
+            onDoubleTap: () => HelperOpener.openVideoFile(item),
+            child: Container(
+              color: AppColor.container,
+              child: ZStack([
+                ExThumbnail(
+                  imageUrl: item.fanArt,
+                  videoPath: item.videoPath,
+                  width: width,
+                  height: height,
+                  prefix: 2.12,
+                ).wh(width, height),
+            
+                if (item.releaseDate != null && item.releaseDate != '' && controller.leftListSelected.value.name != 'Most Watch') ...[
+                  '${item.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().pSymmetric(h: 4).wh(80, 17).color(AppColor.black180).positioned(),
+                ],
+            
+                if (controller.currentMenuSelected.value == kCustom && controller.leftListSelected.value.name == 'Most Watch') ...[
+                  'View: ${item.viewCount}'.text.size(10).minFontSize(10).make().pSymmetric(h: 4).wh(56, 17).color(AppColor.black180).positioned(),
+                ],
+            
+                Container(
+                  color: AppColor.black180,
+                  width: width,
+                  height: 20,
+                  child: '${item.videoCode == '' ? item.title?.maxChars(10) : item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
+                ).positioned(bottom: 0, left: 0, right: 0),
+            
+                _buildFlagENSubOverlay(item),
+                _buildFlagIDSubOverlay(item),
+                _buildFlagUncensoredOverlay(item),
+              ]),
+            ).cornerRadius(8),
+          ),
         );
       },
     );
@@ -367,9 +387,9 @@ class PageExploreView extends GetView<PageExploreController> {
         crossAxisSpacing: 8,
         childAspectRatio: 300 / 200,
       ),
-      itemCount: controller.rightListR18.length,
+      itemCount: controller.rightListR18Filtered.length,
       itemBuilder: (context, i) {
-        final item = controller.rightListR18[i];
+        final item = controller.rightListR18Filtered[i];
         return ZStack(
           [
             ExThumbnail(
@@ -402,7 +422,7 @@ class PageExploreView extends GetView<PageExploreController> {
             ),
 
             Container(
-              color: Vx.black.withAlpha(150),
+              color: AppColor.black170,
               width: 300,
               height: item['title'] != null && item['title'] != '' ? 63 : 33,
               child: VStack([
@@ -415,10 +435,10 @@ class PageExploreView extends GetView<PageExploreController> {
 
             if (item['release_date'] != null && item['release_date'] != '') ...[
               Container(
-                color: Vx.black.withAlpha(150),
-                width: 70,
+                color: AppColor.black180,
+                width: 75,
                 height: 18,
-                child: '${item['release_date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(9).minFontSize(9).align(TextAlign.center).ellipsis.makeCentered(),
+                child: '${item['release_date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).align(TextAlign.center).ellipsis.makeCentered(),
               ).positioned(left: 0),
             ],
 

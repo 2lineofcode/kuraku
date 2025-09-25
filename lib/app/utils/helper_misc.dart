@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:audioplayers/audioplayers.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -151,6 +154,29 @@ mixin HelperMisc {
     }
   }
 
+  static bool isExternalDrive(String? filePath) {
+    if (filePath == null) return false;
+    final path = Platform.isWindows ? filePath.toUpperCase() : filePath;
+
+    if (Platform.isWindows) {
+      if (path.length > 2 && path[1] == ':') {
+        final driveLetter = path[0];
+        return driveLetter.compareTo('E') > 0;
+      }
+      return false;
+    } else if (Platform.isMacOS) {
+      return path.startsWith('/Volumes/');
+    } else if (Platform.isLinux) {
+      return path.startsWith('/media/') || path.startsWith('/mnt/');
+    }
+    return false;
+  }
+
+  static Future<void> playSoundDownloadComplate() async {
+    final player = AudioPlayer();
+    await player.play(AssetSource('notif.mp3'));
+  }
+
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -227,14 +253,20 @@ extension JavitExtString on String {
   bool isValidVideoCode() => _JavitExtension.__isValidVideoCode(this);
   String noExt() => replaceAll('.mp4', '').replaceAll('mp4', '');
   String getExt() => split('.').last;
-  String getFileName() => split('/').last;
-  String getLastPath() => split('/').last;
+  String getFileName() => split('/').last.split('\\').last;
+  String getLastPath() => split('/').last.split('\\').last;
   String getLastSegments({int segment = 4}) => _JavitExtension.__getLastSegments(this, n: segment);
   String getFilePath() => split('/').sublist(0, split('/').length - 1).join('/');
 
   // ---
-  String genImageUrl() => '${Env.imgUrl}/$this.jpg';
-  String genAvatarUrl() => '${Env.actressUrl}/$this';
+  String genImageUrl() {
+    if (startsWith('http')) return this;
+    return '${Env.imgUrl}/$this.jpg';
+  }
+  String genAvatarUrl() {
+    if (startsWith('http')) return this;
+    return '${Env.actressUrl}/$this';
+  }
   String genTrailerUrl() => '${Env.vidUrl}$this';
 
   // ---

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
+import 'package:sqflite/sqflite.dart';
 import 'package:uuid/v4.dart';
 
 import '../../core/app_logging.dart';
@@ -16,41 +17,60 @@ mixin DBVideos {
 
   static Future<bool> _validation(Videos videos) async {
     final isDuplicateVideoPath = await getByVideoPath(videos.videoPath ?? '');
-    if (isDuplicateVideoPath.isNotEmpty) return false;
+    if (isDuplicateVideoPath != null) return false;
     return true;
   }
 
-  static Future<void> add(Videos videos) async {
-    videos.id = UuidV4().generate();
-    videos.createdAt = DateTime.now().toStringEx();
-    videos.updatedAt = DateTime.now().toStringEx();
+  static Future<void> addBulk(List<Videos> videos) async {
+    final List<Map<String, dynamic>> videosToInsert = [];
 
-    // decensored fix `category`
-    if (videos.category != null) {
-      for (int i = 0; i < videos.category!.length; i++) {
-        final dec = HelperDecensor.decensor(videos.category![i].category);
-        videos.category![i].category = dec;
-      }
-    }
+    for (int i = 0; i < videos.length; i++) {
+      final video = videos[i];
 
-    // decensored fix `series`
-    if (videos.series.isNotEmptyAndNotNull) {
-      final dec = HelperDecensor.decensor(videos.series);
-      videos.series = dec;
-    }
+      // ** default
+      video.id = const UuidV4().generate();
+      video.createdAt = DateTime.now().toStringEx();
+      video.updatedAt = DateTime.now().toStringEx();
 
-    // actress
-    if (videos.actress != null) {
-      for (int i = 0; i < videos.actress!.length; i++) {
-        if (videos.actress![i].nameRomaji == '') {
-          videos.actress![i].nameRomaji = videos.actress![i].imageUrl;
+      // decensored fix `category`// Decensor and format data
+      if (video.category != null) {
+        for (int j = 0; j < video.category!.length; j++) {
+          final dec = HelperDecensor.decensor(video.category![j].category);
+          video.category![j].category = dec;
         }
-        videos.actress![i].nameRomaji = HelperMisc.formatActressName(videos.actress![i].nameRomaji ?? '');
       }
+      
+      // decensored fix `series`
+      if (video.series.isNotEmptyAndNotNull) {
+        final dec = HelperDecensor.decensor(video.series);
+        video.series = dec;
+      }
+
+      // actress
+      if (video.actress != null) {
+        for (int j = 0; j < video.actress!.length; j++) {
+          if (video.actress![j].nameRomaji == '') {
+            video.actress![j].nameRomaji = video.actress![j].imageUrl;
+          }
+          video.actress![j].nameRomaji = HelperMisc.formatActressName(video.actress![j].nameRomaji ?? '');
+        }
+      }
+
+      // Check validation
+      final isOK = await _validation(video);
+      if (isOK) videosToInsert.add(video.toJson());
+      
     }
 
-    final isOK = await _validation(videos);
-    if (isOK) await _db.insert(_tableName, videos.toJson());
+    // 2. Perform a single database transaction for insertion
+    if (videosToInsert.isNotEmpty) {
+      await _db.transaction((txn) async {
+        for (final videoJson in videosToInsert) {
+          await txn.insert(_tableName, videoJson, conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+      });
+      AppLog.logD('bulkAdd: ${videosToInsert.length} videos');
+    }
   }
 
   static Future<void> update(Videos videos) async {
@@ -94,6 +114,7 @@ mixin DBVideos {
         SELECT * FROM $_tableName
         WHERE 1=1
           AND $column LIKE '%$part$like%'
+        ORDER BY release_date DESC
       ''');
 
       return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
@@ -108,7 +129,8 @@ mixin DBVideos {
         SELECT * FROM $_tableName
         WHERE 1=1
           AND $column LIKE '$like%' 
-          AND $column NOT LIKE '$like/%/%';
+          AND $column NOT LIKE '$like/%/%'
+        ORDER BY video_code ASC, title ASC
       ''');
 
       return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
@@ -134,9 +156,9 @@ mixin DBVideos {
     return Videos.fromJson(maps.first);
   }
 
-  static Future<List<Videos>> getByVideoPath(String videoPath) async {
+  static Future<Videos?> getByVideoPath(String videoPath) async {
     final maps = await _db.query(_tableName, where: 'video_path = ?', whereArgs: [videoPath]);
-    return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
+    return maps.isNotEmpty ? Videos.fromJson(maps.first) : null;
   }
 
   static Future<List<Videos>> getBySeries(String series) async {

@@ -13,7 +13,6 @@ import 'page_settings/page_settings_controller.dart';
 
 /// A mixin for managing relapse-related functionalities.
 mixin HomeRelapse {
-
   /// Displays the relapse timeline as an overlay panel.
   /// This panel shows a list of relapse dates and the total count.
   static Future<void> openMenuRelapse() async {
@@ -57,7 +56,7 @@ mixin HomeRelapse {
                 'Relapse'.text.bold.make(),
                 Spacer(),
                 IconButton(
-                  icon: Icon(UIconsPro.regularRounded.refresh, size: 13),
+                  icon: Icon(UIconsPro.regularRounded.refresh, size: 13).tooltip('Relapse :('),
                   onPressed: () async {
                     await _onRelapse();
                     await Overlayment.dismissLast();
@@ -66,33 +65,38 @@ mixin HomeRelapse {
               ],
             ),
             Divider(),
+            relapse.value.isNotEmpty
+                ? 'Last Relapse: ${relapse[0].content!.toDateEx(format: kYMd).isSameDay(DateTime.now()) ? 'Today' : '${HelperMisc.timeAgo(kYMd, relapse[0].content ?? '')}'}'
+                    .text
+                    .makeCentered()
+                    .pSymmetric(v: 8)
+                    .color(AppColor.border)
+                    .cornerRadius(90)
+                    .pOnly(top: 8, bottom: 16)
+                : 0.heightBox,
 
-        relapse.value.isEmpty 
-          ? ExUiErrorOrEmpty(
-            illustration: Icon(UIconsPro.regularRounded.flame, size: 64).pOnly(bottom: 12),
-            title: 'Still dont have data',
-            message: 'You can click `+` if you masturbate',
-          ).expand()
-          : ListView.separated(
-              itemCount: relapse.length,
-              separatorBuilder: (context, index) => Divider(),
-              itemBuilder: (context, index) {
-                final item = relapse[index];
-                return HStack([
-                  Icon(UIconsPro.regularRounded.circle_dashed, size: 10).pOnly(left: 8, right: 12),
-                  VStack([
-                    '${item.content!.toDateEx(format: kYMd).isSameDay(DateTime.now()) 
-                      ? 'Today' 
-                      : HelperMisc.timeAgo(kYMd, item.content ?? '')}'.text.size(12).bold.make(),
-                    'Masturbate'.text.size(10).neutral400.minFontSize(10).make(),
-                  ]),
-                  Spacer(),
-                  '${item.times} Times'.text.size(11).minFontSize(11).make().w(45).pSymmetric(h: 8, v: 2).color(item.times! > 1 ? Vx.red800 : AppColor.selected).cornerRadius(4),
-                ]);
-              },
-            ).expand(),
-
-
+            relapse.value.isEmpty
+                ? ExUiErrorOrEmpty(
+                    illustration: Icon(UIconsPro.regularRounded.flame, size: 64).pOnly(bottom: 12),
+                    title: 'Still dont have data',
+                    message: 'You can click `+` if you masturbate',
+                  ).expand()
+                : ListView.separated(
+                    itemCount: relapse.length,
+                    separatorBuilder: (context, index) => Divider(),
+                    itemBuilder: (context, index) {
+                      final item = relapse[index];
+                      return HStack([
+                        Icon(UIconsPro.regularRounded.circle_dashed, size: 10).pOnly(left: 8, right: 12),
+                        VStack([
+                          '${item.content!.toDateEx(format: kYMd).isSameDay(DateTime.now()) ? 'Today' : HelperMisc.timeAgo(kYMd, item.content ?? '')}'.text.size(12).bold.make(),
+                          'Masturbate'.text.size(10).neutral400.minFontSize(10).make(),
+                        ]),
+                        Spacer(),
+                        '${item.times} Times'.text.size(11).minFontSize(11).make().w(45).pSymmetric(h: 8, v: 2).color(item.times! > 1 ? Vx.red800 : AppColor.selected).cornerRadius(4),
+                      ]);
+                    },
+                  ).expand(),
             Container(
               width: double.infinity,
               decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
@@ -100,8 +104,7 @@ mixin HomeRelapse {
                 'This Week: $countWeek'.text.size(12).make(),
                 'This Month: $countMonth'.text.size(12).make(),
                 'All Time: $countAll'.text.size(12).make().pOnly(top: 8),
-              ]
-              ).p12(),
+              ]).p12(),
             ).pSymmetric(v: 12),
           ],
         ).p8(),

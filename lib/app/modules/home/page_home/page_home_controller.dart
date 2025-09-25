@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 
 import '../../../core/app_logging.dart';
+import '../../../core/app_pref.dart';
 import '../../../data/database/db_collection.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/collection_entity.dart';
@@ -16,13 +17,18 @@ class PageHomeController extends GetxController {
   final listRandom = <Videos>[].obs;
   final listNeverWatch = <Videos>[].obs;
   final listOldest = <Videos>[].obs;
-  final listPlaylistHeader = <Collection>[].obs;
+  final listCollection = <Collection>[].obs;
   final totalVideo = 0.obs;
+
+  final homeSectionOrder = <String>[].obs;
+
 
   @override
   Future<void> onInit() async {
     super.onInit();
     AppLog.logI('page home ==> onInit called');
+    homeSectionOrder.value = AppPref.getHomeOrderList();
+
     await getListNewRelease();
     await getListMostWatch();
     await getListFavorite();
@@ -30,7 +36,7 @@ class PageHomeController extends GetxController {
     await getListRandom();
     await getListNeverWatch();
     await getListOldest();
-    await getListPlaylistHeader();
+    await getListCollection();
 
     totalVideo.value = await DBVideos.getCount();
   }
@@ -42,7 +48,7 @@ class PageHomeController extends GetxController {
 
   Future<void> getListMostWatch() async {
     listTop10Watch.clear();
-    listTop10Watch.value = await DBVideos.getAll(where: 'view_count != 0', orderBy: 'view_count DESC, updated_at DESC', limit: 50);
+    listTop10Watch.value = await DBVideos.getAll(where: 'view_count >= 3', orderBy: 'view_count DESC, updated_at DESC', limit: 50);
   }
 
   Future<void> getListFavorite() async {
@@ -67,17 +73,17 @@ class PageHomeController extends GetxController {
 
   Future<void> getListOldest() async {
     listOldest.clear();
-    listOldest.value = await DBVideos.getAll(limit: 50, orderBy: 'created_at ASC');
+    listOldest.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date ASC, updated_at ASC', limit: 50);
   }
 
-  Future<void> getListPlaylistHeader() async {
-    listPlaylistHeader.clear();
-    listPlaylistHeader.value = await DBCollection.getAll();
-    listPlaylistHeader.sort((a, b) => b.createdAt!.compareTo(a.createdAt!));
-    listPlaylistHeader.value = listPlaylistHeader.take(50).toList();
+  Future<void> getListCollection() async {
+    listCollection.clear();
+    listCollection.value = await DBCollection.getAll();
+    listCollection.sort((a, b) => b.createdAt!.compareTo(a.createdAt!));
+    listCollection.value = listCollection.take(50).toList();
   }
 
-  Future<void> addOrEditPlaylist({Collection? header}) async {
+  Future<void> addOrEditCollection({Collection? header}) async {
     final tecName = TextEditingController();
     final tecCover = TextEditingController();
 
@@ -87,23 +93,19 @@ class PageHomeController extends GetxController {
     }
 
     ExAlert.adaptive(
-      title: Text(header == null ? 'New Playlist' : 'Edit Playlist', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.left).pOnly(bottom: 16),
+      title: Text(header == null ? 'New Collection' : 'Edit Collection', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.left).pOnly(bottom: 16),
       content: VStack([
         CupertinoTextField(
           controller: tecName,
-          style: TextStyle(color: Vx.white, fontSize: 12),
           placeholder: 'Name',
+          prefix: Icon(CupertinoIcons.tag, size: 16).pOnly(left: 8),
+          style: TextStyle(color: Vx.white, fontSize: 12),
         ).pOnly(bottom: 8),
         CupertinoTextField(
-          readOnly: true,
           controller: tecCover,
-          placeholder: 'Cover',
-          placeholderStyle: TextStyle(fontSize: 12, color: Vx.neutral500),
+          placeholder: 'https://xyz.com/cover.jpg',
           prefix: Icon(CupertinoIcons.photo, size: 16).pOnly(left: 8),
-          style: TextStyle(fontSize: 12, color: Vx.neutral500),
-          onTap: () async {
-            //
-          },
+          style: TextStyle(fontSize: 12, color: Vx.white),
         ),
       ]),
       actions: [
@@ -112,8 +114,9 @@ class PageHomeController extends GetxController {
             child: Text('Delete', style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () async {
               await DBCollection.delete(header);
-              await getListPlaylistHeader();
+              await getListCollection();
               Get.back();
+              update();
             },
           ),
         ],
@@ -123,7 +126,7 @@ class PageHomeController extends GetxController {
             if (header == null) {
               final header = Collection(name: tecName.text, cover: tecCover.text);
               await DBCollection.add(header);
-              await getListPlaylistHeader();
+              await getListCollection();
               Get.back();
             }
             // edit mode
@@ -131,9 +134,10 @@ class PageHomeController extends GetxController {
               header.name = tecName.text;
               header.cover = tecCover.text;
               await DBCollection.update(header);
-              await getListPlaylistHeader();
+              await getListCollection();
               Get.back();
             }
+            update();
           },
         ),
       ],

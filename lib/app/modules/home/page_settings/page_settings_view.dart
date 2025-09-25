@@ -1,12 +1,16 @@
 import 'package:ex_kit/ex.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
-import '../../../data/database/_init_db.dart';
+import '../../../core/app_pref.dart';
+import '../../../data/database/db_videos.dart';
+import '../../../routes/app_pages.dart';
 import '../../../utils/helper.dart';
+import '../home_controller.dart';
 import 'page_settings_controller.dart';
 
 class PageSettingsView extends GetView<PageSettingsController> {
@@ -15,18 +19,19 @@ class PageSettingsView extends GetView<PageSettingsController> {
   Widget build(BuildContext context) {
     return VStack(
       [
+
+        // ! APP INFO
         HStack(
           [
             // row 1 ~
             Obx(
               () => Container(
                 width: 300,
+                height: 240,
                 decoration: ExDecorator.box(borderColor: AppColor.border),
                 child: VStack([
                   HStack([
                     'Application Info'.text.bold.make(),
-                    Spacer(),
-                    IconButton(onPressed: () => controller.onInit(), icon: Icon(Icons.refresh, size: 16)),
                   ]).pOnly(bottom: 12),
 
                   // app
@@ -81,13 +86,19 @@ class PageSettingsView extends GetView<PageSettingsController> {
             // row 2 ~
             Container(
               width: 100,
-              height: 255,
+              height: 240,
               decoration: ExDecorator.box(borderColor: AppColor.border),
               child: VStack(
                 [
-                  'Sensitif Action'.text.bold.make().pOnly(top: 8, bottom: 16),
+                  'Sensitif Action'.text.bold.make().pOnly(bottom: 16),
                   VStack(
                     [
+                      ExButtonText(
+                        label: 'App Log',
+                        labelSize: 12,
+                        height: 32,
+                        onPressed: () => controller.openAppLog(),
+                      ).pOnly(bottom: 8),
                       ExButtonText(
                         label: 'Keyboard Shortcuts',
                         labelSize: 12,
@@ -112,50 +123,85 @@ class PageSettingsView extends GetView<PageSettingsController> {
                         height: 32,
                         onPressed: () => controller.onResetAll(),
                       ).pOnly(bottom: 8),
-                      ExButtonText(
-                        label: 'Vacum DB',
-                        labelSize: 12,
-                        height: 32,
-                        onPressed: () => Get.find<DBService>().vacumDB(),
-                      ).pOnly(bottom: 8),
+                      
                     ],
                   )
                 ],
               ).p12(),
             ).expand(),
           ],
-          crossAlignment: CrossAxisAlignment.start,
-          alignment: MainAxisAlignment.start,
-        ).pOnly(bottom: 12),
+        ).pOnly(bottom: 16),
 
-        // Container(
-        //   decoration: ExDecorator.box(borderColor: AppColor.border),
-        //   width: Get.width,
-        //   height: 200,
-        //   child: VStack(
-        //     [
-        //       CupertinoTextField(
-        //         controller: controller.tecApiUrl,
-        //         placeholder: 'Title',
-        //         style: TextStyle(fontSize: 13, color: Vx.white),
-        //       )
-        //     ],
-        //   ).p12(),
-        // ),
 
-        // ! DEBUG ONLY
-        if (kDebugMode) ...[
-          HStack(
+        // ! APP SETTINGS
+        Container(
+          decoration: ExDecorator.box(borderColor: AppColor.border),
+          width: 300,
+          child: VStack(
             [
-              'debug only'.text.make(),
-              ExButtonText(
-                label: 'test',
-                onPressed: () async {
-                  //
-                },
-              ),
+              'App Settings'.text.bold.make().pOnly(bottom: 12),
+
+              HStack(
+                [
+                  'Mini Mode'.text.size(12).make().pOnly(right: 12).w(90),
+                  Obx(
+                    () => Transform.scale(
+                      scale: 0.7,
+                      child: Switch.adaptive(
+                        value: controller.appMiniMode.value,
+                        onChanged: (val) {
+                          controller.appMiniMode.value = val;
+                          final current = Get.find<HomeController>().sideMenuWidth.value;
+                          if (current == 65) {
+                            Get.find<HomeController>().sideMenuWidth.value = 180;
+                            AppPref.setAppHideSideMenu(false);
+                          } else {
+                            Get.find<HomeController>().sideMenuWidth.value = 65;
+                            AppPref.setAppHideSideMenu(true);
+                          }
+                        },
+                      ),
+                    ),
+                  ).pOnly(right: 12),
+                ],
+              ).pOnly(bottom: 8),
+
+              HStack(
+                [
+                  'Default Player'.text.size(12).make().pOnly(right: 12).w(100),
+                  CupertinoTextField(
+                    controller: controller.tecDefaultPlayer,
+                    readOnly: true,
+                    prefix: Icon(CupertinoIcons.play_circle, size: 16).pOnly(left: 8, right: 0, top: 2),
+                    suffix: Icon(CupertinoIcons.chevron_down, size: 12).pOnly(right: 12, top: 2),
+                    style: TextStyle(fontSize: 13, color: Vx.white),
+                    onTap: () => HelperToast.info('coming soon...'),
+                  ).expand(),
+                ],
+              ).pOnly(bottom: 8),
+
             ],
-          ),
+          ).p12(),
+        ),
+
+        // ! DEBUG FOR TEST ONLY, NOT SHOW IN PROD
+        if (kDebugMode) ...[
+          Container(
+            decoration: ExDecorator.box(borderColor: AppColor.border),
+            width: Get.width,
+            child: HStack(
+              [
+                'debug only'.text.make(),
+                ExButtonText(
+                  label: 'test',
+                  onPressed: () async {
+                    final video = await DBVideos.getByVideoPath('/Users/adit/Downloads/Videos/box/indoo/Basahin Susu Pulen DJ Amoy Karamoy Jamin Tegang Instagram.mp4');
+                    await Get.toNamed(Routes.PLAYER, arguments: video);
+                  },
+                ),
+              ],
+            ).p8(),
+          ).pOnly(top: 12).hide()
         ],
       ],
     ).scrollVertical();

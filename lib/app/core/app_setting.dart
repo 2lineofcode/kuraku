@@ -13,8 +13,10 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../env.g.dart';
 import '../modules/home/home_controller.dart';
+import '../modules/home/home_relapse.dart';
 import '../modules/home/page_download/page_download_controller.dart';
 import '../modules/home/page_tools/page_tools_controller.dart';
+import '../routes/app_pages.dart';
 import 'app_logging.dart';
 import 'app_pref.dart';
 
@@ -50,14 +52,23 @@ class AppSettingService extends GetxService {
     await pref.writeIfNull('_kDownloadLang','en');
 
     // home_sec
-    await pref.writeIfNull('_kHomeSecNewRelease', true);
-    await pref.writeIfNull('_kHomeSecFavorite', true);
-    await pref.writeIfNull('_kHomeSecNewAdd', true);
-    await pref.writeIfNull('_kHomeSecMostWatch', true);
-    await pref.writeIfNull('_kHomeSecNeverWatch', true);
-    await pref.writeIfNull('_kHomeSecNonJav', true);
-    await pref.writeIfNull('_kHomeSecRandom', true);
-    await pref.writeIfNull('_kHomeSecOldest', true);
+    await pref.writeIfNull('_kHomeOrderList', <String>[
+      AppPref.homeSecNewRelease,
+      AppPref.homeSecRandom,
+      AppPref.homeSecMostWatch,
+      AppPref.homeSecFavorite,
+      AppPref.homeSecNewAdd,
+      AppPref.homeSecNeverWatch,
+      AppPref.homeSecOldest,
+      AppPref.homeSecCollection,
+    ]);
+    await pref.writeIfNull(AppPref.homeSecNewRelease, true);
+    await pref.writeIfNull(AppPref.homeSecRandom, true);
+    await pref.writeIfNull(AppPref.homeSecMostWatch, true);
+    await pref.writeIfNull(AppPref.homeSecFavorite, true);
+    await pref.writeIfNull(AppPref.homeSecNewAdd, true);
+    await pref.writeIfNull(AppPref.homeSecNeverWatch, true);
+    await pref.writeIfNull(AppPref.homeSecOldest, true);
 
     // print all pref
     // await pref.getKeys().forEach((key) => print('pref key: $key, value: ${pref.read(key)}'));
@@ -67,7 +78,7 @@ class AppSettingService extends GetxService {
   // ⵌ setup layout desktop
   // ────────────────────────────────────────────────────────────────
   Future<void> setupDesktop() async {
-    final idealSize = Size(702, 650);
+    final idealSize = Size(700, 700);
     await windowManager.ensureInitialized();
 
     final windowOptions = WindowOptions(
@@ -127,6 +138,7 @@ class AppSettingService extends GetxService {
     HotKey _hotKeyD = HotKey(key: PhysicalKeyboardKey.keyD, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyT = HotKey(key: PhysicalKeyboardKey.keyT, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyB = HotKey(key: PhysicalKeyboardKey.keyB, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKeyDot = HotKey(key: PhysicalKeyboardKey.period, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
 
     HotKey _hotKey1 = HotKey(key: PhysicalKeyboardKey.digit1, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKey2 = HotKey(key: PhysicalKeyboardKey.digit2, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
@@ -141,32 +153,36 @@ class AppSettingService extends GetxService {
 
     await hotKeyManager.register(_hotKeyEsc, keyUpHandler: (hotKey) {
       AppLog.logD('hotKeyEsc Pressed');
-      try { Get.back(); Overlayment.dismissLast();
+      try { 
+        if (Get.currentRoute == Routes.HOME || Get.currentRoute == Routes.ROOT) {
+          Get.back();           
+        }
+        Overlayment.dismissLast();
       } catch (_) {}
     });
 
     await hotKeyManager.register(_hotKeyX, keyUpHandler: (hotKey) {
       AppLog.logD('hotKeyX Pressed');
-      try { Get.back(); Overlayment.dismissLast();
-      } catch (_) {}
+      try { Get.back(); Overlayment.dismissLast(); } 
+      catch (_) {}
     });
 
     await hotKeyManager.register(_hotKeyR, keyUpHandler: (hotKey) {
       AppLog.logD('hotKeyR Pressed');
-      try { Get.find<HomeController>().onRefreshAllContent();
-      } catch (_) {}
+      try { Get.find<HomeController>().onRefreshAllContent(); } 
+      catch (_) {}
     });
 
     await hotKeyManager.register(_hotKeyD, keyUpHandler: (hotKey) {
       AppLog.logD('hotKeyD Pressed');
-      try { Get.find<PageDownloadController>().openDialogDownload();
-      } catch (_) {}
+      try { Get.find<PageDownloadController>().openDialogDownload(); } 
+      catch (_) {}
     });
 
     await hotKeyManager.register(_hotKeyT, keyUpHandler: (hotKey) {
       AppLog.logD('hotKeyT Pressed');
-      try { Get.find<PageToolsController>().addTodo();
-      } catch (_) {}
+      try { Get.find<PageToolsController>().addTodo(); } 
+      catch (_) {}
     });
 
     await hotKeyManager.register(_hotKeyB, keyUpHandler: (hotKey) {
@@ -181,52 +197,58 @@ class AppSettingService extends GetxService {
       }
     });
 
+    await hotKeyManager.register(_hotKeyDot, keyUpHandler: (hotKey) async {
+      AppLog.logD('hotKeyDot Pressed');
+      try { await HomeRelapse.openMenuRelapse(); } 
+      catch (_) {}
+    });
+
     await hotKeyManager.register(_hotKey1, keyUpHandler: (hotKey) {
       AppLog.logD('hotKey1 Pressed');
-      try { Get.find<HomeController>().onMenuChange(kMenuHome);
-      } catch (_) {}
+      try { Get.find<HomeController>().onMenuChange(kMenuHome); } 
+      catch (_) {}
     });
 
     await hotKeyManager.register(_hotKey2, keyUpHandler: (hotKey) {
       AppLog.logD('hotKey2 Pressed');
-      try { Get.find<HomeController>().onMenuChange(kMenuSearch);
-      } catch (_) {}
+      try { Get.find<HomeController>().onMenuChange(kMenuSearch); } 
+      catch (_) {}
     });
 
     await hotKeyManager.register(_hotKey3, keyUpHandler: (hotKey) {
       AppLog.logD('hotKey3 Pressed');
-      try { Get.find<HomeController>().onMenuChange(kMenuExplore);
-      } catch (_) {}
+      try { Get.find<HomeController>().onMenuChange(kMenuExplore); } 
+      catch (_) {}
     });
 
     await hotKeyManager.register(_hotKey4, keyUpHandler: (hotKey) {
       AppLog.logD('hotKey4 Pressed');
-      try { Get.find<HomeController>().onMenuChange(kMenuDownload);
-      } catch (_) {}
+      try { Get.find<HomeController>().onMenuChange(kMenuDownload); }
+      catch (_) {}
     });
 
     await hotKeyManager.register(_hotKey5, keyUpHandler: (hotKey) {
       AppLog.logD('hotKey5 Pressed');
-      try { Get.find<HomeController>().onMenuChange(kMenuTools);
-      } catch (_) {}
+      try { Get.find<HomeController>().onMenuChange(kMenuTools); } 
+      catch (_) {}
     });
 
     await hotKeyManager.register(_hotKeyComma, keyUpHandler: (hotKey) {
       AppLog.logD('hotKeyComma Pressed');
-      try { Get.find<HomeController>().onMenuChange(kMenuSetting);
-      } catch (_) {}
+      try { Get.find<HomeController>().onMenuChange(kMenuSetting); } 
+      catch (_) {}
     });
 
     await hotKeyManager.register(_hotKeyArrowR, keyUpHandler: (hotKey) {
       AppLog.logD('hotKeyArrowR Pressed');
-      try { Get.find<PageDownloadController>().onNextPage();
-      } catch (_) {}
+      try { Get.find<PageDownloadController>().onNextPage(); } 
+      catch (_) {}
     });
 
     await hotKeyManager.register(_hotKeyArrowL, keyUpHandler: (hotKey) {
       AppLog.logD('hotKeyArrowL Pressed');
-      try { Get.find<PageDownloadController>().onPreviousPage();
-      } catch (_) {}
+      try { Get.find<PageDownloadController>().onPreviousPage(); } 
+      catch (_) {}
     });
   }
 }

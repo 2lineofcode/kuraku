@@ -10,4 +10,8 @@ mixin AppColor {
 
   static Color get border => Vx.neutral700.withAlpha(100);
   static Color get container => Vx.neutral900;
+
+  static Color get black120 => Colors.black.withAlpha(120);
+  static Color get black170 => Colors.black.withAlpha(170);
+  static Color get black180 => Colors.black.withAlpha(180);
 }

@@ -11,11 +11,11 @@ import 'page_tools/page_tools_controller.dart';
 class HomeBinding extends Bindings {
   @override
   void dependencies() {
-    Get.put<PageDownloadController>(PageDownloadController());
     Get.put<PageSettingsController>(PageSettingsController());
+    Get.put<PageToolsController>(PageToolsController());
+    Get.put<PageDownloadController>(PageDownloadController());
     Get.put<PageExploreController>(PageExploreController());
     Get.put<PageSearchController>(PageSearchController());
-    Get.put<PageToolsController>(PageToolsController());
     Get.put<PageHomeController>(PageHomeController());
 
     Get.lazyPut<HomeController>(() => HomeController());

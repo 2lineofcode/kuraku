@@ -145,8 +145,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
         Obx(
           () => controller.downloadStdout.value.isNotEmpty
               ? HStack([
-                  '${controller.downloadStdout}'.text.size(11).minFontSize(11).make(),
-                  Spacer(),
+                  '${controller.downloadStdout}'.text.size(11).minFontSize(11).maxLines(1).make().expand(),
                   ExButtonText(
                     label: 'Cancel / Close',
                     labelSize: 12,
@@ -207,7 +206,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
             ),
 
             Container(
-              color: Vx.black.withAlpha(150),
+              color: AppColor.black180,
               width: 80,
               height: 20,
               child: VStack([
@@ -243,7 +242,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
                 .hide(isVisible: item.videoCode?.isValidVideoCode() ?? false),
 
             Container(
-              color: Vx.black.withAlpha(150),
+              color: AppColor.black180,
               width: 300,
               height: item.title != null && item.title != '' ? 63 : 33,
               child: VStack([

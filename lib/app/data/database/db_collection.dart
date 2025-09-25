@@ -6,7 +6,7 @@ import '../models/collection_entity.dart';
 import '_init_db.dart';
 
 // -- Collection Type
-const kCollectionTypePlaylist = 'playlist';
+const kCollectionTypeCollection = 'collection';
 const kCollectionTypeActressFavorite = 'actress_favorite';
 // ---
 

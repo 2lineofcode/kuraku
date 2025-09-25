@@ -187,7 +187,7 @@ class HomeView extends GetView<HomeController> {
   Widget footerContent() {
     return HStack([
       Spacer(),
-      Obx(() => '${controller.footerText}'.text.bold.size(11).make()),
+      Obx(() => '${controller.footerText}'.text.size(11).ellipsis.maxLines(1).align(TextAlign.end).make().expand()),
     ]).p12();
   }
 

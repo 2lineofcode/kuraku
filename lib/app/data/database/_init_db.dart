@@ -161,7 +161,7 @@ class DBService extends GetxService {
     await db.execute('''
       CREATE TABLE collection (
         id                          TEXT PRIMARY KEY,
-        type                        TEXT,               -- playlist | actress_favorite
+        type                        TEXT,               -- collection | actress_favorite
         name                        TEXT,
         cover                       TEXT,
         video_id                    TEXT,

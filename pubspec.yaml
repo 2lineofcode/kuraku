@@ -17,7 +17,8 @@ dependencies:
   # ** player
   cached_video_player_plus: ^4.0.3
   video_player: ^2.10.0
-  chewie: ^1.12.1
+  chewie: ^1.13.0
+  audioplayers: ^6.5.1
 
   # dio
   dio: ^5.9.0
@@ -72,6 +73,7 @@ flutter:
   assets:
   - assets/r18_to_javit.py
   - assets/javit_dl
+  - assets/notif.mp3
 
 get_cli:
   sub_folder: false

@@ -7,7 +7,6 @@ import '../models/__javit_search_entity.dart';
 
 const kProviderR18 = 'r18';
 const kProviderNJav = 'njav';
-const kProviderMissAV = 'missav';
 
 mixin ApiJavit {
   static Future<JavitMetadata> getMetadata({required String code}) async {

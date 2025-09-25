@@ -1,5 +1,4 @@
-// ignore_for_file: deprecated_member_use
-
+import 'dart:io';
 import 'dart:math';
 
 import 'package:cached_video_player_plus/cached_video_player_plus.dart';
@@ -28,10 +27,11 @@ import '../data/models/__javit_search_entity.dart';
 import '../data/models/videos_entity.dart';
 import '../modules/home/home_controller.dart';
 import '../modules/home/page_explore/page_explore_controller.dart';
-import '../modules/home/page_home/page_home_controller.dart';
+import '../modules/home/page_search/page_search_overlay.dart';
 import '../modules/home/page_tools/page_tools_controller.dart';
 import '../modules/widgets/widget_chiwie_custom.dart';
 import '../modules/widgets/widget_thumbnail.dart';
+import '../routes/app_pages.dart';
 import 'helper.dart';
 
 mixin HelperOpener {
@@ -51,12 +51,18 @@ mixin HelperOpener {
 
   // open video file -> direct default video player
   static Future<void> openVideoFile(Videos video) async {
-    await cmd.run('open "${video.videoPath}"', verbose: false).then((s) async {
-      await DBVideos.updateViewCount(video);
-      await Get.find<PageHomeController>().getListMostWatch();
-    }).catchError((e) async {
-      await HelperToast.error('${e.toString()}');
-    });
+    // await cmd.run('open "${video.videoPath}"', verbose: false).then((s) async {
+    //   await DBVideos.updateViewCount(video);
+    //   await Get.find<PageHomeController>().getListMostWatch();
+    // }).catchError((e) async {
+    //   await HelperToast.error('${e.toString()}');
+    // });
+    final file = File('${video.videoPath}');
+    if (!file.existsSync()) {
+      await HelperToast.error('Cant access file: ${video.videoPath}');
+      return;
+    }
+    await Get.toNamed(Routes.PLAYER, arguments: video);
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -88,6 +94,16 @@ mixin HelperOpener {
     final dataActress = await DBR18.getActress(video.videoCode ?? '');
     final dataDirector = await DBR18.getDirector(video.videoCode ?? '');
 
+    // new
+    try {
+      final x = await DBVideos.getByCode(video.videoCode ?? '');
+      if (x.videoCode.isNotEmptyAndNotNull) {
+        HelperLoading.dismiss();
+        await PageSearchOverlay.onItemTap(x);
+        return;
+      }
+    } catch (_) {}
+
     // prefix
     video.category = dataCategory.map((e) => VideoCategory.fromJson(e)).toList();
     video.actress = dataActress.map((e) => VideoActress.fromJson(e)).toList();
@@ -118,10 +134,10 @@ mixin HelperOpener {
         ),
         child: FocusScope(
           autofocus: true,
-          child: RawKeyboardListener(
+          child: KeyboardListener(
             focusNode: _focusNode,
-            onKey: (event) {
-              if (event is RawKeyDownEvent) {
+            onKeyEvent: (event) {
+              if (event is KeyDownEvent) {
                 if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
                   Overlayment.dismissLast();
                 }
@@ -413,10 +429,10 @@ mixin HelperOpener {
         ),
         child: FocusScope(
           autofocus: true,
-          child: RawKeyboardListener(
+          child: KeyboardListener(
             focusNode: focusNode,
-            onKey: (event) {
-              if (event is RawKeyDownEvent) {
+            onKeyEvent: (event) {
+              if (event is KeyDownEvent) {
                 if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
                   if (idxSelected.value > 0) {
                     idxSelected.value--;
@@ -449,14 +465,14 @@ mixin HelperOpener {
                     ),
                     Obx(
                       () => Container(
-                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
                         child: '${idxSelected.value + 1}/${video.screenshot!.length}'.text.size(11).minFontSize(11).make().p4(),
                       ),
                     ).p12(),
                     Align(
                       alignment: Alignment.centerRight,
                       child: Container(
-                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
                         child: Icon(UIconsPro.regularRounded.arrow_small_right).p12(),
                       ).onInkTap(() {
                         if (idxSelected.value < video.screenshot!.length - 1) {
@@ -467,7 +483,7 @@ mixin HelperOpener {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Container(
-                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
                         child: Icon(UIconsPro.regularRounded.arrow_small_left).p12(),
                       ).onInkTap(() {
                         if (idxSelected.value > 0) {
@@ -478,7 +494,7 @@ mixin HelperOpener {
                     Align(
                       alignment: Alignment.topRight,
                       child: Container(
-                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
                         child: Icon(UIconsPro.regularRounded.cross_small).p8(),
                       ).onInkTap(() {
                         Overlayment.dismissLast();
@@ -624,7 +640,7 @@ mixin HelperOpener {
       allowMuting: true,
       autoInitialize: true,
       looping: false,
-      customControls: ExMaterialControls(video: video),
+      customControls: ExChewieCustom(video: video),
     );
 
     HelperLoading.dismiss();
@@ -649,7 +665,7 @@ mixin HelperOpener {
             Align(
               alignment: Alignment.topRight,
               child: Container(
-                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
                 child: Icon(UIconsPro.regularRounded.cross_small).p8(),
               ).onInkTap(() {
                 Overlayment.dismissLast();

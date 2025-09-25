@@ -2,6 +2,7 @@ import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
 import 'package:uuid/v4.dart';
 
+import '../../utils/helper.dart';
 import '../models/activity_entity.dart';
 import '_init_db.dart';
 
@@ -17,6 +18,15 @@ mixin DBActivity {
 
   static Future<bool> _validation(Activity activity) async {
     if (activity.content.isNullOrEmpty) return false;
+
+    // check duplicate 
+    final alldata = await getAll(where: 'type = ?', whereArgs: [kActivityTypeTodo]);
+    for (var data in alldata) {
+      if (data.content == activity.content) {
+        await HelperToast.warn('Already exists');
+        return false;
+      }
+    }
     return true;
   }
 

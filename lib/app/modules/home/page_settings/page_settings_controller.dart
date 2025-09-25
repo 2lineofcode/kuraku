@@ -2,9 +2,11 @@ import 'package:dio/dio.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
+import 'package:overlayment/overlayment.dart';
 import 'package:process_run/process_run.dart' as shell;
 import 'package:sqflite/sqlite_api.dart';
 
+import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_setting.dart';
 import '../../../core/const.dart';
@@ -26,11 +28,9 @@ class PageSettingsController extends GetxController {
   final r18TotalVideo = 0.obs;
 
   // **
-  final tecApiUrl = TextEditingController();
-  final tecProxyUrl = TextEditingController();
-  final tecImgUrl = TextEditingController();
-  final tecVidUrl = TextEditingController();
-  final tecActressAvatarUrl = TextEditingController();
+  final tecDefaultPlayer = TextEditingController(text: 'In App');
+  final appMiniMode = false.obs;
+  final applogText = ''.obs;
 
   @override
   Future<void> onInit() async {
@@ -40,6 +40,14 @@ class PageSettingsController extends GetxController {
     totalLibrary.value = await DBLibrary.getCount();
     totalVideos.value = await DBVideos.getCount();
     r18TotalVideo.value = await DBR18.getCountAllVideos();
+
+
+    final current = Get.find<HomeController>().sideMenuWidth.value;
+    if (current == 65) {
+      appMiniMode.value = true;
+    } else {
+      appMiniMode.value = false;
+    }
     
     final _last = await DBActivity.getAll(
       where: 'type = ?',
@@ -176,6 +184,36 @@ class PageSettingsController extends GetxController {
           },
         ),
       ],
+    );
+  }
+
+  Future<void> openAppLog() async {
+    await Overlayment.show(
+      context: Get.context,
+      OverPanel(
+        alignment: Alignment.centerLeft,
+        width: 400,
+        color: AppColor.selected,
+        height: Get.height,
+        child: VStack(
+          [
+            24.heightBox,
+            'APP LOG'.text.bold.make().pOnly(bottom: 12),
+
+            VStack([
+              Obx(() => '$applogText'.selectableText.make()),
+            ]).scrollVertical().expand(),
+            
+            // Spacer(),
+            ExButtonText(
+              label: 'Clear',
+              height: 32,
+              width: double.infinity,
+              onPressed: () => applogText.value = '',
+            ),
+          ],
+        ).p12(),
+      ),
     );
   }
 }

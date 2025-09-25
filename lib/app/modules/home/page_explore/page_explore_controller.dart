@@ -32,7 +32,11 @@ class PageExploreController extends GetxController {
   final rightListViewMode = kLocal.obs;
   final rightListLocal = <Videos>[].obs;
   final rightListR18 = <Map<String, dynamic>>[].obs;
+  final rightListR18Filtered = <Map<String, dynamic>>[].obs;
   final rightListR18TotalVideo = 0.obs;
+  final tecSearchRight = TextEditingController();
+  final fnSearchRight = FocusNode();
+  final phSearchRight = 'Search...'.obs;
 
   final isFresh = true.obs;
 
@@ -121,19 +125,19 @@ class PageExploreController extends GetxController {
         rightListR18TotalVideo.value = 0;
         break;
       case kLabel:
-        rightListLocal.value = await DBVideos.getAll(where: 'label = ?', whereArgs: [item.name]);
+        rightListLocal.value = await DBVideos.getAll(where: 'label = ?', whereArgs: [item.name], orderBy: 'release_date DESC');
         rightListR18TotalVideo.value = await DBR18.getCountAllVideosByLabel(item.name!);
         break;
       case kSeries:
-        rightListLocal.value = await DBVideos.getAll(where: 'series = ?', whereArgs: [item.name]);
+        rightListLocal.value = await DBVideos.getAll(where: 'series = ?', whereArgs: [item.name], orderBy: 'release_date DESC');
         rightListR18TotalVideo.value = await DBR18.getCountAllVideosBySeries(HelperDecensor.censored(item.name!.trim()));
         break;
       case kStudio:
-        rightListLocal.value = await DBVideos.getAll(where: 'studio = ?', whereArgs: [item.name]);
+        rightListLocal.value = await DBVideos.getAll(where: 'studio = ?', whereArgs: [item.name], orderBy: 'release_date DESC');
         rightListR18TotalVideo.value = await DBR18.getCountAllVideosByStudio(item.name!.trim());
         break;
       case kDirector:
-        rightListLocal.value = await DBVideos.getAll(where: 'director = ?', whereArgs: [item.name]);
+        rightListLocal.value = await DBVideos.getAll(where: 'director = ?', whereArgs: [item.name], orderBy: 'release_date DESC');
         rightListR18TotalVideo.value = await DBR18.getCountAllVideosByDirector(item.name!.trim());
         break;
       case kYear:
@@ -152,7 +156,7 @@ class PageExploreController extends GetxController {
             rightListLocal.value = await DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC');
             break;
           case 'Most Watch':
-            rightListLocal.value = await DBVideos.getAll(where: 'view_count != 0', orderBy: 'view_count DESC, updated_at DESC');
+            rightListLocal.value = await DBVideos.getAll(where: 'view_count >= 3', orderBy: 'view_count DESC, updated_at DESC');
             break;
           case 'New Added':
             rightListLocal.value = await DBVideos.getAll(orderBy: 'created_at DESC', limit: 50);
@@ -186,6 +190,21 @@ class PageExploreController extends GetxController {
   // ────────────────────────────────────────────────────────────────
   // ** ⵌ [ RIGHT PART ]
   // ────────────────────────────────────────────────────────────────
+  void onRightListDoSearch(String q) {
+    final query = q.toLowerCase();
+    if (query.isEmpty) {
+      rightListR18Filtered.assignAll(rightListR18);
+    } else {
+      final result = rightListR18.where((item) {
+        final code = item['video_code'].toString().toLowerCase();
+        final title = item['title'].toString().toLowerCase();
+        final releaseDate = item['release_date'].toString().toLowerCase();
+        return code.contains(query) || title.contains(query) || releaseDate.contains(query);
+      }).toList();
+      rightListR18Filtered.assignAll(result);
+    }
+  }
+
   Future<void> onRightListTap(Videos item) async {
     await PageSearchOverlay.onItemTap(item);
   }
@@ -236,6 +255,7 @@ class PageExploreController extends GetxController {
       return _mutableItem;
     }).toList());
 
+    rightListR18Filtered.assignAll(rightListR18);
     rightListR18.refresh();
   }
 
@@ -385,7 +405,7 @@ class PageExploreController extends GetxController {
     final cNewRelease = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date DESC, updated_at DESC', limit: 50);
     final cFavorite = await DBVideos.getAll(where: 'is_favorite = 1', orderBy: 'updated_at DESC');
     final cNewAdded = await DBVideos.getAll(orderBy: 'created_at DESC', limit: 50);
-    final cMostWatch = await DBVideos.getAll(where: 'view_count != 0', orderBy: 'view_count DESC, updated_at DESC');
+    final cMostWatch = await DBVideos.getAll(where: 'view_count >= 3', orderBy: 'view_count DESC, updated_at DESC');
     final cNeverWatch = await DBVideos.getAll(where: 'view_count = 0', orderBy: 'updated_at DESC');
     final cNonJav = await DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC');
 

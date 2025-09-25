@@ -9,7 +9,7 @@ import '../../../core/app_color.dart';
 import '../../../core/const.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
-import '../../widgets/widget_thumbnail.dart';
+import '../../widgets/widgets.dart';
 import 'page_search_controller.dart';
 import 'page_search_overlay.dart';
 
@@ -83,49 +83,53 @@ class PageSearchView extends GetView<PageSearchController> {
       separatorBuilder: (context, index) => 12.heightBox,
       itemBuilder: (context, index) {
         final item = controller.videos[index];
-        return Container(
-          color: AppColor.container,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              ZStack([
-                ExThumbnail(
-                imageUrl: item.fanArt,
-                videoPath: item.videoPath,
-                width: 250,
-                height: 150,
-                fitUrl: BoxFit.cover,
-              ).pOnly(right: 12),
-              _buildReleaseDateOverlay(item),
-
-              ]),
-              VStack([
-                '${item.videoCode == '' ? item.title?.maxWords(5) : item.videoCode}'.text.bold.ellipsis.make().pSymmetric(v: 8),
-                '${HelperDecensor.decensor(item.title)}'.text.size(12).maxLines(3).ellipsis.make(),
-                Spacer(),
-                HStack([
-                  if (item.quality != '') ...[
-                    Icon(UIconsPro.regularRounded.hdd, size: 12, color: Vx.amber300).pOnly(right: 6),
-                    '${HelperMisc.formatVideoQuality(item.quality ?? '').maxWords(1)}'.text.amber300.size(12).minFontSize(12).make().pOnly(right: 12),
-                  ],
-                  if (item.filesize != 0) ...[
-                    Icon(UIconsPro.regularRounded.file, size: 12).pOnly(right: 6),
-                    '${item.filesize?.toFileSize()}'.text.size(12).maxLines(1).ellipsis.minFontSize(12).make().pOnly(right: 12).expand(),
-                  ],
-                ]).pOnly(bottom: 4),
-                HStack(
-                  [
-                    if (item.series != '') ...[
-                      Icon(UIconsPro.regularRounded.tags, size: 12, color: Vx.purple300).pOnly(right: 6),
-                      '${HelperDecensor.decensor(item.series)}'.text.purple300.size(12).minFontSize(12).maxLines(1).ellipsis.make().pOnly(right: 12).expand(),
+        return DoubleTap(
+          onSingleTap: () => PageSearchOverlay.onItemTap(item),
+          onDoubleTap: () => HelperOpener.openVideoFile(item),
+          child: Container(
+            color: AppColor.container,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                ZStack([
+                  ExThumbnail(
+                  imageUrl: item.fanArt,
+                  videoPath: item.videoPath,
+                  width: 250,
+                  height: 150,
+                  fitUrl: BoxFit.cover,
+                ).pOnly(right: 12),
+                _buildReleaseDateOverlay(item),
+          
+                ]),
+                VStack([
+                  '${item.videoCode == '' ? item.title?.maxWords(5) : item.videoCode}'.text.bold.ellipsis.make().pSymmetric(v: 8),
+                  '${HelperDecensor.decensor(item.title)}'.text.size(12).maxLines(3).ellipsis.make(),
+                  Spacer(),
+                  HStack([
+                    if (item.quality != '') ...[
+                      Icon(UIconsPro.regularRounded.hdd, size: 12, color: Vx.amber300).pOnly(right: 6),
+                      '${HelperMisc.formatVideoQuality(item.quality ?? '').maxWords(1)}'.text.amber300.size(12).minFontSize(12).make().pOnly(right: 12),
                     ],
-                  ],
-                ).pOnly(bottom: 4),
-              ]).pOnly(right: 12).expand(),
-            ],
-          ),
-        ).wh(250, 150).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(item));
+                    if (item.filesize != 0) ...[
+                      Icon(UIconsPro.regularRounded.file, size: 12).pOnly(right: 6),
+                      '${item.filesize?.toFileSize()}'.text.size(12).maxLines(1).ellipsis.minFontSize(12).make().pOnly(right: 12).expand(),
+                    ],
+                  ]).pOnly(bottom: 4),
+                  HStack(
+                    [
+                      if (item.series != '') ...[
+                        Icon(UIconsPro.regularRounded.tags, size: 12, color: Vx.purple300).pOnly(right: 6),
+                        '${HelperDecensor.decensor(item.series)}'.text.purple300.size(12).minFontSize(12).maxLines(1).ellipsis.make().pOnly(right: 12).expand(),
+                      ],
+                    ],
+                  ).pOnly(bottom: 4),
+                ]).pOnly(right: 12).expand(),
+              ],
+            ),
+          ).wh(250, 150).cornerRadius(8),
+        );
       },
     );
   }
@@ -147,23 +151,27 @@ class PageSearchView extends GetView<PageSearchController> {
       itemBuilder: (context, i) {
         final item = controller.videos[i];
         return RepaintBoundary(
-          child: Container(
-            color: AppColor.container,
-            child: ZStack([
-              ExThumbnail(
-                imageUrl: item.fanArt,
-                videoPath: item.videoPath,
-                width: width,
-                height: height,
-                prefix: 2.1,
-              ).wh(width, height),
-              _buildReleaseDateOverlay(item),
-              _buildVideoCodeOverlay(item, width),
-              _buildFlagIDSubOverlay(item),
-              _buildFlagENSubOverlay(item),
-              _buildFlagUncensoredOverlay(item),
-            ]),
-          ).cornerRadius(8).onInkTap(() => PageSearchOverlay.onItemTap(item)),
+          child: DoubleTap(
+            onSingleTap: () => PageSearchOverlay.onItemTap(item),
+            onDoubleTap: () => HelperOpener.openVideoFile(item),
+            child: Container(
+              color: AppColor.container,
+              child: ZStack([
+                ExThumbnail(
+                  imageUrl: item.fanArt,
+                  videoPath: item.videoPath,
+                  width: width,
+                  height: height,
+                  prefix: 2.1,
+                ).wh(width, height),
+                _buildReleaseDateOverlay(item),
+                _buildVideoCodeOverlay(item, width),
+                _buildFlagIDSubOverlay(item),
+                _buildFlagENSubOverlay(item),
+                _buildFlagUncensoredOverlay(item),
+              ]),
+            ).cornerRadius(8),
+          ),
         );
       },
     );
@@ -172,7 +180,7 @@ class PageSearchView extends GetView<PageSearchController> {
   /// Builds the video title overlay with a dark background.
   Widget _buildVideoCodeOverlay(Videos item, double width) {
     return Container(
-      color: Vx.black.withAlpha(150),
+      color: AppColor.black180,
       width: width,
       height: 20,
       child: '${item.videoCode == '' ? item.title?.maxChars(10) : item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
@@ -185,7 +193,7 @@ class PageSearchView extends GetView<PageSearchController> {
       return 0.heightBox;
     }
 
-    return '${item.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().pSymmetric(h: 4).wh(80, 17).color(Vx.black.withAlpha(150)).positioned();
+    return '${item.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().pSymmetric(h: 4).wh(80, 17).color(AppColor.black180).positioned();
   }
 
   Widget _buildFlagIDSubOverlay(Videos item) {

@@ -14,6 +14,7 @@ import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../home_controller.dart';
 import '../page_explore/page_explore_controller.dart';
+import '../page_settings/page_settings_controller.dart';
 
 class PageToolsController extends GetxController with StateMixin {
   // ** part: top menu
@@ -45,6 +46,8 @@ class PageToolsController extends GetxController with StateMixin {
 
   // -> right part
   final rightList = <Map<String, dynamic>>[].obs;
+
+  final addToLog = Get.find<PageSettingsController>().applogText;
 
   @override
   Future<void> onInit() async {
@@ -82,10 +85,14 @@ class PageToolsController extends GetxController with StateMixin {
 
   Future<void> checkIsHasDataNotScanned() async {
     final vid = await DBVideos.getAll(where: 'quality IS NULL OR quality = ""');
+    AppLog.logD('vid -> ${vid.length}');
+    for (var v in vid) {
+      addToLog.value += '- ${v.videoPath} still dont have metadata (resolution)\n';
+    }
     isHasDataNotScanned.value = vid.isEmpty;
   }
 
-  Future<void> scanAndUpdateDBVideoQuality() async {
+  Future<void> scanAndUpdateDBVideoRes() async {
     HelperLoading.show(isDismissible: false);
     final home = Get.find<HomeController>();
     final videos = await DBVideos.getAll(where: 'quality IS NULL OR quality = ""');

@@ -1,5 +1,3 @@
-// ignore_for_file: deprecated_member_use
-
 import 'dart:math' show max;
 
 import 'package:ex_kit/ex.dart';
@@ -20,6 +18,7 @@ import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
+import '../home_edit_metadata.dart';
 import '../page_explore/page_explore_controller.dart';
 import '../page_home/page_home_controller.dart';
 import 'page_search_controller.dart';
@@ -47,15 +46,25 @@ mixin PageSearchOverlay {
         ),
         child: FocusScope(
           autofocus: true,
-          child: RawKeyboardListener(
+          child: KeyboardListener(
             focusNode: _focusNode,
-            onKey: (event) {
-              if (event is RawKeyDownEvent) {
+            onKeyEvent: (event) {
+              if (event is KeyDownEvent) {
                 if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
                   Overlayment.dismissLast();
                 }
+
                 if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
                   HelperOpener.openScreenshot(video);
+                  Overlayment.dismissLast();
+                }
+
+                if (event.logicalKey == LogicalKeyboardKey.keyI) {
+                  Overlayment.dismissLast();
+                }
+
+                if (event.logicalKey == LogicalKeyboardKey.period) {
+                  HelperOpener.openVideoFile(video);
                   Overlayment.dismissLast();
                 }
               }
@@ -75,9 +84,9 @@ mixin PageSearchOverlay {
                   // quality
                   if (video.quality.isNotEmptyAndNotNull) ...[
                     Container(
-                      decoration: ExDecorator.box(borderRadius: 0, borderColor: Colors.transparent, fillColor: Vx.black.withAlpha(190)),
-                      child: '${HelperMisc.formatVideoQuality(video.quality ?? '')}'.text.bold.amber500.size(12).make().p4(),
-                    ).positioned(right: 0),
+                      decoration: ExDecorator.box(borderRadius: 0, borderColor: Colors.transparent, fillColor: AppColor.black170),
+                      child: '${HelperMisc.formatVideoQuality(video.quality ?? '').maxWords(1)} (${video.filesize?.toFileSize()})'.text.bold.amber500.size(11).minFontSize(11).make().p4().pSymmetric(h: 4),
+                    ).cornerRadius(90).positioned(right: 4, bottom: 4),
                   ],
                 ]),
                 VStack(
@@ -85,7 +94,7 @@ mixin PageSearchOverlay {
                     '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
                       HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
                     }).pSymmetric(v: 8),
-                    '${HelperDecensor.decensor(video.title)}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(3).ellipsis.makeCentered().onInkTap(
+                    '${HelperDecensor.decensor(video.title)}'.text.align(TextAlign.center).size(10).minFontSize(10).makeCentered().onInkTap(
                       () {
                         HelperMisc.copyToClipboard(video.title ?? '', showToast: true);
                       },
@@ -166,7 +175,15 @@ mixin PageSearchOverlay {
                         child: VStack([
                           HStack([
                             Icon(UIconsPro.regularRounded.square_code, size: 14).pOnly(right: 8),
-                            'Metadata'.text.size(14).bold.make(),
+                            'Metadata'.text.size(14).bold.make().expand(),
+                            IconButton(
+                              icon: Icon(UIconsPro.regularRounded.file_edit, size: 12,),
+                              onPressed: () async {
+                                await Overlayment.dismissLast();
+                                await HomeEditVideoDetail.onEditMetadata(video);
+                              },
+                            ),
+
                           ]).pOnly(bottom: 16),
 
                           // actress
@@ -320,10 +337,10 @@ mixin PageSearchOverlay {
         ),
         child: FocusScope(
           autofocus: true,
-          child: RawKeyboardListener(
+          child: KeyboardListener(
             focusNode: focusNode,
-            onKey: (event) {
-              if (event is RawKeyDownEvent) {
+            onKeyEvent: (event) {
+              if (event is KeyDownEvent) {
                 // ** non jav
                 if (video.screenshot.isEmptyOrNull) {
                   if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
@@ -351,16 +368,49 @@ mixin PageSearchOverlay {
               [
                 // ** non jav
                 if (video.screenshot.isEmptyOrNull) ...[
-                  Obx(
-                    () => ExThumbnail(
-                      imageUrl: '',
-                      videoPath: video.videoPath,
-                      width: max(Get.width * 90 / 100, 400),
-                      height: max(Get.height * 80 / 100, 400) - 80,
-                      fitMemory: BoxFit.contain,
-                      position: idxSelectedNonJav.value,
+
+                  ZStack([
+                    Obx(
+                      () => Zoom(
+                        width: max(Get.width * 90 / 100, 400),
+                        height: max(Get.height * 80 / 100, 400) - 80,
+                        child: ExThumbnail(
+                          imageUrl: '',
+                          videoPath: video.videoPath,
+                          width: max(Get.width * 90 / 100, 400),
+                          height: max(Get.height * 80 / 100, 400) - 80,
+                          fitMemory: BoxFit.contain,
+                          position: idxSelectedNonJav.value,
+                        ),
+                      ),
                     ),
-                  ),
+
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
+                        child: Icon(UIconsPro.regularRounded.arrow_small_right).p12(),
+                      ).onInkTap(() => idxSelectedNonJav.value = idxSelectedNonJav.value + 10),
+                    ).positioned(right: 8, top: 0, bottom: 0),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
+                        child: Icon(UIconsPro.regularRounded.arrow_small_left).p12(),
+                      ).onInkTap(() => idxSelectedNonJav.value = idxSelectedNonJav.value - 10),
+                    ).positioned(left: 8, top: 0, bottom: 0),
+
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: Container(
+                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
+                        child: Icon(UIconsPro.regularRounded.cross_small).p8(),
+                      ).onInkTap(() {
+                        Overlayment.dismissLast();
+                      }),
+                    ).positioned(right: 8, top: 12, bottom: 0),
+                  ]),
+
                   Container(height: 5, color: AppColor.container),
                   ListView.builder(
                     scrollDirection: Axis.horizontal,
@@ -410,14 +460,14 @@ mixin PageSearchOverlay {
                       ),
                       Obx(
                         () => Container(
-                          decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                          decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
                           child: '${idxSelectedJav.value + 1}/${video.screenshot!.length}'.text.size(11).minFontSize(11).make().p4(),
                         ),
                       ).p12(),
                       Align(
                         alignment: Alignment.centerRight,
                         child: Container(
-                          decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                          decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
                           child: Icon(UIconsPro.regularRounded.arrow_small_right).p12(),
                         ).onInkTap(() {
                           if (idxSelectedJav.value < video.screenshot!.length - 1) {
@@ -428,7 +478,7 @@ mixin PageSearchOverlay {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Container(
-                          decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                          decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
                           child: Icon(UIconsPro.regularRounded.arrow_small_left).p12(),
                         ).onInkTap(() {
                           if (idxSelectedJav.value > 0) {
@@ -439,7 +489,7 @@ mixin PageSearchOverlay {
                       Align(
                         alignment: Alignment.topRight,
                         child: Container(
-                          decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Vx.black.withAlpha(100)),
+                          decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
                           child: Icon(UIconsPro.regularRounded.cross_small).p8(),
                         ).onInkTap(() {
                           Overlayment.dismissLast();
@@ -538,7 +588,7 @@ mixin PageSearchOverlay {
       output.add('${int.parse(medinfo!.getSize()!).toFileSize()}'); // -- [2] file size
       output.add('${HelperMisc.durationFormatFFmpeg(num.parse(medinfo.getFormatProperties()!['duration'].toString()))}'); // -- [3] duration
     }).catchError((e) {
-      AppLog.logE('PageSearchOverlay._getMediaInfo [$path] -> $e');
+      AppLog.logW('PageSearchOverlay._getMediaInfo [$path] -> $e');
     });
 
     return output;

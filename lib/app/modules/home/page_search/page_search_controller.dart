@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
 
+import '../../../../env.g.dart';
 import '../../../core/app_logging.dart';
 import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_videos.dart';
@@ -32,7 +33,7 @@ class PageSearchController extends GetxController {
     AppLog.logI('page search ==> onInit called');
     viewModeSelected.value = kGrid;
     isFresh.value = await DBVideos.getCount() == 0;
-    phSearch.value = 'Video Code or Title or Path...'; // await DBVideos.getRandomVideoCode();
+    phSearch.value = 'Video Code or Title or Path...';
     await onReset();
     videos.shuffle();
 
@@ -53,22 +54,22 @@ class PageSearchController extends GetxController {
       newVideos.trailer = resp.trailer;
       newVideos.site = 'R18';
 
-      if (videos.actress != null) {
-        for (var i = 0; i < videos.actress!.length; i++) {
-          if (videos.actress![i].imageUrl == '') {
-            HelperToast.warn('konstol');
+      // fix fantart
+      newVideos.fanArt = '${Env.apiUrl}/api?image=https://img3.javmost.com/images/480/${videos.videoCode}.webp';
+
+      // ** only apply if actress is null
+      if (videos.actress.isEmptyOrNull) {
+        if (!resp.actress.isEmptyOrNull) {
+          newVideos.actress = <VideoActress>[];
+          for (var i = 0; i < resp.actress!.length; i++) {
+            newVideos.actress?.add(VideoActress(
+              id: resp.actress![i].castId,
+              nameRomaji: resp.actress![i].castNames,
+              imageUrl: resp.actress![i].castImage,
+            ));
           }
         }
       }
-
-      // newVideos.actress = <VideoActress>[];
-      // for (var i = 0; i < resp['actors'].length; i++) {
-      //   newVideos.actress?.add(VideoActress(
-      //     id: resp['actors'][i]['cast_id'],
-      //     nameRomaji: resp['actors'][i]['cast_names'],
-      //     imageUrl: resp['actors'][i]['cast_image'],
-      //   ));
-      // }
 
       newVideos.category = <VideoCategory>[];
       if (resp.genre != null) {

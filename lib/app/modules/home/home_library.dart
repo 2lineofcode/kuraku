@@ -1,11 +1,14 @@
 import 'dart:io';
 
 import 'package:ex_kit/ex.dart';
+import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
+import 'package:path/path.dart' as p;
 import 'package:uicons_pro/uicons_pro.dart';
+import 'package:video_compress/video_compress.dart';
 
 import '../../core/app_color.dart';
 import '../../core/app_logging.dart';
@@ -269,98 +272,142 @@ mixin HomeLibrary {
   /// Scans for video files and updates the database with metadata if available.
   // ────────────────────────────────────────────────────────────────
   static Future<void> doAddorEditVideoFromLibrary(Library library) async {
-    if (library.videos == null || library.videos!.isEmpty) {
-      return;
+    AppLog.logD('Start processing library: ${library.alias}');
+    final sw = Stopwatch();
+    sw.start();
+
+    if (library.videos == null || library.videos!.isEmpty) return;
+
+    _home.footerText.value = '◎ Scanning and processing videos...';
+    _home.change(200, status: RxStatus.loading());
+
+    final videos = library.videos!;
+    final totalVideos = videos.length;
+    final videosToAdd = <Videos>[];
+
+    final processedCounter = 0.obs;
+
+    // Process videos in parallel
+    final List<Future<void>> processingFutures = videos.map((videoPath) async {
+      final processedVideo = await _processVideo(videoPath, library.rootFolder);
+      if (processedVideo != null) videosToAdd.add(processedVideo);
+      
+      // Update progress
+      processedCounter.value++;
+      _home.loadingText.value = 'Progress: ${processedCounter.value} of $totalVideos (${(processedCounter.value * 100 / totalVideos).toInt()}%)';
+    }).toList();
+
+    // Wait for all processing to complete
+    await Future.wait(processingFutures);
+
+    if (videosToAdd.isNotEmpty) {
+      _home.footerText.value = '◎ Committing ${videosToAdd.length} Videos';
+      await DBVideos.addBulk(videosToAdd);
+    } else {
+      _home.footerText.value = '◎ No new videos to add.';
     }
 
-    for (int index = 0; index < library.videos!.length; index++) {
-      final videoPath = library.videos![index];
-      _home.footerText.value = '◎ ${index + 1} of ${library.videos!.length}';
+    sw.stop();
+    AppLog.logD('Time taken: ${sw.elapsedMilliseconds}ms');
+    await HelperToast.success('Finish • ${sw.elapsedMilliseconds}ms | ${videosToAdd.length} Videos Added');
 
-      _home.change(200, status: RxStatus.loading());
-      _home.loadingText.value = 'Progress: ${index + 1} of ${library.videos!.length} (${((index + 1) * 100 / library.videos!.length).toInt()}%)';
 
-      final videoCode = videoPath.getFileName().getVideoCode();
+    await _home.onRefreshAllContent();
+  }
 
-      if (videoCode != '') {
-        final dataVideo = await DBR18.getVideo(videoCode);
-        final dataCategory = await DBR18.getCategory(videoCode);
-        final dataActress = await DBR18.getActress(videoCode);
-        final dataDirector = await DBR18.getDirector(videoCode);
+  // ** PROCESS VIDEO
+  static Future<Videos?> _processVideo(String videoPath, String? rootFolder) async {
+    final videoCode = videoPath.getFileName().getVideoCode();
 
-        if (dataVideo == null) {
-          final newVideo = Videos();
-          newVideo.rootPath = library.rootFolder ?? '';
-          newVideo.videoPath = videoPath;
-          newVideo.title = videoPath.getFileName().noExt();
+    // case: detect as JAV
+    if (videoCode.isNotEmpty) {
+      final results = await Future.wait([
+        DBR18.getVideo(videoCode),
+        DBR18.getCategory(videoCode),
+        DBR18.getActress(videoCode),
+        DBR18.getDirector(videoCode),
+      ]);
 
-          final file = File(videoPath);
-          if (file.existsSync()) newVideo.filesize = file.lengthSync();
+      final dataVideo = results[0] as Map<String, dynamic>?;
+      final dataCategory = results[1] as List<dynamic>;
+      final dataActress = results[2] as List<dynamic>;
+      final dataDirector = results[3] as Map<String, dynamic>?;
 
-          await DBVideos.add(newVideo);
-          continue;
-        }
-
-        final newVideo = Videos.fromJson(dataVideo);
-        newVideo.rootPath = library.rootFolder ?? '';
-        newVideo.videoPath = videoPath;
-        newVideo.category = dataCategory.map((e) => VideoCategory.fromJson(e)).toList();
-        newVideo.actress = dataActress.map((e) => VideoActress.fromJson(e)).toList();
-        newVideo.durationFormated = HelperMisc.durationFormatDB(newVideo.duration ?? 0);
-        newVideo.releaseDateFormated = newVideo.releaseDate?.reformatDate(from: kYMd, to: kMdY);
-        newVideo.director = dataDirector?['name_romaji'] ?? '';
-        newVideo.fanArt = '${dataVideo['fan_art']}';
-        newVideo.poster = '${dataVideo['poster']}';
-
-        // Logic for screenshot
-        if (dataVideo['sslast'] != null) {
-          final screenshots = <String>[];
-          final total = int.parse(dataVideo['sslast'].toString().split('-').last);
-          final filename = dataVideo['ssfirst'].toString();
-          final base = filename.contains('jp-') ? filename.removeLast(1) : '${filename.allBefore('-')}jp-';
-
-          for (var i = 1; i <= total; i++) {
-            screenshots.add('$base$i');
-          }
-          newVideo.screenshot = screenshots;
-        }
-
-        final file = File(videoPath);
-        if (file.existsSync()) newVideo.filesize = file.lengthSync();
-
-        await DBVideos.add(newVideo);
-        _home.footerText.value = '◎ Inserting: $videoCode';
-      }
-
-      // else => no video_code (non-jav)
-      else {
+      // case: detect as JAV but no data in R18
+      if (dataVideo == null) {
         final newVideo = Videos();
-        newVideo.rootPath = library.rootFolder ?? '';
+        newVideo.rootPath = rootFolder ?? '';
         newVideo.videoPath = videoPath;
         newVideo.title = videoPath.getFileName().noExt();
 
         final file = File(videoPath);
         if (file.existsSync()) newVideo.filesize = file.lengthSync();
+        if (!HelperMisc.isExternalDrive(newVideo.videoPath)) await _getVideoResolution(newVideo);
 
-        await DBVideos.add(newVideo);
-        _home.footerText.value = '◎ Inserting non metadata: $videoCode';
+        return newVideo;
       }
-    }
 
-    _home.footerText.value = '◎ Commit ${library.videos!.length} Videos';
-    await 10.milliseconds.delay();
-    await _home.onRefreshAllContent();
+      final newVideo = Videos.fromJson(dataVideo);
+      newVideo.rootPath = rootFolder ?? '';
+      newVideo.videoPath = videoPath;
+      newVideo.category = dataCategory.map((e) => VideoCategory.fromJson(e)).toList();
+      newVideo.actress = dataActress.map((e) => VideoActress.fromJson(e)).toList();
+      newVideo.durationFormated = HelperMisc.durationFormatDB(newVideo.duration ?? 0);
+      newVideo.releaseDateFormated = newVideo.releaseDate?.reformatDate(from: kYMd, to: kMdY);
+      newVideo.director = dataDirector?['name_romaji'] ?? '';
+      newVideo.fanArt = '${dataVideo['fan_art']}';
+      newVideo.poster = '${dataVideo['poster']}';
+
+      // logic for screenshot
+      if (dataVideo['sslast'] != null) {
+        final screenshots = <String>[];
+        final total = int.parse(dataVideo['sslast'].toString().split('-').last);
+        final filename = dataVideo['ssfirst'].toString();
+        final base = filename.contains('jp-') ? filename.removeLast(1) : '${filename.allBefore('-')}jp-';
+
+        for (var i = 1; i <= total; i++) screenshots.add('$base$i');
+        newVideo.screenshot = screenshots;
+      }
+
+      final file = File(videoPath);
+      if (file.existsSync()) newVideo.filesize = file.lengthSync();
+      if (!HelperMisc.isExternalDrive(newVideo.videoPath)) await _getVideoResolution(newVideo);
+
+      return newVideo;
+    } 
+    
+    // case: not detect as JAV
+    else {
+      final newVideo = Videos();
+      newVideo.rootPath = rootFolder ?? '';
+      newVideo.videoPath = videoPath;
+      newVideo.title = videoPath.getFileName().noExt();
+
+      final file = File(videoPath);
+      if (file.existsSync()) newVideo.filesize = file.lengthSync();
+      if (!HelperMisc.isExternalDrive(newVideo.videoPath)) await _getVideoResolution(newVideo);
+
+      return newVideo;
+    }
   }
 
+  // ────────────────────────────────────────────────────────────────
   /// Deletes all videos associated with a specific library.
+  // ────────────────────────────────────────────────────────────────
   static Future<void> doDeleteVideoFromLibrary(Library library) async {
     await DBVideos.deleteByRootPath(library.rootFolder ?? '');
     await DBLibrary.delete(library);
     await _home.onRefreshAllContent();
   }
 
-  /// Rescans a single library to find new or deleted videos.
-  /// Updates the library record and performs add/delete operations on videos.
+  // ────────────────────────────────────────────────────────────────
+  // Rescan Single library
+  // workflow:
+  // - Scan folder (library.rootFolder) selected
+  // - compare old data with new data
+  // - collect (add, delete, update)
+  // - update library
+  // ────────────────────────────────────────────────────────────────
   static Future<void> doRescanVideoFromLibrary(Library library) async {
     try {
       final oldData = library;
@@ -399,22 +446,179 @@ mixin HomeLibrary {
         for (var i = 0; i < pathToDelete.length; i++) {
           await DBVideos.deleteByVideoPath(pathToDelete[i]);
         }
-        await HelperToast.info('${library.alias} | Deleted ${pathToDelete.length} videos');
+        await HelperToast.warn('${library.alias} | Deleted ${pathToDelete.length} videos');
         await _home.onRefreshAllContent();
       }
     } catch (e) {
       AppLog.logE(e);
-      // await HelperToast.error(e.toString());
     }
   }
 
-  /// Rescans all existing libraries.
+  // ────────────────────────────────────────────────────────────────
+  // Rescan All libraries (detect cross-library moves by basename)
+  // ────────────────────────────────────────────────────────────────
   static Future<void> doRescanAllVideoFromLibrary(List<Library> libraries) async {
-    if (libraries.isEmpty) return;
-    _home.footerText.value = '◎ Rescanning...';
-    for (final library in libraries) {
-      await doRescanVideoFromLibrary(library);
+    try {
+      if (libraries.isEmpty) return;
+
+      _home.footerText.value = '◎ Rescanning...';
+
+      // 1) Build oldMap from current library objects (assumed DB state)
+      final Map<String, List<String>> oldMap = {};
+      for (final lib in libraries) {
+        oldMap[lib.rootFolder ?? ''] = List<String>.from(lib.videos ?? []);
+      }
+
+      // 2) Scan all roots and build newMap
+      final Map<String, List<String>> newMap = {};
+      final Map<String, int> newTotal = {};
+
+      // We also need to track which libraries were successfully scanned.
+      final List<Library> scannedLibraries = [];
+
+      for (final lib in libraries) {
+        final root = lib.rootFolder ?? '';
+
+        try {
+          final newData = await HelperFilePicker.scanFolderAndSubFolder(root);
+
+          if (newData != null) {
+            final newList = newData.videos ?? [];
+            newMap[root] = List<String>.from(newList);
+            newTotal[root] = (newData.totalVideo ?? 0).toInt();
+            scannedLibraries.add(lib);
+          }
+        } catch (e) {
+          AppLog.logW('[RescanAll] Could not access folder: $root. Skipping this library.');
+        }
+      }
+
+      // 3) Build global candidate lists
+      final List<Map<String, String>> addCandidates = []; // {root, path}
+      final List<Map<String, String>> delCandidates = []; // {root, path}
+
+      // adds: present in newMap[root] but not in oldMap[root]
+      for (final root in newMap.keys) {
+        final newList = newMap[root]!;
+        final oldList = oldMap[root] ?? [];
+        for (final nv in newList) {
+          if (!oldList.contains(nv)) {
+            addCandidates.add({'root': root, 'path': nv});
+          }
+        }
+      }
+
+      // deletes: present in oldMap[root] but not in newMap[root]
+      for (final root in oldMap.keys) {
+        final oldList = oldMap[root] ?? [];
+        final newList = newMap[root] ?? [];
+
+        // This is the key change: only process if the root was in newMap (i.e., successfully scanned)
+        if (newMap.containsKey(root)) {
+          for (final ov in oldList) {
+            if (!newList.contains(ov)) {
+              delCandidates.add({'root': root, 'path': ov});
+            }
+          }
+        }
+      }
+
+      // 4) Match addCandidates <-> delCandidates by basename => moves
+      final List<Map<String, String>> moves = []; // {oldRoot, oldPath, newRoot, newPath}
+
+      // create index by basename for deletes for quick lookup
+      final Map<String, List<Map<String, String>>> delByName = {};
+      for (final del in delCandidates) {
+        final name = p.basename(del['path']!);
+        delByName.putIfAbsent(name, () => []).add(del);
+      }
+
+      final List<Map<String, String>> remainingAdds = [];
+      for (final add in addCandidates) {
+        final name = p.basename(add['path']!);
+        final delsForName = delByName[name];
+        if (delsForName != null && delsForName.isNotEmpty) {
+          // match to first available delete for that basename
+          final matchedDel = delsForName.removeAt(0);
+          moves.add({
+            'oldRoot': matchedDel['root']!,
+            'oldPath': matchedDel['path']!,
+            'newRoot': add['root']!,
+            'newPath': add['path']!,
+          });
+
+          // also remove this del from delCandidates list (so it won't be deleted later)
+          delCandidates.removeWhere((d) => d['path'] == matchedDel['path']);
+        } else {
+          remainingAdds.add(add);
+        }
+      }
+
+      // 5) Apply moves: update DB path immediately
+      for (final m in moves) {
+        final updVideo = await DBVideos.getByVideoPath(m['oldPath']!);
+        updVideo?.videoPath = m['newPath'];
+        updVideo?.rootPath = p.dirname(m['newPath']!);
+        await DBVideos.update(updVideo!);
+      }
+
+      // 6) For remaining adds, group by root and call doAddorEditVideoFromLibrary per root
+      final Map<String, List<String>> addsByRoot = {};
+      for (final a in remainingAdds) {
+        final root = a['root']!;
+        addsByRoot.putIfAbsent(root, () => []).add(a['path']!);
+      }
+      for (final entry in addsByRoot.entries) {
+        final root = entry.key;
+        final list = entry.value;
+        final libToAdd = Library(videos: list, rootFolder: root);
+        await doAddorEditVideoFromLibrary(libToAdd);
+      }
+
+      // 7) Apply remaining deletes (those not used in moves)
+      // delCandidates list still contains leftovers; delete them
+      for (final d in List<Map<String, String>>.from(delCandidates)) {
+        final delPath = d['path']!;
+        await DBVideos.deleteByVideoPath(delPath);
+      }
+
+      // 8) Update each library metadata in DB to reflect scanned state
+      for (final lib in scannedLibraries) {
+        final root = lib.rootFolder ?? '';
+        lib.totalVideo = newTotal[root] ?? lib.totalVideo;
+        lib.videos = newMap[root] ?? [];
+        await DBLibrary.update(lib);
+      }
+
+      // 9) Summary log
+      AppLog.logD('[RescanAll] Finished | Adds=${remainingAdds.length}, Deletes=${delCandidates.length}, Moves=${moves.length}');
+      for (final mv in moves) {
+        AppLog.logD('[RescanAll] Move ${mv['oldPath']} -> ${mv['newPath']}');
+      }
+
+      _home.footerText.value = 'Idle | Total Video: ${await DBVideos.getCount()}';
+
+      if (remainingAdds.isNotEmpty || delCandidates.isNotEmpty || moves.isNotEmpty) {
+        await HelperToast.info('Finish • ${remainingAdds.length} added • ${delCandidates.length} deleted • ${moves.length} moved');
+        await _home.onRefreshAllContent();
+      }
+    } catch (e) {
+      AppLog.logE('[RescanAll]: $e');
     }
-    _home.footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
+  }
+
+  static Future<void> _getVideoResolution(Videos video) async {
+    try {
+      final medInfo = await VideoCompress.getMediaInfo(video.videoPath!);
+      if (medInfo.width == null) return;
+      video.quality = '${medInfo.width}x${medInfo.height}';
+    } catch (e) {
+      AppLog.logD('error, try (ffmpeg) way -> ${video.videoPath}');
+      await FFprobeKit.getMediaInformation(video.videoPath!).then((medInfo) {
+        if (medInfo.getMediaInformation() == null) return;
+        final stream = medInfo.getMediaInformation()?.getStreams().first;
+        video.quality = '${stream?.getWidth()}x${stream?.getHeight()}';
+      });
+    }
   }
 }

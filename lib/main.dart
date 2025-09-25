@@ -25,7 +25,7 @@ import 'env.g.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  Stopwatch sw = Stopwatch()..start();
+  final sw = Stopwatch()..start();
 
   await hotKeyManager.unregisterAll();
 
@@ -43,6 +43,7 @@ Future<void> main() async {
     return service;
   }, permanent: true);
 
+  sw.stop();
   AppLog.logD('All Depedencies loaded in ${sw.elapsedMilliseconds}ms');
   runApp(JavIt());
 }

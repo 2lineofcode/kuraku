@@ -27,6 +27,7 @@ import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
 import '../../widgets/widget_auto_complate.dart';
 import '../home_controller.dart';
+import '../page_settings/page_settings_controller.dart';
 
 class PageDownloadController extends GetxController {
   final tecSearch = TextEditingController();
@@ -58,6 +59,7 @@ class PageDownloadController extends GetxController {
 
   // app setting
   final appSetting = Get.find<AppSettingService>();
+  final addToLog = Get.find<PageSettingsController>().applogText;
 
   @override
   Future<void> onInit() async {
@@ -87,7 +89,8 @@ class PageDownloadController extends GetxController {
         if (response.value.result == null || response.value.result!.isEmpty) {
           if (retryCount.value < 2) {
             retryCount.value++;
-            AppLog.logD('retryC.value++ -> ${retryCount.value}');
+            addToLog.value += '- No result found, retry ${retryCount.value}/3\n';
+
             await 1.seconds.delay();
             await onSearch(s);
           }
@@ -111,9 +114,7 @@ class PageDownloadController extends GetxController {
         if (scrollController.hasClients) {
           await scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
         }
-      } catch (e) {
-        // AppLog.logE('onSearch netMode e -> $e');
-      }
+      } catch (_) {}
     }
 
     // ** db mode
@@ -550,7 +551,7 @@ class PageDownloadController extends GetxController {
                           HStack([
                             if (statusIcon == '❌') ...[
                               Icon(UIconsPro.regularRounded.rotate_left, size: 12).p4().onInkTap(() async {
-                                await startProcessDownload('hls', jsonData['url'], jsonData['dir'], jsonData['filename'], worker: 1);
+                                await startProcessDownload(jsonData['url'], jsonData['dir'], jsonData['filename'], worker: 1);
                                 await Overlayment.dismissLast();
                               }),
                             ],
@@ -630,7 +631,7 @@ class PageDownloadController extends GetxController {
             placeholder: 'Filename',
             style: TextStyle(fontSize: 12, color: Vx.white),
             onSubmitted: (value) async {
-              await startProcessDownload('hls', tecUrl.text, tecDir.text, tecFilename.text);
+              await startProcessDownload(tecUrl.text, tecDir.text, tecFilename.text);
             },
           ).pOnly(bottom: 12),
         ],
@@ -643,14 +644,14 @@ class PageDownloadController extends GetxController {
         CupertinoDialogAction(
           child: Text('Start Download', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
           onPressed: () async {
-            await startProcessDownload('hls', tecUrl.text, tecDir.text, tecFilename.text);
+            await startProcessDownload(tecUrl.text, tecDir.text, tecFilename.text);
           },
         ),
       ],
     );
   }
 
-  Future<void> startProcessDownload(String type, String url, String dir, String filename, {int? worker}) async {
+  Future<void> startProcessDownload(String url, String dir, String filename, {int? worker, bool? isRawUrl = false}) async {
     if (url.isEmpty || dir.isEmpty || filename.isEmpty) {
       await HelperToast.warn('Please fill all fields');
       return;
@@ -667,19 +668,37 @@ class PageDownloadController extends GetxController {
       }
 
       // log to activity
-      // final id = UuidV4().generate();
       await DBActivity.add(Activity(type: kActivityTypeDownload, content: genJsonFormat('start', url, dir, filename)));
 
-      await shell.run(
-        '${appSetting.appPath}/javit_dl $type -u "$url" -d "$dir" -o "$filename" -w ${ worker ?? AppPref.getDownloadWorker()}',
+      // legacy env PATH (macOS only)
+      const homebrewPath = '/opt/homebrew/bin'; 
+      final currentPath = Platform.environment['PATH'] ?? '/usr/bin:/bin:/usr/sbin:/sbin'; 
+      final envPath = '$homebrewPath:$currentPath';
+
+      final execPath = '${appSetting.appPath}/javit_dl';
+      final execArgs = [
+        '-u', '"$url"',
+        '-o', '"$dir/$filename"',
+        '-tf', '"${appSetting.appPath}/.dl_tmp"',
+        '-r', '5',
+        '-c', '${worker ?? AppPref.getDownloadWorker()}',
+        '-auto',
+        if (isRawUrl == true) '-rawurl',
+      ];
+
+      await shell.run('$execPath ${execArgs.join(' ')}', 
+        workingDirectory: appSetting.appPath,
+        runInShell: true,
         commandVerbose: false,
         verbose: false,
+        environment: {'PATH': envPath},
         onProcess: (process) async {
           currentProcessDownload.value = process;
           // listen stdout
           process.outLines.listen((s) {
             downloadStdout.value = s;
             Get.find<HomeController>().footerText.value = s;
+            addToLog.value += '- $s\n';
           }).onError((e) {
             AppLog.logE('listen stdout e -> $e');
             downloadStdout.value = '$e';
@@ -694,6 +713,7 @@ class PageDownloadController extends GetxController {
               final currentActivity = await DBActivity.getByFilename(filename);
               currentActivity.content = genJsonFormat('failed', url, dir, filename);
               await DBActivity.update(currentActivity);
+              await HelperMisc.playSoundDownloadComplate();
             }
 
             if (code == 0) {
@@ -704,6 +724,7 @@ class PageDownloadController extends GetxController {
               final currentActivity = await DBActivity.getByFilename(filename);
               currentActivity.content = genJsonFormat('finish', url, dir, filename);
               await DBActivity.update(currentActivity);
+              await HelperMisc.playSoundDownloadComplate();
             }
 
             process.kill();
