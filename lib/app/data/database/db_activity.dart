@@ -2,6 +2,7 @@ import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
 import 'package:uuid/v4.dart';
 
+import '../../core/const.dart';
 import '../../utils/helper.dart';
 import '../models/activity_entity.dart';
 import '_init_db.dart';
@@ -72,6 +73,17 @@ mixin DBActivity {
       ORDER BY content desc
     ''', [kActivityTypeRelapse]);
     return List.generate(maps.length, (index) => Activity.fromJson(maps[index]));
+  }
+
+  static Future<int> getCountRelapseToday() async {
+    final today = DateTime.now().toStringEx(format: kYMd);
+    final maps = await _db.rawQuery('''
+      SELECT COUNT(*) AS times
+      FROM $_tableName
+      WHERE type = ? AND content >= ? AND content <= ?
+    ''', [kActivityTypeRelapse, today, today]);
+
+    return maps.isNotEmpty ? maps[0]['times'] as int : 0;
   }
 
   static Future<Activity> getByID(String id) async {

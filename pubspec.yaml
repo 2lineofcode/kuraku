@@ -15,14 +15,21 @@ dependencies:
   sqflite: ^2.4.2
 
   # ** player
-  cached_video_player_plus: ^4.0.3
+  cached_video_player_plus: ^4.0.4
   video_player: ^2.10.0
   chewie: ^1.13.0
   audioplayers: ^6.5.1
 
+  # mediakit
+  media_kit: ^1.2.1
+  media_kit_video: ^1.3.1
+  media_kit_libs_video: ^1.0.7
+  video_player_media_kit: ^1.0.7
+  media_kit_libs_macos_video: any
+
   # dio
   dio: ^5.9.0
-  dio_cache_interceptor: ^4.0.3
+  dio_cache_interceptor: ^4.0.5
   http_cache_sembast_store: ^1.0.0
 
   # ** ui
@@ -43,7 +50,7 @@ dependencies:
   # fast_cached_network_image: ^1.3.3+5
 
   # ** utils
-  file_picker: ^10.3.1
+  file_picker: ^10.3.3
   intl: ^0.20.2
   uuid: ^4.5.1
   url_launcher: ^6.3.2
@@ -53,8 +60,8 @@ dependencies:
   kana_kit: ^2.1.1
   process_run: ^1.2.4
   super_context_menu: ^0.9.1
-  glob: 2.1.2
-  ffmpeg_kit_flutter_new: ^2.0.0
+  glob: 2.1.3
+  ffmpeg_kit_flutter_new: ^3.2.0
   video_compress: ^3.1.4
   # flutter_system_notifications: ^1.1.1
 
@@ -62,7 +69,7 @@ dependencies:
     sdk: flutter
 
 dev_dependencies:
-  enven: ^1.2.1
+  enven: ^1.2.3
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
   flutter_test:

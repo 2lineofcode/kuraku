@@ -24,6 +24,7 @@ class PageSettingsController extends GetxController {
 
   final totalLibrary = 0.obs;
   final totalVideos = 0.obs;
+  final totalFilesize = Rx<num>(0);
   final lastRelapse = ''.obs;
   final r18TotalVideo = 0.obs;
 
@@ -39,6 +40,7 @@ class PageSettingsController extends GetxController {
     dbR18Version.value = await Get.find<DBService>().dbR18.getVersion();
     totalLibrary.value = await DBLibrary.getCount();
     totalVideos.value = await DBVideos.getCount();
+    totalFilesize.value = await DBVideos.getTotalFileSizeAllVideo() ?? 0;
     r18TotalVideo.value = await DBR18.getCountAllVideos();
 
 
@@ -114,9 +116,6 @@ class PageSettingsController extends GetxController {
                     final appSetting = Get.find<AppSettingService>();
                     final home = Get.find<HomeController>();
 
-                    home.change(0, status: RxStatus.loading());
-                    home.loadingText.value = 'Preparing...';
-
                     final serverUrl = 'https://r18dotdev.s3.eu-west-1.wasabisys.com/dumps';
                     final outputFileName = 'r18dotdev_dump_$lastUpdFromNowStr.sql.gz';
 
@@ -126,29 +125,26 @@ class PageSettingsController extends GetxController {
                       onReceiveProgress: (received, total) {
                         final percent = ((received / total) * 100).toStringAsFixed(0);
                         home.footerText.value = 'DO NOT CLOSE APP | Downloading ($percent%) ...';
-                        home.loadingText.value = 'DO NOT CLOSE APP \n\n Downloading ($percent%) ...';
                       },
                     );
 
                     home.footerText.value = 'DO NOT CLOSE APP | Extracting...';
-                    home.loadingText.value = 'DO NOT CLOSE APP \n\n Extracting...';
                     await shell.run('gunzip "${appSetting.appPath}/$outputFileName"');
 
                     home.footerText.value = 'DO NOT CLOSE APP | Importing... will take 4-15 minutes..';
-                    home.loadingText.value = 'DO NOT CLOSE APP \n\n Importing... will take 4-15 minutes..\n converting psql into sqlite3';
                     await shell.run(
                       'python3 ${appSetting.appPath}/r18_to_javit.py -d "${appSetting.appPath}"',
                       onProcess: (process) async {
                         await process.exitCode.then((code) async {
                           if (code == 1) {
                             home.footerText.value = 'Task Failed. Please restart app...';
-                            home.change(0, status: RxStatus.error());
+                            home.change(0, status: RxStatus.error('Task Failed. Please restart app...'));
                           }
 
                           if (code == 0) {
                             await HelperToast.success('Task Done. Please restart app...');
                             home.footerText.value = 'Task Done. Please restart app...';
-                            home.loadingText.value = 'Task Done \n\n Please restart app...';
+                            home.change(0, status: RxStatus.error('Update completed. Please restart app...'));
                           }
                         });
                       },

@@ -15,7 +15,7 @@ mixin Api {
         policy: CachePolicy.forceCache,
         priority: CachePriority.high,
         maxStale: 1825.days, // 5 years
-        keyBuilder: ({headers, required url}) => url.toString(),
+        keyBuilder: ({body, headers, required url}) => url.toString(),
         allowPostMethod: false,
       );
 

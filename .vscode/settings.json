@@ -83,4 +83,5 @@
         ".env": ".env, .env.dev, .env.local, .env.staging, .env.prod, env.g.dart",
     },
     "postman.settings.dotenv-detection-notification-visibility": false,
+    "chatgpt.openOnStartup": false,
 }

@@ -438,4 +438,10 @@ mixin DBVideos {
       ''');
     return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
   }
+
+
+  static Future<num?> getTotalFileSizeAllVideo() async {
+    final maps = await _db.rawQuery('SELECT sum(filesize) as total FROM videos');
+    return maps.first['total'] as num?;
+  }
 }

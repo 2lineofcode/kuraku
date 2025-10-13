@@ -10,6 +10,7 @@ import 'package:glob/list_local_fs.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:process_run/process_run.dart' as shell;
 import 'package:toastification/toastification.dart';
+import 'package:video_player_media_kit/video_player_media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app/core/app_logging.dart';
@@ -42,6 +43,9 @@ Future<void> main() async {
     await service.onReady();
     return service;
   }, permanent: true);
+
+
+  VideoPlayerMediaKit.ensureInitialized(macOS: true);
 
   sw.stop();
   AppLog.logD('All Depedencies loaded in ${sw.elapsedMilliseconds}ms');

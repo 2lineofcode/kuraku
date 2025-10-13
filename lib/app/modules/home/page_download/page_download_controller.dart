@@ -582,59 +582,82 @@ class PageDownloadController extends GetxController {
     tecDir.text = AppPref.getDownloadPath();
     fnUrl.requestFocus();
 
+    final isRawUrl = false.obs;
+
     ExAlert.adaptive(
+      isDismissible: true,
       title: Text('Download', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.left).pOnly(bottom: 16),
-      content: VStack(
-        [
-          HStack(
-            [
-              CupertinoTextField(
-                readOnly: true,
-                controller: tecDir,
-                placeholder: 'Save To...',
-                prefix: Icon(UIconsPro.regularRounded.folder, size: 13).pOnly(left: 8),
-                placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
-                style: TextStyle(fontSize: 13, color: Vx.neutral500),
-                onTap: () async {
-                  await FilePicker.platform.getDirectoryPath(initialDirectory: tecDir.text).then((dir) {
-                    if (dir != null) {
-                      AppPref.setDownloadPath(dir);
-                      tecDir.text = dir;
-                    }
-                  });
-                },
-              ).expand(),
-              6.widthBox,
-              CupertinoTextField(
-                controller: tecChunk,
-                placeholder: 'Chunk',
-                prefix: Icon(UIconsPro.regularRounded.download, size: 13).pOnly(left: 8),
-                placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
-                style: TextStyle(fontSize: 13, color: Vx.white),
-                onChanged: (s) => AppPref.setDownloadWorker(s.toInt() ?? 1),
-              ).w(90),
-            ],
-          ).pOnly(bottom: 12),
-          CupertinoTextField(
-            controller: tecUrl,
-            focusNode: fnUrl,
-            prefix: Icon(UIconsPro.regularRounded.link, size: 13).pOnly(left: 8),
-            placeholder: 'Url',
-            style: TextStyle(fontSize: 12, color: Vx.white),
-            onChanged: (value) {
-              tecFilename.text = value.split('/').last;
-            },
-          ).pOnly(bottom: 12),
-          CupertinoTextField(
-            controller: tecFilename,
-            prefix: Icon(UIconsPro.regularRounded.hastag, size: 13).pOnly(left: 8),
-            placeholder: 'Filename',
-            style: TextStyle(fontSize: 12, color: Vx.white),
-            onSubmitted: (value) async {
-              await startProcessDownload(tecUrl.text, tecDir.text, tecFilename.text);
-            },
-          ).pOnly(bottom: 12),
-        ],
+      content: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: 160),
+        child: VStack(
+          [
+            HStack(
+              [
+                CupertinoTextField(
+                  readOnly: true,
+                  controller: tecDir,
+                  placeholder: 'Save To...',
+                  prefix: Icon(UIconsPro.regularRounded.folder, size: 13).pOnly(left: 8),
+                  placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
+                  style: TextStyle(fontSize: 13, color: Vx.neutral500),
+                  onTap: () async {
+                    await FilePicker.platform.getDirectoryPath(initialDirectory: tecDir.text).then((dir) {
+                      if (dir != null) {
+                        AppPref.setDownloadPath(dir);
+                        tecDir.text = dir;
+                      }
+                    });
+                  },
+                ).expand(),
+                6.widthBox,
+                CupertinoTextField(
+                  controller: tecChunk,
+                  placeholder: 'Chunk',
+                  prefix: Icon(UIconsPro.regularRounded.download, size: 13).pOnly(left: 8),
+                  placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
+                  style: TextStyle(fontSize: 13, color: Vx.white),
+                  onChanged: (s) => AppPref.setDownloadWorker(s.toInt() ?? 1),
+                ).w(90),
+              ],
+            ).pOnly(bottom: 12),
+            CupertinoTextField(
+              controller: tecUrl,
+              focusNode: fnUrl,
+              prefix: Icon(UIconsPro.regularRounded.link, size: 13).pOnly(left: 8),
+              placeholder: 'Url',
+              style: TextStyle(fontSize: 12, color: Vx.white),
+              onChanged: (value) {
+                tecFilename.text = value.split('/').last;
+              },
+            ).pOnly(bottom: 12),
+            CupertinoTextField(
+              controller: tecFilename,
+              prefix: Icon(UIconsPro.regularRounded.hastag, size: 13).pOnly(left: 8),
+              placeholder: 'Filename',
+              style: TextStyle(fontSize: 12, color: Vx.white),
+              onSubmitted: (value) async {
+                await startProcessDownload(tecUrl.text, tecDir.text, tecFilename.text, isRawUrl: isRawUrl.value);
+              },
+            ).pOnly(bottom: 12),
+        
+            // bagian RadioListTile
+            Material(
+              color: Colors.transparent,
+              child: Transform.translate(
+                offset: Offset(-0, -0),
+                child: HStack([
+                  Obx(
+                    () => Checkbox.adaptive(
+                      value: isRawUrl.value,
+                      onChanged: (s) => isRawUrl.value = s ?? false,
+                    ),
+                  ),
+                  Text('Raw Url', style: TextStyle(fontSize: 12, color: Vx.white)),
+                ]).wFull(Get.context!).onInkTap(() => isRawUrl.value = !isRawUrl.value),
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         CupertinoDialogAction(
@@ -644,7 +667,7 @@ class PageDownloadController extends GetxController {
         CupertinoDialogAction(
           child: Text('Start Download', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
           onPressed: () async {
-            await startProcessDownload(tecUrl.text, tecDir.text, tecFilename.text);
+            await startProcessDownload(tecUrl.text, tecDir.text, tecFilename.text, isRawUrl: isRawUrl.value);
           },
         ),
       ],
@@ -707,7 +730,9 @@ class PageDownloadController extends GetxController {
           await process.exitCode.then((code) async {
             if (code == 1) {
               downloadStdout.value = 'Download Failed 🔴';
-              Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
+
+              final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo();
+              Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSize()})';
               await HelperToast.error('Download Failed 🔴');
               
               final currentActivity = await DBActivity.getByFilename(filename);
@@ -718,7 +743,9 @@ class PageDownloadController extends GetxController {
 
             if (code == 0) {
               downloadStdout.value = 'Download Finished ✅';
-              Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
+              final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo();
+              Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSize()})';
+
               await HelperToast.success('Download Finished ✅');
 
               final currentActivity = await DBActivity.getByFilename(filename);
@@ -750,7 +777,10 @@ class PageDownloadController extends GetxController {
       currentProcessDownload.value?.kill(ProcessSignal.sigkill);
       currentProcessDownload.value = null;
       downloadStdout.value = '';
-      Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
+
+      final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo();
+      Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSize()})';
+
     } catch (e) {
       AppLog.logD('killProcessDownload e -> $e');
     }

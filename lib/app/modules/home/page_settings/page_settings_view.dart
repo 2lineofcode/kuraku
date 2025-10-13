@@ -7,8 +7,6 @@ import 'package:get/get.dart';
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
 import '../../../core/app_pref.dart';
-import '../../../data/database/db_videos.dart';
-import '../../../routes/app_pages.dart';
 import '../../../utils/helper.dart';
 import '../home_controller.dart';
 import 'page_settings_controller.dart';
@@ -51,7 +49,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                       HStack([
                         'Total Video'.text.size(11).minFontSize(11).neutral400.make(),
                         Spacer(),
-                        '${controller.totalVideos}'.text.size(11).minFontSize(11).bold.make(),
+                        '${controller.totalVideos} (${controller.totalFilesize.value.toFileSize()})'.text.size(11).minFontSize(11).bold.make(),
                       ]).pOnly(bottom: 8),
                       HStack([
                         'Last Relapse'.text.size(11).minFontSize(11).neutral400.make(),
@@ -136,7 +134,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
         // ! APP SETTINGS
         Container(
           decoration: ExDecorator.box(borderColor: AppColor.border),
-          width: 300,
+          width: double.infinity,
           child: VStack(
             [
               'App Settings'.text.bold.make().pOnly(bottom: 12),
@@ -195,13 +193,12 @@ class PageSettingsView extends GetView<PageSettingsController> {
                 ExButtonText(
                   label: 'test',
                   onPressed: () async {
-                    final video = await DBVideos.getByVideoPath('/Users/adit/Downloads/Videos/box/indoo/Basahin Susu Pulen DJ Amoy Karamoy Jamin Tegang Instagram.mp4');
-                    await Get.toNamed(Routes.PLAYER, arguments: video);
+                    await HelperToast.success('message');
                   },
                 ),
               ],
             ).p8(),
-          ).pOnly(top: 12).hide()
+          ).pOnly(top: 12)
         ],
       ],
     ).scrollVertical();

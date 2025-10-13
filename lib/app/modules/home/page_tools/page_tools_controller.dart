@@ -85,7 +85,6 @@ class PageToolsController extends GetxController with StateMixin {
 
   Future<void> checkIsHasDataNotScanned() async {
     final vid = await DBVideos.getAll(where: 'quality IS NULL OR quality = ""');
-    AppLog.logD('vid -> ${vid.length}');
     for (var v in vid) {
       addToLog.value += '- ${v.videoPath} still dont have metadata (resolution)\n';
     }
@@ -152,18 +151,21 @@ class PageToolsController extends GetxController with StateMixin {
 
     ExAlert.adaptive(
       title: Text('New Todo', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.left).pOnly(bottom: 16),
-      content: CupertinoTextField(
-        controller: tecTodo,
-        focusNode: fnTodo,
-        style: TextStyle(color: Vx.white, fontSize: 12),
-        placeholder: 'TODO',
-        onSubmitted: (value) async {
-          final newTodo = Activity(type: kActivityTypeTodo, content: value);
-          await DBActivity.add(newTodo);
-          await getTodos();
-          Get.back();
-        },
-      ).pOnly(bottom: 8),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: 30),
+        child: CupertinoTextField(
+          controller: tecTodo,
+          focusNode: fnTodo,
+          style: TextStyle(color: Vx.white, fontSize: 12),
+          placeholder: 'TODO',
+          onSubmitted: (value) async {
+            final newTodo = Activity(type: kActivityTypeTodo, content: value);
+            await DBActivity.add(newTodo);
+            await getTodos();
+            Get.back();
+          },
+        ).pOnly(bottom: 8),
+      ),
       actions: [
         CupertinoDialogAction(
           child: Text('Save', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),

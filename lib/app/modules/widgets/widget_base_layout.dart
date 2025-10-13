@@ -23,6 +23,7 @@ class MyLayout extends StatelessWidget {
     this.footerColor,
     this.floatingActionButton,
     this.isShowAppBarLeading = true,
+    this.isDangerMode = false,
   });
 
   // appBar
@@ -47,6 +48,8 @@ class MyLayout extends StatelessWidget {
   // fab
   final Widget? floatingActionButton;
 
+  final bool? isDangerMode;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -55,7 +58,7 @@ class MyLayout extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           /// row 1 -> Desktop
-          sideMenu().wh(sideMenuWidth ?? 200, double.infinity),
+          sideMenu().wh(sideMenuWidth ?? 200, double.infinity).color(isDangerMode == true ? Vx.red900 : Colors.transparent),
 
           /// row 2
           VStack(
@@ -99,7 +102,7 @@ class MyLayout extends StatelessWidget {
 
   Widget myAppBarDesktop() {
     return AppBar(
-      backgroundColor: AppColor.appBar,
+      backgroundColor: isDangerMode == true ? Color(0xFF4C191A) : AppColor.appBar,
       surfaceTintColor: AppColor.selected.withAlpha(100),
       title: appBarTitle,
       elevation: 0,
@@ -122,7 +125,7 @@ class MyLayout extends StatelessWidget {
   Widget footer() {
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(color: footerColor ?? AppColor.footer),
+      decoration: BoxDecoration(color: isDangerMode == true ? Color(0xFF4C191A) : AppColor.footer),
       child: Padding(
         padding: !kIsWeb && Platform.isIOS ? EdgeInsets.only(bottom: 20, right: 8, left: 8) : EdgeInsets.all(0),
         child: footerContent,

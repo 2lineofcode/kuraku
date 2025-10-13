@@ -40,11 +40,29 @@ class HomeView extends GetView<HomeController> {
           appBarAction: appBarAction(),
           sideMenuContent: sideMenuContent(),
           sideMenuWidth: controller.sideMenuWidth.value,
+          isDangerMode: controller.isDangerMode.value,
           bodyContent: controller.obx(
             (_) => bodyContent().p8(),
             onLoading: ExUiLoading(
               message: Obx(() => '${controller.loadingText}'.text.align(TextAlign.center).makeCentered()),
             ),
+            onError: (error) {
+              return ExUiErrorOrEmpty(
+                child: VStack(
+                  [
+                    Icon(UIconsPro.regularRounded.check_circle, size: 48).centered().pOnly(bottom: 16),
+                    'Task Done'.text.bold.xl3.makeCentered().pOnly(bottom: 8),
+                    '$error'.text.makeCentered().pOnly(bottom: 8),
+                    ExButtonElevated(
+                        label: 'Restart App',
+                        onPressed: () {
+                          
+                        }
+                    )
+                  ],
+                ),
+              );
+            },
           ),
           footerContent: footerContent(),
           floatingActionButton: floatingActionButton(),

@@ -65,3 +65,5 @@ env.g.dart
 scripts/
 
 test*.dart
+.roo/*
+AGENT*.md

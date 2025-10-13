@@ -185,7 +185,7 @@ mixin HelperMisc {
 mixin _JavitExtension {
   static String __getVideoCode(String fileName) {
     final List<RegExp> expressions = [
-      RegExp(r'([a-zA-Z]{2,})-([0-9]{3,})'),
+      RegExp(r'([A-Za-z]{2,})-([0-9]{2,})(?:-[A-Za-z0-9]+)?'),
     ];
     final matches = expressions.map((exp) => exp.firstMatch(fileName)).toList();
     final match = matches.firstWhere((m) => m != null, orElse: () => null);
@@ -200,15 +200,23 @@ mixin _JavitExtension {
       'VWBS', 'HPXR', 'VWAS', 'TCBD', 'DAXA', 'TWUSS', 'PJXF', 'KKC', 'GNXF', 'JAXA', 'UHB', 
       'BPUH', 'GNXT', 'ZTKT', 'PB', 'D1', 'D2', 'D3', 'DK',
     ];
+
     const _blacklistedSuffixes = [
       'BOD', 'DOD', 'Ta', 'Tb', 'Tc', 'Td', 'Te', 
       'TK', 'TK1', 'TK2', 'TK3', 'EC', '4D', '5D', 'DL',
     ];
 
-    final hasValidFormat = RegExp(r'^[a-zA-Z]{2,}-[0-9]{3,}$').hasMatch(code);
-    final hasBlacklistedPrefix = _blacklistedPrefixes.any((prefix) => code.startsWith(prefix));
-    final hasBlacklistedSuffix = _blacklistedSuffixes.any((suffix) => code.endsWith(suffix));
-    return hasValidFormat && !hasBlacklistedPrefix && !hasBlacklistedSuffix;
+    final match = RegExp(r'^([A-Za-z]{2,})-([0-9]{2,})(?:-[A-Za-z0-9]+)?$').firstMatch(code);
+    if (match == null) return false;
+
+    final number = match.group(2)!;
+
+    if (number.length > 5) return false;
+
+    final hasBlacklistedPrefix = _blacklistedPrefixes.any((p) => code.startsWith(p));
+    final hasBlacklistedSuffix = _blacklistedSuffixes.any((s) => code.endsWith(s));
+
+    return !hasBlacklistedPrefix && !hasBlacklistedSuffix;
   }
 
   static String __getLastSegments(String path, {int n = 4}) {

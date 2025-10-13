@@ -9,6 +9,7 @@ import '../../core/const.dart';
 import '../../data/database/db_activity.dart';
 import '../../data/models/activity_entity.dart';
 import '../../utils/helper_misc.dart';
+import 'home_controller.dart';
 import 'page_settings/page_settings_controller.dart';
 
 /// A mixin for managing relapse-related functionalities.
@@ -121,5 +122,9 @@ mixin HomeRelapse {
       ),
     );
     await Get.find<PageSettingsController>().onInit();
+
+    await DBActivity.getCountRelapseToday();
+    Get.find<HomeController>().isDangerMode.value = await DBActivity.getCountRelapseToday() >= 2;
+    Get.appUpdate();
   }
 }

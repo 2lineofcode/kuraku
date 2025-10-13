@@ -9,6 +9,7 @@ import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
+import '../../data/database/db_activity.dart';
 import '../../data/database/db_library.dart';
 import '../../data/database/db_videos.dart';
 import '../../data/models/library_entity.dart';
@@ -39,15 +40,23 @@ class HomeController extends GetxController with StateMixin {
 
   final library = <Library>[].obs;
 
+  final isDangerMode = false.obs;
+
   @override
   Future<void> onInit() async {
     super.onInit();
     change(200, status: RxStatus.loading());
     AppLog.logI('root home ==> onInit called');
 
-    footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
+    final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo();
+    footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSize()})';
 
     sideMenuWidth.value = AppPref.getAppHideSideMenu() ? 65 : 180;
+
+
+    await DBActivity.getCountRelapseToday();
+    isDangerMode.value = await DBActivity.getCountRelapseToday() >= 2;
+
     change(200, status: RxStatus.success());
   }
 
@@ -60,7 +69,13 @@ class HomeController extends GetxController with StateMixin {
       await Get.find<PageDownloadController>().onInit();
       await Get.find<PageToolsController>().onInit();
       await Get.find<PageSettingsController>().onInit();
-      footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()}';
+
+      await DBActivity.getCountRelapseToday();
+      isDangerMode.value = await DBActivity.getCountRelapseToday() >= 2;
+
+      final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo();
+      footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSize()})';
+
       change(200, status: RxStatus.success());
     } catch (e) {
       ExAlert.adaptive(

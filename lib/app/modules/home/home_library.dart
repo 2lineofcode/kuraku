@@ -151,53 +151,56 @@ mixin HomeLibrary {
           ExCloseButton(),
         ],
       ).pOnly(bottom: 16),
-      content: VStack(
-        [
-          CupertinoTextField(
-            readOnly: true,
-            controller: tfRootPath,
-            focusNode: fnRootPath,
-            placeholder: '<Select Path>',
-            placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
-            prefix: Icon(UIconsPro.regularRounded.folder, size: 13).pOnly(left: 8),
-            style: TextStyle(fontSize: 13, color: Vx.neutral500),
-            onTap: () async {
-              if (isClicked.value) return;
-              if (library == null) {
-                isClicked.value = true;
-                await HelperFilePicker.pickFolderSubFolder().then((path) {
-                  if (path != null) {
-                    librarySelected.value = path;
-                    tfAlias.text = path.alias?.toTitleCase ?? '';
-                    tfRootPath.text = path.rootFolder ?? '';
-                    totalVideo.value = path.videos?.length ?? 0;
-                  }
-                  isClicked.value = false;
-                });
-      
-                fnAlias.requestFocus();
-              }
-            },
-          ).pOnly(bottom: 16),
-          CupertinoTextField(
-            controller: tfAlias,
-            focusNode: fnAlias,
-            placeholder: 'Alias',
-            placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
-            prefix: Icon(UIconsPro.regularRounded.tags, size: 14).pOnly(left: 8),
-            style: TextStyle(fontSize: 13, color: Vx.white),
-            onSubmitted: (value) async {
-              await onSubmit(
-                alias: tfAlias.text,
-                rootPath: tfRootPath.text,
-                library: library,
-                isFromDrop: isFromDrop,
-                librarySelected: librarySelected.value,
-              );
-            },
-          ).pOnly(bottom: 16),
-          Obx(() => totalVideo.value != 0 ? Text('Total Video: ${totalVideo.value}') : 0.heightBox),
-        ],
+      content: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: 90),
+        child: VStack(
+          [
+            CupertinoTextField(
+              readOnly: true,
+              controller: tfRootPath,
+              focusNode: fnRootPath,
+              placeholder: '<Select Path>',
+              placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
+              prefix: Icon(UIconsPro.regularRounded.folder, size: 13).pOnly(left: 8),
+              style: TextStyle(fontSize: 13, color: Vx.neutral500),
+              onTap: () async {
+                if (isClicked.value) return;
+                if (library == null) {
+                  isClicked.value = true;
+                  await HelperFilePicker.pickFolderSubFolder().then((path) {
+                    if (path != null) {
+                      librarySelected.value = path;
+                      tfAlias.text = path.alias?.toTitleCase ?? '';
+                      tfRootPath.text = path.rootFolder ?? '';
+                      totalVideo.value = path.videos?.length ?? 0;
+                    }
+                    isClicked.value = false;
+                  });
+        
+                  fnAlias.requestFocus();
+                }
+              },
+            ).pOnly(bottom: 16),
+            CupertinoTextField(
+              controller: tfAlias,
+              focusNode: fnAlias,
+              placeholder: 'Alias',
+              placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
+              prefix: Icon(UIconsPro.regularRounded.tags, size: 14).pOnly(left: 8),
+              style: TextStyle(fontSize: 13, color: Vx.white),
+              onSubmitted: (value) async {
+                await onSubmit(
+                  alias: tfAlias.text,
+                  rootPath: tfRootPath.text,
+                  library: library,
+                  isFromDrop: isFromDrop,
+                  librarySelected: librarySelected.value,
+                );
+              },
+            ).pOnly(bottom: 16),
+            Obx(() => totalVideo.value != 0 ? Text('Total Video: ${totalVideo.value}') : 0.heightBox),
+          ],
+        ),
       ),
       actions: [
         if (library != null && !isFromDrop) ...[

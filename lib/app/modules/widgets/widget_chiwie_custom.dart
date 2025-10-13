@@ -239,17 +239,21 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
                   absorbing: notifier.hideStuff,
                   child: Stack(
                     children: [
+
                       if (_displayBufferingIndicator) ...[
                         _chewieController?.bufferingBuilder?.call(context) ?? Center(child: CircularProgressIndicator()),
                       ] else ...[
                         _buildHitArea(),
                       ],
+
+
                       if (_showInfoOverlay) ...[
                         FadeTransition(
                           opacity: _infoAnimationController,
                           child: '$_infoOverlayText'.text.bold.make().pSymmetric(h: 8, v: 2).color(Colors.black).cornerRadius(90),
-                        ).positioned(right: 12, top: 46),
+                        ).positioned(bottom: 0),
                       ],
+
                       Column(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
