@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
 import '../../../core/app_pref.dart';
+import '../../../core/notification_service.dart';
 import '../../../utils/helper.dart';
 import '../home_controller.dart';
 import 'page_settings_controller.dart';
@@ -17,7 +18,6 @@ class PageSettingsView extends GetView<PageSettingsController> {
   Widget build(BuildContext context) {
     return VStack(
       [
-
         // ! APP INFO
         HStack(
           [
@@ -121,7 +121,6 @@ class PageSettingsView extends GetView<PageSettingsController> {
                         height: 32,
                         onPressed: () => controller.onResetAll(),
                       ).pOnly(bottom: 8),
-                      
                     ],
                   )
                 ],
@@ -129,7 +128,6 @@ class PageSettingsView extends GetView<PageSettingsController> {
             ).expand(),
           ],
         ).pOnly(bottom: 16),
-
 
         // ! APP SETTINGS
         Container(
@@ -139,45 +137,108 @@ class PageSettingsView extends GetView<PageSettingsController> {
             [
               'App Settings'.text.bold.make().pOnly(bottom: 12),
 
+              // root
               HStack(
                 [
-                  'Mini Mode'.text.size(12).make().pOnly(right: 12).w(90),
-                  Obx(
-                    () => Transform.scale(
-                      scale: 0.7,
-                      child: Switch.adaptive(
-                        value: controller.appMiniMode.value,
-                        onChanged: (val) {
-                          controller.appMiniMode.value = val;
-                          final current = Get.find<HomeController>().sideMenuWidth.value;
-                          if (current == 65) {
-                            Get.find<HomeController>().sideMenuWidth.value = 180;
-                            AppPref.setAppHideSideMenu(false);
-                          } else {
-                            Get.find<HomeController>().sideMenuWidth.value = 65;
-                            AppPref.setAppHideSideMenu(true);
-                          }
-                        },
-                      ),
-                    ),
-                  ).pOnly(right: 12),
-                ],
-              ).pOnly(bottom: 8),
+                  // 1
+                  Container(
+                    decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
+                    child: VStack(
+                      [
+                        HStack(
+                          [
+                            'Mini Mode'.text.size(12).make().pOnly(right: 12).w(90),
+                            Obx(
+                              () => Transform.scale(
+                                scale: 0.7,
+                                child: Switch.adaptive(
+                                  value: controller.appMiniMode.value,
+                                  onChanged: (val) {
+                                    controller.appMiniMode.value = val;
+                                    final current = Get.find<HomeController>().sideMenuWidth.value;
+                                    if (current == 65) {
+                                      Get.find<HomeController>().sideMenuWidth.value = 180;
+                                      AppPref.setAppHideSideMenu(false);
+                                    } else {
+                                      Get.find<HomeController>().sideMenuWidth.value = 65;
+                                      AppPref.setAppHideSideMenu(true);
+                                    }
+                                  },
+                                ),
+                              ),
+                            ).pOnly(right: 12),
+                          ],
+                        ).pOnly(bottom: 8),
+                        HStack(
+                          [
+                            'Default Player'.text.size(12).make().pOnly(right: 12).w(100),
+                            CupertinoTextField(
+                              controller: controller.tecDefaultPlayer,
+                              readOnly: true,
+                              prefix: Icon(CupertinoIcons.play_circle, size: 16).pOnly(left: 8, right: 0, top: 2),
+                              suffix: Icon(CupertinoIcons.chevron_down, size: 12).pOnly(right: 12, top: 2),
+                              style: TextStyle(fontSize: 13, color: Vx.white),
+                              onTap: () => HelperToast.info('coming soon...'),
+                            ).expand(),
+                          ],
+                        ).pOnly(bottom: 8),
 
-              HStack(
-                [
-                  'Default Player'.text.size(12).make().pOnly(right: 12).w(100),
-                  CupertinoTextField(
-                    controller: controller.tecDefaultPlayer,
-                    readOnly: true,
-                    prefix: Icon(CupertinoIcons.play_circle, size: 16).pOnly(left: 8, right: 0, top: 2),
-                    suffix: Icon(CupertinoIcons.chevron_down, size: 12).pOnly(right: 12, top: 2),
-                    style: TextStyle(fontSize: 13, color: Vx.white),
-                    onTap: () => HelperToast.info('coming soon...'),
+                        HStack(
+                          [
+                            'Maximum Coli Per-Day'.text.size(12).make().pOnly(right: 12).w(100),
+                            CupertinoTextField(
+                              style: TextStyle(fontSize: 13, color: Vx.white),
+                              placeholder: '2',
+                            ).expand(),
+                          ],
+                        ).pOnly(bottom: 8),
+                      ],
+                    ).p12(),
                   ).expand(),
-                ],
-              ).pOnly(bottom: 8),
 
+                  12.widthBox,
+
+                  // 2
+                  Container(
+                    decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
+                    child: VStack(
+                      [
+                        'Player (inApp) Setting'.text.bold.size(13).make().pOnly(bottom: 12),
+                        HStack(
+                          [
+                            'Small Seek'.text.size(12).make().w(100),
+                            CupertinoTextField(
+                              style: TextStyle(fontSize: 13, color: Vx.white),
+                              suffix: 'Seconds'.text.size(12).make().pOnly(right: 12),
+                              placeholder: '5',
+                            ).expand(),
+                          ],
+                        ).pOnly(bottom: 8),
+                        HStack(
+                          [
+                            'Medium Seek'.text.size(12).make().w(100),
+                            CupertinoTextField(
+                              style: TextStyle(fontSize: 13, color: Vx.white),
+                              suffix: 'Seconds'.text.size(12).make().pOnly(right: 12),
+                              placeholder: '30',
+                            ).expand(),
+                          ],
+                        ).pOnly(bottom: 8),
+                        HStack(
+                          [
+                            'Long Seek'.text.size(12).make().w(100),
+                            CupertinoTextField(
+                              style: TextStyle(fontSize: 13, color: Vx.white),
+                              suffix: 'Seconds'.text.size(12).make().pOnly(right: 12),
+                              placeholder: '60',
+                            ).expand(),
+                          ],
+                        ).pOnly(bottom: 8),
+                      ],
+                    ).p12(),
+                  ).expand()
+                ],
+              ),
             ],
           ).p12(),
         ),
@@ -193,12 +254,22 @@ class PageSettingsView extends GetView<PageSettingsController> {
                 ExButtonText(
                   label: 'test',
                   onPressed: () async {
-                    await HelperToast.success('message');
+                    final notificationModel = NotificationModel(
+                      title: 'Hello!',
+                      body: 'This is a simple notification',
+                      payload: 'notification_data',
+                    );
+
+                    await AppNotificationService.show(notificationModel);
+
+                    AppNotificationService.registerNotificationTapHandler((v) {
+                      print('payload: $v');
+                    });
                   },
                 ),
               ],
             ).p8(),
-          ).pOnly(top: 12)
+          ).pOnly(top: 12).hide()
         ],
       ],
     ).scrollVertical();

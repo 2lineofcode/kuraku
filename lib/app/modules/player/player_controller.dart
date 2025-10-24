@@ -1,94 +1,256 @@
-import 'package:cached_video_player_plus/cached_video_player_plus.dart';
-import 'package:chewie/chewie.dart';
+import 'dart:async';
+import 'dart:io';
+
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:path/path.dart';
-import 'package:process_run/stdio.dart';
 import 'package:uicons_pro/uicons_pro.dart';
-import 'package:video_player/video_player.dart';
-import 'package:window_manager/window_manager.dart';
 
+import '../../../env.g.dart';
 import '../../core/app_color.dart';
+import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
 import '../../data/database/db_videos.dart';
 import '../../data/models/videos_entity.dart';
 import '../../utils/helper.dart';
 import '../home/page_home/page_home_controller.dart';
 import '../home/page_search/page_search_overlay.dart';
-import '../widgets/widget_chiwie_custom.dart';
 import '../widgets/widget_thumbnail.dart';
 
-class PlayerController extends GetxController with StateMixin<Videos>, GetSingleTickerProviderStateMixin, WindowListener {
+class PlayerController extends GetxController with StateMixin<Videos>, GetSingleTickerProviderStateMixin {
   final count = 0.obs;
   final fnMain = FocusNode();
+  final focusSignal = 0.obs;
+  final videoKey = GlobalKey<VideoState>();
 
-  late CachedVideoPlayerPlus cachePlayer;
-  late ChewieController chewie;
+  late final Player player;
+  late final VideoController videoController;
 
   final currentVideo = Videos().obs;
   final currentIndexPlaying = 0.obs;
   final playlist = <Videos>[].obs;
 
+  final isInitialized = false.obs;
   final isFullScreen = false.obs;
   final infoOverlayText = ''.obs;
+  final videoFit = BoxFit.contain.obs;
+
+  final position = Duration.zero.obs;
+  final duration = Duration.zero.obs;
+  final isPlaying = false.obs;
+  final isBuffering = false.obs;
+  final volume = AppPref.getPlayerVolume().obs;
+  final playbackSpeed = AppPref.getPlayerSpeed().obs;
+  final bufferingPercent = 0.0.obs;
+
   late AnimationController infoAnimationController;
+
+  final _subscriptions = <StreamSubscription>[];
+  double _lastPersistedVolume = AppPref.getPlayerVolume();
+  double _lastPersistedSpeed = AppPref.getPlayerSpeed();
+  bool _hasSyncedPreferences = false;
+
+  final args = Get.arguments as List;
+  late final List<Videos>? _argumentPlaylist = _parseArgumentPlaylist();
+  final isHasPlaylistBefore = false.obs;
+
 
   @override
   Future<void> onInit() async {
     super.onInit();
 
+    player = Player(
+      configuration: PlayerConfiguration(
+        vo: 'gpu',
+        logLevel: MPVLogLevel.error,
+        bufferSize: 1024 * 1024 * 1024,
+        title: Env.appName,
+        ready: () => AppLog.logD('player is ready'),
+      ),
+    );
+
+    videoController = VideoController(player);
     infoAnimationController = AnimationController(vsync: this, duration: 1.seconds, reverseDuration: 200.milliseconds);
 
-    currentVideo.value = Get.arguments as Videos;
+    _bindPlayerStreams();
+
+    isHasPlaylistBefore.value = _argumentPlaylist != null;
+    if (isHasPlaylistBefore.isFalse) {
+      AppLog.logD('single mode');
+      currentVideo.value = args[0] as Videos;
+    } else {
+      AppLog.logD('multiple mode');
+      currentVideo.value = args[0] as Videos;
+    }
+
+
     await DBVideos.updateViewCount(currentVideo.value);
     await generatePlaylist();
     currentIndexPlaying.value = playlist.indexWhere((element) => element.id == currentVideo.value.id);
 
+    await _openVideo(currentVideo.value);
+
+    change(currentVideo.value, status: RxStatus.success());
+    requestFocusOnPlayer();
+  }
+
+  void _bindPlayerStreams() {
+    _subscriptions.add(player.stream.position.listen((value) => position.value = value));
+    _subscriptions.add(player.stream.duration.listen((value) => duration.value = value));
+    _subscriptions.add(player.stream.playing.listen((value) => isPlaying.value = value));
+    _subscriptions.add(player.stream.buffering.listen((value) => isBuffering.value = value));
+    _subscriptions.add(player.stream.bufferingPercentage.listen((value) => bufferingPercent.value = value));
+
+    _subscriptions.add(player.stream.volume.listen((value) {
+      final normalized = (value / 100.0).clamp(0.0, 1.0);
+      volume.value = normalized;
+      if (_hasSyncedPreferences && (normalized - _lastPersistedVolume).abs() > 0.01) {
+        _lastPersistedVolume = normalized;
+        AppPref.setPlayerVolume(normalized);
+      }
+    }));
+
+    _subscriptions.add(player.stream.rate.listen((value) {
+      playbackSpeed.value = value;
+      if (_hasSyncedPreferences && (value - _lastPersistedSpeed).abs() > 0.01) {
+        _lastPersistedSpeed = value;
+        AppPref.setPlayerSpeed(value);
+      }
+    }));
+
+    _subscriptions.add(player.stream.width.listen((value) {
+      if (value != null && value > 0) isInitialized.value = true;
+    }));
+
+    _subscriptions.add(player.stream.height.listen((value) {
+      if (value != null && value > 0) isInitialized.value = true;
+    }));
+
+    _subscriptions.add(player.stream.error.listen((value) async {
+      if (value.isNotEmpty) await HelperToast.error(value);
+    }));
+  }
+
+  Future<void> _openVideo(Videos video) async {
+    final path = video.videoPath;
+    if (path.isNullOrEmpty) {
+      await HelperToast.error('Video path is null');
+      return;
+    }
+
+    final file = File(path!);
+    if (!file.existsSync()) {
+      await HelperToast.warn('Cant access video file');
+      return;
+    }
+
     try {
-      cachePlayer = CachedVideoPlayerPlus.file(
-        File(currentVideo.value.videoPath!),
-        videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
+      isInitialized.value = false;
+      _hasSyncedPreferences = false;
+      position.value = Duration.zero;
+      duration.value = Duration.zero;
+
+      await player.open(
+        Media(Uri.file(path).toString()),
+        play: true,
       );
 
-      await cachePlayer.initialize().then((_) async {
-        await cachePlayer.controller.play();
-        await cachePlayer.controller.setPlaybackSpeed(AppPref.getPlayerSpeed());
-        await cachePlayer.controller.setVolume(AppPref.getPlayerVolume());
-      });
-    } catch (_) {}
+      await player.setRate(playbackSpeed.value);
+      await player.setVolume(volume.value * 100);
+      _hasSyncedPreferences = true;
+      try {
+        await videoController.waitUntilFirstFrameRendered.timeout(3.seconds, onTimeout: () => null);
+      } catch (_) {}
+      isInitialized.value = true;
+    } catch (e) {
+      isInitialized.value = false;
+      await HelperToast.error('Failed to load video: $e');
+    }
+  }
 
-    chewie = ChewieController(
-      videoPlayerController: cachePlayer.controller,
-      autoPlay: true,
-      allowFullScreen: true,
-      showOptions: false,
-      zoomAndPan: true,
-      allowMuting: true,
-      autoInitialize: true,
-      looping: false,
-      customControls: ExChewieCustom(video: currentVideo.value, showTitle: true),
+  Future<void> setVolumeNormalized(double value) async {
+    final normalized = value.clamp(0.0, 1.0);
+    volume.value = normalized;
+    _lastPersistedVolume = normalized;
+    AppPref.setPlayerVolume(normalized);
+    _hasSyncedPreferences = true;
+    await player.setVolume(normalized * 100);
+  }
+
+  Future<void> adjustVolume(double delta) async {
+    await setVolumeNormalized(volume.value + delta);
+  }
+
+  Future<void> mute() async {
+    await setVolumeNormalized(0.0);
+  }
+
+  Future<void> setPlaybackRate(double value) async {
+    final clamped = value.clamp(0.25, 3.0);
+    playbackSpeed.value = clamped;
+    _lastPersistedSpeed = clamped;
+    AppPref.setPlayerSpeed(clamped);
+    _hasSyncedPreferences = true;
+    await player.setRate(clamped);
+  }
+
+  Future<void> adjustPlaybackRate(double delta) async {
+    await setPlaybackRate(playbackSpeed.value + delta);
+  }
+
+  Future<void> togglePlayPause() async {
+    if (isPlaying.value) {
+      await player.pause();
+    } else {
+      await player.play();
+    }
+  }
+
+  Future<void> seek(Duration target) async {
+    final total = duration.value;
+    final clamped = _clampDuration(
+      target,
+      Duration.zero,
+      total > Duration.zero ? total : target,
     );
+    await player.seek(clamped);
+  }
 
-    windowManager.addListener(this);
-    change(currentVideo.value, status: RxStatus.success());
+  Future<void> seekRelative(Duration offset) async {
+    await seek(position.value + offset);
+  }
+
+  Duration _clampDuration(Duration value, Duration min, Duration max) {
+    if (value < min) return min;
+    if (max > min && value > max) return max;
+    return value;
   }
 
   Future<void> generatePlaylist() async {
     playlist.clear();
-    final list = await DBVideos.getAllVideoPath('video_path', '${dirname(currentVideo.value.videoPath!)}%');
-    playlist.addAll(list);
+    final initialPlaylist = _argumentPlaylist;
+    if (initialPlaylist != null && initialPlaylist.isNotEmpty) {
+      playlist.addAll(initialPlaylist);
+    } else {
+      final directoryVideos = await DBVideos.getAllVideoPath('video_path', '${dirname(currentVideo.value.videoPath!)}%');
+      playlist.addAll(directoryVideos);
+    }
     currentIndexPlaying.value = playlist.indexWhere((element) => element.id == currentVideo.value.id);
   }
 
   Future<void> openInfo() async {
     if (Overlayment.count > 0) {
       await Overlayment.dismissLast();
+      requestFocusOnPlayer();
       return;
     }
     await PageSearchOverlay.onItemTap(currentVideo.value);
+    requestFocusOnPlayer();
   }
 
   Future<void> openList() async {
@@ -102,10 +264,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     final _videos = <Videos>[].obs;
     final _listScrollController = ScrollController();
 
-    _videos.value = await DBVideos.getAllVideoPath(
-      'video_path',
-      '${dirname(currentVideo.value.videoPath!)}%',
-    );
+    _videos.value = playlist;
 
     if (_listScrollController.hasClients) {
       _listScrollController.jumpTo(currentIndexPlaying.value * 135);
@@ -124,16 +283,20 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
         ),
         actions: OverlayActions(
           onReady: () async {
-            await _listScrollController.animateTo(currentIndexPlaying.value * 127, duration: 300.milliseconds, curve: Curves.decelerate);
+            await _listScrollController.animateTo(
+              currentIndexPlaying.value * 127,
+              duration: 300.milliseconds,
+              curve: Curves.decelerate,
+            );
             _fnSearch.requestFocus();
           },
-          onClose: (p0) async{
+          onClose: (p0) async {
             _fnSearch.unfocus();
+            requestFocusOnPlayer();
           },
         ),
         child: VStack(
           [
-            // 'Search'.text.make(),
             CupertinoTextField(
               controller: _tecSearch,
               focusNode: _fnSearch,
@@ -148,7 +311,11 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
                     whereArgs: ['${dirname(currentVideo.value.videoPath!)}%'],
                   );
 
-                  await _listScrollController.animateTo(currentIndexPlaying.value * 127, duration: 300.milliseconds, curve: Curves.decelerate);
+                  await _listScrollController.animateTo(
+                    currentIndexPlaying.value * 127,
+                    duration: 300.milliseconds,
+                    curve: Curves.decelerate,
+                  );
                 } else {
                   _videos.value = await DBVideos.getAll(
                     where: 'video_code LIKE ? OR title LIKE ? OR video_path LIKE ?',
@@ -159,7 +326,6 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
                 }
               },
             ).pSymmetric(v: 12),
-
             Obx(
               () => ListView.separated(
                 controller: _listScrollController,
@@ -194,22 +360,15 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
                               .color(AppColor.black170)
                               .cornerRadius(4)
                               .positioned(bottom: 3, left: 3),
-                          
-                          // isHasUncensored
                           if (__item.videoPath?.isHasUncensored() == true) ...[
                             'RM'.text.red400.size(11).minFontSize(11).make().pSymmetric(h: 4).color(AppColor.black170).cornerRadius(4).positioned(top: 3, right: 3),
                           ],
-
-                          // isHasEnSub
                           if (__item.videoPath?.isHasEnSub() == true) ...[
                             'EN'.text.blue400.size(11).minFontSize(11).make().pSymmetric(h: 4).color(AppColor.black170).cornerRadius(4).positioned(top: 3, right: 3),
                           ],
-
-                          // isHasIdSub
                           if (__item.videoPath?.isHasIdSub() == true) ...[
                             'ID'.text.blue400.size(11).minFontSize(11).make().pSymmetric(h: 4).color(AppColor.black170).cornerRadius(4).positioned(top: 3, right: 3),
                           ],
-
                         ]).pOnly(right: 12),
                         VStack([
                           '${__item.videoCode == '' ? __item.title?.maxWords(5) : __item.videoCode}'.text.bold.ellipsis.maxLines(1).minFontSize(13).size(13).make().pOnly(bottom: 12),
@@ -218,24 +377,21 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
                           HStack([
                             '${__item.filesize?.toFileSize()}'.text.orange300.size(11).minFontSize(11).make().pOnly(right: 8).tooltip('${__item.videoPath}'),
                             Spacer(),
-                            GetBuilder(
-                              init: PlayerController(),
-                              builder: (c) => Icon(
-                                __item.isFavorite == 1 ? UIconsPro.solidRounded.star : UIconsPro.regularRounded.star,
-                                color: __item.isFavorite == 1 ? Colors.orange : null,
-                                size: 13,
-                              ).onInkTap(() async {
-                                if (__item.isFavorite == 1) {
-                                  __item.isFavorite = 0;
-                                  await DBVideos.removeFromFavorite(__item);
-                                } else {
-                                  __item.isFavorite = 1;
-                                  await DBVideos.addToFavorite(__item);
-                                }
-                                await Get.find<PageHomeController>().onInit();
-                                update();
-                              }),
-                            ).pOnly(right: 12),
+                            Icon(
+                              __item.isFavorite == 1 ? UIconsPro.solidRounded.star : UIconsPro.regularRounded.star,
+                              color: __item.isFavorite == 1 ? Colors.orange : null,
+                              size: 13,
+                            ).onInkTap(() async {
+                              if (__item.isFavorite == 1) {
+                                __item.isFavorite = 0;
+                                await DBVideos.removeFromFavorite(__item);
+                              } else {
+                                __item.isFavorite = 1;
+                                await DBVideos.addToFavorite(__item);
+                              }
+                              await Get.find<PageHomeController>().onInit();
+                              _videos.refresh();
+                            }).pOnly(right: 12),
                             if (!__item.actress.isEmptyOrNull) ...[
                               Icon(UIconsPro.regularRounded.person_dolly, size: 13).pOnly(right: 8).onInkTap(() async {
                                 final _fltr = await DBVideos.getByActress(__item.actress?[0].nameRomaji ?? '');
@@ -274,54 +430,20 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
         ).p12(),
       ),
     );
+    requestFocusOnPlayer();
   }
 
   Future<void> changeVideo(Videos newVideo) async {
     currentVideo.value = newVideo;
-    await cachePlayer.dispose();
-    chewie.dispose();
-
-    try {
-      if (newVideo.videoPath == null) {
-        await HelperToast.error('Video path is null');
-        return;
-      }
-
-      cachePlayer = CachedVideoPlayerPlus.file(
-        File(newVideo.videoPath!),
-        videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
-      );
-
-      await cachePlayer.initialize().then((_) async {
-        await cachePlayer.controller.play();
-        await cachePlayer.controller.setPlaybackSpeed(1);
-        await cachePlayer.controller.setVolume(0.1);
-      });
-    } catch (e) {
-      await HelperToast.error('Failed to load new video: $e');
-      return;
-    }
-
-    chewie = ChewieController(
-      videoPlayerController: cachePlayer.controller,
-      autoPlay: true,
-      allowFullScreen: false,
-      showOptions: false,
-      zoomAndPan: true,
-      allowMuting: true,
-      autoInitialize: true,
-      looping: false,
-      customControls: ExChewieCustom(video: newVideo),
-    );
-
+    await _openVideo(newVideo);
     await generatePlaylist();
     await showInfoOverlay('${currentIndexPlaying.value + 1}/${playlist.length}');
 
     await DBVideos.updateViewCount(currentVideo.value);
     change(newVideo, status: RxStatus.success());
+    requestFocusOnPlayer();
   }
 
-  // ** shortcuts actions ** //
   Future<void> showInfoOverlay(String text) async {
     infoOverlayText.value = text;
     if (infoAnimationController.isAnimating || infoAnimationController.isCompleted) {
@@ -331,6 +453,12 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       await Future.delayed(1500.milliseconds);
       await infoAnimationController.reverse();
     });
+  }
+
+  Future<void> toggleVideoFit() async {
+    videoFit.value = videoFit.value == BoxFit.contain ? BoxFit.fitHeight : BoxFit.contain;
+    final label = videoFit.value == BoxFit.contain ? 'Fit: Contain' : 'Fit: Fit Height';
+    await showInfoOverlay(label);
   }
 
   Future<void> nextVideo() async {
@@ -345,30 +473,66 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     await changeVideo(playlist[currentIndexPlaying.value]);
   }
 
+  Future<void> toggleFullscreen() async {
+    final state = videoKey.currentState;
+    if (state == null) {
+      AppLog.logD('toggleFullscreen: videoKey.currentState is null');
+      return;
+    }
+
+    final isCurrentlyFullScreen = state.isFullscreen();
+    AppLog.logD('toggleFullscreen: currently fullscreen = $isCurrentlyFullScreen');
+
+    try {
+      if (isCurrentlyFullScreen) {
+        await state.exitFullscreen();
+        isFullScreen.value = false;
+        AppLog.logD('toggleFullscreen: exited fullscreen');
+      } else {
+        await state.enterFullscreen();
+        isFullScreen.value = true;
+        AppLog.logD('toggleFullscreen: entered fullscreen');
+      }
+
+      // Force app update for fullscreen transition per GetX requirements
+      await Get.forceAppUpdate();
+
+      // Wait for widget tree rebuild and focus restoration
+      // The fullscreenSubscription in media_kit_controls will handle focus
+      await Future.delayed(10.milliseconds);
+    } catch (e) {
+      AppLog.logD('toggleFullscreen error: $e');
+    }
+  }
+
   Future<void> openSS() async {
     await HelperOpener.openScreenshot(currentVideo.value);
   }
 
-  // ** end shortcuts actions ** //
-
-  @override
-  void onWindowEnterFullScreen([int? windowId]) {
-    Get.forceAppUpdate();
-    isFullScreen.value = true;
-  }
-
-  @override
-  void onWindowLeaveFullScreen([int? windowId]) {
-    Get.forceAppUpdate();
-    isFullScreen.value = false;
-  }
-
   @override
   Future<void> onClose() async {
-    await cachePlayer.dispose();
-    chewie.dispose();
+    for (final subscription in _subscriptions) {
+      await subscription.cancel();
+    }
+    await player.dispose();
     infoAnimationController.dispose();
-    windowManager.removeListener(this);
+    fnMain.dispose();
     super.onClose();
+  }
+
+  void requestFocusOnPlayer() {
+    focusSignal.value++;
+    if (!fnMain.hasFocus) {
+      fnMain.requestFocus();
+    }
+  }
+
+  List<Videos>? _parseArgumentPlaylist() {
+    if (args.length < 2) return null;
+    final raw = args[1];
+    if (raw is Iterable<Videos>) {
+      return List<Videos>.from(raw);
+    }
+    return null;
   }
 }

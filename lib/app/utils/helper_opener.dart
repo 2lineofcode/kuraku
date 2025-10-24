@@ -50,19 +50,32 @@ mixin HelperOpener {
   }
 
   // open video file -> direct default video player
-  static Future<void> openVideoFile(Videos video) async {
+  static Future<void> openVideoFile(Videos video, {List<Videos>? playlist}) async {
     // await cmd.run('open "${video.videoPath}"', verbose: false).then((s) async {
     //   await DBVideos.updateViewCount(video);
     //   await Get.find<PageHomeController>().getListMostWatch();
     // }).catchError((e) async {
     //   await HelperToast.error('${e.toString()}');
     // });
+
+    // single 
     final file = File('${video.videoPath}');
     if (!file.existsSync()) {
       await HelperToast.error('Cant access file: ${video.videoPath}');
       return;
     }
-    await Get.toNamed(Routes.PLAYER, arguments: video);
+
+    // playlist
+    final prefixPlaylist = playlist;
+    // if (playlist != null) {
+    //   for (var video in playlist) {
+    //     final file = File('${video.videoPath}');
+    //     if (!file.existsSync()) {
+    //       prefixPlaylist?.remove(video);
+    //     }
+    //   }
+    // }
+    await Get.toNamed(Routes.PLAYER, arguments: [video, prefixPlaylist]);
   }
 
   // ────────────────────────────────────────────────────────────────

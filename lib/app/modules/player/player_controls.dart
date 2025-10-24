@@ -1,0 +1,854 @@
+import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:ex_kit/ex.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+import 'package:uicons_pro/uicons_pro.dart';
+
+import '../../core/app_color.dart';
+import '../../utils/helper.dart';
+import 'player_controller.dart';
+
+class PlayerControls extends StatefulWidget {
+  const PlayerControls({
+    super.key,
+    required this.controller,
+    this.showTitle = true,
+  });
+
+  final PlayerController controller;
+  final bool showTitle;
+
+  @override
+  State<PlayerControls> createState() => _PlayerControlsState();
+}
+
+class _PlayerControlsState extends State<PlayerControls> with SingleTickerProviderStateMixin {
+  final FocusNode _focusNode = FocusNode();
+  final Duration _autoHideDuration = 500.milliseconds;
+
+  Timer? _hideTimer;
+  bool _controlsVisible = true;
+
+  Timer? _infoTimer;
+  late AnimationController _infoAnimationController;
+  String _infoText = '';
+
+  double? _scrubValue;
+  double? _preMuteVolume;
+  DateTime? _lastEqualPress;
+  bool _isVolumePointerInside = false;
+  bool _isVolumeDragging = false;
+
+  late final StreamSubscription<bool> _playingSubscription;
+  late final StreamSubscription<int> _focusSubscription;
+  StreamSubscription<bool>? _fullscreenSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _infoAnimationController = AnimationController(
+      vsync: this,
+      duration: 200.milliseconds,
+    );
+
+    _playingSubscription = widget.controller.isPlaying.listen((playing) {
+      if (playing) {
+        _startHideTimer();
+      } else {
+        _showControls(permanent: true);
+      }
+    });
+    _focusSubscription = widget.controller.focusSignal.listen((_) {
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
+    });
+    
+    // Listen to fullscreen changes and restore focus
+    _fullscreenSubscription = widget.controller.isFullScreen.listen((isFullscreen) {
+      // Multiple attempts to ensure focus is restored
+      Future.delayed(100.milliseconds, () {
+        if (mounted) {
+          _focusNode.requestFocus();
+          _showControls(permanent: true);
+        }
+      });
+      
+      Future.delayed(250.milliseconds, () {
+        if (mounted) {
+          _focusNode.requestFocus();
+        }
+      });
+      
+      Future.delayed(400.milliseconds, () {
+        if (mounted && !_focusNode.hasFocus) {
+          _focusNode.requestFocus();
+        }
+      });
+    });
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    _infoTimer?.cancel();
+    _playingSubscription.cancel();
+    _focusSubscription.cancel();
+    _fullscreenSubscription?.cancel();
+    _infoAnimationController.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shortcuts = <LogicalKeySet, Intent>{
+      // Playback controls
+      LogicalKeySet(LogicalKeyboardKey.space): PlayPauseIntent(),
+      
+      // Seeking
+      LogicalKeySet(LogicalKeyboardKey.arrowRight): SeekForward5sIntent(),
+      LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowRight): SeekForward30sIntent(),
+      LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.arrowRight): SeekForward60sIntent(),
+      LogicalKeySet(LogicalKeyboardKey.arrowLeft): SeekBackward5sIntent(),
+      LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowLeft): SeekBackward30sIntent(),
+      LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.arrowLeft): SeekBackward60sIntent(),
+      
+      // Volume (ArrowUp conflicts with screenshot, so only ArrowDown)
+      LogicalKeySet(LogicalKeyboardKey.arrowUp): VolumeUpIntent(),
+      LogicalKeySet(LogicalKeyboardKey.arrowDown): VolumeDownIntent(),
+      
+      // Speed
+      LogicalKeySet(LogicalKeyboardKey.bracketRight): SpeedUpIntent(),
+      LogicalKeySet(LogicalKeyboardKey.bracketLeft): SpeedDownIntent(),
+      
+      // Other
+      LogicalKeySet(LogicalKeyboardKey.keyM): MuteIntent(),
+      LogicalKeySet(LogicalKeyboardKey.keyF): ToggleFullscreenIntent(),
+      LogicalKeySet(LogicalKeyboardKey.equal): EqualTapIntent(),
+      LogicalKeySet(LogicalKeyboardKey.keyA): ToggleVideoFitIntent(),
+      
+      // Navigation shortcuts from player_view
+      LogicalKeySet(LogicalKeyboardKey.keyL): OpenListIntent(),
+      LogicalKeySet(LogicalKeyboardKey.keyQ): BackIntent(),
+      LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowUp): OpenScreenshotIntent(),
+      LogicalKeySet(LogicalKeyboardKey.keyI): OpenInfoIntent(),
+      LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.greater): NextVideoIntent(),
+      LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.less): PrevVideoIntent(),
+    };
+
+    final actions = <Type, Action<Intent>>{
+      PlayPauseIntent: CallbackAction<PlayPauseIntent>( onInvoke: (intent) { _togglePlayPause(); return null; }, ),
+      SeekForward5sIntent: CallbackAction<SeekForward5sIntent>( onInvoke: (intent) { _seekRelative(Duration(seconds: 5)); return null; }, ),
+      SeekForward30sIntent: CallbackAction<SeekForward30sIntent>( onInvoke: (intent) { _seekRelative(Duration(seconds: 30)); return null; }, ),
+      SeekForward60sIntent: CallbackAction<SeekForward60sIntent>( onInvoke: (intent) { _seekRelative(Duration(seconds: 60)); return null; }, ),
+      SeekBackward5sIntent: CallbackAction<SeekBackward5sIntent>( onInvoke: (intent) { _seekRelative(Duration(seconds: -5)); return null; }, ),
+      SeekBackward30sIntent: CallbackAction<SeekBackward30sIntent>( onInvoke: (intent) { _seekRelative(Duration(seconds: -30)); return null; }, ),
+      SeekBackward60sIntent: CallbackAction<SeekBackward60sIntent>( onInvoke: (intent) { _seekRelative(Duration(seconds: -60)); return null; }, ),
+      VolumeDownIntent: CallbackAction<VolumeDownIntent>( onInvoke: (intent) { _changeVolume(-0.05); return null; }, ),
+      VolumeUpIntent: CallbackAction<VolumeUpIntent>( onInvoke: (intent) { _changeVolume(0.05); return null; }, ),
+      SpeedUpIntent: CallbackAction<SpeedUpIntent>( onInvoke: (intent) { _changeSpeed(0.1); return null; }, ),
+      SpeedDownIntent: CallbackAction<SpeedDownIntent>( onInvoke: (intent) { _changeSpeed(-0.1); return null; }, ),
+      MuteIntent: CallbackAction<MuteIntent>( onInvoke: (intent) { _toggleMute(); return null; }, ),
+      ToggleFullscreenIntent: CallbackAction<ToggleFullscreenIntent>( onInvoke: (intent) { _toggleFullscreen(); return null; }, ),
+      EqualTapIntent: CallbackAction<EqualTapIntent>( onInvoke: (intent) { _handleEqualPress(); return null; }, ),
+      ToggleVideoFitIntent: CallbackAction<ToggleVideoFitIntent>( onInvoke: (intent) => widget.controller.toggleVideoFit() ),
+      OpenListIntent: CallbackAction<OpenListIntent>( onInvoke: (intent) { widget.controller.openList(); return null; }, ),
+      BackIntent: CallbackAction<BackIntent>(onInvoke: (intent) { Get.back(); return null; }),
+      OpenScreenshotIntent: CallbackAction<OpenScreenshotIntent>( onInvoke: (intent) { widget.controller.openSS(); return null; } ),
+      OpenInfoIntent: CallbackAction<OpenInfoIntent>( onInvoke: (intent) { widget.controller.openInfo(); return null; }, ),
+      NextVideoIntent: CallbackAction<NextVideoIntent>( onInvoke: (intent) { widget.controller.nextVideo(); return null; }, ),
+      PrevVideoIntent: CallbackAction<PrevVideoIntent>( onInvoke: (intent) { widget.controller.prevVideo(); return null; }, ),
+    };
+
+    return FocusScope(
+      autofocus: true,
+      child: Shortcuts(
+        shortcuts: shortcuts,
+        child: Actions(
+          actions: actions,
+          child: Focus(
+            focusNode: _focusNode,
+            autofocus: true,
+            child: MouseRegion(
+              onHover: (_) => _onUserInteraction(),
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _onUserInteraction,
+                onDoubleTap: () async => await _toggleFullscreen(),
+                child: Stack(
+                  children: [
+                    _buildCenterOverlay(),
+                    
+                    // ** Top Bar
+                    _buildTopBar(),
+
+                    // ** Bottom Bar
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: _buildBottomBar(),
+                    ),
+
+                    // ** Total Video Overlay
+                    IgnorePointer(
+                      ignoring: true,
+                      child: FadeTransition(
+                        opacity: widget.controller.infoAnimationController,
+                        child: Obx(
+                          () => widget.controller.infoOverlayText.value.isEmpty
+                              ? SizedBox.shrink()
+                              : '${widget.controller.infoOverlayText.value}'.text.bold.white.make().pSymmetric(h: 8, v: 4).box.color(Colors.black).make().cornerRadius(90),
+                        ),
+                      ),
+                    ).centered(),
+
+                    // ** Info Overlay
+                    Positioned(
+                      top: 78,
+                      right: 12,
+                      child: FadeTransition(
+                        opacity: _infoAnimationController,
+                        child: _infoText.isEmpty
+                            ? SizedBox.shrink()
+                            : _infoText.text.bold.size(12).white.make().pSymmetric(h: 12, v: 4).box.color(Colors.black).roundedLg.make().centered(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCenterOverlay() {
+    return Obx(() {
+      if (widget.controller.isBuffering.value && widget.controller.isInitialized.value) {
+        return Center(child: CircularProgressIndicator.adaptive());
+      }
+
+      if (!widget.controller.isPlaying.value) {
+        return Center(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(48),
+            ),
+            child: IconButton(
+              iconSize: 56,
+              icon: Icon(Icons.play_arrow, color: Colors.white),
+              onPressed: _togglePlayPause,
+            ),
+          ),
+        );
+      }
+
+      return SizedBox.shrink();
+    });
+  }
+
+
+  Widget _buildTopBar() {
+    return Obx(() {
+      final video = widget.controller.currentVideo.value;
+
+      return AnimatedOpacity(
+        opacity: _controlsVisible ? 1.0 : 0.0,
+        duration: 100.milliseconds,
+        child: Container(
+          padding: EdgeInsets.fromLTRB(16, 36, 16, 18),
+          child: HStack(
+            [
+
+              // if ((video.videoCode ?? '').isNotEmpty) ...[
+                
+              // ],
+
+              Container(
+                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 16, fillColor: Colors.black),
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      video.videoCode!.isNotBlank ? video.videoCode! : 'NON-JAV',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    if (video.viewCount != null && video.viewCount! > 0)
+                      Text(
+                        ' • ${video.viewCount} views',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white.withValues(alpha: .7),
+                        ),
+                      ),
+                  ],
+                ).onTap(() {
+                  HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
+                }),
+              ),
+
+              Spacer(),
+
+              Container(
+                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
+                child: Icon(UIconsPro.regularRounded.info, size: 14).p8(),
+              ).tooltip('Video Info (I)').onInkTap(() => widget.controller.openInfo()),
+
+              8.widthBox,
+
+              Container(
+                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
+                child: Icon(UIconsPro.regularRounded.list, size: 14).p8(),
+              ).tooltip('Playlist (L)').onInkTap(() => widget.controller.openList()),
+
+              8.widthBox,
+
+              Container(
+                decoration: ExDecorator.box(
+                  borderColor: Colors.transparent,
+                  borderRadius: 12,
+                  fillColor: AppColor.black120,
+                ),
+                child: Icon(UIconsPro.regularRounded.cross_small, size: 14).p8(),
+              ).tooltip('Close (Q)').onInkTap(() => Get.back()),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildBottomBar() {
+    return Obx(() {
+      final video = widget.controller.currentVideo.value;
+      final pos = widget.controller.position.value;
+      final dur = widget.controller.duration.value;
+      final volumeValue = widget.controller.volume.value;
+      final speed = widget.controller.playbackSpeed.value;
+      final bufferPercent = widget.controller.bufferingPercent.value;
+      final hasPrev = widget.controller.currentIndexPlaying.value > 0;
+      final hasNext = widget.controller.currentIndexPlaying.value + 1 < widget.controller.playlist.length;
+      final isFullscreen = widget.controller.isFullScreen.value;
+
+      return AnimatedOpacity(
+        opacity: _controlsVisible ? 1.0 : 0.0,
+        duration: 100.milliseconds,
+        child: Container(
+          padding: EdgeInsets.fromLTRB(16, 18, 16, 18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.transparent,
+                Colors.black.withValues(alpha: .85),
+              ],
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.showTitle) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        video.title ?? '',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: Colors.white),
+                      ).tooltip(video.videoPath ?? '').opacity(value: .90),
+                    ),
+                    
+                  ],
+                ),
+                SizedBox(height: 12),
+              ],
+              _buildProgressBar(pos, dur, bufferPercent),
+              SizedBox(height: 16),
+              Row(
+                children: [
+                  _buildControlIcon(
+                    icon: widget.controller.isPlaying.value ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    tooltip: widget.controller.isPlaying.value ? 'Pause (Space)' : 'Play (Space)',
+                    size: 32,
+                    onTap: _togglePlayPause,
+                  ),
+                  SizedBox(width: 8),
+                  _buildSecondaryIcon(
+                    icon: Icons.skip_previous_rounded,
+                    tooltip: 'Previous (Shift + <)',
+                    enabled: hasPrev,
+                    onTap: () async {
+                      await widget.controller.prevVideo();
+                      _showControls();
+                    },
+                  ),
+                  _buildSecondaryIcon(
+                    icon: Icons.skip_next_rounded,
+                    tooltip: 'Next (Shift + >)',
+                    enabled: hasNext,
+                    onTap: () async {
+                      await widget.controller.nextVideo();
+                      _showControls();
+                    },
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    '${_formatDuration(pos)} / ${_formatDuration(dur)}',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Spacer(),
+                  _buildVolumeCluster(volumeValue),
+                  SizedBox(width: 12),
+                  _buildSpeedMenu(speed),
+                  SizedBox(width: 12) ,
+                  _buildFullscreenButton(isFullscreen),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildProgressBar(Duration pos, Duration dur, double bufferPercent) {
+    final maxPosition = math.max(dur.inMilliseconds, 1);
+    final sliderValue = (_scrubValue ?? pos.inMilliseconds.toDouble()).clamp(0.0, maxPosition.toDouble());
+    final playedFraction = sliderValue / maxPosition;
+    final bufferedFraction = bufferPercent.isNaN ? 0.0 : bufferPercent.clamp(0.0, 100.0) / 100.0;
+
+    return SizedBox(
+      height: 32,
+      child: Stack(
+        alignment: Alignment.centerLeft,
+        children: [
+          Container(
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .2),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          FractionallySizedBox(
+            widthFactor: bufferedFraction.clamp(playedFraction, 1.0),
+            child: Container(
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .15),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          FractionallySizedBox(
+            widthFactor: playedFraction.clamp(0.0, 1.0),
+            child: Container(
+              height: 4,
+              decoration: BoxDecoration(
+                color: Color(0xFFFF0034),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 0,
+              thumbShape: RoundSliderThumbShape(enabledThumbRadius: 7),
+              overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
+              activeTrackColor: Colors.transparent,
+              inactiveTrackColor: Colors.transparent,
+              thumbColor: Colors.white,
+              overlayColor: Colors.white24,
+            ),
+            child: Slider(
+              min: 0,
+              max: maxPosition.toDouble(),
+              value: sliderValue,
+              onChangeStart: (_) => _cancelHideTimer(),
+              onChanged: (value) => setState(() => _scrubValue = value),
+              onChangeEnd: (value) async {
+                _scrubValue = null;
+                await widget.controller.seek(Duration(milliseconds: value.round()));
+                if (widget.controller.isPlaying.value) {
+                  _startHideTimer();
+                }
+                final target = widget.controller.position.value;
+                final total = widget.controller.duration.value;
+                _showInfo('${_formatDuration(target)} / ${_formatDuration(total)}');
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildControlIcon({
+    required IconData icon,
+    required VoidCallback onTap,
+    String? tooltip,
+    double size = 28,
+  }) {
+    return IconButton(
+      iconSize: size,
+      splashRadius: size,
+      tooltip: tooltip,
+      icon: Icon(icon, color: Colors.white),
+      onPressed: () {
+        onTap();
+        _showControls();
+      },
+    );
+  }
+
+  Widget _buildSecondaryIcon({
+    required IconData icon,
+    required Future<void> Function() onTap,
+    required bool enabled,
+    String? tooltip,
+  }) {
+    return IconButton(
+      iconSize: 24,
+      splashRadius: 26,
+      tooltip: tooltip,
+      icon: Icon(icon, color: enabled ? Colors.white : Colors.white24),
+      onPressed: enabled
+          ? () async {
+              _cancelHideTimer();
+              await onTap();
+              _startHideTimer();
+            }
+          : null,
+    );
+  }
+
+  Widget _buildVolumeCluster(double volumeValue) {
+    final icon = volumeValue == 0
+        ? Icons.volume_off
+        : volumeValue < 0.5
+            ? Icons.volume_down
+            : Icons.volume_up;
+
+    final showSlider = _isVolumePointerInside || _isVolumeDragging;
+
+    return MouseRegion(
+      onEnter: (_) {
+        if (!_isVolumePointerInside) {
+          setState(() {
+            _isVolumePointerInside = true;
+          });
+        }
+      },
+      onExit: (_) {
+        if (_isVolumePointerInside) {
+          setState(() {
+            _isVolumePointerInside = false;
+          });
+        }
+      },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'Mute (M)',
+            icon: Icon(icon, color: Colors.white),
+            splashRadius: 24,
+            onPressed: () async {
+              _cancelHideTimer();
+              await _toggleMute();
+              _showControls();
+            },
+          ),
+          ClipRect(
+            child: AnimatedSize(
+              duration: 200.milliseconds,
+              curve: Curves.easeOut,
+              clipBehavior: Clip.hardEdge,
+              child: SizedBox(
+                width: showSlider ? 110 : 0,
+                child: AnimatedOpacity(
+                  duration: 150.milliseconds,
+                  curve: Curves.easeOut,
+                  opacity: showSlider ? 1 : 0,
+                  child: IgnorePointer(
+                    ignoring: !showSlider,
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 2,
+                        thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
+                        overlayShape: RoundSliderOverlayShape(overlayRadius: 10),
+                        activeTrackColor: Colors.white,
+                        inactiveTrackColor: Colors.white30,
+                        thumbColor: Colors.white,
+                        overlayColor: Colors.white24,
+                      ),
+                      child: Slider(
+                        min: 0,
+                        max: 1,
+                        value: volumeValue.clamp(0.0, 1.0),
+                        onChangeStart: (_) {
+                          _cancelHideTimer();
+                          if (!_isVolumeDragging) {
+                            setState(() => _isVolumeDragging = true);
+                          }
+                        },
+                        onChanged: (value) async {
+                          await widget.controller.setVolumeNormalized(value);
+                          setState(() {});
+                        },
+                        onChangeEnd: (_) {
+                          if (_isVolumeDragging) {
+                            setState(() {
+                              _isVolumeDragging = false;
+                            });
+                          }
+                          if (widget.controller.isPlaying.value) {
+                            _startHideTimer();
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpeedMenu(double currentSpeed) {
+    const speeds = <double>[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+
+    return PopupMenuButton<double>(
+      tooltip: 'Playback speed',
+      offset: Offset(0, -8),
+      initialValue: currentSpeed,
+      color: AppColor.black120,
+      onSelected: (value) async {
+        await widget.controller.setPlaybackRate(value);
+        _showInfo('Speed: ${value.toStringAsFixed(2)}x');
+        _showControls();
+      },
+      itemBuilder: (context) => speeds
+          .map(
+            (speed) => PopupMenuItem<double>(
+              value: speed,
+              child: Row(
+                children: [
+                  if (speed == currentSpeed) Icon(Icons.check, size: 16, color: Colors.white) else SizedBox(width: 16),
+                  SizedBox(width: 12),
+                  Text(
+                    '${speed.toStringAsFixed(2)}x',
+                    style: TextStyle(
+                      color: speed == currentSpeed ? Colors.white : Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: ExDecorator.box(
+          borderRadius: 16,
+          fillColor: Colors.white.withValues(alpha: .1),
+          borderColor: Colors.transparent,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.speed, color: Colors.white, size: 18),
+            SizedBox(width: 6),
+            Text(
+              '${currentSpeed.toStringAsFixed(2)}x',
+              style: TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildFullscreenButton(bool isFullscreen) {
+    return IconButton(
+      splashRadius: 24,
+      tooltip: isFullscreen ? 'Exit fullscreen' : 'Fullscreen',
+      icon: Icon(
+        isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+        color: Colors.white,
+      ),
+      onPressed: () async {
+        _cancelHideTimer();
+        await widget.controller.toggleFullscreen();
+        _startHideTimer();
+      },
+    );
+  }
+
+  void _onUserInteraction() {
+    _showControls();
+    // Ensure focus stays on controls for shortcuts to work
+    if (mounted && !_focusNode.hasFocus) {
+      _focusNode.requestFocus();
+    }
+  }
+
+  void _startHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(_autoHideDuration, () {
+      if (!mounted) return;
+      setState(() => _controlsVisible = false);
+    });
+  }
+
+  void _cancelHideTimer() {
+    _hideTimer?.cancel();
+  }
+
+  void _showControls({bool permanent = false}) {
+    if (!_controlsVisible) {
+      setState(() => _controlsVisible = true);
+    }
+    _cancelHideTimer();
+    if (!permanent && widget.controller.isPlaying.value) {
+      _startHideTimer();
+    }
+    // Ensure focus is on controls when showing
+    if (mounted && !_focusNode.hasFocus) {
+      _focusNode.requestFocus();
+    }
+  }
+
+  Future<void> _togglePlayPause() async {
+    await widget.controller.togglePlayPause();
+    _showControls();
+    _showInfo(widget.controller.isPlaying.value ? 'Playing' : 'Paused');
+  }
+
+  Future<void> _seekRelative(Duration offset) async {
+    await widget.controller.seekRelative(offset);
+    final pos = widget.controller.position.value;
+    final dur = widget.controller.duration.value;
+    final label = offset.isNegative ? 'Backward' : 'Forward';
+    _showInfo(
+      '$label: ${_formatDuration(pos)} / ${_formatDuration(dur)}',
+    );
+    _showControls();
+  }
+
+  Future<void> _changeVolume(double delta) async {
+    await widget.controller.adjustVolume(delta);
+    final percent = (widget.controller.volume.value * 100).clamp(0, 100).round();
+    _showInfo('Volume: $percent%');
+    _showControls();
+  }
+
+  Future<void> _changeSpeed(double delta) async {
+    await widget.controller.adjustPlaybackRate(delta);
+    _showInfo('Speed: ${widget.controller.playbackSpeed.value.toStringAsFixed(2)}x');
+    _showControls();
+  }
+
+  Future<void> _toggleMute() async {
+    if (widget.controller.volume.value == 0.0) {
+      final target = (_preMuteVolume ?? 0.5).clamp(0.0, 1.0);
+      await widget.controller.setVolumeNormalized(target);
+      final percent = (target * 100).round();
+      _showInfo('Volume: $percent%');
+    } else {
+      _preMuteVolume = widget.controller.volume.value;
+      await widget.controller.mute();
+      _showInfo('Muted');
+    }
+    _showControls();
+  }
+
+  void _handleEqualPress() {
+    final now = DateTime.now();
+    if (_lastEqualPress != null && now.difference(_lastEqualPress!) <= 400.milliseconds) {
+      _lastEqualPress = null;
+      _toggleFullscreen();
+    } else {
+      _lastEqualPress = now;
+    }
+  }
+
+  Future<void> _toggleFullscreen() async {
+    _cancelHideTimer();
+    final willBeFullscreen = !widget.controller.isFullScreen.value;
+    await widget.controller.toggleFullscreen();
+    _showInfo(willBeFullscreen ? 'Fullscreen' : 'Windowed');
+    // Note: _fullscreenSubscription will handle showing controls and focus
+  }
+
+  void _showInfo(String text) {
+    _infoTimer?.cancel();
+    setState(() => _infoText = text);
+    _infoAnimationController.forward(from: 0);
+    _infoTimer = Timer(800.milliseconds, () {
+      if (!mounted) return;
+      _infoAnimationController.reverse();
+    });
+  }
+
+  String _formatDuration(Duration duration) {
+    final positive = duration < Duration.zero ? Duration.zero : duration;
+    final hours = positive.inHours;
+    final minutes = positive.inMinutes.remainder(60);
+    final seconds = positive.inSeconds.remainder(60);
+    if (hours > 0) {
+      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+}
+
+class PlayPauseIntent extends Intent { const PlayPauseIntent(); }
+class SeekForward5sIntent extends Intent { const SeekForward5sIntent(); }
+class SeekForward30sIntent extends Intent { const SeekForward30sIntent(); }
+class SeekForward60sIntent extends Intent { const SeekForward60sIntent(); }
+class SeekBackward5sIntent extends Intent { const SeekBackward5sIntent(); }
+class SeekBackward30sIntent extends Intent { const SeekBackward30sIntent(); }
+class SeekBackward60sIntent extends Intent { const SeekBackward60sIntent(); }
+class VolumeUpIntent extends Intent { const VolumeUpIntent(); }
+class VolumeDownIntent extends Intent { const VolumeDownIntent(); }
+class SpeedUpIntent extends Intent { const SpeedUpIntent(); }
+class SpeedDownIntent extends Intent { const SpeedDownIntent(); }
+class MuteIntent extends Intent { const MuteIntent(); }
+class ToggleFullscreenIntent extends Intent { const ToggleFullscreenIntent(); }
+class EqualTapIntent extends Intent { const EqualTapIntent(); }
+class ToggleVideoFitIntent extends Intent { const ToggleVideoFitIntent(); }
+class OpenListIntent extends Intent { const OpenListIntent(); }
+class BackIntent extends Intent { const BackIntent(); }
+class OpenScreenshotIntent extends Intent { const OpenScreenshotIntent(); }
+class OpenInfoIntent extends Intent { const OpenInfoIntent(); }
+class NextVideoIntent extends Intent { const NextVideoIntent(); }
+class PrevVideoIntent extends Intent { const PrevVideoIntent(); }

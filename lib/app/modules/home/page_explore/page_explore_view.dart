@@ -340,7 +340,7 @@ class PageExploreView extends GetView<PageExploreController> {
         return RepaintBoundary(
           child: DoubleTap(
             onSingleTap: () => controller.onRightListTap(item),
-            onDoubleTap: () => HelperOpener.openVideoFile(item),
+            onDoubleTap: () => HelperOpener.openVideoFile(item, playlist: controller.rightListLocal),
             child: Container(
               color: AppColor.container,
               child: ZStack([

@@ -8,15 +8,16 @@ import 'package:get/get.dart';
 import 'package:glob/glob.dart';
 import 'package:glob/list_local_fs.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:process_run/process_run.dart' as shell;
 import 'package:toastification/toastification.dart';
-import 'package:video_player_media_kit/video_player_media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app/core/app_logging.dart';
 import 'app/core/app_pref.dart';
 import 'app/core/app_setting.dart';
 import 'app/core/const.dart';
+import 'app/core/notification_service.dart';
 import 'app/data/database/_init_db.dart';
 import 'app/modules/home/home_controller.dart';
 import 'app/routes/app_pages.dart';
@@ -28,6 +29,14 @@ Future<void> main() async {
 
   final sw = Stopwatch()..start();
 
+  // player
+  MediaKit.ensureInitialized();
+
+  // local notification
+  await AppNotificationService.initialize();
+  await requestNotificationPermissions();
+
+  // shortcut
   await hotKeyManager.unregisterAll();
 
   /// makesure `AppSettingService` already initialized
@@ -43,9 +52,6 @@ Future<void> main() async {
     await service.onReady();
     return service;
   }, permanent: true);
-
-
-  VideoPlayerMediaKit.ensureInitialized(macOS: true);
 
   sw.stop();
   AppLog.logD('All Depedencies loaded in ${sw.elapsedMilliseconds}ms');
@@ -185,5 +191,14 @@ class _JavItState extends State<JavIt> with WindowListener {
     } else {
       AppLog.logS('=== 💎 Application is ready, without any issue 💎 ===');
     }
+  }
+}
+
+Future<void> requestNotificationPermissions() async {
+  final isGranted = await AppNotificationService.requestPermissions();
+  if (isGranted == true) {
+    print('Notification permissions granted');
+  } else {
+    print('Notification permissions denied');
   }
 }

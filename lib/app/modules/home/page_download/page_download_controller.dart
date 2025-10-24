@@ -15,6 +15,7 @@ import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
 import '../../../core/app_setting.dart';
 import '../../../core/const.dart';
+import '../../../core/notification_service.dart';
 import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/database/db_r18.dart';
@@ -680,6 +681,10 @@ class PageDownloadController extends GetxController {
       return;
     }
 
+    final sanitizedFilename = filename.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+    final safeFilename = sanitizedFilename.trim().substring(0, sanitizedFilename.length.clamp(0, 100));
+
+
     try {
       Get.back();
 
@@ -701,7 +706,7 @@ class PageDownloadController extends GetxController {
       final execPath = '${appSetting.appPath}/javit_dl';
       final execArgs = [
         '-u', '"$url"',
-        '-o', '"$dir/$filename"',
+        '-o', '"$dir/$safeFilename"',
         '-tf', '"${appSetting.appPath}/.dl_tmp"',
         '-r', '5',
         '-c', '${worker ?? AppPref.getDownloadWorker()}',
@@ -735,8 +740,8 @@ class PageDownloadController extends GetxController {
               Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSize()})';
               await HelperToast.error('Download Failed 🔴');
               
-              final currentActivity = await DBActivity.getByFilename(filename);
-              currentActivity.content = genJsonFormat('failed', url, dir, filename);
+              final currentActivity = await DBActivity.getByFilename(safeFilename);
+              currentActivity.content = genJsonFormat('failed', url, dir, safeFilename);
               await DBActivity.update(currentActivity);
               await HelperMisc.playSoundDownloadComplate();
             }
@@ -748,10 +753,22 @@ class PageDownloadController extends GetxController {
 
               await HelperToast.success('Download Finished ✅');
 
-              final currentActivity = await DBActivity.getByFilename(filename);
-              currentActivity.content = genJsonFormat('finish', url, dir, filename);
+              final currentActivity = await DBActivity.getByFilename(safeFilename);
+              currentActivity.content = genJsonFormat('finish', url, dir, safeFilename);
               await DBActivity.update(currentActivity);
               await HelperMisc.playSoundDownloadComplate();
+
+              // create notification
+              final notificationModel = NotificationModel(
+                title: '$safeFilename',
+                body: 'Download Finished. Click to see details',
+                payload: '$dir/$safeFilename.mp4',
+              );
+
+              await AppNotificationService.show(notificationModel);
+              AppNotificationService.registerNotificationTapHandler((v) {
+                print('payload: $v');
+              });
             }
 
             process.kill();

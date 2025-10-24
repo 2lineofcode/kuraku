@@ -55,7 +55,7 @@ class HomeController extends GetxController with StateMixin {
 
 
     await DBActivity.getCountRelapseToday();
-    isDangerMode.value = await DBActivity.getCountRelapseToday() >= 2;
+    isDangerMode.value = await DBActivity.getCountRelapseToday() >= 3;
 
     change(200, status: RxStatus.success());
   }
