@@ -1,11 +1,14 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_popup/flutter_popup.dart';
 import 'package:get/get.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../core/app_color.dart';
+import '../../data/database/_init_db.dart';
+import '../../utils/helper.dart';
 import '../widgets/widgets.dart';
 import 'home_controller.dart';
 import 'home_relapse.dart';
@@ -55,10 +58,23 @@ class HomeView extends GetView<HomeController> {
                     '$error'.text.makeCentered().pOnly(bottom: 8),
                     ExButtonElevated(
                         label: 'Restart App',
-                        onPressed: () {
+                        onPressed: () async {
+                          controller.loadingText.value = 'Restarting...';
+                          controller.change(0, status: RxStatus.loading());
+                          await Get.delete<DBService>(force: true);
                           
-                        }
-                    )
+                          await Get.putAsync(() async {
+                            final service = DBService();
+                            await service.onReady();
+                            return service;
+                          });
+
+                          await 2.seconds.delay();
+                          await Get.forceAppUpdate();
+                          await controller.onRefreshAllContent();
+                          await Get.forceAppUpdate();
+                          controller.change(200, status: RxStatus.success());
+                        }).centered()
                   ],
                 ),
               );
@@ -86,11 +102,23 @@ class HomeView extends GetView<HomeController> {
   Widget appBarAction() {
     return HStack(
       [
-        // IconButton(
-        //   icon: Icon(UIconsPro.regularRounded.refresh, size: 14),
-        //   onPressed: () => controller.onRefreshAllContent(),
-        //   tooltip: 'Refresh All Content (⌘+R)',
-        // ),
+
+        Obx(
+          () => controller.totalVideo.value > 0
+              ? CustomPopup(
+                barrierColor: Vx.amber500.withAlpha(50),
+                content: '${HelperBadge.getBadgeTotVidTooltip(controller.totalVideo.value)}'.text.black.size(12).make().w(250),
+                child: Container(
+                    decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 16, fillColor: AppColor.selected.withAlpha(100)),
+                    child: HStack([
+                      HelperBadge.getBadgeTotVidIcons(controller.totalVideo.value).pOnly(right: 8),
+                      '${HelperBadge.getBadgeTotVidText(controller.totalVideo.value)}'.text.size(12).make(),
+                    ]).pSymmetric(h: 12, v: 4),
+                  ),
+              )
+              : 0.heightBox,
+
+        ).pOnly(right: 8),
         IconButton(
           icon: Icon(UIconsPro.regularRounded.banana, size: 14),
           onPressed: () => HomeRelapse.openMenuRelapse(),

@@ -19,6 +19,7 @@ import '../../env.g.dart';
 import '../core/app_color.dart';
 import '../core/app_logging.dart';
 import '../core/app_network.dart';
+import '../core/app_pref.dart';
 import '../core/const.dart';
 import '../data/api/api_javit.dart';
 import '../data/database/db_r18.dart';
@@ -27,6 +28,7 @@ import '../data/models/__javit_search_entity.dart';
 import '../data/models/videos_entity.dart';
 import '../modules/home/home_controller.dart';
 import '../modules/home/page_explore/page_explore_controller.dart';
+import '../modules/home/page_home/page_home_controller.dart';
 import '../modules/home/page_search/page_search_overlay.dart';
 import '../modules/home/page_tools/page_tools_controller.dart';
 import '../modules/widgets/widget_chiwie_custom.dart';
@@ -51,35 +53,39 @@ mixin HelperOpener {
 
   // open video file -> direct default video player
   static Future<void> openVideoFile(Videos video, {List<Videos>? playlist}) async {
-    // await cmd.run('open "${video.videoPath}"', verbose: false).then((s) async {
-    //   await DBVideos.updateViewCount(video);
-    //   await Get.find<PageHomeController>().getListMostWatch();
-    // }).catchError((e) async {
-    //   await HelperToast.error('${e.toString()}');
-    // });
+    final _defaultPlayer = AppPref.getDefaultPlayer();
 
-    // single 
-    final file = File('${video.videoPath}');
-    if (!file.existsSync()) {
-      await HelperToast.error('Cant access file: ${video.videoPath}');
-      return;
+    if (_defaultPlayer == 'In App') {
+      // single
+      final file = File('${video.videoPath}');
+      if (!file.existsSync()) {
+        await HelperToast.error('Cant access file: ${video.videoPath}');
+        return;
+      }
+
+      // playlist
+      final prefixPlaylist = playlist;
+      // if (playlist != null) {
+      //   for (var video in playlist) {
+      //     final file = File('${video.videoPath}');
+      //     if (!file.existsSync()) {
+      //       prefixPlaylist?.remove(video);
+      //     }
+      //   }
+      // }
+      await Get.toNamed(Routes.PLAYER, arguments: [video, prefixPlaylist]);
+    } else {
+      await cmd.run('open "${video.videoPath}"', verbose: false).then((s) async {
+        await DBVideos.updateViewCount(video);
+        await Get.find<PageHomeController>().getListMostWatch();
+      }).catchError((e) async {
+        await HelperToast.error('${e.toString()}');
+      });
     }
-
-    // playlist
-    final prefixPlaylist = playlist;
-    // if (playlist != null) {
-    //   for (var video in playlist) {
-    //     final file = File('${video.videoPath}');
-    //     if (!file.existsSync()) {
-    //       prefixPlaylist?.remove(video);
-    //     }
-    //   }
-    // }
-    await Get.toNamed(Routes.PLAYER, arguments: [video, prefixPlaylist]);
   }
 
   // ────────────────────────────────────────────────────────────────
-  // ** 
+  // **
   // ────────────────────────────────────────────────────────────────
   static Future<void> openVideoInfo(dynamic item) async {
     late Map<String, dynamic>? dataVideo;
@@ -314,7 +320,7 @@ mixin HelperOpener {
                               // ** on series clicked
                               try {
                                 await Overlayment.dismissLast();
-                                final check = await DBVideos.getBySeries(video.series?? '');
+                                final check = await DBVideos.getBySeries(video.series ?? '');
                                 final name = '${HelperDecensor.decensor(video.series)}';
 
                                 if (check.isNotEmpty) {
@@ -331,7 +337,6 @@ mixin HelperOpener {
                                   await _tool.onLeftListDoSearch(name);
                                   await _tool.onLeftListTap(_tool.leftList[0], 0);
                                 }
-
                               } catch (_) {}
                             })
                           ],

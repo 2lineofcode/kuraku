@@ -35,7 +35,9 @@ class HomeController extends GetxController with StateMixin {
   final currentMenuSelected = kMenuHome.obs;
 
   final loadingText = '...'.obs;
+  final totalVideo = 0.obs;
   final footerText = ''.obs;
+
   final sideMenuWidth = 180.0.obs;
 
   final library = <Library>[].obs;
@@ -48,8 +50,10 @@ class HomeController extends GetxController with StateMixin {
     change(200, status: RxStatus.loading());
     AppLog.logI('root home ==> onInit called');
 
-    final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo();
-    footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSize()})';
+
+    totalVideo.value = await DBVideos.getCount();
+    final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo() ?? 0;
+    footerText.value = 'Iddle | Total Video: ${totalVideo.value} (${_totalFileSize.toFileSize()})';
 
     sideMenuWidth.value = AppPref.getAppHideSideMenu() ? 65 : 180;
 
@@ -73,8 +77,9 @@ class HomeController extends GetxController with StateMixin {
       await DBActivity.getCountRelapseToday();
       isDangerMode.value = await DBActivity.getCountRelapseToday() >= 2;
 
-      final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo();
-      footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSize()})';
+      final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo() ?? 0;
+      totalVideo.value = await DBVideos.getCount();
+      footerText.value = 'Iddle | Total Video: ${totalVideo.value} (${_totalFileSize.toFileSize()})';
 
       change(200, status: RxStatus.success());
     } catch (e) {

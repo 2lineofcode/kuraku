@@ -37,6 +37,7 @@ class DBService extends GetxService {
       singleInstance: true,
       onConfigure: _onConfigure,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
       onOpen: (db) async {
         AppLog.logD('== Main Database (javit.db) opened (version: ${await db.getVersion()}) ==');
       },
@@ -157,6 +158,26 @@ class DBService extends GetxService {
       )
     ''');
 
+    await db.execute('''
+      CREATE TABLE users (
+        id                          TEXT PRIMARY KEY,
+        name                        TEXT,
+        total_watch_duration        INTEGER,
+        badge_for_watch_duration    TEXT,
+        badge_for_collection        TEXT,
+        created_at                  TEXT,
+        updated_at                  TEXT
+      )
+
+    ''');
+
+    await db.execute('''
+      INSERT INTO users 
+        (id, name, total_watch_duration, badge_for_watch_duration, badge_for_collection, created_at, updated_at) 
+      VALUES 
+        ('1', 'your_name', 0, '', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+    ''');
+
     // Create Collection table
     await db.execute('''
       CREATE TABLE collection (
@@ -171,6 +192,17 @@ class DBService extends GetxService {
     ''');
 
   }
+
+
+
+  void _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    AppLog.logD('Upgrading DB from $oldVersion to $newVersion');
+
+    if (oldVersion < 2) {
+      //...add query here...
+    }
+  }
+
 
   Database get mainDatabase => dbMain;
   Database get r18Database => dbR18;

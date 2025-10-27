@@ -2,12 +2,12 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
 import '../../../core/app_pref.dart';
-import '../../../core/notification_service.dart';
 import '../../../utils/helper.dart';
 import '../home_controller.dart';
 import 'page_settings_controller.dart';
@@ -172,23 +172,49 @@ class PageSettingsView extends GetView<PageSettingsController> {
                         HStack(
                           [
                             'Default Player'.text.size(12).make().pOnly(right: 12).w(100),
-                            CupertinoTextField(
-                              controller: controller.tecDefaultPlayer,
-                              readOnly: true,
-                              prefix: Icon(CupertinoIcons.play_circle, size: 16).pOnly(left: 8, right: 0, top: 2),
-                              suffix: Icon(CupertinoIcons.chevron_down, size: 12).pOnly(right: 12, top: 2),
-                              style: TextStyle(fontSize: 13, color: Vx.white),
-                              onTap: () => HelperToast.info('coming soon...'),
+                            GestureDetector(
+                              onTapDown: (details) async {
+                                final value = await showMenu<String>(
+                                  context: context,
+                                  position: RelativeRect.fromLTRB(details.globalPosition.dx, details.globalPosition.dy, details.globalPosition.dx, details.globalPosition.dy),
+                                  items: [
+                                    PopupMenuItem(value: 'In App', child: Text('In App', style: TextStyle(fontSize: 12))),
+                                    PopupMenuItem(value: 'Default System', child: Text('Default System', style: TextStyle(fontSize: 12))),
+                                  ],
+                                );
+
+                                if (value != null) {
+                                  controller.tecDefaultPlayer.value = value;
+                                  AppPref.setDefaultPlayer(value);
+                                }
+                              },
+                              child: Container(
+                                decoration: ExDecorator.box(borderColor: Color(0xFF2B2A2F), fillColor: Colors.black, borderRadius: 6),
+                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                child: HStack(
+                                  [
+                                    Icon(CupertinoIcons.play_circle, size: 16).pOnly(right: 8),
+                                    Obx(
+                                      () => Text(
+                                        controller.tecDefaultPlayer.value.isEmpty ? 'Select Player' : controller.tecDefaultPlayer.value,
+                                        style: TextStyle(fontSize: 12, color: Vx.white),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ).expand(),
                           ],
                         ).pOnly(bottom: 8),
-
                         HStack(
                           [
                             'Maximum Coli Per-Day'.text.size(12).make().pOnly(right: 12).w(100),
                             CupertinoTextField(
+                              controller: controller.tecAppMaxColi,
                               style: TextStyle(fontSize: 13, color: Vx.white),
-                              placeholder: '2',
+                              placeholder: AppPref.getAppMaxColi().toString(),
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              onChanged: (s) => AppPref.setAppMaxColi(s.isEmpty ? 0 : int.parse(s)),
                             ).expand(),
                           ],
                         ).pOnly(bottom: 8),
@@ -208,9 +234,12 @@ class PageSettingsView extends GetView<PageSettingsController> {
                           [
                             'Small Seek'.text.size(12).make().w(100),
                             CupertinoTextField(
+                              controller: controller.tecPlayerSeekShort,
                               style: TextStyle(fontSize: 13, color: Vx.white),
                               suffix: 'Seconds'.text.size(12).make().pOnly(right: 12),
-                              placeholder: '5',
+                              placeholder: AppPref.getPlayerSeekShort().toString(),
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              onChanged: (s) => AppPref.setPlayerSeekShort(s.isEmpty ? 0 : int.parse(s)),
                             ).expand(),
                           ],
                         ).pOnly(bottom: 8),
@@ -218,9 +247,12 @@ class PageSettingsView extends GetView<PageSettingsController> {
                           [
                             'Medium Seek'.text.size(12).make().w(100),
                             CupertinoTextField(
+                              controller: controller.tecPlayerSeekMid,
                               style: TextStyle(fontSize: 13, color: Vx.white),
                               suffix: 'Seconds'.text.size(12).make().pOnly(right: 12),
-                              placeholder: '30',
+                              placeholder: AppPref.getPlayerSeekMid().toString(),
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              onChanged: (s) => AppPref.setPlayerSeekMid(s.isEmpty ? 0 : int.parse(s)),
                             ).expand(),
                           ],
                         ).pOnly(bottom: 8),
@@ -228,9 +260,12 @@ class PageSettingsView extends GetView<PageSettingsController> {
                           [
                             'Long Seek'.text.size(12).make().w(100),
                             CupertinoTextField(
+                              controller: controller.tecPlayerSeekLong,
                               style: TextStyle(fontSize: 13, color: Vx.white),
                               suffix: 'Seconds'.text.size(12).make().pOnly(right: 12),
-                              placeholder: '60',
+                              placeholder: AppPref.getPlayerSeekLong().toString(),
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              onChanged: (s) => AppPref.setPlayerSeekLong(s.isEmpty ? 0 : int.parse(s)),
                             ).expand(),
                           ],
                         ).pOnly(bottom: 8),
@@ -254,22 +289,27 @@ class PageSettingsView extends GetView<PageSettingsController> {
                 ExButtonText(
                   label: 'test',
                   onPressed: () async {
-                    final notificationModel = NotificationModel(
-                      title: 'Hello!',
-                      body: 'This is a simple notification',
-                      payload: 'notification_data',
-                    );
+                    // final controller = Get.find<HomeController>();
+                    // controller.loadingText.value = 'Restarting...';
+                    // controller.change(0, status: RxStatus.loading());
+                    // await Get.delete<DBService>(force: true);
 
-                    await AppNotificationService.show(notificationModel);
+                    // await Get.putAsync(() async {
+                    //   final service = DBService();
+                    //   await service.onReady();
+                    //   return service;
+                    // });
 
-                    AppNotificationService.registerNotificationTapHandler((v) {
-                      print('payload: $v');
-                    });
+                    // await 2.seconds.delay();
+                    // await Get.forceAppUpdate();
+                    // await controller.onRefreshAllContent();
+                    // await Get.forceAppUpdate();
+                    // controller.change(200, status: RxStatus.success());
                   },
                 ),
               ],
             ).p8(),
-          ).pOnly(top: 12).hide()
+          ).pOnly(top: 12)
         ],
       ],
     ).scrollVertical();

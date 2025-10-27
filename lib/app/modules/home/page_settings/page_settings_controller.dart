@@ -8,6 +8,7 @@ import 'package:sqflite/sqlite_api.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
+import '../../../core/app_pref.dart';
 import '../../../core/app_setting.dart';
 import '../../../core/const.dart';
 import '../../../data/database/_init_db.dart';
@@ -28,8 +29,14 @@ class PageSettingsController extends GetxController {
   final lastRelapse = ''.obs;
   final r18TotalVideo = 0.obs;
 
+  // ** config
+  final tecDefaultPlayer = '${AppPref.getDefaultPlayer()}'.obs;
+  final tecAppMaxColi = TextEditingController(text: AppPref.getAppMaxColi().toString());
+  final tecPlayerSeekShort = TextEditingController(text: AppPref.getPlayerSeekShort().toString());
+  final tecPlayerSeekMid = TextEditingController(text: AppPref.getPlayerSeekMid().toString());
+  final tecPlayerSeekLong = TextEditingController(text: AppPref.getPlayerSeekLong().toString());
+
   // **
-  final tecDefaultPlayer = TextEditingController(text: 'In App');
   final appMiniMode = false.obs;
   final applogText = ''.obs;
 

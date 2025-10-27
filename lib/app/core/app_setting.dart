@@ -43,13 +43,18 @@ class AppSettingService extends GetxService {
   // ────────────────────────────────────────────────────────────────
   // ⵌ checkAndApplyDefaultAppConfig
   // ────────────────────────────────────────────────────────────────
-  Future<void> setupAppPref() async {    
-    await pref.writeIfNull('_kAppIsDarkMode',true);
-    await pref.writeIfNull('_kAppLanguage','en');
-    await pref.writeIfNull('_kAppFirstOpen',DateTime.now().toStringEx());
-    await pref.writeIfNull('_kAppLastOpen',DateTime.now().toStringEx());
-    await pref.writeIfNull('_kDownloadPath','');
-    await pref.writeIfNull('_kDownloadLang','en');
+  Future<void> setupAppPref() async {
+    // app
+    await pref.writeIfNull('_kAppIsDarkMode', true);
+    await pref.writeIfNull('_kAppLanguage', 'en');
+    await pref.writeIfNull('_kAppFirstOpen', DateTime.now().toStringEx());
+    await pref.writeIfNull('_kAppLastOpen', DateTime.now().toStringEx());
+    await pref.writeIfNull('_kAppHideSideMenu', true);
+
+
+    // download
+    await pref.writeIfNull('_kDownloadPath', '');
+    await pref.writeIfNull('_kDownloadLang', 'en');
 
     // home_sec
     await pref.writeIfNull('_kHomeOrderList', <String>[
@@ -69,9 +74,6 @@ class AppSettingService extends GetxService {
     await pref.writeIfNull(AppPref.homeSecNewAdd, true);
     await pref.writeIfNull(AppPref.homeSecNeverWatch, true);
     await pref.writeIfNull(AppPref.homeSecOldest, true);
-
-    // print all pref
-    // await pref.getKeys().forEach((key) => print('pref key: $key, value: ${pref.read(key)}'));
   }
 
   // ────────────────────────────────────────────────────────────────

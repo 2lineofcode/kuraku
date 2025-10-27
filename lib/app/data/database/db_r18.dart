@@ -11,25 +11,21 @@ mixin DBR18 {
   static Future<bool> _validation() async {
     var files = Glob('r18*.db').listSync(root: Get.find<AppSettingService>().appPath);
     files.sort((a, b) => b.path.compareTo(a.path));
-    final file = files[0];
+    if (files.isEmpty) return false;
 
-    if (await file.exists()) return true;
+    if (await files[0].exists()) return true;
     return false;
   }
 
-
   static Future<int> getCountAllVideos() async {
-    if (await _validation() == false) {
-      return 0;
-    }
+    if (await _validation() == false) return 0;
+
     final List<Map<String, dynamic>> maps = await _db.rawQuery('SELECT count(*) as total FROM derived_video');
     return maps[0]['total'] as int;
   }
 
   static Future<Map<String, dynamic>?> getVideo(String code) async {
-     if (await _validation() == false) {
-      return null;
-    }
+    if (await _validation() == false) return null;
 
     final maps = await _db.rawQuery('''
         SELECT
@@ -62,11 +58,8 @@ mixin DBR18 {
     return maps.isNotEmpty ? maps[0] : null;
   }
 
-
   static Future<List<Map<String, dynamic>>> search(String query, {int? limit = 5000}) async {
-    if (await _validation() == false) {
-      return [];
-    }
+    if (await _validation() == false) return [];
 
     final searchString = '%$query%';
 
@@ -113,6 +106,8 @@ mixin DBR18 {
   }
 
   static Future<List<Map<String, dynamic>>> getAllActress({String? q}) async {
+    if (await _validation() == false) return [];
+
     var whereClause = '''
     name_romaji IS NOT NULL
     AND name_romaji GLOB '[a-zA-Z]*'
@@ -141,6 +136,8 @@ mixin DBR18 {
   }
 
   static Future<List<Map<String, dynamic>>> getActress(String code) async {
+    if (await _validation() == false) return [];
+
     final maps = await _db.rawQuery('''
         SELECT DISTINCT 
           a.*
@@ -154,8 +151,9 @@ mixin DBR18 {
     return maps;
   }
 
-
   static Future<List<Map<String, dynamic>>> getAllSeries({String? q}) async {
+    if (await _validation() == false) return [];
+
     var whereClause = 'name_en IS NOT NULL';
     var whereArgs = [];
 
@@ -176,8 +174,9 @@ mixin DBR18 {
     return maps;
   }
 
+  static Future<List<Map<String, dynamic>>> getAllCategories({String? q}) async {
+    if (await _validation() == false) return [];
 
- static Future<List<Map<String, dynamic>>> getAllCategories({String? q}) async {
     var whereClause = 'name_en IS NOT NULL';
     var whereArgs = [];
 
@@ -199,6 +198,8 @@ mixin DBR18 {
   }
 
   static Future<List<Map<String, dynamic>>> getCategory(String code) async {
+    if (await _validation() == false) return [];
+
     final maps = await _db.rawQuery('''
         SELECT DISTINCT
           cat.id AS id, 
@@ -215,6 +216,8 @@ mixin DBR18 {
   }
 
   static Future<Map<String, dynamic>?> getDirector(String code) async {
+    if (await _validation() == false) return null;
+
     final maps = await _db.rawQuery('''
         SELECT DISTINCT 
           d.*
@@ -232,6 +235,8 @@ mixin DBR18 {
   // ⵌ Actress
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosByActress(int actressId) async {
+    if (await _validation() == false) return 0;
+
     final maps = await _db.rawQuery('''
       SELECT
         COUNT(da.id) AS total
@@ -253,6 +258,8 @@ mixin DBR18 {
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosByActress(int actressId) async {
+    if (await _validation() == false) return [];
+
     final maps = await _db.rawQuery('''
       SELECT
         da.id AS actress_id,                                      -- actress_id
@@ -288,6 +295,8 @@ mixin DBR18 {
   // ⵌ Category
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosByCategory(String categoryName) async {
+    if (await _validation() == false) return 0;
+
     final maps = await _db.rawQuery('''
       SELECT 
         COUNT(*) AS total
@@ -300,7 +309,8 @@ mixin DBR18 {
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosByCategory(String categoryName) async {
-    
+    if (await _validation() == false) return [];
+
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,                                       -- id
@@ -328,6 +338,8 @@ mixin DBR18 {
   // ⵌ Label
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosByLabel(String labelName) async {
+    if (await _validation() == false) return 0;
+
     final maps = await _db.rawQuery('''
       SELECT 
         COUNT(*) AS total
@@ -341,6 +353,8 @@ mixin DBR18 {
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosByLabel(String labelName) async {
+    if (await _validation() == false) return [];
+
     final maps = await _db.rawQuery('''
         SELECT
         v.content_id AS id,                                      -- id
@@ -367,6 +381,8 @@ mixin DBR18 {
   // ⵌ Series
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosBySeries(String series) async {
+    if (await _validation() == false) return 0;
+
     final maps = await _db.rawQuery('''
       SELECT 
         COUNT(*) AS total
@@ -380,6 +396,8 @@ mixin DBR18 {
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosBySeries(String series) async {
+    if (await _validation() == false) return [];
+
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,                                       -- id
@@ -409,6 +427,8 @@ mixin DBR18 {
   // ⵌ Maker / Studio
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosByStudio(String studio) async {
+    if (await _validation() == false) return 0;
+
     final maps = await _db.rawQuery('''
       SELECT 
         COUNT(*) AS total
@@ -422,6 +442,8 @@ mixin DBR18 {
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosByStudio(String studio) async {
+    if (await _validation() == false) return [];
+
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,                                       -- id
@@ -448,6 +470,8 @@ mixin DBR18 {
   // ⵌ Director
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosByDirector(String director) async {
+    if (await _validation() == false) return 0;
+
     final maps = await _db.rawQuery('''
       SELECT 
         COUNT(*) AS total
@@ -460,6 +484,8 @@ mixin DBR18 {
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosByDirector(String director) async {
+    if (await _validation() == false) return [];
+
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,                                         -- id
@@ -487,6 +513,8 @@ mixin DBR18 {
   // ⵌ Year
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosByYear(String year) async {
+    if (await _validation() == false) return 0;
+
     final maps = await _db.rawQuery('''
       SELECT 
         COUNT(*) AS total
@@ -499,6 +527,8 @@ mixin DBR18 {
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosByYear(String year) async {
+    if (await _validation() == false) return [];
+
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,                                         -- id
@@ -519,5 +549,4 @@ mixin DBR18 {
       ''', ['$year%']);
     return maps;
   }
-
 }

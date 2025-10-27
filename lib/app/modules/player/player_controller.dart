@@ -59,22 +59,45 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   late final List<Videos>? _argumentPlaylist = _parseArgumentPlaylist();
   final isHasPlaylistBefore = false.obs;
 
-
   @override
   Future<void> onInit() async {
     super.onInit();
 
     player = Player(
       configuration: PlayerConfiguration(
-        vo: 'gpu',
-        logLevel: MPVLogLevel.error,
-        bufferSize: 1024 * 1024 * 1024,
+        vo: 'libmpv',
+        logLevel: MPVLogLevel.debug,
         title: Env.appName,
         ready: () => AppLog.logD('player is ready'),
       ),
     );
 
-    videoController = VideoController(player);
+    if (player.platform is NativePlayer) {
+      final p = player.platform as NativePlayer;
+      await p.setProperty('vo', 'libmpv');
+      await p.setProperty('hwdec', 'videotoolbox');
+      await p.setProperty('opengl-hwdec-interop', 'auto');
+      await p.setProperty('video-sync', 'display-resample');
+      await p.setProperty('interpolation', 'no');
+      await p.setProperty('framedrop', 'decoder+vo');
+      await p.setProperty('autosync', '1');
+      await p.setProperty('correct-pts', 'yes');
+
+      await p.setProperty('hr-seek', 'no');
+      await p.setProperty('demuxer-readahead-secs', '10');
+
+      await p.setProperty('cache', 'yes');
+      await p.setProperty('cache-secs', '60');
+      await p.setProperty('cache-pause', 'no');
+    }
+
+    videoController = VideoController(
+      player,
+      configuration: VideoControllerConfiguration(
+        vo: 'libmpv',
+        hwdec: 'auto-safe',
+      ),
+    );
     infoAnimationController = AnimationController(vsync: this, duration: 1.seconds, reverseDuration: 200.milliseconds);
 
     _bindPlayerStreams();
@@ -87,7 +110,6 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       AppLog.logD('multiple mode');
       currentVideo.value = args[0] as Videos;
     }
-
 
     await DBVideos.updateViewCount(currentVideo.value);
     await generatePlaylist();
@@ -218,7 +240,9 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       Duration.zero,
       total > Duration.zero ? total : target,
     );
-    await player.seek(clamped);
+
+    final p = player.platform as NativePlayer;
+    await p.seek(clamped, synchronized: true);
   }
 
   Future<void> seekRelative(Duration offset) async {

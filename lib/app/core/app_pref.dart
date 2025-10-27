@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import 'app_logging.dart';
 import 'app_setting.dart';
 
 mixin AppPref {
@@ -20,6 +21,9 @@ mixin AppPref {
 
   static bool getAppHideSideMenu() => _pref.read(_kAppHideSideMenu) ?? false;
   static void setAppHideSideMenu(bool value) => _pref.write(_kAppHideSideMenu, value);
+
+  static int getAppMaxColi() => _pref.read(_kAppMaxColi) ?? 2;
+  static void setAppMaxColi(int value) => _pref.write(_kAppMaxColi, value);
 
 
   // ** [download]
@@ -78,15 +82,34 @@ mixin AppPref {
 
 
   // ** player
+  static String getDefaultPlayer() => _pref.read(_kDefaultPlayer) ?? 'In App'; // In App | Default System
+  static void setDefaultPlayer(String value) => _pref.write(_kDefaultPlayer, value);
+
   static double getPlayerVolume() => _pref.read(_kPlayerVolume) ?? 0.1;
   static void setPlayerVolume(double value) => _pref.write(_kPlayerVolume, value);
 
   static double getPlayerSpeed() => _pref.read(_kPlayerSpeed) ?? 1.0;
   static void setPlayerSpeed(double value) => _pref.write(_kPlayerSpeed, value);
 
+  static int getPlayerSeekShort() => _pref.read(_kPlayerSeekShort) ?? 5;
+  static void setPlayerSeekShort(int value) => _pref.write(_kPlayerSeekShort, value);
+
+  static int getPlayerSeekMid() => _pref.read(_kPlayerSeekMid) ?? 30;
+  static void setPlayerSeekMid(int value) => _pref.write(_kPlayerSeekMid, value);
+
+  static int getPlayerSeekLong() => _pref.read(_kPlayerSeekLong) ?? 60;
+  static void setPlayerSeekLong(int value) => _pref.write(_kPlayerSeekLong, value);
+
   // helper
   static bool getBool(String key) => _pref.read(key) ?? false;
   static void setBool(String key, bool value) => _pref.write(key, value);
+
+  static Future<void> printAllPref() async {
+    AppLog.logS('### AppPref ===');
+    _pref.getKeys().forEach((key) => AppLog.logS('${key.replaceAll('_k', ' ')} = ${_pref.read(key)}'));
+    await 200.milliseconds.delay();
+    AppLog.logS('### --------------------');
+  }
 }
 
 const _kAppIsDarkMode = '_kAppIsDarkMode';
@@ -94,6 +117,8 @@ const _kAppLanguage = '_kAppLanguage';
 const _kAppFirstOpen = '_kAppFirstOpen';
 const _kAppLastOpen = '_kAppLastOpen';
 const _kAppHideSideMenu = '_kAppHideSideMenu';
+const _kAppMaxColi = '_kAppMaxColi';
+
 
 const _kDownloadPath = '_kDownloadPath';
 const _kDownloadLang = '_kDownloadLang';
@@ -111,5 +136,10 @@ const _kHomeSecRandom = '_kHomeSecRandom';
 const _kHomeSecOldest = '_kHomeSecOldest';
 const _kHomeSecCollection = '_kHomeSecCollection';
 
+// player
+const _kDefaultPlayer = '_kDefaultPlayer';
 const _kPlayerVolume = '_kPlayerVolume';
 const _kPlayerSpeed = '_kPlayerSpeed';
+const _kPlayerSeekShort = '_kPlayerSeekShort';
+const _kPlayerSeekMid = '_kPlayerSeekMid';
+const _kPlayerSeekLong = '_kPlayerSeekLong';

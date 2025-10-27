@@ -11,6 +11,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:process_run/process_run.dart' as shell;
 import 'package:toastification/toastification.dart';
+import 'package:video_player_media_kit/video_player_media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app/core/app_logging.dart';
@@ -31,6 +32,8 @@ Future<void> main() async {
 
   // player
   MediaKit.ensureInitialized();
+  VideoPlayerMediaKit.ensureInitialized(macOS: true);
+
 
   // local notification
   await AppNotificationService.initialize();
@@ -51,7 +54,7 @@ Future<void> main() async {
     final service = DBService();
     await service.onReady();
     return service;
-  }, permanent: true);
+  });
 
   sw.stop();
   AppLog.logD('All Depedencies loaded in ${sw.elapsedMilliseconds}ms');
@@ -116,6 +119,7 @@ class _JavItState extends State<JavIt> with WindowListener {
     var files = Glob('r18*.db').listSync(root: Get.find<AppSettingService>().appPath);
     files.sort((a, b) => b.path.compareTo(a.path));
     if (files.isEmpty) {
+      AppLog.logW('!!! Database `r18` not found...');
       ExAlert.adaptive(
         isDismissible: false,
         title: Text('Ups'),
@@ -124,6 +128,8 @@ class _JavItState extends State<JavIt> with WindowListener {
           CupertinoDialogAction(
             child: Text('Download & Install', style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () async {
+              AppLog.logI('!!! Start Downloading R18 database & Install...');
+
               final appSetting = Get.find<AppSettingService>();
               final home = Get.find<HomeController>();
               Get.back();
@@ -172,7 +178,6 @@ class _JavItState extends State<JavIt> with WindowListener {
                     await process.exitCode.then((code) async {
                       if (code == 1) {
                         home.footerText.value = 'Task Failed. Please restart app...';
-                        home.change(0, status: RxStatus.error());
                       }
 
                       if (code == 0) {
@@ -180,6 +185,8 @@ class _JavItState extends State<JavIt> with WindowListener {
                         home.footerText.value = 'Task Done. Please restart app...';
                         home.loadingText.value = 'Task Done \n\n Please restart app...';
                       }
+
+                      home.change(0, status: RxStatus.error('Update completed. Please restart app...'));
                     });
                   },
                 );

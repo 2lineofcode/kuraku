@@ -16,10 +16,10 @@
 
 
 # p-2
-- add config: max coli per day
-- add config: default player
+- ✅ add config: max coli per day
+- ✅ add config: default player
 
 
 # p-3
-- add badge user on footer left or topbar
+- ✅ add badge user on footer left or topbar
 - 
