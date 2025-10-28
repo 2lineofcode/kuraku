@@ -41,7 +41,6 @@ class HomeController extends GetxController with StateMixin {
   final sideMenuWidth = 180.0.obs;
 
   final library = <Library>[].obs;
-
   final isDangerMode = false.obs;
 
   @override
@@ -59,7 +58,7 @@ class HomeController extends GetxController with StateMixin {
 
 
     await DBActivity.getCountRelapseToday();
-    isDangerMode.value = await DBActivity.getCountRelapseToday() >= 3;
+    isDangerMode.value = await DBActivity.getCountRelapseToday() >= AppPref.getAppMaxColi();
 
     change(200, status: RxStatus.success());
   }
@@ -75,7 +74,7 @@ class HomeController extends GetxController with StateMixin {
       await Get.find<PageSettingsController>().onInit();
 
       await DBActivity.getCountRelapseToday();
-      isDangerMode.value = await DBActivity.getCountRelapseToday() >= 2;
+      isDangerMode.value = await DBActivity.getCountRelapseToday() >= AppPref.getAppMaxColi();
 
       final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo() ?? 0;
       totalVideo.value = await DBVideos.getCount();

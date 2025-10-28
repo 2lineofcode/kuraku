@@ -1,7 +1,6 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-
 class NotificationModel {
   const NotificationModel({
     required this.title,
@@ -16,7 +15,7 @@ class NotificationModel {
   final String? payload;
 }
 
-mixin AppNotificationService {
+mixin AppNotification {
   static final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   static void Function(String? payload)? _onNotificationTap;
 
@@ -49,18 +48,7 @@ mixin AppNotificationService {
 
   static Future<void> show(NotificationModel model) async {
     const notificationDetails = NotificationDetails(
-      macOS: DarwinNotificationDetails(
-          // presentSound: true,
-          // presentAlert: true,
-          // presentBadge: true,
-          // subtitle: 'subtitle',
-          // threadIdentifier: 'threadIdentifier',
-          // categoryIdentifier: 'categoryIdentifier',
-          // badgeNumber: 111,
-          // presentBanner: true,
-          // interruptionLevel: InterruptionLevel.critical,
-
-          ),
+      macOS: DarwinNotificationDetails(),
     );
 
     await _plugin.show(

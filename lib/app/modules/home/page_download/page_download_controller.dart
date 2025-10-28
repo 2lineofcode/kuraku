@@ -12,10 +12,10 @@ import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
+import '../../../core/app_notification.dart';
 import '../../../core/app_pref.dart';
 import '../../../core/app_setting.dart';
 import '../../../core/const.dart';
-import '../../../core/notification_service.dart';
 import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/database/db_r18.dart';
@@ -765,8 +765,8 @@ class PageDownloadController extends GetxController {
                 payload: '$dir/$safeFilename.mp4',
               );
 
-              await AppNotificationService.show(notificationModel);
-              AppNotificationService.registerNotificationTapHandler((v) {
+              await AppNotification.show(notificationModel);
+              AppNotification.registerNotificationTapHandler((v) {
                 print('payload: $v');
               });
             }

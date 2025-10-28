@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' show max;
 
 import 'package:ex_kit/ex.dart';
@@ -176,8 +177,64 @@ mixin PageSearchOverlay {
                           HStack([
                             Icon(UIconsPro.regularRounded.square_code, size: 14).pOnly(right: 8),
                             'Metadata'.text.size(14).bold.make().expand(),
+
                             IconButton(
-                              icon: Icon(UIconsPro.regularRounded.file_edit, size: 12,),
+                              icon: Icon(UIconsPro.regularRounded.information, size: 12),
+                              onPressed: () async { 
+
+                                // check if file exists
+                                if (!File(video.videoPath ?? '').existsSync()) {
+                                  await HelperToast.warn('Can\'t access file: ${video.videoPath}');
+                                  return;
+                                }
+                                await Overlayment.dismissLast();
+                                await FFprobeKit.getMediaInformation(video.videoPath!).then((medInfo) async {
+                                  final filename = video.videoPath?.getFileName().noExt();
+                                  final filepath = video.videoPath;
+                                  final vcodec = medInfo.getMediaInformation()?.getStreams().first.getCodec();
+                                  final acodec = medInfo.getMediaInformation()?.getStreams().last.getCodec();
+                                  final wh = '${medInfo.getMediaInformation()?.getStreams().first.getWidth()} x ${medInfo.getMediaInformation()?.getStreams().first.getHeight()}';
+                                  final ar = medInfo.getMediaInformation()?.getStreams().first.getDisplayAspectRatio();
+                                  final fps = medInfo.getMediaInformation()?.getStreams().first.getRealFrameRate();
+                                  final bitrate = medInfo.getMediaInformation()?.getStreams().first.getBitrate();
+                                  final filesize = medInfo.getMediaInformation()?.getSize()?.toInt()?.toFileSize();
+                                  final duration = HelperMisc.durationFormatFFmpeg(medInfo.getMediaInformation()?.getDuration()?.toInt() ?? 0);
+
+
+                                  await Overlayment.show(
+                                    context: Get.context!,
+                                    OverPanel(
+                                      alignment: Alignment.center,
+                                      width: 300,
+                                      child: VStack(
+                                        [
+                                          'Detail Information'.text.bold.xl2.make().pOnly(bottom: 12),
+                                          VxJson(
+                                            {
+                                              'Filename': filename,
+                                              'Video Codec': vcodec?.toUpperCase(),
+                                              'Audio Codec': acodec?.toUpperCase(),
+                                              'Resolution': wh,
+                                              'Aspect Ratio': ar,
+                                              'Frame Rate': fps,
+                                              'Bitrate': bitrate,
+                                              'File Size': filesize,
+                                              'Duration': duration,
+                                              'Filepath': filepath,
+
+                                            },
+                                          )
+                                        ],
+                                      ).p12().scrollVertical(),
+                                    ),
+                                  );
+                                });
+
+                                
+                              },
+                            ),
+                            IconButton(
+                              icon: Icon(UIconsPro.regularRounded.file_edit, size: 12),
                               onPressed: () async {
                                 await Overlayment.dismissLast();
                                 await HomeEditVideoDetail.onEditMetadata(video);

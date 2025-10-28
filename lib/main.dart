@@ -15,10 +15,10 @@ import 'package:video_player_media_kit/video_player_media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app/core/app_logging.dart';
+import 'app/core/app_notification.dart';
 import 'app/core/app_pref.dart';
 import 'app/core/app_setting.dart';
 import 'app/core/const.dart';
-import 'app/core/notification_service.dart';
 import 'app/data/database/_init_db.dart';
 import 'app/modules/home/home_controller.dart';
 import 'app/routes/app_pages.dart';
@@ -36,7 +36,7 @@ Future<void> main() async {
 
 
   // local notification
-  await AppNotificationService.initialize();
+  await AppNotification.initialize();
   await requestNotificationPermissions();
 
   // shortcut
@@ -202,7 +202,7 @@ class _JavItState extends State<JavIt> with WindowListener {
 }
 
 Future<void> requestNotificationPermissions() async {
-  final isGranted = await AppNotificationService.requestPermissions();
+  final isGranted = await AppNotification.requestPermissions();
   if (isGranted == true) {
     print('Notification permissions granted');
   } else {

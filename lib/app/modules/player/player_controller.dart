@@ -75,20 +75,28 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     if (player.platform is NativePlayer) {
       final p = player.platform as NativePlayer;
       await p.setProperty('vo', 'libmpv');
-      await p.setProperty('hwdec', 'videotoolbox');
+      await p.setProperty('hwdec', 'auto-safe');
       await p.setProperty('opengl-hwdec-interop', 'auto');
+
       await p.setProperty('video-sync', 'display-resample');
       await p.setProperty('interpolation', 'no');
       await p.setProperty('framedrop', 'decoder+vo');
-      await p.setProperty('autosync', '1');
+      await p.setProperty('autosync', '0');
       await p.setProperty('correct-pts', 'yes');
-
+      await p.setProperty('demuxer-thread', 'yes');      
+      
+      //
       await p.setProperty('hr-seek', 'no');
-      await p.setProperty('demuxer-readahead-secs', '10');
+      await p.setProperty('hr-seek-demuxer', 'yes');
+      await p.setProperty('hr-seek-framedrop', 'yes');
 
-      await p.setProperty('cache', 'yes');
+      //
+      await p.setProperty('cache', 'auto');
       await p.setProperty('cache-secs', '60');
       await p.setProperty('cache-pause', 'no');
+      await p.setProperty('demuxer-readahead-secs', '5');
+      await p.setProperty('demuxer-lavf-o', 'seek_timestamp=1');
+
     }
 
     videoController = VideoController(
@@ -246,7 +254,14 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   }
 
   Future<void> seekRelative(Duration offset) async {
-    await seek(position.value + offset);
+    final player = this.player;
+    if (player.platform is NativePlayer) {
+      final p = player.platform as NativePlayer;
+      final seconds = offset.inSeconds.toString();
+      await p.command(['seek', seconds, 'relative']); 
+    } else {
+      await seek(position.value + offset);
+    }
   }
 
   Duration _clampDuration(Duration value, Duration min, Duration max) {
