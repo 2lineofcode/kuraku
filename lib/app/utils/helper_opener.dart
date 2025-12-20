@@ -1,15 +1,16 @@
-import 'dart:io';
 import 'dart:math';
 
 import 'package:cached_video_player_plus/cached_video_player_plus.dart';
 import 'package:chewie/chewie.dart';
 import 'package:ex_kit/ex.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:process_run/process_run.dart' as cmd;
+import 'package:translator/translator.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:video_player/video_player.dart';
@@ -31,6 +32,8 @@ import '../modules/home/page_explore/page_explore_controller.dart';
 import '../modules/home/page_home/page_home_controller.dart';
 import '../modules/home/page_search/page_search_overlay.dart';
 import '../modules/home/page_tools/page_tools_controller.dart';
+import '../modules/player/player_controller.dart';
+import '../modules/widgets/widget_auto_complate.dart';
 import '../modules/widgets/widget_chiwie_custom.dart';
 import '../modules/widgets/widget_thumbnail.dart';
 import '../routes/app_pages.dart';
@@ -56,24 +59,19 @@ mixin HelperOpener {
     final _defaultPlayer = AppPref.getDefaultPlayer();
 
     if (_defaultPlayer == 'In App') {
-      // single
-      final file = File('${video.videoPath}');
-      if (!file.existsSync()) {
-        await HelperToast.error('Cant access file: ${video.videoPath}');
-        return;
-      }
+      final controller = Get.isRegistered<PlayerController>()
+          ? Get.find<PlayerController>()
+          : Get.put<PlayerController>(PlayerController(), permanent: true);
 
-      // playlist
-      final prefixPlaylist = playlist;
-      // if (playlist != null) {
-      //   for (var video in playlist) {
-      //     final file = File('${video.videoPath}');
-      //     if (!file.existsSync()) {
-      //       prefixPlaylist?.remove(video);
-      //     }
-      //   }
-      // }
-      await Get.toNamed(Routes.PLAYER, arguments: [video, prefixPlaylist]);
+      final started = await controller.startPlayback(video, playlist: playlist);
+      if (!started) return;
+
+      controller.exitMiniMode();
+      if (Get.currentRoute != Routes.PLAYER) {
+        await Get.toNamed(Routes.PLAYER);
+      } else {
+        controller.requestFocusOnPlayer();
+      }
     } else {
       await cmd.run('open "${video.videoPath}"', verbose: false).then((s) async {
         await DBVideos.updateViewCount(video);
@@ -138,6 +136,9 @@ mixin HelperOpener {
     final _explore = Get.find<PageExploreController>();
     final _tool = Get.find<PageToolsController>();
 
+    final _translatedTitle = HelperDecensor.decensor(video.title ?? '').obs;
+
+
     await Overlayment.show(
       context: Get.context,
       OverPanel(
@@ -181,9 +182,25 @@ mixin HelperOpener {
                     '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
                       HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
                     }).pSymmetric(v: 8),
-                    '${HelperDecensor.decensor(video.title)}'.text.align(TextAlign.center).size(10).minFontSize(10).maxLines(6).ellipsis.makeCentered().onInkTap(() {
-                      HelperMisc.copyToClipboard(video.title ?? '', showToast: true);
-                    }).tooltip(video.videoPath?.getFileName().noExt() ?? ''),
+
+                    Obx(
+                      () => _translatedTitle.value.text
+                          .align(TextAlign.center)
+                          .size(10)
+                          .minFontSize(10)
+                          .makeCentered()
+                          .onInkTap(
+                        () async {
+                          HelperMisc.copyToClipboard(video.title, showToast: true);
+                          final translator = GoogleTranslator();
+                          final result = await translator.translate(video.title ?? '', from: 'en', to: 'id');
+                          final translated = '${result.text}'.trim();
+                          _translatedTitle.value = HelperDecensor.decensor(translated);
+                          video.title = translated;
+                        },
+                      ),
+                    ).tooltip(video.videoPath ?? ''),
+                    
                     ExDivider().pSymmetric(v: 16),
                   ],
                 ).pSymmetric(h: 16),
@@ -748,5 +765,302 @@ mixin HelperOpener {
         ).scrollVertical().p12(),
       ),
     );
+  }
+
+
+
+  // ────────────────────────────────────────────────────────────────
+  // ⵌ filter
+  // ────────────────────────────────────────────────────────────────
+  static Future<void> openFilterDialog<T>({
+    required VideoFilterState state,
+    required List<T> allVideos,
+    required RxList<T> videos,
+    required VideoFilterAdapter<T> adapter,
+    Future<void> Function()? onReset,
+    Future<void> Function(List<T> filtered)? onApplied,
+    double widthFactor = 0.5,
+
+    bool? showVideoCode = true,
+    bool? showActressName = true,
+    bool? showCategories = true,
+    bool? showYears = true,
+    bool applyLocalFilter = true,
+
+  }) async {
+    await state.ensureOptionsLoaded();
+
+    await Overlayment.show(
+      context: Get.context!,
+      OverPanel(
+        alignment: Alignment.center,
+        width: 500,
+        animation: OverFadeAnimation(
+          reverseDurationMilliseconds: 100,
+          durationMilliseconds: 100,
+        ),
+        child: VStack(
+          [
+            'Filter'.text.bold.make().pOnly(bottom: 16),
+            Container(
+              decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 12),
+              child: VStack(
+                [
+                  HStack(
+                    [
+
+                      if (showVideoCode ?? true) ...[
+                        CupertinoTextField(
+                          controller: state.tecVideoCode,
+                          clearButtonMode: OverlayVisibilityMode.editing,
+                          placeholder: 'Video Code..',
+                          style: TextStyle(color: Vx.white, fontSize: 12),
+                        ).expand(),
+                        12.widthBox,
+                      ],
+                      
+                      if (showActressName ?? true) ...[
+                        ExAutoComplate(
+                          controller: state.tecActressName,
+                          items: state.actresses,
+                          fontSize: 12,
+                          placeHolder: 'Actress Name (${state.actresses.length})',
+                          onSelected: (s) => state.tecActressName.text = s,
+                        ).expand(),
+                      ],
+                      
+                    ],
+                  ).pOnly(bottom: 16),
+                  
+                  if (showCategories ?? true) ...[
+                    Obx(
+                      () => Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: state.categoriesSelected.map((tag) {
+                          return Chip(
+                            label: Text(tag, style: TextStyle(fontSize: 9)),
+                            deleteIcon: Icon(Icons.close, size: 12),
+                            labelPadding: EdgeInsets.all(2),
+                            side: BorderSide(color: AppColor.container),
+                            backgroundColor: AppColor.selected,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(1)),
+                            onDeleted: () => {
+                              state.categoriesSelected.remove(tag),
+                            },
+                          );
+                        }).toList(),
+                      ).pOnly(bottom: 12),
+                    ),
+                    ExAutoComplate(
+                      controller: state.tecCategory,
+                      items: state.categories,
+                      fontSize: 12,
+                      placeHolder: 'Add Category (${state.categories.length})',
+                      emptyText: 'No Category with `${state.tecCategory.text}` Found ',
+                      onSelected: (s) {
+                        state.tecCategory.clear();
+                        if (state.categoriesSelected.contains(s)) return;
+                        state.categoriesSelected.add(s);
+                      },
+                    ).pOnly(bottom: 12),
+                  ],
+                  
+
+                  if (showYears ?? true) ...[
+                    HStack(
+                      [
+                        'Year:'.text.size(11).make().pOnly(right: 24),
+                        Obx(
+                          () => SliderTheme(
+                            data: SliderTheme.of(Get.context!).copyWith(
+                              trackHeight: 4,
+                              overlayShape: SliderComponentShape.noOverlay,
+                              activeTrackColor: AppColor.selected,
+                              inactiveTrackColor: AppColor.container,
+                              rangeTrackShape: RectangularRangeSliderTrackShape(),
+                              valueIndicatorTextStyle: const TextStyle(fontSize: 10, color: Colors.white),
+                              valueIndicatorColor: AppColor.container,
+                              rangeThumbShape: RoundRangeSliderThumbShape(
+                                enabledThumbRadius: 6,
+                                disabledThumbRadius: 0,
+                              ),
+                            ),
+                            child: RangeSlider(
+                              values: state.currentRange.value,
+                              min: 2000,
+                              max: DateTime.now().year.toDouble(),
+                              divisions: (DateTime.now().year.toDouble() - 2000).toInt(),
+                              labels: RangeLabels(
+                                state.currentRange.value.start.toInt().toString(),
+                                state.currentRange.value.end.toInt().toString(),
+                              ),
+                              onChanged: (RangeValues values) {
+                                state.currentRange.value = values;
+                              },
+                            ),
+                          ).expand(),
+                        ),
+                        Obx(() => '${state.currentRange.value.start.toInt()} - ${state.currentRange.value.end.toInt()}'.text.size(11).make().pOnly(left: 24)),
+                      ],
+                    ),
+                  ],
+                  
+                ],
+              ).p12(),
+            ),
+            HStack(
+              [
+                Spacer(),
+                ExButtonElevated(
+                  height: 38,
+                  label: 'Reset',
+                  backgroundColor: Vx.red500.withAlpha(100),
+                  labelColor: Vx.white,
+                  labelSize: 12,
+                  onPressed: () async {
+                    state.reset();
+                    if (applyLocalFilter) {
+                      videos.value = allVideos;
+                    }
+                    if (onReset != null) await onReset();
+                    await Overlayment.dismissLast();
+                  },
+                ).pOnly(right: 12),
+                ExButtonElevated(
+                  height: 38,
+                  label: 'Apply',
+                  labelSize: 12,
+                  backgroundColor: AppColor.selected,
+                  labelColor: Vx.white,
+                  onPressed: () async {
+                    if (applyLocalFilter) {
+                      final filtered = state.apply(allVideos, adapter);
+                      videos.value = filtered;
+                      if (onApplied != null) await onApplied(filtered);
+                    } else {
+                      state.isFiltered.value = true;
+                      if (onApplied != null) await onApplied(const []);
+                    }
+                    await Overlayment.dismissLast();
+                  },
+                ),
+              ],
+            ).pOnly(top: 24, bottom: 16),
+          ],
+        ).p16(),
+      ),
+    );
+  }
+}
+
+
+
+class VideoFilterAdapter<T> {
+  const VideoFilterAdapter({
+    required this.videoCode,
+    required this.actresses,
+    required this.categories,
+    required this.releaseDate,
+    this.categoryMatch,
+  });
+
+  final String Function(T video) videoCode;
+  final Iterable<String> Function(T video) actresses;
+  final Iterable<String> Function(T video) categories;
+  final String? Function(T video) releaseDate;
+  final bool Function(Iterable<String> videoCategories, Set<String> selected)? categoryMatch;
+}
+
+class VideoFilterState {
+  VideoFilterState({RxBool? isFiltered}) : isFiltered = isFiltered ?? false.obs;
+
+  final RxBool isFiltered;
+  final tecVideoCode = TextEditingController();
+  final tecActressName = TextEditingController();
+  final tecCategory = TextEditingController();
+  final actresses = <String>[].obs;
+  final categories = <String>[].obs;
+  final categoriesSelected = <String>[].obs;
+  final currentRange = RangeValues(2000, DateTime.now().year.toDouble()).obs;
+
+  Future<void> ensureOptionsLoaded() async {
+    if (actresses.isEmpty) {
+      await DBR18.getAllActress().then((actress) {
+        for (var i = 0; i < actress.length; i++) {
+          actresses.add('${actress[i]['name_romaji']}');
+        }
+        actresses.unique();
+      });
+    }
+
+    if (categories.isEmpty) {
+      await DBR18.getAllCategories().then((cat) {
+        for (var i = 0; i < cat.length; i++) {
+          categories.add('${cat[i]['name_en']}');
+        }
+        categories.unique();
+      });
+    }
+  }
+
+  void reset() {
+    tecVideoCode.text = '';
+    tecActressName.text = '';
+    tecCategory.text = '';
+    actresses.clear();
+    categories.clear();
+    categoriesSelected.clear();
+    currentRange.value = RangeValues(2000, DateTime.now().year.toDouble());
+    isFiltered.value = false;
+  }
+
+  List<T> apply<T>(List<T> allVideos, VideoFilterAdapter<T> adapter) {
+    var filteredVideos = allVideos.toList();
+
+    if (tecVideoCode.text.isNotBlank) {
+      final query = tecVideoCode.text.toLowerCase();
+      filteredVideos = filteredVideos.where((video) => adapter.videoCode(video).toLowerCase().contains(query)).toList();
+    }
+
+    if (tecActressName.text.isNotBlank) {
+      final query = tecActressName.text.toLowerCase();
+      filteredVideos = filteredVideos.where((video) {
+        return adapter.actresses(video).any((name) => name.toLowerCase().contains(query));
+      }).toList();
+    }
+
+    if (categoriesSelected.isNotEmpty) {
+      final selected = categoriesSelected.toSet();
+      if (adapter.categoryMatch != null) {
+        filteredVideos = filteredVideos.where((video) {
+          return adapter.categoryMatch!(adapter.categories(video), selected);
+        }).toList();
+      } else {
+        filteredVideos = filteredVideos.where((video) {
+          return adapter.categories(video).any((category) => category.isNotEmpty && selected.contains(category));
+        }).toList();
+      }
+    }
+
+    if (currentRange.value.start.toInt() > 0 || currentRange.value.end.toInt() > 0) {
+      filteredVideos = filteredVideos.where((video) {
+        final releaseDate = adapter.releaseDate(video);
+        if (releaseDate.isEmptyOrNull) return false;
+        final DateTime date;
+        try {
+          date = releaseDate!.toDateEx(format: kYMd);
+        } catch (_) {
+          return false;
+        }
+        final year = date.year;
+        final startYear = currentRange.value.start.toInt();
+        final endYear = currentRange.value.end.toInt();
+        return year >= startYear && year <= endYear;
+      }).toList();
+    }
+
+    isFiltered.value = true;
+    return filteredVideos;
   }
 }

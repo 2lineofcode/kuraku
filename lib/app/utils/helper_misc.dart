@@ -113,8 +113,28 @@ mixin HelperMisc {
       '3840x2160': '4K',
       '2560x1440': '2K (QHD)',
       '2048x1080': '2K (DCI)',
+      '2224x1080': 'FHD+ (20:9)',
       '1920x1080': 'FHD (1080p)',
+      '1920x816': 'FHD (Cinematic)', // Cinema standard 2.35:1
+      '1920x800': 'FHD (Ultrawide)', // Cinema standard 21:9
+      '1918x1036': 'FHD (Custom)',
+      '1912x1088': 'FHD (Custom)',
+      '1080x1920': 'FHD (Portrait)',
       '1280x720': 'HD (720p)',
+      '720x1600': 'HD+ (20:9)',
+      '720x1480': 'HD+ (18.5:9)',
+      '720x1280': 'HD (Portrait)',
+      '720x1278': 'HD (Custom)',
+      '628x1080': 'FHD (Portrait)',
+      '608x1080': 'FHD (Portrait)',
+      '606x1080': 'FHD (Portrait)',
+      '544x960': 'qHD (960p)',
+      '540x960': 'qHD (960p)',
+      '488x1080': 'FHD (Portrait)',
+      '486x1080': 'FHD (Portrait)',
+      '405x720': 'HD (Portrait)',
+      '404x720': 'HD (Portrait)',
+      '360x640': 'nHD (360p)',
       '854x480': 'SD (480p)',
     };
 
@@ -195,28 +215,13 @@ mixin _JavitExtension {
   static bool __isValidVideoCode(String code) {
     if (code.trim().isEmpty) return false;
 
-    const _blacklistedPrefixes = [
-      'TK', '7', '9', 'K9', 'FTKT', 'GOOE', 'JTKT', 'GTKT', 'DDMP', 'DMPXA', 'USTD', 
-      'VWBS', 'HPXR', 'VWAS', 'TCBD', 'DAXA', 'TWUSS', 'PJXF', 'KKC', 'GNXF', 'JAXA', 'UHB', 
-      'BPUH', 'GNXT', 'ZTKT', 'PB', 'D1', 'D2', 'D3', 'DK',
-    ];
-
-    const _blacklistedSuffixes = [
-      'BOD', 'DOD', 'Ta', 'Tb', 'Tc', 'Td', 'Te', 
-      'TK', 'TK1', 'TK2', 'TK3', 'EC', '4D', '5D', 'DL',
-    ];
-
     final match = RegExp(r'^([A-Za-z]{2,})-([0-9]{2,})(?:-[A-Za-z0-9]+)?$').firstMatch(code);
     if (match == null) return false;
 
     final number = match.group(2)!;
-
     if (number.length > 5) return false;
 
-    final hasBlacklistedPrefix = _blacklistedPrefixes.any((p) => code.startsWith(p));
-    final hasBlacklistedSuffix = _blacklistedSuffixes.any((s) => code.endsWith(s));
-
-    return !hasBlacklistedPrefix && !hasBlacklistedSuffix;
+    return true;
   }
 
   static String __getLastSegments(String path, {int n = 4}) {
@@ -269,12 +274,17 @@ extension JavitExtString on String {
   // ---
   String genImageUrl() {
     if (startsWith('http')) return this;
-    return '${Env.imgUrl}/$this.jpg';
+
+    var output = this;
+    if (endsWith('ps')) output = replaceFirst('ps', 'pl');
+    return '${Env.imgUrl}/$output.jpg';
   }
+
   String genAvatarUrl() {
     if (startsWith('http')) return this;
     return '${Env.actressUrl}/$this';
   }
+
   String genTrailerUrl() => '${Env.vidUrl}$this';
 
   // ---

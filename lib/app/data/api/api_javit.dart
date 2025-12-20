@@ -34,12 +34,12 @@ mixin ApiJavit {
     }
   }
 
-  static Future<Map<String, dynamic>> ranking({String provider = kProviderNJav}) async {
-    try {
-      final res = await Api.get('/api/$provider/star_rank', withCache: false);
-      return res.data;
-    } catch (e) {
-      throw ApiException(e.toString());
-    }
-  }
+  // static Future<Map<String, dynamic>> ranking({String provider = kProviderNJav}) async {
+  //   try {
+  //     final res = await Api.get('/api/$provider/star_rank', withCache: false);
+  //     return res.data;
+  //   } catch (e) {
+  //     throw ApiException(e.toString());
+  //   }
+  // }
 }

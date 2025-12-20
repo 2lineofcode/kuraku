@@ -1,31 +1,31 @@
 name: javit
 description: "A new Flutter project."
 publish_to: "none"
-version: 1.0.0+1
+version: 1.0.0+20260114
 
 environment:
   sdk: ^3.5.3
 
 dependencies:
   # ** core
-  get: ^4.7.2
+  get: ^4.7.3
   get_secure_storage: ^1.0.5
   path: ^1.9.1
   path_provider: ^2.1.5
   sqflite: ^2.4.2
 
   # ** player
-  cached_video_player_plus: ^4.0.4
-  video_player: ^2.10.0
+  cached_video_player_plus: ^4.1.0
+  video_player: ^2.10.1
   chewie: ^1.13.0
   audioplayers: ^6.5.1
 
   # mediakit
-  media_kit: ^1.2.1
-  media_kit_video: ^1.3.1
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.7
   media_kit_libs_macos_video: ^1.1.4
-  video_player_media_kit: ^1.0.7
+  video_player_media_kit: ^2.0.0
 
   # dio
   dio: ^5.9.0
@@ -41,7 +41,7 @@ dependencies:
   overlayment: ^0.2.1
   cached_network_image: ^3.4.1
   flutter_cache_manager: ^3.4.1
-  zoom_hover_pinch_image: ^1.0.4
+  zoom_hover_pinch_image: ^1.1.0
   uicons_pro: ^1.1.0
   flutter_typeahead: ^5.2.0
   flutter_list_view: ^1.1.29
@@ -50,9 +50,9 @@ dependencies:
   # fast_cached_network_image: ^1.3.3+5
 
   # ** utils
-  file_picker: ^10.3.3
+  file_picker: ^10.3.8
   intl: ^0.20.2
-  uuid: ^4.5.1
+  uuid: ^4.5.2
   url_launcher: ^6.3.2
   super_drag_and_drop: ^0.9.1
   hotkey_manager: ^0.2.3
@@ -61,8 +61,9 @@ dependencies:
   process_run: ^1.2.4
   super_context_menu: ^0.9.1
   glob: 2.1.3
-  ffmpeg_kit_flutter_new: ^3.2.0
+  ffmpeg_kit_flutter_new: ^4.1.0
   video_compress: ^3.1.4
+  translator: ^1.0.4+1
   
   flutter_local_notifications: ^19.5.0
 

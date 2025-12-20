@@ -149,10 +149,6 @@ class AppSettingService extends GetxService {
     HotKey _hotKey5 = HotKey(key: PhysicalKeyboardKey.digit5, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyComma = HotKey(key: PhysicalKeyboardKey.comma, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
 
-    HotKey _hotKeyArrowR = HotKey(key: PhysicalKeyboardKey.arrowRight, modifiers: [HotKeyModifier.alt], scope: HotKeyScope.inapp);
-    HotKey _hotKeyArrowL = HotKey(key: PhysicalKeyboardKey.arrowLeft, modifiers: [HotKeyModifier.alt], scope: HotKeyScope.inapp);
-
-
     await hotKeyManager.register(_hotKeyEsc, keyUpHandler: (hotKey) {
       AppLog.logD('hotKeyEsc Pressed');
       try { 
@@ -241,16 +237,5 @@ class AppSettingService extends GetxService {
       catch (_) {}
     });
 
-    await hotKeyManager.register(_hotKeyArrowR, keyUpHandler: (hotKey) {
-      AppLog.logD('hotKeyArrowR Pressed');
-      try { Get.find<PageDownloadController>().onNextPage(); } 
-      catch (_) {}
-    });
-
-    await hotKeyManager.register(_hotKeyArrowL, keyUpHandler: (hotKey) {
-      AppLog.logD('hotKeyArrowL Pressed');
-      try { Get.find<PageDownloadController>().onPreviousPage(); } 
-      catch (_) {}
-    });
   }
 }

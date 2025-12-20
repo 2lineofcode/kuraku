@@ -24,20 +24,33 @@ mixin HomeRelapse {
 
     relapse.value = await DBActivity.getAllRelapse();
 
-    final oneWeekAgo = DateTime.now().subtract(Duration(days: 7));
-    final oneMonthAgo = DateTime(DateTime.now().year, DateTime.now().month - 1, DateTime.now().day);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
+    final startOfMonth = DateTime(today.year, today.month, 1);
 
-    countWeek.value = await DBActivity.getAll(
-      where: 'type = ? AND DATE(content) >= DATE(?) AND DATE(content) <= DATE(?)',
-      whereArgs: [kActivityTypeRelapse, oneWeekAgo.toStringEx(format: kYMd), DateTime.now().toStringEx(format: kYMd)],
-    ).then((value) => value.length);
+    var weekTotal = 0;
+    var monthTotal = 0;
+    var allTotal = 0;
 
-    countMonth.value = await DBActivity.getAll(
-      where: 'type = ? AND DATE(content) >= DATE(?) AND DATE(content) <= DATE(?)',
-      whereArgs: [kActivityTypeRelapse, oneMonthAgo.toStringEx(format: kYMd), DateTime.now().toStringEx(format: kYMd)],
-    ).then((value) => value.length);
+    for (final item in relapse) {
+      final rawDate = item.content;
+      if (rawDate.isNullOrEmpty) continue;
+      final date = rawDate!.toDateEx(format: kYMd);
+      final times = item.times ?? 1;
 
-    countAll.value = await DBActivity.getAll(where: 'type = ?', whereArgs: [kActivityTypeRelapse]).then((value) => value.length);
+      allTotal += times;
+      if (!date.isBefore(startOfWeek)) {
+        weekTotal += times;
+      }
+      if (!date.isBefore(startOfMonth)) {
+        monthTotal += times;
+      }
+    }
+
+    countWeek.value = weekTotal;
+    countMonth.value = monthTotal;
+    countAll.value = allTotal;
 
     await Overlayment.show(
       context: Get.context,
@@ -102,9 +115,9 @@ mixin HomeRelapse {
               width: double.infinity,
               decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
               child: VStack([
-                'This Week: $countWeek'.text.size(12).make(),
-                'This Month: $countMonth'.text.size(12).make(),
-                'All Time: $countAll'.text.size(12).make().pOnly(top: 8),
+                'This Week: ${countWeek.value}'.text.size(12).make(),
+                'This Month: ${countMonth.value}'.text.size(12).make(),
+                'All Time: ${countAll.value}'.text.size(12).make().pOnly(top: 8),
               ]).p12(),
             ).pSymmetric(v: 12),
           ],

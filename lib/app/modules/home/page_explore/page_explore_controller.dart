@@ -1,10 +1,10 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:uuid/v4.dart';
 
 import '../../../core/app_logging.dart';
-import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
@@ -12,6 +12,8 @@ import '../../../utils/helper.dart';
 import '../page_search/page_search_overlay.dart';
 
 class PageExploreController extends GetxController {
+  final isFresh = true.obs;
+
   // ** part: [top] Menu
   final menus = <String>[kActress, kCategory, kPath, kSeries, kLabel, kStudio, kDirector, kYear, kCustom];
   final currentMenuSelected = kActress.obs;
@@ -27,6 +29,8 @@ class PageExploreController extends GetxController {
   final leftListHoveredIndex = (-1).obs;
   final leftListSelectedIndex = 0.obs;
   final leftListFocusNode = FocusNode();
+  final leftSortOptions = <String>['Name', 'Count'];
+  final leftSortSelected = 'Name'.obs;
 
   // ** part: [right] Videos
   final rightListViewMode = kLocal.obs;
@@ -34,26 +38,47 @@ class PageExploreController extends GetxController {
   final rightListR18 = <Map<String, dynamic>>[].obs;
   final rightListR18Filtered = <Map<String, dynamic>>[].obs;
   final rightListR18TotalVideo = 0.obs;
+  final r18ScrollController = ScrollController();
+  final hasNextPage = false.obs;
+  final currentPage = 0.obs;
+  final isLoadingR18 = false.obs;
+  final isLoadingR18More = false.obs;
   final tecSearchRight = TextEditingController();
   final fnSearchRight = FocusNode();
   final phSearchRight = 'Search...'.obs;
+  final singleActressMode = true.obs;
+  final _perPage = 500;
 
-  final isFresh = true.obs;
+  // filter
+  final filter = VideoFilterState();
 
 
   @override
   Future<void> onInit() async {
     super.onInit();
     AppLog.logI('page explore ==> onInit called');
+    r18ScrollController.addListener(_onScroll);
     await onMenuChange(kActress);
     phSearchLeft.value = 'Search (${leftList.length})...';
     isFresh.value = await DBVideos.getCount() == 0;
+  }
+
+  @override
+  void onClose() {
+    r18ScrollController.removeListener(_onScroll);
+    r18ScrollController.dispose();
+    tecSearchLeft.dispose();
+    fnSearchLeft.dispose();
+    tecSearchRight.dispose();
+    fnSearchRight.dispose();
+    super.onClose();
   }
 
   Future<void> onMenuChange(String menu) async {
     leftList.clear();
     rightListLocal.clear();
     rightListR18.clear();
+    _resetR18Pagination();
     currentMenuSelected.value = menu;
 
     switch (currentMenuSelected.value) {
@@ -71,6 +96,7 @@ class PageExploreController extends GetxController {
     phSearchLeft.value = 'Search (${leftList.length})...';
     tecSearchLeft.text = '';
     rightListViewMode.value = kLocal;
+    _applyLeftSort();
   }
 
 
@@ -85,21 +111,65 @@ class PageExploreController extends GetxController {
       final result = leftList.where((item) => item.name!.toLowerCase().contains(query)).toList();
       leftListFiltered.assignAll(result);
     }
+    _applyLeftSort();
+  }
+
+  void onLeftSortChange(String value) {
+    leftSortSelected.value = value;
+    _applyLeftSort();
+  }
+
+  void _applyLeftSort() {
+    if (leftListFiltered.isEmpty) return;
+    if (leftSortSelected.value == 'Count') {
+      leftListFiltered.sort((a, b) => (b.count ?? 0).compareTo(a.count ?? 0));
+    } else {
+      leftListFiltered.sort(
+        (a, b) => (a.name ?? '').toLowerCase().compareTo((b.name ?? '').toLowerCase()),
+      );
+    }
+    _syncLeftSelectionIndex();
+    leftListFiltered.refresh();
+  }
+
+  void _syncLeftSelectionIndex() {
+    final selected = leftListSelected.value;
+    if (selected.name == null && selected.id == null) return;
+    final index = leftListFiltered.indexWhere(
+      (item) => item.name == selected.name && item.id == selected.id,
+    );
+    if (index >= 0) leftListSelectedIndex.value = index;
+  }
+
+  int _getSafeLeftSelectedIndex() {
+    if (leftListFiltered.isEmpty) return -1;
+    final selected = leftListSelected.value;
+    final index = leftListFiltered.indexWhere(
+      (item) => item.name == selected.name && item.id == selected.id,
+    );
+    if (index >= 0) return index;
+    final fallback = leftListSelectedIndex.value;
+    if (fallback >= 0 && fallback < leftListFiltered.length) return fallback;
+    return 0;
   }
 
   void onLeftListKeyPressedArrowUp() {
-    if (leftListSelectedIndex.value > 0) {
-      leftListSelectedIndex.value--;
-      leftListSelected.value = leftListFiltered[leftListSelectedIndex.value];
+    final currentIndex = _getSafeLeftSelectedIndex();
+    if (currentIndex > 0) {
+      final nextIndex = currentIndex - 1;
+      leftListSelectedIndex.value = nextIndex;
+      leftListSelected.value = leftListFiltered[nextIndex];
       onLeftListTap(leftListSelected.value);
       leftListFocusNode.requestFocus();
     }
   }
 
   void onLeftListKeyPressedArrowDown() {
-    if (leftListSelectedIndex.value < leftListFiltered.length - 1) {
-      leftListSelectedIndex.value++;
-      leftListSelected.value = leftListFiltered[leftListSelectedIndex.value];
+    final currentIndex = _getSafeLeftSelectedIndex();
+    if (currentIndex >= 0 && currentIndex < leftListFiltered.length - 1) {
+      final nextIndex = currentIndex + 1;
+      leftListSelectedIndex.value = nextIndex;
+      leftListSelected.value = leftListFiltered[nextIndex];
       onLeftListTap(leftListSelected.value);
       leftListFocusNode.requestFocus();
     }
@@ -110,6 +180,7 @@ class PageExploreController extends GetxController {
     rightListViewMode.value = kLocal;
     leftListSelectedIndex.value = leftListFiltered.indexOf(item);
     leftListFocusNode.requestFocus();
+    _resetR18Pagination();
 
     switch (currentMenuSelected.value) {
       case kActress:
@@ -152,9 +223,6 @@ class PageExploreController extends GetxController {
           case 'Favorite':
             rightListLocal.value = await DBVideos.getAll(where: 'is_favorite = 1', orderBy: 'updated_at DESC');
             break;
-          case 'Non Jav':
-            rightListLocal.value = await DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC');
-            break;
           case 'Most Watch':
             rightListLocal.value = await DBVideos.getAll(where: 'view_count >= 3', orderBy: 'view_count DESC, updated_at DESC');
             break;
@@ -164,21 +232,23 @@ class PageExploreController extends GetxController {
           case 'Never Watch':
             rightListLocal.value = await DBVideos.getAll(where: 'view_count = 0', orderBy: 'updated_at DESC');
             break;
-          case '🟢 Star Rank':
-            await ApiJavit.ranking().then( (res) {
-              rightListLocal.value.clear();
-              final videos = <Videos>[];
-              final result = res['result'] as List;
-              for (var item in result) {
-                videos.add(Videos(
-                  id: item['avatar'].toString().allBetween('actress/', '-t.jpg'),
-                  videoCode: item['rank'],
-                  title: item['name'],
-                  fanArt: item['avatar'],
-                ));
-              }
-              rightListLocal.value = videos;
-            });
+          case '🇮🇩 Sub Indonesia':
+            rightListLocal.value = await DBVideos.getAll(where: 'video_code != "" AND (video_path LIKE "%-id%" OR video_path LIKE "%indo%")', orderBy: 'updated_at DESC');
+            break;
+          case '🇬🇧 Sub English':
+            rightListLocal.value = await DBVideos.getAll(where: 'video_code != "" AND (video_path LIKE "%-en%" OR video_path LIKE "%-sub%")', orderBy: 'updated_at DESC');
+            break;
+          case '✨ Reduce Mosaic':
+            rightListLocal.value = await DBVideos.getAll(where: 'video_code != "" AND (video_path LIKE "%-un%" OR video_path LIKE "%-rm%" OR video_path LIKE "%reducing mosaic%")', orderBy: 'updated_at DESC');
+            break;
+          case '🚫 Non Jav':
+            rightListLocal.value = await DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC');
+            break;
+          case '💿 FHD':
+            rightListLocal.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != "" AND quality = "1920x1080"', orderBy: 'updated_at DESC');
+            break;
+          case '📺 HD':
+            rightListLocal.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != "" AND quality != "1920x1080"', orderBy: 'updated_at DESC');
             break;
         }
         rightListR18TotalVideo.value = 0;
@@ -190,7 +260,7 @@ class PageExploreController extends GetxController {
   // ────────────────────────────────────────────────────────────────
   // ** ⵌ [ RIGHT PART ]
   // ────────────────────────────────────────────────────────────────
-  void onRightListDoSearch(String q) {
+  Future<void> onRightListDoSearch(String q) async {
     final query = q.toLowerCase();
     if (query.isEmpty) {
       rightListR18Filtered.assignAll(rightListR18);
@@ -203,60 +273,129 @@ class PageExploreController extends GetxController {
       }).toList();
       rightListR18Filtered.assignAll(result);
     }
+
+    if (filter.isFiltered.isTrue) await _applyFilter();
   }
 
   Future<void> onRightListTap(Videos item) async {
     await PageSearchOverlay.onItemTap(item);
   }
 
+  // ~ Filters ────────────────────────────────────────────────────────────────
+  final _filterAdapter = VideoFilterAdapter<Map<String, dynamic>>(
+    videoCode: (video) => video['video_code'] ?? '',
+    actresses: (video) => video['actresses'] ?? <String>[],
+    categories: (video) => video['categories'] ?? <String>[],
+    releaseDate: (video) => video['release_date'] ?? '',
+    categoryMatch: (videoCategories, selected) => videoCategories.toSet().containsAll(selected),
+  );
+
+  Future<void> _applyFilter() async {
+    final filtered = filter.apply(rightListR18.toList(), _filterAdapter);
+    rightListR18Filtered.value = filtered;
+  }
+
+  Future<void> openDialogFilter() async {
+    await HelperOpener.openFilterDialog<Map<String, dynamic>>(
+      state: filter,
+      allVideos: rightListR18.toList(),
+      videos: rightListR18Filtered,
+      adapter: _filterAdapter,
+      showActressName: false,
+      showCategories: false,
+    );
+  }
+
   Future<void> onSectionLocalTap() async => rightListViewMode.value = kLocal;
 
   Future<void> onSectionR18Tap() async {
+    
     if (rightListR18TotalVideo.value == 0) return;
     rightListViewMode.value = kR18;
+    currentPage.value = 1;
+    hasNextPage.value = true;
+    rightListR18.clear();
+    rightListR18Filtered.clear();
 
-    switch (currentMenuSelected.value) {
-      case kActress: rightListR18.value = await DBR18.getAllVideosByActress(leftListSelected.value.id ?? 0); break;
-      case kCategory: rightListR18.value = await DBR18.getAllVideosByCategory(HelperDecensor.censored(leftListSelected.value.name)); break;
-      case kPath: break;
-      case kLabel: rightListR18.value = await DBR18.getAllVideosByLabel(leftListSelected.value.name ?? ''); break;
-      case kSeries: rightListR18.value = await DBR18.getAllVideosBySeries(HelperDecensor.censored(leftListSelected.value.name)); break;
-      case kStudio: rightListR18.value = await DBR18.getAllVideosByStudio(leftListSelected.value.name ?? ''); break;
-      case kDirector: rightListR18.value = await DBR18.getAllVideosByDirector(leftListSelected.value.name ?? ''); break;
-      case kYear: rightListR18.value = await DBR18.getAllVideosByYear(leftListSelected.value.name ?? ''); break;
-      case kCustom: break;
+    isLoadingR18.value = true;
+    try {
+      await _loadR18Page(isLoadMore: false);
+      if (r18ScrollController.hasClients) {
+        await r18ScrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
+      }
+    } finally {
+      isLoadingR18.value = false;
     }
+  }
 
-    // Filter, sort, and match
-    rightListR18.value = rightListR18.value.take(10000).toList();
-    final _filtered = <Map<String, dynamic>>[].obs;
-    for (int i = 0; i < rightListR18.length; i++) {
-      final vidCode = rightListR18[i]['video_code'].toString();
-      if (vidCode.isValidVideoCode()) {
-        _filtered.add(rightListR18[i]);
+  Future<void> _loadR18Page({required bool isLoadMore}) async {
+    if (isLoadMore && hasNextPage.isFalse) return;
+    if (isLoadMore) isLoadingR18More.value = true;
+
+    try {
+      final List<Map<String, dynamic>> r18videos;
+      switch (currentMenuSelected.value) {
+        case kActress: r18videos = await DBR18.getAllVideosByActress(leftListSelected.value.id ?? 0, singleActressMode: singleActressMode.value, page: currentPage.value, perPage: _perPage + 1); break;
+        case kCategory: r18videos = await DBR18.getAllVideosByCategory(HelperDecensor.censored(leftListSelected.value.name), page: currentPage.value, perPage: _perPage + 1); break;
+        case kPath: r18videos = []; break;
+        case kLabel: r18videos = await DBR18.getAllVideosByLabel(leftListSelected.value.name ?? '', page: currentPage.value, perPage: _perPage + 1); break;
+        case kSeries: r18videos = await DBR18.getAllVideosBySeries(HelperDecensor.censored(leftListSelected.value.name), page: currentPage.value, perPage: _perPage + 1); break;
+        case kStudio: r18videos = await DBR18.getAllVideosByStudio(leftListSelected.value.name ?? '', page: currentPage.value, perPage: _perPage + 1); break;
+        case kDirector: r18videos = await DBR18.getAllVideosByDirector(leftListSelected.value.name ?? '', page: currentPage.value, perPage: _perPage + 1); break;
+        case kYear: r18videos = await DBR18.getAllVideosByYear(leftListSelected.value.name ?? '', page: currentPage.value, perPage: _perPage + 1); break;
+        case kCustom: r18videos = []; break;
+        default: r18videos = []; break;
+      }
+
+      hasNextPage.value = r18videos.length > _perPage;
+      final pageItems = r18videos.take(_perPage).toList();
+
+      final output = <Map<String, dynamic>>[];
+      for (final item in pageItems) {
+        final vidCode = item['video_code'].toString();
+        if (vidCode.isValidVideoCode() == false) continue;
+        final mutableItem = Map<String, dynamic>.from(item);
+        final hasMatch = rightListLocal.any((vItem) => vidCode == (vItem.videoCode ?? ''));
+        mutableItem['match'] = hasMatch;
+        mutableItem['is_clicked'] = false;
+
+        final releaseDate = DateTime.tryParse(item['release_date'] ?? '');
+        mutableItem['is_released'] = releaseDate?.isBefore(DateTime.now()) ?? true;
+        output.add(mutableItem);
+      }
+
+      if (isLoadMore) {
+        rightListR18.addAll(output);
+      } else {
+        rightListR18.value = output;
+      }
+
+      rightListR18.value.unique((item) => item['video_code']);
+      await _syncRightFilters();
+      rightListR18.refresh();
+    } catch (e) {
+      AppLog.logE('_loadR18Page e -> $e');
+    } finally {
+      if (isLoadMore) isLoadingR18More.value = false;
+    }
+  }
+
+  void _onScroll() {
+    if (r18ScrollController.position.pixels >= r18ScrollController.position.maxScrollExtent - 240) {
+      if (hasNextPage.isTrue && isLoadingR18More.isFalse && isLoadingR18.isFalse) {
+        currentPage.value += 1;
+        _loadR18Page(isLoadMore: true);
       }
     }
+  }
 
-    rightListR18.value = _filtered.value.take(100000).toList();
-    rightListR18.value.unique((item) => item['video_code']);
-    rightListR18TotalVideo.value = rightListR18.length;
-
-    rightListR18.value.sort((a, b) => b['release_date'].compareTo(a['release_date']));
-
-    // check has match video by code
-    rightListR18.assignAll(rightListR18.map((r18) {
-      final Map<String, dynamic> _mutableItem = Map.from(r18);
-      final hasMatch = rightListLocal.any((vItem) => r18['video_code'].toString() == (vItem.videoCode!));
-      _mutableItem['match'] = hasMatch;
-      _mutableItem['is_clicked'] = false;
-
-      final releaseDate = DateTime.parse(r18['release_date'] ?? '');
-      _mutableItem['is_released'] = releaseDate.isBefore(DateTime.now());
-      return _mutableItem;
-    }).toList());
-
-    rightListR18Filtered.assignAll(rightListR18);
-    rightListR18.refresh();
+  void _resetR18Pagination() {
+    currentPage.value = 0;
+    hasNextPage.value = false;
+    isLoadingR18.value = false;
+    isLoadingR18More.value = false;
+    rightListR18.clear();
+    rightListR18Filtered.clear();
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -408,16 +547,43 @@ class PageExploreController extends GetxController {
     final cMostWatch = await DBVideos.getAll(where: 'view_count >= 3', orderBy: 'view_count DESC, updated_at DESC');
     final cNeverWatch = await DBVideos.getAll(where: 'view_count = 0', orderBy: 'updated_at DESC');
     final cNonJav = await DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC');
+    final cSubId = await DBVideos.getAll(where: 'video_code != "" AND (video_path LIKE "%-id%" OR video_path LIKE "%indo%")', orderBy: 'updated_at DESC');
+    final cSubEn = await DBVideos.getAll(where: 'video_code != "" AND (video_path LIKE "%-en%" OR video_path LIKE "%-sub%")', orderBy: 'updated_at DESC');
+    final cRM = await DBVideos.getAll(where: 'video_code != "" AND (video_path LIKE "%-un%" OR video_path LIKE "%-rm%" OR video_path LIKE "%reducing mosaic%")', orderBy: 'updated_at DESC');
+    final cHD = await DBVideos.getAll(where: 'video_code != "" AND (quality != "1920x1080")', orderBy: 'updated_at DESC');
+    final cFHD = await DBVideos.getAll(where: 'video_code != "" AND (quality = "1920x1080")', orderBy: 'updated_at DESC');
+
 
     leftList.clear();
     leftList.add(LeftListModel(name: 'New Release', count: cNewRelease.length));
     leftList.add(LeftListModel(name: 'Favorite', count: cFavorite.length));
-    leftList.add(LeftListModel(name: 'Non Jav', count: cNonJav.length));
     leftList.add(LeftListModel(name: 'Most Watch', count: cMostWatch.length));
     leftList.add(LeftListModel(name: 'New Added', count: cNewAdded.length));
     leftList.add(LeftListModel(name: 'Never Watch', count: cNeverWatch.length));
-    leftList.add(LeftListModel(name: '🟢 Star Rank', count: 0));
+    leftList.add(LeftListModel(name: '📺 HD', count: cHD.length));
+    leftList.add(LeftListModel(name: '💿 FHD', count: cFHD.length));
+    leftList.add(LeftListModel(name: '🇮🇩 Sub Indonesia', count: cSubId.length));
+    leftList.add(LeftListModel(name: '🇬🇧 Sub English', count: cSubEn.length));
+    leftList.add(LeftListModel(name: '✨ Reduce Mosaic', count: cRM.length));
+    leftList.add(LeftListModel(name: '🚫 Non Jav', count: cNonJav.length));
     leftListFiltered.assignAll(leftList);
+  }
+
+  Future<void> _syncRightFilters() async {
+    final query = tecSearchRight.text.toLowerCase();
+    if (query.isEmpty) {
+      rightListR18Filtered.assignAll(rightListR18);
+    } else {
+      final result = rightListR18.where((item) {
+        final code = item['video_code'].toString().toLowerCase();
+        final title = item['title'].toString().toLowerCase();
+        final releaseDate = item['release_date'].toString().toLowerCase();
+        return code.contains(query) || title.contains(query) || releaseDate.contains(query);
+      }).toList();
+      rightListR18Filtered.assignAll(result);
+    }
+
+    if (filter.isFiltered.isTrue) await _applyFilter();
   }
 
 }

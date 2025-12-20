@@ -1,14 +1,22 @@
+// ignore_for_file: depend_on_referenced_packages, implementation_imports
+
 import 'dart:async';
+import 'dart:ffi' as ffi;
 
 import 'package:dio/dio.dart';
 import 'package:ex_kit/ex.dart';
+import 'package:ffi/ffi.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:glob/glob.dart';
 import 'package:glob/list_local_fs.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
+import 'package:media_kit/generated/libmpv/bindings.dart' as generated;
 import 'package:media_kit/media_kit.dart';
+import 'package:media_kit/src/player/native/core/native_library.dart';
+import 'package:media_kit/src/player/native/utils/native_reference_holder.dart';
 import 'package:process_run/process_run.dart' as shell;
 import 'package:toastification/toastification.dart';
 import 'package:video_player_media_kit/video_player_media_kit.dart';
@@ -27,6 +35,7 @@ import 'env.g.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await _cleanupDanglingMediaKitPlayers();
 
   final sw = Stopwatch()..start();
 
@@ -37,7 +46,7 @@ Future<void> main() async {
 
   // local notification
   await AppNotification.initialize();
-  await requestNotificationPermissions();
+  await _requestNotificationPermissions();
 
   // shortcut
   await hotKeyManager.unregisterAll();
@@ -201,11 +210,38 @@ class _JavItState extends State<JavIt> with WindowListener {
   }
 }
 
-Future<void> requestNotificationPermissions() async {
+Future<void> _requestNotificationPermissions() async {
   final isGranted = await AppNotification.requestPermissions();
   if (isGranted == true) {
     print('Notification permissions granted');
   } else {
     print('Notification permissions denied');
+  }
+}
+
+Future<void> _cleanupDanglingMediaKitPlayers() async {
+  if (!kDebugMode) return;
+  try {
+    NativeLibrary.ensureInitialized();
+    NativeReferenceHolder.ensureInitialized((references) {
+      if (references.isEmpty) {
+        return;
+      }
+      final mpv = generated.MPV(ffi.DynamicLibrary.open(NativeLibrary.path));
+      final quitPtr = 'quit'.toNativeUtf8();
+      try {
+        for (final reference in references) {
+          if (reference == ffi.nullptr) continue;
+          final ctx = reference.cast<generated.mpv_handle>();
+          mpv.mpv_set_wakeup_callback(ctx, ffi.nullptr, ffi.nullptr);
+          mpv.mpv_command_string(ctx, quitPtr.cast());
+        }
+      } finally {
+        calloc.free(quitPtr);
+      }
+    });
+  } catch (e, stackTrace) {
+    AppLog.logE('Failed to cleanup media_kit references: $e');
+    AppLog.logE('$stackTrace');
   }
 }

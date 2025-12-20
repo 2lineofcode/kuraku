@@ -9,6 +9,7 @@ import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:path/path.dart' as p;
+import 'package:translator/translator.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 import 'package:zoom_hover_pinch_image/zoom_hover_pinch_image.dart';
 
@@ -29,6 +30,7 @@ mixin PageSearchOverlay {
   static Future<void> onItemTap(Videos video) async {
     final _controller = Get.find<PageSearchController>();
     final _mediaInfo = <String>[].obs;
+    final _translatedTitle = HelperDecensor.decensor(video.title ?? '').obs;
     final _focusNode = FocusNode();
 
     // open overlay
@@ -95,10 +97,22 @@ mixin PageSearchOverlay {
                     '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
                       HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
                     }).pSymmetric(v: 8),
-                    '${HelperDecensor.decensor(video.title)}'.text.align(TextAlign.center).size(10).minFontSize(10).makeCentered().onInkTap(
-                      () {
-                        HelperMisc.copyToClipboard(video.title ?? '', showToast: true);
-                      },
+                    Obx(
+                      () => _translatedTitle.value.text
+                          .align(TextAlign.center)
+                          .size(10)
+                          .minFontSize(10)
+                          .makeCentered()
+                          .onInkTap(
+                        () async {
+                          HelperMisc.copyToClipboard(video.title, showToast: true);
+                          final translator = GoogleTranslator();
+                          final result = await translator.translate(video.title ?? '', from: 'en', to: 'id');
+                          final translated = '${result.text}'.trim();
+                          _translatedTitle.value = HelperDecensor.decensor(translated);
+                          video.title = translated;
+                        },
+                      ),
                     ).tooltip(video.videoPath ?? ''),
 
                     ExDivider().pSymmetric(v: 16),
@@ -298,19 +312,25 @@ mixin PageSearchOverlay {
                           // label
                           if (!video.label.isEmptyOrNull) ...[
                             'Label:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.label}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                            '${video.label}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() {
+                              _onItemLabelClick(video);
+                            }),
                           ],
 
                           // studio
                           if (!video.studio.isEmptyOrNull) ...[
                             'Studio:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.studio}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                            '${video.studio}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() {
+                              _onItemStudioClick(video);
+                            }),
                           ],
 
                           // director
                           if (!video.director.isEmptyOrNull) ...[
                             'Director:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.director}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                            '${video.director}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() {
+                              _onItemDirectorClick(video);
+                            }),
                           ],
 
 
@@ -618,6 +638,39 @@ mixin PageSearchOverlay {
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
     await exploreC.onMenuChange(kSeries);
+    exploreC.tecSearchLeft.text = name;
+    exploreC.onLeftListDoSearch(name);
+    await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
+    await Overlayment.dismissLast();
+  }
+
+  static Future<void> _onItemLabelClick(Videos video) async {
+    final name = '${video.label}';
+    await Get.find<HomeController>().onMenuChange(kMenuExplore);
+    final exploreC = Get.find<PageExploreController>();
+    await exploreC.onMenuChange(kLabel);
+    exploreC.tecSearchLeft.text = name;
+    exploreC.onLeftListDoSearch(name);
+    await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
+    await Overlayment.dismissLast();
+  }
+
+  static Future<void> _onItemStudioClick(Videos video) async {
+    final name = '${video.studio}';
+    await Get.find<HomeController>().onMenuChange(kMenuExplore);
+    final exploreC = Get.find<PageExploreController>();
+    await exploreC.onMenuChange(kStudio);
+    exploreC.tecSearchLeft.text = name;
+    exploreC.onLeftListDoSearch(name);
+    await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
+    await Overlayment.dismissLast();
+  }
+
+  static Future<void> _onItemDirectorClick(Videos video) async {
+    final name = '${video.director}';
+    await Get.find<HomeController>().onMenuChange(kMenuExplore);
+    final exploreC = Get.find<PageExploreController>();
+    await exploreC.onMenuChange(kDirector);
     exploreC.tecSearchLeft.text = name;
     exploreC.onLeftListDoSearch(name);
     await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);

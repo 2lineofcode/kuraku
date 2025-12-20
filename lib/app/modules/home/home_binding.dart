@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../player/player_controller.dart';
 import 'home_controller.dart';
 import 'page_download/page_download_controller.dart';
 import 'page_explore/page_explore_controller.dart';
@@ -17,6 +18,10 @@ class HomeBinding extends Bindings {
     Get.put<PageExploreController>(PageExploreController());
     Get.put<PageSearchController>(PageSearchController());
     Get.put<PageHomeController>(PageHomeController());
+
+    if (!Get.isRegistered<PlayerController>()) {
+      Get.put<PlayerController>(PlayerController(), permanent: true);
+    }
 
     Get.lazyPut<HomeController>(() => HomeController());
   }

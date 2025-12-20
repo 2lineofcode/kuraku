@@ -193,25 +193,40 @@ mixin HomeEditVideoDetail {
             Container(
               width: double.infinity,
               color: AppColor.container,
-              child: ExButtonElevated(
-                label: 'Submit',
-                backgroundColor: AppColor.selected,
-                labelColor: Colors.white,
-                onPressed: () {
-                  final edited = video;
-                  edited.title = tecTitle.text;
-                  edited.fanArt = tecFanArt.text;
-                  edited.releaseDate = tecReleaseDate.text;
-                  edited.duration = tecDuration.text.toNum();
-                  edited.studio = tecStudio.text;
-                  edited.label = tecLabel.text;
-                  edited.director = tecDirector.text;
-                  edited.series = tecSeries.text;
-                  edited.category = categories;
-                  edited.actress = actresses;
-                  _submit(edited);
-                },
-              ).p12().pSymmetric(h: 32),
+              child: HStack(
+                [
+                  ExButtonElevated(
+                    label: 'Remove from DB',
+                    backgroundColor: Vx.red500,
+                    labelColor: Colors.white,
+                    radius: 2,
+                    onPressed: () {
+                      _remove(video);
+                    },
+                  ),
+                  8.widthBox,
+                  ExButtonElevated(
+                    label: 'Submit',
+                    backgroundColor: AppColor.selected,
+                    labelColor: Colors.white,
+                    radius: 2,
+                    onPressed: () {
+                      final edited = video;
+                      edited.title = tecTitle.text;
+                      edited.fanArt = tecFanArt.text;
+                      edited.releaseDate = tecReleaseDate.text;
+                      edited.duration = tecDuration.text.toNum();
+                      edited.studio = tecStudio.text;
+                      edited.label = tecLabel.text;
+                      edited.director = tecDirector.text;
+                      edited.series = tecSeries.text;
+                      edited.category = categories;
+                      edited.actress = actresses;
+                      _submit(edited);
+                    },
+                  ).expand(),
+                ],
+              ).p8(),
             ).positioned(bottom: 0, left: 0, right: 0),
           ],
         ),
@@ -222,25 +237,11 @@ mixin HomeEditVideoDetail {
   static Future<void> _submit(Videos video) async {
     await DBVideos.update(video);
     await Overlayment.dismissLast();
-    // ExAlert.adaptive(
-    //   title: Text('Are you sure?', style: TextStyle(fontSize: 14)),
-    //   content: Text('Are you sure you want to update this video?', style: TextStyle(fontSize: 12)).pOnly(top: 8),
-    //   actions: [
-    //     CupertinoDialogAction(
-    //       onPressed: () async {
-    //         await DBVideos.update(video);
-    //         await Overlayment.dismissLast();
-    //       },
-    //       child: Text('Yes', style: TextStyle(color: Vx.red500, fontSize: 13)),
-    //     ),
-    //     CupertinoDialogAction(
-    //       child: Text('No', style: TextStyle(fontSize: 13)),
-    //       onPressed: () {
-    //         Get.back();
-    //       },
-    //     ),
-    //   ],
-    // );
+  }
+
+  static Future<void> _remove(Videos video) async {
+    await DBVideos.delete(video);
+    await Overlayment.dismissLast();
   }
 
   static Future<void> _openDialogAddCategory(List<VideoCategory> currentCategories) async {

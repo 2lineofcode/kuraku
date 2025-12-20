@@ -79,8 +79,19 @@ class PageToolsView extends GetView<PageToolsController> {
           Obx(() => 'Top ${controller.topLargeFileSizeList.length} Large File'.text.make()),
           Spacer(),
           Obx(
+            () => HStack([
+              Checkbox.adaptive(
+                value: controller.isLocalOnlyTopLargeFile.value,
+                onChanged: (value) => controller.setLocalOnlyTopLargeFile(value ?? false),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              'Local Only'.text.size(12).make().pOnly(left: 8),
+            ]).pOnly(right: 12),
+          ),
+          Obx(
             () => ExButtonText(
-              label: 'Some file still dont have metadata (resolution), Scan now?',
+              label: 'Re-Scan',
               labelSize: 12,
               onPressed: () async => controller.scanAndUpdateDBVideoRes(),
             ).pOnly(right: 12).hide(isVisible: controller.isHasDataNotScanned.isFalse),
@@ -316,6 +327,8 @@ class PageToolsView extends GetView<PageToolsController> {
       decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
       child: VStack(
         [
+
+          // filter by
           HStack([
             'Filter by: (${controller.leftList.length})'.text.size(11).minFontSize(11).make(),
             Spacer(),
@@ -354,6 +367,8 @@ class PageToolsView extends GetView<PageToolsController> {
               ),
             ),
           ]),
+
+          // search 
           CupertinoTextField(
             controller: controller.tecFilterSearchLeft,
             focusNode: controller.fnFilterSearchLeft,
@@ -363,6 +378,8 @@ class PageToolsView extends GetView<PageToolsController> {
             prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
             onSubmitted: (s) async => await controller.onLeftListDoSearch(s),
           ).pSymmetric(v: 16),
+          
+          // list
           FocusScope(
             autofocus: true,
             child: KeyboardListener(
@@ -431,16 +448,40 @@ class PageToolsView extends GetView<PageToolsController> {
       child: controller.obx(
         (state) => VStack(
           [
+            // header
             HStack([
-              '🏷️ ${controller.leftListSelected}'.text.minFontSize(11).size(11).maxLines(2).ellipsis.make().expand(),
-              'Result (${controller.rightList.length})'.text.minFontSize(11).size(11).make().pOnly(left: 16),
+              // 1
+              CustomPopup(
+                content: '${controller.leftListSelected}'.text.size(11).black.make().constrainedBox(BoxConstraints(maxWidth: 300)),
+                child: HStack([
+                  Icon(UIconsPro.solidRounded.info, size: 12).pOnly(right: 8),
+                  'Result (${controller.rightListFiltered.length})'.text.minFontSize(11).size(11).make(),
+                ]),
+              ),
+
+              Spacer(),
+
+              // 2
+              Obx(
+                () => ZStack([
+                  IconButton(
+                    icon: Icon(
+                      controller.filter.isFiltered.isTrue ? UIconsPro.boldRounded.filter_list : UIconsPro.regularRounded.filter_list,
+                      size: controller.filter.isFiltered.isTrue ? 16 : 14,
+                    ),
+                    onPressed: () => controller.openDialogFilter(),
+                  ).pOnly(left: 8),
+                  controller.filter.isFiltered.isTrue ? Container(height: 6, width: 6, color: Vx.red500).cornerRadius(90).positioned(right: 8, top: 8) : 0.heightBox,
+                ]),
+              ),
             ]).pOnly(bottom: 12),
-            _buildVideoList().expand(),
+
+            // list video
+            Obx(() => _buildVideoList()).expand(),
+
           ],
         ).p12(),
-        onLoading: ExUiLoading(
-          message: 'Loading...'.text.size(11).minFontSize(11).makeCentered(),
-        ),
+        onLoading: ExUiLoading(message: 'Loading...'.text.size(11).minFontSize(11).makeCentered()),
         onEmpty: ExUiErrorOrEmpty(
           illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
           title: 'No Data Found',
@@ -459,9 +500,9 @@ class PageToolsView extends GetView<PageToolsController> {
         crossAxisSpacing: 8,
         childAspectRatio: 300 / 200,
       ),
-      itemCount: controller.rightList.length,
+      itemCount: controller.rightListFiltered.length,
       itemBuilder: (context, i) {
-        final item = controller.rightList[i];
+        final item = controller.rightListFiltered[i];
         return ZStack(
           [
             ExThumbnail(
@@ -507,10 +548,11 @@ class PageToolsView extends GetView<PageToolsController> {
 
             Container(
               color: AppColor.black180,
-              width: 75,
-              height: 18,
-              child: '${item['release_date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).align(TextAlign.center).ellipsis.makeCentered(),
-            ).positioned(left: 0),
+              child: HStack([
+                Icon(UIconsPro.solidRounded.calendar, size: 10).pOnly(right: 5),
+                '${item['release_date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).align(TextAlign.center).ellipsis.make(),
+              ]).p4(),
+            ).cornerRadius(8).p2().positioned(left: 0),
 
             // ** open trailer
             Icon(UIconsPro.regularRounded.play, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {

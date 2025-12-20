@@ -2,6 +2,7 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_popup/flutter_popup.dart';
 
 import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
@@ -13,7 +14,7 @@ import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widgets.dart';
 import '../home_controller.dart';
-import '../page_tools/page_tools_controller.dart';
+import '../page_search/page_search_overlay.dart';
 import 'page_explore_controller.dart';
 
 class PageExploreView extends GetView<PageExploreController> {
@@ -76,17 +77,46 @@ class PageExploreView extends GetView<PageExploreController> {
       color: Colors.transparent,
       child: VStack(
         [
-          Obx(
-            () => CupertinoTextField(
-              controller: controller.tecSearchLeft,
-              focusNode: controller.fnSearchLeft,
-              placeholder: controller.phSearchLeft.value,
-              style: TextStyle(color: Vx.white, fontSize: 12),
-              clearButtonMode: OverlayVisibilityMode.editing,
-              prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
-              onChanged: (s) => controller.onLeftListDoSearch(s),
-            ).pSymmetric(v: 8),
-          ),
+
+          HStack(
+            [
+              Obx(
+                () => CupertinoTextField(
+                  controller: controller.tecSearchLeft,
+                  focusNode: controller.fnSearchLeft,
+                  placeholder: controller.phSearchLeft.value,
+                  style: TextStyle(color: Vx.white, fontSize: 12),
+                  clearButtonMode: OverlayVisibilityMode.editing,
+                  prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+                  onChanged: (s) => controller.onLeftListDoSearch(s),
+                ).expand(),
+              ),
+
+              Obx(
+                () => CustomPopup(
+                  contentPadding: EdgeInsets.all(12),
+                  content: VStack([
+                    'Sort By:'.text.bold.black.make(),
+                    Divider(),
+                    ExButtonText(
+                      label: controller.leftSortSelected.value == 'Name' ? '◉ Name' : '◎ Name',
+                      labelSize: 13,
+                      labelColor: Vx.black,
+                      onPressed: () => {controller.onLeftSortChange('Name'), Get.back()},
+                    ).pOnly(right: 6),
+                    ExButtonText(
+                      label: controller.leftSortSelected.value == 'Count' ? '◉ Count' : '◎ Count',
+                      labelSize: 13,
+                      labelColor: Vx.black,
+                      onPressed: () => {controller.onLeftSortChange('Count'), Get.back()},
+                    ),
+                  ]).w(100),
+                  child: Icon(UIconsPro.regularRounded.sort, size: 12, color: Vx.neutral500).pOnly(left: 8, right: 6),
+                ),
+              ),
+            ],
+          ).pSymmetric(v: 8),
+
           Obx(
             () => controller.leftListFiltered.isEmpty
                 ? _buildUiNoData().expand()
@@ -268,16 +298,6 @@ class PageExploreView extends GetView<PageExploreController> {
             ),
           ]).expand(),
 
-          CupertinoTextField(
-            controller: controller.tecSearchRight,
-            focusNode: controller.fnSearchRight,
-            clearButtonMode: OverlayVisibilityMode.editing,
-            placeholder: controller.phSearchRight.value,
-            style: TextStyle(color: Vx.white, fontSize: 14),
-            prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
-            onChanged: (q) => controller.onRightListDoSearch(q),
-          ).w(120).centered().pOnly(right: 12).hide(isVisible: controller.rightListViewMode.value == kR18),
-
         ],
       ).pSymmetric(h: 8),
     ).pOnly(bottom: 12);
@@ -299,163 +319,258 @@ class PageExploreView extends GetView<PageExploreController> {
       itemBuilder: (context, i) {
         final item = controller.rightListLocal[i];
 
-        if (controller.currentMenuSelected.value == kCustom && controller.leftListSelected.value.name == '🟢 Star Rank') {
-          return Container(
-            color: AppColor.container,
-            child: ZStack([
-              ExAvatarView(
-                source: item.fanArt ?? '',
-                width: 90,
-                height: 90,
-              ).wh(90, 90).cornerRadius(90).centered().positioned(top: 55, left: 0, right: 0),
-              '${item.title}'.text.makeCentered().positioned(bottom: 40, left: 0, right: 0),
-              Container(
-                color: AppColor.black180,
-                width: width,
-                height: 20,
-                child: '${item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
-              ).positioned(bottom: 0, left: 0, right: 0),
-            ]),
-          ).onInkTap(() async {
-            try {
-              final _home = Get.find<HomeController>();
-              final _tool = Get.find<PageToolsController>();
-
-              final id = item.id.toInt();
-              final name = '${item.title}';
-
-              await _home.onMenuChange(kMenuTools);
-              await _tool.onMenuChange(kAdvanceSearch);
-              
-              _tool.currentFilterBy.value = kActress;
-              _tool.tecFilterSearchLeft.text = name;
-              await _tool.onLeftListDoSearch(name);
-
-              final _item = {'id': id, 'name_en': name};
-              await _tool.onLeftListTap(_item, 0);
-            } catch (_) {}
-          });
-        }
-
         return RepaintBoundary(
-          child: DoubleTap(
-            onSingleTap: () => controller.onRightListTap(item),
-            onDoubleTap: () => HelperOpener.openVideoFile(item, playlist: controller.rightListLocal),
-            child: Container(
-              color: AppColor.container,
-              child: ZStack([
-                ExThumbnail(
-                  imageUrl: item.fanArt,
-                  videoPath: item.videoPath,
-                  width: width,
-                  height: height,
-                  prefix: 2.12,
-                ).wh(width, height),
-            
-                if (item.releaseDate != null && item.releaseDate != '' && controller.leftListSelected.value.name != 'Most Watch') ...[
-                  '${item.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().pSymmetric(h: 4).wh(80, 17).color(AppColor.black180).positioned(),
-                ],
-            
-                if (controller.currentMenuSelected.value == kCustom && controller.leftListSelected.value.name == 'Most Watch') ...[
-                  'View: ${item.viewCount}'.text.size(10).minFontSize(10).make().pSymmetric(h: 4).wh(56, 17).color(AppColor.black180).positioned(),
-                ],
-            
-                Container(
-                  color: AppColor.black180,
-                  width: width,
-                  height: 20,
-                  child: '${item.videoCode == '' ? item.title?.maxChars(10) : item.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
-                ).positioned(bottom: 0, left: 0, right: 0),
-            
-                _buildFlagENSubOverlay(item),
-                _buildFlagIDSubOverlay(item),
-                _buildFlagUncensoredOverlay(item),
-              ]),
-            ).cornerRadius(8),
-          ),
+          child: buildLayoutPoster(item, width, height),
         );
       },
     );
   }
 
   Widget _buildVListR18() {
-    return GridView.builder(
-      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 300,
-        mainAxisExtent: 200,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 300 / 200,
-      ),
-      itemCount: controller.rightListR18Filtered.length,
-      itemBuilder: (context, i) {
-        final item = controller.rightListR18Filtered[i];
-        return ZStack(
+    return VStack(
+      [
+
+        // search & filter
+        HStack(
           [
-            ExThumbnail(
-              imageUrl: item['fan_art'] ?? '',
-              width: 300,
-              height: 200,
-            ).wh(300, 200).cornerRadius(8),
-
-            // ** match (already have )
-            _buildOverlayContainer(
-              color: Colors.green.withAlpha(100),
-              isVisible: item['match'] == true,
-            ),
-
-            // ** is_released (false)
-            _buildOverlayContainer(
-              color: Colors.red.withAlpha(70),
-              isVisible: item['is_released'] == false,
-            ),
-
-            // ** has Clicked
-            GetBuilder(
-              init: HomeController(),
-              builder: (controller) {
-                return _buildOverlayContainer(
-                  color: Colors.blue.withAlpha(100),
-                  isVisible: item['is_clicked'] == true,
-                );
-              },
-            ),
-
-            Container(
-              color: AppColor.black170,
-              width: 300,
-              height: item['title'] != null && item['title'] != '' ? 63 : 33,
-              child: VStack([
-                '${item['video_code']}'.text.bold.size(12).ellipsis.make().onInkTap(() {
-                  HelperMisc.copyToClipboard(item['video_code'], showToast: true);
-                }),
-                '${HelperDecensor.decensor(item['title'] ?? '')}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240).hide(isVisible: item['title'] != null && item['title'] != ''),
-              ]).p8(),
-            ).positioned(bottom: 0, left: 0, right: 0),
-
-            if (item['release_date'] != null && item['release_date'] != '') ...[
-              Container(
-                color: AppColor.black180,
-                width: 75,
-                height: 18,
-                child: '${item['release_date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).align(TextAlign.center).ellipsis.makeCentered(),
-              ).positioned(left: 0),
+            if (controller.currentMenuSelected.value == kActress) ...[
+              HStack([
+                Obx(
+                  () => CupertinoCheckbox(
+                    value: controller.singleActressMode.value,
+                    onChanged: (b) {
+                      controller.singleActressMode.value = b!;
+                      controller.onSectionR18Tap();
+                    },
+                  ),
+                ),
+                'Single Actress?'.text.size(12).make().pSymmetric(h: 8),
+              ]).onInkTap(() {
+                controller.singleActressMode.toggle();
+                controller.onSectionR18Tap();
+              }),
             ],
+            CupertinoTextField(
+              controller: controller.tecSearchRight,
+              focusNode: controller.fnSearchRight,
+              clearButtonMode: OverlayVisibilityMode.editing,
+              placeholder: 'Search (${controller.rightListR18Filtered.length}) Videos...',
+              style: TextStyle(color: Vx.white, fontSize: 14),
+              prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+              onChanged: (q) => controller.onRightListDoSearch(q),
+            ).expand(),
 
-            // ** open trailer
-            Icon(UIconsPro.regularRounded.play, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
-              HelperOpener.openTrailer(item);
-            }).positioned(right: 8, top: 4),
+            // 'aaa'.text.size(12).make().pOnly(left: 12),
 
-            // ** open screenshot
-            Icon(UIconsPro.regularRounded.picture, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
-              HelperOpener.openScreenshot(item);
-            }).positioned(right: 8, top: 36),
+            // filter
+            Obx(
+              () => ZStack([
+                IconButton(
+                  icon: Icon(
+                    controller.filter.isFiltered.isTrue ? UIconsPro.boldRounded.filter_list : UIconsPro.regularRounded.filter_list,
+                    size: controller.filter.isFiltered.isTrue ? 16 : 14,
+                  ),
+                  onPressed: () => controller.openDialogFilter(),
+                ).pOnly(left: 8),
+                controller.filter.isFiltered.isTrue ? Container(height: 6, width: 6, color: Vx.red500).cornerRadius(90).positioned(right: 8, top: 8) : 0.heightBox,
+              ]),
+            ),
           ],
-        ).onInkTap(() async => await HelperOpener.openVideoInfo(item)).pOnly(bottom: 12);
-      },
+        ).pOnly(bottom: 12),
+
+        // list
+        GridView.builder(
+          controller: controller.r18ScrollController,
+          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 300,
+            mainAxisExtent: 200,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: 300 / 200,
+          ),
+          itemCount: controller.rightListR18Filtered.length + (controller.isLoadingR18More.isTrue ? 1 : 0),
+          itemBuilder: (context, i) {
+            if (i >= controller.rightListR18Filtered.length) {
+              return Container(
+                color: AppColor.container,
+                child: Center(
+                  child: CupertinoActivityIndicator(radius: 12),
+                ),
+              ).cornerRadius(8);
+            }
+            final item = controller.rightListR18Filtered[i];
+            return ZStack(
+              [
+                ExThumbnail(
+                  imageUrl: item['fan_art'] ?? '',
+                  width: 300,
+                  height: 200,
+                ).wh(300, 200).cornerRadius(8),
+
+                // ** match (already have )
+                _buildOverlayContainer(
+                  color: Colors.green.withAlpha(100),
+                  isVisible: item['match'] == true,
+                ),
+
+                // ** is_released (false)
+                _buildOverlayContainer(
+                  color: Colors.red.withAlpha(70),
+                  isVisible: item['is_released'] == false,
+                ),
+
+                // ** has Clicked
+                GetBuilder(
+                  init: HomeController(),
+                  builder: (controller) {
+                    return _buildOverlayContainer(
+                      color: Colors.blue.withAlpha(100),
+                      isVisible: item['is_clicked'] == true,
+                    );
+                  },
+                ),
+
+                Container(
+                  color: AppColor.black170,
+                  width: 300,
+                  height: item['title'] != null && item['title'] != '' ? 63 : 33,
+                  child: VStack([
+                    '${item['video_code']}'.text.bold.size(12).ellipsis.make().onInkTap(() {
+                      HelperMisc.copyToClipboard(item['video_code'], showToast: true);
+                    }),
+                    '${HelperDecensor.decensor(item['title'] ?? '')}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240).hide(isVisible: item['title'] != null && item['title'] != ''),
+                  ]).p8(),
+                ).positioned(bottom: 0, left: 0, right: 0),
+
+                if (item['release_date'] != null && item['release_date'] != '') ...[
+                  Container(
+                    color: AppColor.black180,
+                    child: HStack([
+                      Icon(UIconsPro.solidRounded.calendar, size: 10).pOnly(right: 5),
+                      '${item['release_date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).align(TextAlign.center).ellipsis.makeCentered(),
+                    ]).p4(),
+                  ).cornerRadius(8).p2().positioned(left: 0),
+                ],
+
+                // ** open trailer
+                Icon(UIconsPro.regularRounded.play, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
+                  HelperOpener.openTrailer(item);
+                }).positioned(right: 8, top: 4),
+
+                // ** open screenshot
+                Icon(UIconsPro.regularRounded.picture, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
+                  HelperOpener.openScreenshot(item);
+                }).positioned(right: 8, top: 36),
+              ],
+            ).onInkTap(() async => await HelperOpener.openVideoInfo(item)).pOnly(bottom: 12);
+          },
+        ).expand()
+      ],
     );
   }
+
+
+  Widget buildLayoutPoster(
+    Videos video,
+    double width,
+    double height, {
+    showReleaseDate = true,
+    showViewCount = true,
+    showQuality = true,
+  }) {
+    return DoubleTap(
+      onSingleTap: () async => await PageSearchOverlay.onItemTap(video),
+      onDoubleTap: () async => await HelperOpener.openVideoFile(video),
+      child: Container(
+        color: AppColor.container,
+        child: ZStack([
+          ExThumbnail(
+            imageUrl: video.fanArt,
+            videoPath: video.videoPath,
+            width: width,
+            height: height,
+            prefix: 2.3,
+            fitUrl: BoxFit.fitWidth,
+          ),
+
+          // sub id?
+          if (video.videoPath?.isHasIdSub() == true) ...[
+            Container(
+              color: Vx.blue600.withAlpha(200),
+              child: HStack([
+                '🇮🇩'.text.size(10).minFontSize(10).make().tooltip('ID Sub'),
+              ]).p4(),
+            ).cornerRadius(8).p2().positioned(right: 0, top: 0),
+          ],
+
+           // sub en?
+          if (video.videoPath?.isHasEnSub() == true) ...[
+            Container(
+              color: Vx.purple600.withAlpha(200),
+              child: HStack([
+                '🇬🇧'.text.size(10).minFontSize(10).make().tooltip('EN Sub'),
+              ]).p4(),
+            ).cornerRadius(8).p2().positioned(right: 0, top: 0),
+          ],
+
+          // reduce mosaic?
+          if (video.videoPath?.isHasUncensored() == true) ...[
+            Container(
+              color: Vx.red600.withAlpha(200),
+              child: HStack([
+                '🎞️'.text.size(10).minFontSize(10).make().tooltip('Reduce Mosaic'),
+              ]).p4(),
+            ).cornerRadius(8).p2().positioned(right: 0, top: 0),
+          ],
+
+          // Release date
+          if (showReleaseDate) ...[
+            Container(
+              color: AppColor.black180,
+              child: HStack([
+                Icon(UIconsPro.solidRounded.calendar, size: 10).pOnly(right: 5),
+                video.releaseDate.isNotEmptyAndNotNull
+                    ? '${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Release date: ${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}')
+                    : '${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Added at: ${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}')
+              ]).p4(),
+            ).cornerRadius(8).p2(),
+          ],
+
+          // Quality
+          if (showQuality) ...[
+            video.quality != null
+                ? Container(
+                    color: AppColor.black120,
+                    child: HStack([
+                      '${HelperMisc.formatVideoQuality(video.quality ?? '').maxWords(1)}'.text.orange500.bold.size(10).minFontSize(10).make(),
+                    ]).pSymmetric(h: 4, v: 2),
+                  ).cornerRadius(4).tooltip(video.filesize?.toFileSize() != null ? '${video.filesize?.toFileSize()}' : '').positioned(bottom: 24, left: 4)
+                : 0.heightBox,
+          ],
+
+          // View count
+          if (showViewCount) ...[
+            Container(
+              color: AppColor.black120,
+              child: HStack([
+                Icon(UIconsPro.solidRounded.eye, size: 10).pOnly(right: 5, top: 2),
+                '${video.viewCount ?? 0}'.text.size(10).minFontSize(10).make(),
+              ]).pSymmetric(h: 4, v: 2),
+            ).cornerRadius(4).tooltip(video.viewCount != null ? 'View: ${video.viewCount}' : '').positioned(bottom: 24, right: 4),
+          ],
+
+           // Video title
+          Container(
+            color: AppColor.black180,
+            height: 20,
+            width: width,
+            child: '${video.videoCode == '' ? video.title?.maxChars(10) : video.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
+          ).positioned(bottom: 0, left: 0, right: 0),
+        ]),
+      ).cornerRadius(8).pOnly(right: 8),
+    );
+  }
+
 
   Widget _buildOverlayContainer({required Color color, required bool isVisible}) {
     return Container(
@@ -465,24 +580,5 @@ class PageExploreView extends GetView<PageExploreController> {
     ).hide(isVisible: isVisible);
   }
 
-  Widget _buildFlagIDSubOverlay(Videos item) {
-    if (item.videoPath?.isHasIdSub() == false) {
-      return 0.heightBox;
-    }
-    return 'ID-SUB'.text.makeCentered().pSymmetric(h: 4).wh(double.infinity, 17).color(Vx.blue500.withAlpha(200)).positioned(bottom: 20, right: 0, left: 0);
-  }
 
-  Widget _buildFlagENSubOverlay(Videos item) {
-    if (item.videoPath?.isHasEnSub() == false) {
-      return 0.heightBox;
-    }
-    return 'EN-SUB'.text.makeCentered().pSymmetric(h: 4).wh(double.infinity, 17).color(Vx.purple500.withAlpha(150)).positioned(bottom: 20, right: 0, left: 0);
-  }
-
-  Widget _buildFlagUncensoredOverlay(Videos item) {
-    if (item.videoPath?.isHasUncensored() == false) {
-      return 0.heightBox;
-    }
-    return 'REDUCE MOSAIC'.text.makeCentered().pSymmetric(h: 4).wh(double.infinity, 17).color(Vx.red500.withAlpha(150)).positioned(bottom: 20, right: 0, left: 0);
-  }
 }

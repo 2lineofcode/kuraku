@@ -1,3 +1,4 @@
+import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
 import 'package:glob/glob.dart';
 import 'package:glob/list_local_fs.dart';
@@ -7,6 +8,80 @@ import '_init_db.dart';
 
 mixin DBR18 {
   static final _db = Get.find<DBService>().dbR18;
+
+  static const _blacklistedPrefixes = [
+    'TK', '7', '9', 'K9', 'FTKT', 'GOOE', 'JTKT', 'GTKT', 'DDMP', 'DMPXA', 'USTD', 'VWBS', 
+    'HPXR', 'VWAS','TCBD', 'DAXA', 'TWUSS', 'PJXF', 'KKC', 'GNXF', 'JAXA', 
+    'UHB', 'BPUH', 'GNXT', 'ZTKT', 'PB', 'D1', 'D2', 'D3', 'DK', 'BCQA', 'ANRS', 'SPUF', 'ANRM',
+  ];
+
+  static const _blacklistedSuffixes = [
+    'BOD', 'DOD', 'Ta', 'Tb', 'Tc', 'Td', 'Te', 'TK',
+    'TK1', 'TK2', 'TK3', 'EC', '4D', '5D', 'DL',
+  ];
+
+  static Map<String, dynamic> _buildFilterClause({ String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, }) {
+    final clauses = <String>[];
+    final args = <Object?>[];
+
+    if (videoCode != null && videoCode.isNotEmpty) {
+      clauses.add('v.dvd_id LIKE ?');
+      args.add('%$videoCode%');
+    }
+
+    if (actressName != null && actressName.isNotEmpty) {
+      clauses.add('EXISTS ('
+          'SELECT 1 FROM derived_video_actress dva2 '
+          'JOIN derived_actress da2 ON da2.id = dva2.actress_id '
+          'WHERE dva2.content_id = v.content_id AND da2.name_romaji LIKE ?'
+          ')');
+      args.add('%$actressName%');
+    }
+
+    if (categories != null && categories.isNotEmpty) {
+      final placeholders = List.filled(categories.length, '?').join(', ');
+      clauses.add('v.content_id IN ('
+          'SELECT vc2.content_id FROM derived_video_category vc2 '
+          'JOIN derived_category dc2 ON dc2.id = vc2.category_id '
+          'WHERE dc2.name_en IN ($placeholders) '
+          'GROUP BY vc2.content_id '
+          'HAVING COUNT(DISTINCT dc2.name_en) = ?'
+          ')');
+      args.addAll(categories);
+      args.add(categories.length);
+    }
+
+    if (yearStart != null && yearEnd != null) {
+      clauses.add('CAST(substr(v.release_date, 1, 4) AS INTEGER) BETWEEN ? AND ?');
+      args.add(yearStart);
+      args.add(yearEnd);
+    }
+
+    return {
+      'sql': clauses.isEmpty ? '' : ' AND ${clauses.join(' AND ')}',
+      'args': args,
+    };
+  }
+
+  static Map<String, dynamic> _buildBlacklistClause({String column = 'v.dvd_id'}) {
+    final clauses = <String>[];
+    final args = <Object?>[];
+
+    for (final prefix in _blacklistedPrefixes) {
+      clauses.add('$column NOT LIKE ?');
+      args.add('$prefix%');
+    }
+
+    for (final suffix in _blacklistedSuffixes) {
+      clauses.add('$column NOT LIKE ?');
+      args.add('%$suffix');
+    }
+
+    return {
+      'sql': clauses.isEmpty ? '' : ' AND ${clauses.join(' AND ')}',
+      'args': args,
+    };
+  }
 
   static Future<bool> _validation() async {
     var files = Glob('r18*.db').listSync(root: Get.find<AppSettingService>().appPath);
@@ -20,7 +95,12 @@ mixin DBR18 {
   static Future<int> getCountAllVideos() async {
     if (await _validation() == false) return 0;
 
-    final List<Map<String, dynamic>> maps = await _db.rawQuery('SELECT count(*) as total FROM derived_video');
+    final blacklist = _buildBlacklistClause();
+    final List<Map<String, dynamic>> maps = await _db.rawQuery('''
+      SELECT count(*) as total FROM derived_video v
+      WHERE v.dvd_id IS NOT NULL
+      ${blacklist['sql']}
+    ''', [...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
@@ -58,10 +138,12 @@ mixin DBR18 {
     return maps.isNotEmpty ? maps[0] : null;
   }
 
-  static Future<List<Map<String, dynamic>>> search(String query, {int? limit = 5000}) async {
+  static Future<List<Map<String, dynamic>>> search( String query, { int? page = 1, int? perPage = 100, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, }) async {
     if (await _validation() == false) return [];
 
     final searchString = '%$query%';
+    final limit = perPage ?? 100;
+    final offset = ((page ?? 1) - 1) * limit;
 
     final subQuery = '''
     (
@@ -73,6 +155,9 @@ mixin DBR18 {
       JOIN machine_translation t2 ON t2.source_ja = v3.title_ja WHERE t2.target_en LIKE ?
     )
   ''';
+
+    final filter = _buildFilterClause(videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd);
+    final blacklist = _buildBlacklistClause();
 
     final maps = await _db.rawQuery('''
     SELECT
@@ -97,12 +182,46 @@ mixin DBR18 {
     WHERE
       v.dvd_id IS NOT NULL AND v.dvd_id IN $subQuery
       AND v.release_date IS NOT NULL
+      ${filter['sql']}
+      ${blacklist['sql']}
     GROUP BY v.dvd_id
     ORDER BY v.release_date DESC
-    LIMIT ?
-  ''', [searchString, searchString, searchString, limit]);
+    LIMIT ? OFFSET ?
+  ''', [searchString, searchString, searchString, ...filter['args'], ...blacklist['args'], limit, offset]);
 
     return maps;
+  }
+
+  static Future<int> getSearchCount( String query, { String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, }) async {
+    if (await _validation() == false) return 0;
+
+    final searchString = '%$query%';
+    final subQuery = '''
+    (
+      SELECT v2.dvd_id FROM derived_video v2 
+      WHERE 
+        v2.dvd_id LIKE ? OR v2.title_en LIKE ?
+      UNION
+      SELECT v3.dvd_id FROM derived_video v3 
+      JOIN machine_translation t2 ON t2.source_ja = v3.title_ja WHERE t2.target_en LIKE ?
+    )
+  ''';
+
+    final filter = _buildFilterClause(videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd);
+    final blacklist = _buildBlacklistClause();
+
+    final maps = await _db.rawQuery('''
+    SELECT
+      COUNT(DISTINCT v.dvd_id) AS total
+    FROM derived_video v
+    WHERE
+      v.dvd_id IS NOT NULL AND v.dvd_id IN $subQuery
+      AND v.release_date IS NOT NULL
+      ${filter['sql']}
+      ${blacklist['sql']}
+  ''', [searchString, searchString, searchString, ...filter['args'], ...blacklist['args']]);
+
+    return maps[0]['total'] as int;
   }
 
   static Future<List<Map<String, dynamic>>> getAllActress({String? q}) async {
@@ -153,23 +272,27 @@ mixin DBR18 {
 
   static Future<List<Map<String, dynamic>>> getAllSeries({String? q}) async {
     if (await _validation() == false) return [];
-
-    var whereClause = 'name_en IS NOT NULL';
+    var whereClause = '';
     var whereArgs = [];
 
     if (q != null) {
-      whereClause += ' AND name_en LIKE ?';
+      whereClause += ' AND s.name_en LIKE ?';
       whereArgs.add('%$q%');
     }
 
-    final maps = await _db.query(
-      'derived_series',
-      distinct: true,
-      where: whereClause,
-      whereArgs: whereArgs,
-      groupBy: 'name_en',
-      orderBy: 'name_en',
-    );
+    final maps = await _db.rawQuery('''
+      SELECT s.*, mv.max_release_date
+      FROM derived_series s
+      JOIN (
+        SELECT series_id, MAX(release_date) AS max_release_date
+        FROM derived_video
+        GROUP BY series_id
+      ) mv ON mv.series_id = s.id
+      WHERE 1=1
+        $whereClause
+        AND s.name_en IS NOT NULL
+      ORDER BY mv.max_release_date DESC
+    ''', whereArgs);
 
     return maps;
   }
@@ -237,6 +360,7 @@ mixin DBR18 {
   static Future<int> getCountAllVideosByActress(int actressId) async {
     if (await _validation() == false) return 0;
 
+    final blacklist = _buildBlacklistClause();
     final maps = await _db.rawQuery('''
       SELECT
         COUNT(da.id) AS total
@@ -247,19 +371,28 @@ mixin DBR18 {
       WHERE
         v.dvd_id IS NOT NULL
         AND da.id = ?
+        ${blacklist['sql']}
         AND EXISTS (
           SELECT 1 FROM derived_video_actress dva2
           WHERE dva2.content_id = v.content_id
           GROUP BY dva2.content_id
           HAVING COUNT(dva2.actress_id) = 1
         );
-    ''', [actressId]);
+    ''', [actressId, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
-  static Future<List<Map<String, dynamic>>> getAllVideosByActress(int actressId) async {
+  static Future<List<Map<String, dynamic>>> getAllVideosByActress(
+    int actressId, {
+    bool singleActressMode = true,
+    int page = 1,
+    int perPage = 10000,
+  }) async {
     if (await _validation() == false) return [];
 
+    final blacklist = _buildBlacklistClause();
+    final limit = perPage;
+    final offset = (page - 1) * limit;
     final maps = await _db.rawQuery('''
       SELECT
         da.id AS actress_id,                                      -- actress_id
@@ -278,16 +411,13 @@ mixin DBR18 {
       WHERE 1=1
         AND v.dvd_id IS NOT NULL
         AND da.id = ?
-        AND v.content_id IN (
-          SELECT content_id
-          FROM derived_video_actress
-          GROUP BY content_id
-          HAVING COUNT(actress_id) = 1
-        )
+        ${blacklist['sql']}
+        ${singleActressMode ? 'AND EXISTS (SELECT 1 FROM derived_video_actress dva2 WHERE dva2.content_id = v.content_id GROUP BY dva2.content_id HAVING COUNT(dva2.actress_id) = 1)' : ''}
+        
       ORDER BY
         v.release_date DESC
-      LIMIT 10000;
-    ''', [actressId]);
+      LIMIT ? OFFSET ?;
+    ''', [actressId, ...blacklist['args'], limit, offset]);
     return maps;
   }
 
@@ -308,9 +438,16 @@ mixin DBR18 {
     return maps[0]['total'] as int;
   }
 
-  static Future<List<Map<String, dynamic>>> getAllVideosByCategory(String categoryName) async {
+  static Future<List<Map<String, dynamic>>> getAllVideosByCategory(
+    String categoryName, {
+    int page = 1,
+    int perPage = 10000,
+  }) async {
     if (await _validation() == false) return [];
 
+    final blacklist = _buildBlacklistClause();
+    final limit = perPage;
+    final offset = (page - 1) * limit;
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,                                       -- id
@@ -327,10 +464,11 @@ mixin DBR18 {
         WHERE 1=1
           AND c.name_en = ?
           AND v.dvd_id IS NOT NULL
+          ${blacklist['sql']}
         ORDER BY
           v.release_date DESC
-        LIMIT 10000
-      ''', [categoryName]);
+        LIMIT ? OFFSET ?
+      ''', [categoryName, ...blacklist['args'], limit, offset]);
     return maps;
   }
 
@@ -340,6 +478,7 @@ mixin DBR18 {
   static Future<int> getCountAllVideosByLabel(String labelName) async {
     if (await _validation() == false) return 0;
 
+    final blacklist = _buildBlacklistClause();
     final maps = await _db.rawQuery('''
       SELECT 
         COUNT(*) AS total
@@ -348,13 +487,21 @@ mixin DBR18 {
       WHERE 1=1
         AND l.name_en = ?
         AND v.dvd_id IS NOT NULL
-    ''', [labelName]);
+        ${blacklist['sql']}
+    ''', [labelName, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
-  static Future<List<Map<String, dynamic>>> getAllVideosByLabel(String labelName) async {
+  static Future<List<Map<String, dynamic>>> getAllVideosByLabel(
+    String labelName, {
+    int page = 1,
+    int perPage = 10000,
+  }) async {
     if (await _validation() == false) return [];
 
+    final blacklist = _buildBlacklistClause();
+    final limit = perPage;
+    final offset = (page - 1) * limit;
     final maps = await _db.rawQuery('''
         SELECT
         v.content_id AS id,                                      -- id
@@ -370,10 +517,11 @@ mixin DBR18 {
         WHERE 1=1
           AND l.name_en = ?
           AND v.dvd_id IS NOT NULL
+          ${blacklist['sql']}
         ORDER BY
           v.release_date DESC
-        LIMIT 10000
-      ''', [labelName]);
+        LIMIT ? OFFSET ?
+      ''', [labelName, ...blacklist['args'], limit, offset]);
     return maps;
   }
 
@@ -383,6 +531,7 @@ mixin DBR18 {
   static Future<int> getCountAllVideosBySeries(String series) async {
     if (await _validation() == false) return 0;
 
+    final blacklist = _buildBlacklistClause();
     final maps = await _db.rawQuery('''
       SELECT 
         COUNT(*) AS total
@@ -391,13 +540,21 @@ mixin DBR18 {
       WHERE 1=1
         AND s.name_en LIKE ?
         AND v.dvd_id IS NOT NULL
-    ''', [series]);
+        ${blacklist['sql']}
+    ''', [series, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
-  static Future<List<Map<String, dynamic>>> getAllVideosBySeries(String series) async {
+  static Future<List<Map<String, dynamic>>> getAllVideosBySeries(
+    String series, {
+    int page = 1,
+    int perPage = 10000,
+  }) async {
     if (await _validation() == false) return [];
 
+    final blacklist = _buildBlacklistClause();
+    final limit = perPage;
+    final offset = (page - 1) * limit;
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,                                       -- id
@@ -414,12 +571,13 @@ mixin DBR18 {
         WHERE 1=1
           AND s.name_en = ?
           AND v.dvd_id IS NOT NULL
+          ${blacklist['sql']}
         GROUP BY
           v.dvd_id
         ORDER BY
           v.release_date DESC
-        LIMIT 10000
-      ''', [series]);
+        LIMIT ? OFFSET ?
+      ''', [series, ...blacklist['args'], limit, offset]);
     return maps;
   }
 
@@ -429,6 +587,7 @@ mixin DBR18 {
   static Future<int> getCountAllVideosByStudio(String studio) async {
     if (await _validation() == false) return 0;
 
+    final blacklist = _buildBlacklistClause();
     final maps = await _db.rawQuery('''
       SELECT 
         COUNT(*) AS total
@@ -437,13 +596,21 @@ mixin DBR18 {
       WHERE 1=1
         AND m.name_en = ? OR m.name_ja = ?
         AND v.dvd_id IS NOT NULL
-    ''', [studio, studio]);
+        ${blacklist['sql']}
+    ''', [studio, studio, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
-  static Future<List<Map<String, dynamic>>> getAllVideosByStudio(String studio) async {
+  static Future<List<Map<String, dynamic>>> getAllVideosByStudio(
+    String studio, {
+    int page = 1,
+    int perPage = 10000,
+  }) async {
     if (await _validation() == false) return [];
 
+    final blacklist = _buildBlacklistClause();
+    final limit = perPage;
+    final offset = (page - 1) * limit;
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,                                       -- id
@@ -459,10 +626,11 @@ mixin DBR18 {
         WHERE 1=1
           AND m.name_en = ? OR m.name_ja = ?
           AND v.dvd_id IS NOT NULL
+          ${blacklist['sql']}
         ORDER BY
           v.release_date DESC
-        LIMIT 10000
-      ''', [studio, studio]);
+        LIMIT ? OFFSET ?
+      ''', [studio, studio, ...blacklist['args'], limit, offset]);
     return maps;
   }
 
@@ -483,9 +651,16 @@ mixin DBR18 {
     return maps[0]['total'] as int;
   }
 
-  static Future<List<Map<String, dynamic>>> getAllVideosByDirector(String director) async {
+  static Future<List<Map<String, dynamic>>> getAllVideosByDirector(
+    String director, {
+    int page = 1,
+    int perPage = 10000,
+  }) async {
     if (await _validation() == false) return [];
 
+    final blacklist = _buildBlacklistClause();
+    final limit = perPage;
+    final offset = (page - 1) * limit;
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,                                         -- id
@@ -502,10 +677,11 @@ mixin DBR18 {
         WHERE 1=1
           AND d.name_romaji = ? OR d.name_kana = ?
           AND v.dvd_id IS NOT NULL
+          ${blacklist['sql']}
         ORDER BY
           v.release_date DESC
-        LIMIT 10000
-      ''', [director, director]);
+        LIMIT ? OFFSET ?
+      ''', [director, director, ...blacklist['args'], limit, offset]);
     return maps;
   }
 
@@ -515,6 +691,7 @@ mixin DBR18 {
   static Future<int> getCountAllVideosByYear(String year) async {
     if (await _validation() == false) return 0;
 
+    final blacklist = _buildBlacklistClause();
     final maps = await _db.rawQuery('''
       SELECT 
         COUNT(*) AS total
@@ -522,13 +699,21 @@ mixin DBR18 {
       WHERE 1=1
         AND v.release_date LIKE ?
         AND v.dvd_id IS NOT NULL
-    ''', ['$year%']);
+        ${blacklist['sql']}
+    ''', ['$year%', ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
-  static Future<List<Map<String, dynamic>>> getAllVideosByYear(String year) async {
+  static Future<List<Map<String, dynamic>>> getAllVideosByYear(
+    String year, {
+    int page = 1,
+    int perPage = 10000,
+  }) async {
     if (await _validation() == false) return [];
 
+    final blacklist = _buildBlacklistClause();
+    final limit = perPage;
+    final offset = (page - 1) * limit;
     final maps = await _db.rawQuery('''
         SELECT
           v.content_id AS id,                                         -- id
@@ -543,10 +728,121 @@ mixin DBR18 {
         WHERE 1=1
           AND v.release_date LIKE ?
           AND v.dvd_id IS NOT NULL
+          ${blacklist['sql']}
         ORDER BY
           v.release_date DESC
-        LIMIT 10000
-      ''', ['$year%']);
+        LIMIT ? OFFSET ?
+      ''', ['$year%', ...blacklist['args'], limit, offset]);
     return maps;
+  }
+
+  // new: get new release
+  static Future<List<Map<String, dynamic>>> getNewRelease({
+    int? page = 1,
+    int? perPage = 100,
+    String? videoCode,
+    String? actressName,
+    List<String>? categories,
+    int? yearStart,
+    int? yearEnd,
+  }) async {
+    if (await _validation() == false) return [];
+
+    final yM = DateTime.now().toStringEx(format: 'yyyy-MM');
+    final dd = DateTime.now().toStringEx(format: 'dd');
+    final limit = perPage ?? 100;
+    final offset = ((page ?? 1) - 1) * limit;
+
+    final filter = _buildFilterClause(
+      videoCode: videoCode,
+      actressName: actressName,
+      categories: categories,
+      yearStart: yearStart,
+      yearEnd: yearEnd,
+    );
+    final blacklist = _buildBlacklistClause();
+
+    final maps = await _db.rawQuery('''
+    SELECT
+      v.content_id AS id,
+      v.dvd_id AS video_code,
+      COALESCE(t.target_en, v.title_en, v.title_ja) AS title,
+      v.runtime_mins AS duration,
+      v.release_date AS release_date,
+      v.sample_url AS trailer,
+      v.jacket_full_url AS fan_art,
+      v.jacket_thumb_url AS poster,
+      v.gallery_full_first AS ssfirst,
+      v.gallery_full_last AS sslast,
+      GROUP_CONCAT(dc.name_en, ', ') AS categories,
+      GROUP_CONCAT(da.name_romaji, ', ') AS actresses
+    FROM derived_video v
+    LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
+    LEFT JOIN derived_video_category dvc ON dvc.content_id = v.content_id
+    LEFT JOIN derived_category dc ON dc.id = dvc.category_id
+    LEFT JOIN derived_video_actress dva ON dva.content_id = v.content_id
+    LEFT JOIN derived_actress da ON da.id = dva.actress_id
+    WHERE
+      v.dvd_id IS NOT NULL 
+      AND v.release_date IS NOT NULL
+      AND v.runtime_mins IS NOT NULL
+      AND v.label_id IS NOT NULL
+      AND v.dvd_id IN (
+        SELECT v2.dvd_id FROM derived_video v2 
+        WHERE 1=1
+          AND dvd_id IS NOT NULL
+          AND release_date >= ? AND release_date <= ?
+      )
+      ${filter['sql']}
+      ${blacklist['sql']}
+    GROUP BY v.dvd_id
+    ORDER BY v.release_date DESC
+    LIMIT ? OFFSET ?
+  ''', ['$yM-01', '$yM-$dd', ...filter['args'], ...blacklist['args'], limit, offset]);
+
+    return maps;
+  }
+
+  static Future<int> getNewReleaseCount({
+    String? videoCode,
+    String? actressName,
+    List<String>? categories,
+    int? yearStart,
+    int? yearEnd,
+  }) async {
+    if (await _validation() == false) return 0;
+
+    final yM = DateTime.now().toStringEx(format: 'yyyy-MM');
+    final dd = DateTime.now().toStringEx(format: 'dd');
+
+    final filter = _buildFilterClause(
+      videoCode: videoCode,
+      actressName: actressName,
+      categories: categories,
+      yearStart: yearStart,
+      yearEnd: yearEnd,
+    );
+    final blacklist = _buildBlacklistClause();
+
+    final maps = await _db.rawQuery('''
+    SELECT
+      COUNT(DISTINCT v.dvd_id) AS total
+    FROM derived_video v
+    WHERE
+      v.dvd_id IS NOT NULL 
+      AND v.release_date IS NOT NULL
+      AND v.runtime_mins IS NOT NULL
+      AND v.label_id IS NOT NULL
+      AND v.dvd_id IN (
+        SELECT v2.dvd_id FROM derived_video v2 
+        WHERE 1=1
+          AND dvd_id IS NOT NULL
+          AND release_date >= ? AND release_date <= ?
+      )
+      ${filter['sql']}
+      ${blacklist['sql']}
+  ''', ['$yM-01', '$yM-$dd', ...filter['args'], ...blacklist['args']]);
+
+    return maps[0]['total'] as int;
   }
 }

@@ -24,6 +24,7 @@ class PageToolsController extends GetxController with StateMixin {
   // ** part: large filesize
   final isHasDataNotScanned = true.obs; // is has data not scanned filesize & resolution
   final topLargeFileSizeList = <Videos>[].obs;
+  final isLocalOnlyTopLargeFile = false.obs;
 
   // ** part: duplicate video
   final duplicateVideoList = <Videos>[].obs;
@@ -46,6 +47,8 @@ class PageToolsController extends GetxController with StateMixin {
 
   // -> right part
   final rightList = <Map<String, dynamic>>[].obs;
+  final rightListFiltered = <Map<String, dynamic>>[].obs;
+  final filter = VideoFilterState();
 
   final addToLog = Get.find<PageSettingsController>().applogText;
 
@@ -71,16 +74,41 @@ class PageToolsController extends GetxController with StateMixin {
     }
   }
 
+  Future<void> onReset() async {
+    currentFilterBy.value = kSeries;
+    leftListSelected.value = '';
+    tecFilterSearchLeft.text = '';
+    rightList.value = [];
+    rightListFiltered.value = [];
+    filter.isFiltered.value = false;
+  }
+
   // ────────────────────────────────────────────────────────────────
   // ** part: kTopLargeFile
   // ────────────────────────────────────────────────────────────────
   Future<void> getTopLargeFileSize() async {
     topLargeFileSizeList.clear();
-    topLargeFileSizeList.value = await DBVideos.getAll(
-      where: 'filesize > 0',
-      orderBy: 'filesize DESC',
-      limit: 100,
-    );
+
+    if (isLocalOnlyTopLargeFile.value) {
+      topLargeFileSizeList.value = await DBVideos.getAll(
+        where: 'filesize > 0 AND video_path NOT LIKE "/Volumes%"', 
+        orderBy: 'filesize DESC', 
+        limit: 200,
+      );
+      return;
+    } else {
+      topLargeFileSizeList.value = await DBVideos.getAll(
+        where: 'filesize > 0', 
+        orderBy: 'filesize DESC', 
+        limit: 200,
+      );
+    }
+  }
+
+
+  Future<void> setLocalOnlyTopLargeFile(bool value) async {
+    isLocalOnlyTopLargeFile.value = value;
+    await getTopLargeFileSize();
   }
 
   Future<void> checkIsHasDataNotScanned() async {
@@ -215,6 +243,7 @@ class PageToolsController extends GetxController with StateMixin {
 
     // filter
     rightList.value = [];
+    rightListFiltered.value = [];
     for (var i = 0; i < videos.length; i++) {
       final videoCode = videos[i]['video_code'].toString();
       if (videoCode.isValidVideoCode()) {
@@ -236,6 +265,9 @@ class PageToolsController extends GetxController with StateMixin {
     }).toList());
 
     rightList.refresh();
+
+    rightListFiltered.value = rightList.toList();
+    rightListFiltered.refresh();
 
     if (rightList.isNotEmpty) {
       change(200, status: RxStatus.success());
@@ -277,13 +309,33 @@ class PageToolsController extends GetxController with StateMixin {
     }
     fnFilterSearchLeft.requestFocus();
     leftListScrollController.value.animToTop();
+    if (filter.isFiltered.isTrue) await _applyFilter();
   }
 
-  Future<void> onReset() async {
-    currentFilterBy.value = kSeries;
-    leftListSelected.value = '';
-    tecFilterSearchLeft.text = '';
-    rightList.value = [];
+
+  // ~ Filters ────────────────────────────────────────────────────────────────
+  final _filterAdapter = VideoFilterAdapter<Map<String, dynamic>>(
+    videoCode: (video) => video['video_code'] ?? '',
+    actresses: (video) => video['actresses'] ?? <String>[],
+    categories: (video) => video['categories'] ?? <String>[],
+    releaseDate: (video) => video['release_date'] ?? '',
+    categoryMatch: (videoCategories, selected) => videoCategories.toSet().containsAll(selected),
+  );
+
+  Future<void> _applyFilter() async {
+    final filtered = filter.apply(rightList.toList(), _filterAdapter);
+    rightListFiltered.value = filtered;
+  }
+
+  Future<void> openDialogFilter() async {
+    await HelperOpener.openFilterDialog<Map<String, dynamic>>(
+      state: filter,
+      allVideos: rightList.toList(),
+      videos: rightListFiltered,
+      adapter: _filterAdapter,
+      showCategories: false,
+      showActressName: false,
+    );
   }
 }
 

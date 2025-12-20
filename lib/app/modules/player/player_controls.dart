@@ -145,6 +145,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       LogicalKeySet(LogicalKeyboardKey.keyF): ToggleFullscreenIntent(),
       LogicalKeySet(LogicalKeyboardKey.equal): EqualTapIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyA): ToggleVideoFitIntent(),
+      LogicalKeySet(LogicalKeyboardKey.keyP): MiniPlayerIntent(),
       
       // Navigation shortcuts from player_view
       LogicalKeySet(LogicalKeyboardKey.keyL): OpenListIntent(),
@@ -172,7 +173,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       EqualTapIntent: CallbackAction<EqualTapIntent>( onInvoke: (intent) { _handleEqualPress(); return null; }, ),
       ToggleVideoFitIntent: CallbackAction<ToggleVideoFitIntent>( onInvoke: (intent) => widget.controller.toggleVideoFit() ),
       OpenListIntent: CallbackAction<OpenListIntent>( onInvoke: (intent) { widget.controller.openList(); return null; }, ),
-      BackIntent: CallbackAction<BackIntent>(onInvoke: (intent) { Get.back(); return null; }),
+      MiniPlayerIntent: CallbackAction<MiniPlayerIntent>( onInvoke: (intent) { widget.controller.enterMiniMode(); Get.back(); return null; }, ),
+      BackIntent: CallbackAction<BackIntent>(onInvoke: (intent) { widget.controller.stopPlayback(); Get.back(); return null; }),
       OpenScreenshotIntent: CallbackAction<OpenScreenshotIntent>( onInvoke: (intent) { widget.controller.openSS(); return null; } ),
       OpenInfoIntent: CallbackAction<OpenInfoIntent>( onInvoke: (intent) { widget.controller.openInfo(); return null; }, ),
       NextVideoIntent: CallbackAction<NextVideoIntent>( onInvoke: (intent) { widget.controller.nextVideo(); return null; }, ),
@@ -333,13 +335,26 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               8.widthBox,
 
               Container(
+                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
+                child: Icon(Icons.picture_in_picture_alt_rounded, size: 14).p8(),
+              ).tooltip('Mini Player (P)').onInkTap(() async {
+                widget.controller.enterMiniMode();
+                Get.back();
+              }),
+
+              8.widthBox,
+
+              Container(
                 decoration: ExDecorator.box(
                   borderColor: Colors.transparent,
                   borderRadius: 12,
                   fillColor: AppColor.black120,
                 ),
                 child: Icon(UIconsPro.regularRounded.cross_small, size: 14).p8(),
-              ).tooltip('Close (Q)').onInkTap(() => Get.back()),
+              ).tooltip('Close (Q)').onInkTap(() async {
+                await widget.controller.stopPlayback();
+                Get.back();
+              }),
             ],
           ),
         ),
@@ -1019,3 +1034,4 @@ class OpenScreenshotIntent extends Intent { const OpenScreenshotIntent(); }
 class OpenInfoIntent extends Intent { const OpenInfoIntent(); }
 class NextVideoIntent extends Intent { const NextVideoIntent(); }
 class PrevVideoIntent extends Intent { const PrevVideoIntent(); }
+class MiniPlayerIntent extends Intent { const MiniPlayerIntent(); }

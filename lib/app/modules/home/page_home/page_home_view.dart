@@ -56,7 +56,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   list: controller.listNewRelease,
                   prefKey: AppPref.homeSecNewRelease,
                   refreshAction: controller.getListNewRelease,
-                  layoutBuilder: (video) => buildLayoutFanArt(video, showReleaseDate: true),
+                  layoutBuilder: (video) => buildLayoutFanArt(video),
                   emptyLayoutBuilder: buildLayoutEmptyFanArt,
                   index: index,
                 ),
@@ -70,7 +70,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   list: controller.listRandom,
                   prefKey: AppPref.homeSecRandom,
                   refreshAction: controller.getListRandom,
-                  layoutBuilder: (video) => buildLayoutPoster(video, showViewCount: false),
+                  layoutBuilder: (video) => buildLayoutPoster(video),
                   emptyLayoutBuilder: buildLayoutEmptyPoster,
                   showDirectToExplore: false,
                   index: index,
@@ -85,7 +85,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   list: controller.listTop10Watch,
                   prefKey: AppPref.homeSecMostWatch,
                   refreshAction: controller.getListMostWatch,
-                  layoutBuilder: (video) => buildLayoutPoster(video, showViewCount: true, showReleaseDate: false),
+                  layoutBuilder: (video) => buildLayoutPoster(video),
                   emptyLayoutBuilder: buildLayoutEmptyPoster,
                   index: index,
                 ),
@@ -99,7 +99,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   list: controller.listFavorite,
                   prefKey: AppPref.homeSecFavorite,
                   refreshAction: controller.getListFavorite,
-                  layoutBuilder: (video) => buildLayoutPoster(video, showViewCount: false),
+                  layoutBuilder: (video) => buildLayoutPoster(video),
                   emptyLayoutBuilder: buildLayoutEmptyPoster,
                   index: index,
                 ),
@@ -113,7 +113,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   list: controller.listNewAdded,
                   prefKey: AppPref.homeSecNewAdd,
                   refreshAction: controller.getListNewAdded,
-                  layoutBuilder: (video) => buildLayoutPoster(video, showViewCount: false),
+                  layoutBuilder: (video) => buildLayoutPoster(video),
                   emptyLayoutBuilder: buildLayoutEmptyPoster,
                   index: index,
                 ),
@@ -127,7 +127,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   list: controller.listNeverWatch,
                   prefKey: AppPref.homeSecNeverWatch,
                   refreshAction: controller.getListNeverWatch,
-                  layoutBuilder: (video) => buildLayoutPoster(video, showViewCount: false),
+                  layoutBuilder: (video) => buildLayoutPoster(video),
                   emptyLayoutBuilder: buildLayoutEmptyPoster,
                   index: index,
                 ),
@@ -141,7 +141,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   list: controller.listOldest,
                   prefKey: AppPref.homeSecOldest,
                   refreshAction: controller.getListOldest,
-                  layoutBuilder: (video) => buildLayoutPoster(video, showViewCount: false),
+                  layoutBuilder: (video) => buildLayoutPoster(video),
                   emptyLayoutBuilder: buildLayoutEmptyPoster,
                   showDirectToExplore: false,
                   index: index,
@@ -314,11 +314,7 @@ class PageHomeView extends GetView<PageHomeController> {
   // ────────────────────────────────────────────────────────────────
   // ⵌ REUSABLE WIDGETS
   // ────────────────────────────────────────────────────────────────
-  Widget buildLayoutFanArt(
-    Videos video, {
-    bool showViewCount = false,
-    bool showReleaseDate = false,
-  }) {
+  Widget buildLayoutFanArt(Videos video) {
     final double width = 260;
     return DoubleTap(
       onSingleTap: () => PageSearchOverlay.onItemTap(video),
@@ -334,8 +330,19 @@ class PageHomeView extends GetView<PageHomeController> {
             fitUrl: BoxFit.cover,
             fitMemory: BoxFit.fitWidth,
           ),
-          showViewCount ? ' View: ${video.viewCount}'.text.size(10).minFontSize(10).make().wh(70, 17).color(AppColor.black180).cornerRadius(4).p(0) : 0.heightBox,
-          showReleaseDate ? ' ${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().wh(80, 17).color(AppColor.black180).cornerRadius(4).p(0) : 0.heightBox,
+
+          // Release date
+          Container(
+            color: AppColor.black180,
+            child: HStack([
+              Icon(UIconsPro.solidRounded.calendar, size: 10).pOnly(right: 5),
+              video.releaseDate.isNotEmptyAndNotNull
+                  ? '${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Release date: ${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}')
+                  : '${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Added at: ${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}')
+            ]).p4(),
+          ).cornerRadius(8).p2(),
+
+          // Video title
           Container(
             color: AppColor.black180,
             height: 20,
@@ -349,10 +356,12 @@ class PageHomeView extends GetView<PageHomeController> {
 
   Widget buildLayoutPoster(
     Videos video, {
-    bool showViewCount = false,
-    bool showReleaseDate = true,
+    double width = 135,
+    double height = 210,
+    showReleaseDate = true,
+    showViewCount = true,
+    showQuality = true,
   }) {
-    final double width = 135;
     return DoubleTap(
       onSingleTap: () async => await PageSearchOverlay.onItemTap(video),
       onDoubleTap: () async => await HelperOpener.openVideoFile(video),
@@ -363,20 +372,84 @@ class PageHomeView extends GetView<PageHomeController> {
             imageUrl: video.fanArt,
             videoPath: video.videoPath,
             width: width,
-            height: 210,
+            height: height,
             prefix: 2.3,
             fitUrl: BoxFit.fitWidth,
           ),
-          showViewCount && video.viewCount! > 0 ? 'Total View: ${video.viewCount}'.text.size(10).minFontSize(10).make().pSymmetric(h: 8, v: 2).color(AppColor.black180) : 0.heightBox,
-          showReleaseDate && video.releaseDate.isNotEmptyAndNotNull
-              ? ' ${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().wh(80, 17).color(AppColor.black180)
-              : 0.heightBox,
+
+          // sub id?
+          if (video.videoPath?.isHasIdSub() == true) ...[
+            Container(
+              color: Vx.blue600.withAlpha(200),
+              child: HStack([
+                '🇮🇩'.text.size(10).minFontSize(10).make().tooltip('ID Sub'),
+              ]).p4(),
+            ).cornerRadius(8).p2().positioned(right: 0, top: 0),
+          ],
+
+           // sub en?
+          if (video.videoPath?.isHasEnSub() == true) ...[
+            Container(
+              color: Vx.purple600.withAlpha(200),
+              child: HStack([
+                '🇬🇧'.text.size(10).minFontSize(10).make().tooltip('EN Sub'),
+              ]).p4(),
+            ).cornerRadius(8).p2().positioned(right: 0, top: 0),
+          ],
+
+          // reduce mosaic?
+          if (video.videoPath?.isHasUncensored() == true) ...[
+            Container(
+              color: Vx.red600.withAlpha(200),
+              child: HStack([
+                '🎞️'.text.size(10).minFontSize(10).make().tooltip('Reduce Mosaic'),
+              ]).p4(),
+            ).cornerRadius(8).p2().positioned(right: 0, top: 0),
+          ],
+
+          // Release date
+          if (showReleaseDate) ...[
+            Container(
+              color: AppColor.black180,
+              child: HStack([
+                Icon(UIconsPro.solidRounded.calendar, size: 10).pOnly(right: 5),
+                video.releaseDate.isNotEmptyAndNotNull
+                    ? '${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Release date: ${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}')
+                    : '${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Added at: ${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}')
+              ]).p4(),
+            ).cornerRadius(8).p2(),
+          ],
+
+          // Quality
+          if (showQuality) ...[
+            video.quality != null
+                ? Container(
+                    color: AppColor.black120,
+                    child: HStack([
+                      '${HelperMisc.formatVideoQuality(video.quality ?? '').maxWords(1)}'.text.orange500.bold.size(10).minFontSize(10).make(),
+                    ]).pSymmetric(h: 4, v: 2),
+                  ).cornerRadius(4).tooltip(video.filesize?.toFileSize() != null ? '${video.filesize?.toFileSize()}' : '').positioned(bottom: 24, left: 4)
+                : 0.heightBox,
+          ],
+
+          // View count
+          if (showViewCount) ...[
+            Container(
+              color: AppColor.black120,
+              child: HStack([
+                Icon(UIconsPro.solidRounded.eye, size: 10).pOnly(right: 5, top: 2),
+                '${video.viewCount ?? 0}'.text.size(10).minFontSize(10).make(),
+              ]).pSymmetric(h: 4, v: 2),
+            ).cornerRadius(4).tooltip(video.viewCount != null ? 'View: ${video.viewCount}' : '').positioned(bottom: 24, right: 4),
+          ],
+
+           // Video title
           Container(
             color: AppColor.black180,
             height: 20,
             width: width,
             child: '${video.videoCode == '' ? video.title?.maxChars(10) : video.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
-          ).positioned(bottom: 0),
+          ).positioned(bottom: 0, left: 0, right: 0),
         ]),
       ).cornerRadius(8).pOnly(right: 8),
     );

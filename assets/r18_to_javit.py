@@ -249,6 +249,7 @@ def convert_sql_to_sqlite_fast(sql_file_path, sqlite_db_path):
             "CREATE INDEX IF NOT EXISTS idx_dv_release_date_content ON derived_video(release_date, content_id);",
 
             "CREATE INDEX IF NOT EXISTS idx_dva_composite_content_actress ON derived_video_actress (content_id, actress_id);",
+            "CREATE INDEX IF NOT EXISTS idx_dv_series_release_desc ON derived_video(series_id, release_date DESC);",
 
         ]
 

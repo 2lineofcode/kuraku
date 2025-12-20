@@ -9,6 +9,7 @@ import 'package:uicons_pro/uicons_pro.dart';
 import '../../core/app_color.dart';
 import '../../data/database/_init_db.dart';
 import '../../utils/helper.dart';
+import '../player/player_mini_view.dart';
 import '../widgets/widgets.dart';
 import 'home_controller.dart';
 import 'home_relapse.dart';
@@ -35,54 +36,60 @@ class HomeView extends GetView<HomeController> {
         }
       },
       onPerformDrop: controller.onDropEvent,
-      child: Obx(
-        () => MyLayout(
-          appBarTitle: appBarTitle(),
-          appBarLeading: appBarLeading().pOnly(right: 8),
-          isShowAppBarLeading: false,
-          appBarAction: appBarAction(),
-          sideMenuContent: sideMenuContent(),
-          sideMenuWidth: controller.sideMenuWidth.value,
-          isDangerMode: controller.isDangerMode.value,
-          bodyContent: controller.obx(
-            (_) => bodyContent().p8(),
-            onLoading: ExUiLoading(
-              message: Obx(() => '${controller.loadingText}'.text.align(TextAlign.center).makeCentered()),
-            ),
-            onError: (error) {
-              return ExUiErrorOrEmpty(
-                child: VStack(
-                  [
-                    Icon(UIconsPro.regularRounded.check_circle, size: 48).centered().pOnly(bottom: 16),
-                    'Task Done'.text.bold.xl3.makeCentered().pOnly(bottom: 8),
-                    '$error'.text.makeCentered().pOnly(bottom: 8),
-                    ExButtonElevated(
-                        label: 'Restart App',
-                        onPressed: () async {
-                          controller.loadingText.value = 'Restarting...';
-                          controller.change(0, status: RxStatus.loading());
-                          await Get.delete<DBService>(force: true);
-                          
-                          await Get.putAsync(() async {
-                            final service = DBService();
-                            await service.onReady();
-                            return service;
-                          });
-
-                          await 2.seconds.delay();
-                          await Get.forceAppUpdate();
-                          await controller.onRefreshAllContent();
-                          await Get.forceAppUpdate();
-                          controller.change(200, status: RxStatus.success());
-                        }).centered()
-                  ],
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Obx(
+            () => MyLayout(
+              appBarTitle: appBarTitle(),
+              appBarLeading: appBarLeading().pOnly(right: 8),
+              isShowAppBarLeading: false,
+              appBarAction: appBarAction(),
+              sideMenuContent: sideMenuContent(),
+              sideMenuWidth: controller.sideMenuWidth.value,
+              isDangerMode: controller.isDangerMode.value,
+              bodyContent: controller.obx(
+                (_) => bodyContent().p8(),
+                onLoading: ExUiLoading(
+                  message: Obx(() => '${controller.loadingText}'.text.align(TextAlign.center).makeCentered()),
                 ),
-              );
-            },
+                onError: (error) {
+                  return ExUiErrorOrEmpty(
+                    child: VStack(
+                      [
+                        Icon(UIconsPro.regularRounded.check_circle, size: 48).centered().pOnly(bottom: 16),
+                        'Task Done'.text.bold.xl3.makeCentered().pOnly(bottom: 8),
+                        '$error'.text.makeCentered().pOnly(bottom: 8),
+                        ExButtonElevated(
+                            label: 'Restart App',
+                            onPressed: () async {
+                              controller.loadingText.value = 'Restarting...';
+                              controller.change(0, status: RxStatus.loading());
+                              await Get.delete<DBService>(force: true);
+
+                              await Get.putAsync(() async {
+                                final service = DBService();
+                                await service.onReady();
+                                return service;
+                              });
+
+                              await 2.seconds.delay();
+                              await Get.forceAppUpdate();
+                              await controller.onRefreshAllContent();
+                              await Get.forceAppUpdate();
+                              controller.change(200, status: RxStatus.success());
+                            }).centered()
+                      ],
+                    ),
+                  );
+                },
+              ),
+              footerContent: footerContent(),
+              floatingActionButton: floatingActionButton(),
+            ),
           ),
-          footerContent: footerContent(),
-          floatingActionButton: floatingActionButton(),
-        ),
+          const PlayerMiniView(),
+        ],
       ),
     );
   }
@@ -102,22 +109,20 @@ class HomeView extends GetView<HomeController> {
   Widget appBarAction() {
     return HStack(
       [
-
         Obx(
           () => controller.totalVideo.value > 0
               ? CustomPopup(
-                barrierColor: Vx.amber500.withAlpha(50),
-                content: '${HelperBadge.getBadgeTotVidTooltip(controller.totalVideo.value)}'.text.black.size(12).make().w(250),
-                child: Container(
+                  barrierColor: Vx.amber500.withAlpha(50),
+                  content: '${HelperBadge.getBadgeTotVidTooltip(controller.totalVideo.value)}'.text.black.size(12).make().w(250),
+                  child: Container(
                     decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 16, fillColor: AppColor.selected.withAlpha(100)),
                     child: HStack([
                       HelperBadge.getBadgeTotVidIcons(controller.totalVideo.value).pOnly(right: 8),
                       '${HelperBadge.getBadgeTotVidText(controller.totalVideo.value)}'.text.size(12).make(),
                     ]).pSymmetric(h: 12, v: 4),
                   ),
-              )
+                )
               : 0.heightBox,
-
         ).pOnly(right: 8),
         IconButton(
           icon: Icon(UIconsPro.regularRounded.banana, size: 14),
@@ -135,7 +140,6 @@ class HomeView extends GetView<HomeController> {
 
   Widget sideMenuContent() {
     if (controller.sideMenuWidth.value != 180) {
-
       // ** MINI MODE
       return VStack(
         [
@@ -160,7 +164,7 @@ class HomeView extends GetView<HomeController> {
               );
             },
           ).wh(60, 280).pOnly(top: 16),
-          ],
+        ],
       );
     }
 
@@ -218,7 +222,7 @@ class HomeView extends GetView<HomeController> {
     return Obx(
       () {
         final index = getPageIndex(controller.currentMenuSelected.value);
-        
+
         if (controller.currentMenuSelected.value == kMenuSearch) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             Get.find<PageSearchController>().fnSearch.requestFocus();
@@ -228,7 +232,6 @@ class HomeView extends GetView<HomeController> {
       },
     );
   }
-
 
   Widget footerContent() {
     return HStack([

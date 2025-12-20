@@ -39,6 +39,8 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   final isFullScreen = false.obs;
   final infoOverlayText = ''.obs;
   final videoFit = BoxFit.contain.obs;
+  final isMiniMode = false.obs;
+  final isPlayerVisible = false.obs;
 
   final position = Duration.zero.obs;
   final duration = Duration.zero.obs;
@@ -55,9 +57,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   double _lastPersistedSpeed = AppPref.getPlayerSpeed();
   bool _hasSyncedPreferences = false;
 
-  final args = Get.arguments as List;
-  late final List<Videos>? _argumentPlaylist = _parseArgumentPlaylist();
-  final isHasPlaylistBefore = false.obs;
+  List<Videos>? _externalPlaylist;
 
   @override
   Future<void> onInit() async {
@@ -83,8 +83,8 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       await p.setProperty('framedrop', 'decoder+vo');
       await p.setProperty('autosync', '0');
       await p.setProperty('correct-pts', 'yes');
-      await p.setProperty('demuxer-thread', 'yes');      
-      
+      await p.setProperty('demuxer-thread', 'yes');
+
       //
       await p.setProperty('hr-seek', 'no');
       await p.setProperty('hr-seek-demuxer', 'yes');
@@ -96,7 +96,6 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       await p.setProperty('cache-pause', 'no');
       await p.setProperty('demuxer-readahead-secs', '5');
       await p.setProperty('demuxer-lavf-o', 'seek_timestamp=1');
-
     }
 
     videoController = VideoController(
@@ -109,24 +108,59 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     infoAnimationController = AnimationController(vsync: this, duration: 1.seconds, reverseDuration: 200.milliseconds);
 
     _bindPlayerStreams();
+    change(currentVideo.value, status: RxStatus.loading());
+  }
 
-    isHasPlaylistBefore.value = _argumentPlaylist != null;
-    if (isHasPlaylistBefore.isFalse) {
-      AppLog.logD('single mode');
-      currentVideo.value = args[0] as Videos;
-    } else {
-      AppLog.logD('multiple mode');
-      currentVideo.value = args[0] as Videos;
+  Future<bool> startPlayback(Videos video, {List<Videos>? playlist}) async {
+    final path = video.videoPath;
+    if (path.isNullOrEmpty) {
+      await HelperToast.error('Video path is null');
+      return false;
     }
+
+    final file = File(path!);
+    if (!file.existsSync()) {
+      await HelperToast.error('Cant access file: ${video.videoPath}');
+      return false;
+    }
+
+    _externalPlaylist = playlist;
+    currentVideo.value = video;
 
     await DBVideos.updateViewCount(currentVideo.value);
     await generatePlaylist();
-    currentIndexPlaying.value = playlist.indexWhere((element) => element.id == currentVideo.value.id);
+    currentIndexPlaying.value = this.playlist.indexWhere((element) => element.id == currentVideo.value.id);
 
     await _openVideo(currentVideo.value);
 
+    isPlayerVisible.value = true;
+    isMiniMode.value = false;
     change(currentVideo.value, status: RxStatus.success());
     requestFocusOnPlayer();
+    return true;
+  }
+
+  Future<void> stopPlayback() async {
+    try { await player.stop(); } 
+    catch (_) {}
+    playlist.clear();
+    _externalPlaylist = null;
+    currentVideo.value = Videos();
+    isPlayerVisible.value = false;
+    isMiniMode.value = false;
+    bufferingPercent.value = 0;
+    position.value = Duration.zero;
+    duration.value = Duration.zero;
+    change(currentVideo.value, status: RxStatus.loading());
+  }
+
+  void enterMiniMode() {
+    if (isPlayerVisible.isFalse) return;
+    isMiniMode.value = true;
+  }
+
+  void exitMiniMode() {
+    isMiniMode.value = false;
   }
 
   void _bindPlayerStreams() {
@@ -258,7 +292,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     if (player.platform is NativePlayer) {
       final p = player.platform as NativePlayer;
       final seconds = offset.inSeconds.toString();
-      await p.command(['seek', seconds, 'relative']); 
+      await p.command(['seek', seconds, 'relative']);
     } else {
       await seek(position.value + offset);
     }
@@ -272,10 +306,10 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
   Future<void> generatePlaylist() async {
     playlist.clear();
-    final initialPlaylist = _argumentPlaylist;
+    final initialPlaylist = _externalPlaylist;
     if (initialPlaylist != null && initialPlaylist.isNotEmpty) {
       playlist.addAll(initialPlaylist);
-    } else {
+    } else if ((currentVideo.value.videoPath ?? '').isNotEmpty) {
       final directoryVideos = await DBVideos.getAllVideoPath('video_path', '${dirname(currentVideo.value.videoPath!)}%');
       playlist.addAll(directoryVideos);
     }
@@ -564,14 +598,5 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     if (!fnMain.hasFocus) {
       fnMain.requestFocus();
     }
-  }
-
-  List<Videos>? _parseArgumentPlaylist() {
-    if (args.length < 2) return null;
-    final raw = args[1];
-    if (raw is Iterable<Videos>) {
-      return List<Videos>.from(raw);
-    }
-    return null;
   }
 }

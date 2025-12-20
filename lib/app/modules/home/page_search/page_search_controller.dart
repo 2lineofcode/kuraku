@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:ex_kit/ex.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
@@ -12,6 +11,7 @@ import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_loading.dart';
+import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
 
 class PageSearchController extends GetxController {
@@ -21,22 +21,25 @@ class PageSearchController extends GetxController {
   final phSearch = ''.obs;
 
   final scrollGridController = ScrollController();
-  final scrollListController = ScrollController();
 
-  final viewModeSelected = kGrid.obs; // grid | list
+  // sort by
+  final sortBy = 'random'.obs; // [random, release_date, view_count, filesize, has sub]
+  
+  // filter
+  final filter = VideoFilterState();
+  
+
   final videos = <Videos>[].obs;
+  final allVideos = <Videos>[].obs;
   final isFresh = true.obs;
 
   @override
   Future<void> onInit() async {
     super.onInit();
     AppLog.logI('page search ==> onInit called');
-    viewModeSelected.value = kGrid;
     isFresh.value = await DBVideos.getCount() == 0;
     phSearch.value = 'Video Code or Title or Path...';
     await onReset();
-    videos.shuffle();
-
   }
 
   Future<void> renewMetadata(Videos videos) async {
@@ -108,12 +111,6 @@ class PageSearchController extends GetxController {
   }
 
   Future<void> onSearch() async {
-    if (viewModeSelected.value == kGrid) {
-      if (scrollGridController.hasClients) scrollGridController.animToTop();
-    } else {
-      if (scrollListController.hasClients) scrollListController.animToTop();
-    }
-
     if (tecSearch.text.isEmpty) {
       await onReset();
       return;
@@ -126,14 +123,61 @@ class PageSearchController extends GetxController {
 
   Future<void> onReset() async {
     tecSearch.text = '';
+    sortBy.value = 'Random';
     videos.value = await DBVideos.getAll();
+    allVideos.value = videos.value;
+    videos.shuffle();
     fnSearch.requestFocus();
     isSearchMode.value = false;
   }
-}
 
-// ────────────────────────────────────────────────────────────────
-// ────────────────────────────────────────────────────────────────
-// # viewMode
-const kGrid = 'grid';
-const kList = 'list';
+
+  Future<void> onSortByChange(String s) async {
+    sortBy.value = s;
+    final current = videos.toList();
+    List<Videos> next = current;
+
+    switch (s.toLowerCase()) {
+      case 'random':
+        current.shuffle();
+        next = current;
+        break;
+      case 'release date':
+        current.sort((a, b) => (b.releaseDate ?? '').compareTo(a.releaseDate ?? ''));
+        next = current.where((v) => (v.videoCode ?? '').isNotEmpty).toList();
+        break;
+      case 'view count':
+        current.sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
+        next = current;
+        break;
+      case 'file size':
+        current.sort((a, b) => (b.filesize ?? 0).compareTo(a.filesize ?? 0));
+        next = current;
+        break;
+      default:
+    }
+
+    videos.value = next;
+    
+    fnSearch.requestFocus();
+  }
+
+
+  // filter
+  final _filterAdapter = VideoFilterAdapter<Videos>(
+    videoCode: (video) => video.videoCode ?? '',
+    actresses: (video) => (video.actress ?? []).map((actress) => actress.nameRomaji ?? ''),
+    categories: (video) => (video.category ?? []).map((category) => category.category ?? ''),
+    releaseDate: (video) => video.releaseDate,
+  );
+
+  Future<void> openDialogFilter() async {
+    await HelperOpener.openFilterDialog<Videos>(
+      state: filter,
+      allVideos: allVideos.toList(),
+      videos: videos,
+      adapter: _filterAdapter,
+    );
+  }
+
+}

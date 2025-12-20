@@ -9,25 +9,34 @@ class PlayerView extends GetView<PlayerController> {
   const PlayerView({super.key});
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: controller.obx(
-        (state) => ValueListenableBuilder<int?>(
-          valueListenable: controller.videoController.id,
-          builder: (context, textureId, _) {
-            if (textureId == null) {
-              return const Center(child: CircularProgressIndicator.adaptive());
-            }
-            return Obx(
-              () => Video(
-                key: controller.videoKey,
-                controller: controller.videoController,
-                fit: controller.videoFit.value,
-                fill: Colors.black,
-                controls: (videoState) => PlayerControls(controller: controller),
-              ),
-            );
-          },
+    return WillPopScope(
+      onWillPop: () async {
+        if (controller.isMiniMode.value || controller.isPlayerVisible.isFalse) {
+          return true;
+        }
+        await controller.stopPlayback();
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: controller.obx(
+          (state) => ValueListenableBuilder<int?>(
+            valueListenable: controller.videoController.id,
+            builder: (context, textureId, _) {
+              if (textureId == null) {
+                return const Center(child: CircularProgressIndicator.adaptive());
+              }
+              return Obx(
+                () => Video(
+                  key: controller.videoKey,
+                  controller: controller.videoController,
+                  fit: controller.videoFit.value,
+                  fill: Colors.black,
+                  controls: (videoState) => PlayerControls(controller: controller),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

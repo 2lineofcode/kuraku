@@ -45,8 +45,8 @@ class _ExThumbnailC extends GetxController {
 
   // ---- detect codec via ffmpeg (process)
   Future<String?> _detectCodec(String videopath) async {
-    final isExternal = videopath.startsWith('/Volumes/') || videopath.startsWith('/media/');
-    if (isExternal) return '';
+    // final isExternal = videopath.startsWith('/Volumes/') || videopath.startsWith('/media/');
+    // if (isExternal) return '';
 
     if (_codecCache.containsKey(videopath)) return _codecCache[videopath];
     try {
@@ -307,14 +307,19 @@ class ExThumbnail extends GetView<_ExThumbnailC> {
       );
     }
 
+    var fixImageUrl = imageUrl!;
+    if (imageUrl!.endsWith('ps.jpg')) {
+      fixImageUrl = imageUrl!.replaceAll('ps.jpg', 'pl.jpg');
+    }
+
     final double fastImageRenderWidth = width * (prefix ?? 1);
     return OverflowBox(
       alignment: Alignment.centerRight,
       maxWidth: fastImageRenderWidth,
       maxHeight: height,
       child: CachedNetworkImage(
-        key: Key(withProxy == true ? '${imageUrl?.genImageUrl()}' : '${imageUrl ?? ''}'),
-        imageUrl: withProxy == true ? '${imageUrl?.genImageUrl()}' : '${imageUrl ?? ''}',
+        key: Key(withProxy == true ? '${fixImageUrl.genImageUrl()}' : '$fixImageUrl'),
+        imageUrl: withProxy == true ? '${fixImageUrl.genImageUrl()}' : '$fixImageUrl',
         fit: fitUrl,
         width: fastImageRenderWidth,
         height: height,
