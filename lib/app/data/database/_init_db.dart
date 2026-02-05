@@ -9,15 +9,22 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../core/app_logging.dart';
 import '../../core/app_setting.dart';
-import '../../utils/helper_toast.dart';
 import 'db_activity.dart';
 import 'db_collection.dart';
 import 'db_library.dart';
 import 'db_videos.dart';
 
 class DBService extends GetxService {
+  // Database name
+  final dbName = 'javit.db';
+
+  // MAIN DB
   late Database dbMain;
-  late Database dbR18;
+
+  // R18 DB
+  Database? dbR18;
+
+  // Global App Path
   late String appPath;
 
   @override
@@ -29,7 +36,7 @@ class DBService extends GetxService {
   }
 
   Future<Database> _initializeDatabase() async {
-    var path = join(appPath, 'javit.db');
+    var path = join(appPath, '$dbName');
     await Directory(appPath).create(recursive: true);
     return await openDatabase(
       path,
@@ -39,17 +46,18 @@ class DBService extends GetxService {
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) async {
-        AppLog.logD('== Main Database (javit.db) opened (version: ${await db.getVersion()}) ==');
+        AppLog.logD('== Main Database ($dbName) opened (version: ${await db.getVersion()}) ==');
       },
     );
   }
 
-  Future<Database> _initializeR18Database() async {
+  Future<Database?> _initializeR18Database() async {
     var files = Glob('r18*.db').listSync(root: appPath);
     files.sort((a, b) => b.path.compareTo(a.path));
 
     if (files.isEmpty) {
-      return await _initializeDatabase();
+      AppLog.logW('R18 database not found at startup');
+      return null;
     }
     
     final r18SqlFile = files.first.path;
@@ -71,7 +79,8 @@ class DBService extends GetxService {
         },
       );
     } else {
-      return await _initializeDatabase();
+      AppLog.logW('R18 database file missing: $path');
+      return null;
     }
   }
 
@@ -84,6 +93,7 @@ class DBService extends GetxService {
     await db.execute('DROP TABLE IF EXISTS library');
     await db.execute('DROP TABLE IF EXISTS videos');
     await db.execute('DROP TABLE IF EXISTS activity');
+    await db.execute('DROP TABLE IF EXISTS profile');
     await db.execute('DROP TABLE IF EXISTS collection');
 
     // Create Library table
@@ -159,7 +169,7 @@ class DBService extends GetxService {
     ''');
 
     await db.execute('''
-      CREATE TABLE users (
+      CREATE TABLE profile (
         id                          TEXT PRIMARY KEY,
         name                        TEXT,
         total_watch_duration        INTEGER,
@@ -172,10 +182,10 @@ class DBService extends GetxService {
     ''');
 
     await db.execute('''
-      INSERT INTO users 
+      INSERT INTO profile 
         (id, name, total_watch_duration, badge_for_watch_duration, badge_for_collection, created_at, updated_at) 
       VALUES 
-        ('1', 'your_name', 0, '', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+        ('1', 'Newbie', 0, '', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
     ''');
 
     // Create Collection table
@@ -205,7 +215,7 @@ class DBService extends GetxService {
 
 
   Database get mainDatabase => dbMain;
-  Database get r18Database => dbR18;
+  Database? get r18Database => dbR18;
 
   Future<void> deleteAllData() async {
     await DBLibrary.deleteAll();
@@ -215,17 +225,18 @@ class DBService extends GetxService {
     await vacumDB();
   }
 
-  Future<void> vacumDB() async {
+  Future<bool> vacumDB() async {
     try {
       await dbMain.rawQuery('VACUUM;');
-      await HelperToast.success('Database optimized successfully');
+      return true;
     } catch (e) {
       AppLog.logE('Error vacuuming database: $e');
+      return false;
     }
   }
 
   Future<void> close() async {
     await dbMain.close();
-    await dbR18.close();
+    await dbR18?.close();
   }
 }

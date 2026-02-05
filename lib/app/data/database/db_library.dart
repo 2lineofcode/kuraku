@@ -1,13 +1,14 @@
 import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:uuid/v4.dart';
 
-import '../../utils/helper_toast.dart';
+import '../../core/app_logging.dart';
 import '../models/library_entity.dart';
 import '_init_db.dart';
 
 mixin DBLibrary {
-  static final _db = Get.find<DBService>().dbMain;
+  static Database get _db => Get.find<DBService>().dbMain;
   static final _tableName = 'library';
 
   static Future<bool> _validation(Library library) async {
@@ -17,13 +18,18 @@ mixin DBLibrary {
     return true;
   }
 
-  static Future<void> add(Library library) async {
+  static Future<bool> add(Library library) async {
     library.id = UuidV4().generate();
     library.createdAt = DateTime.now().toStringEx();
     library.updatedAt = DateTime.now().toStringEx();
     final isOK = await _validation(library);
-    if (isOK) await _db.insert(_tableName, library.toJson());
-    else await HelperToast.error('Failed, duplicate root folder');
+    if (isOK) {
+      await _db.insert(_tableName, library.toJson());
+      return true;
+    }
+
+    AppLog.logW('Failed add library, duplicate root folder: ${library.rootFolder}');
+    return false;
   }
 
   static Future<void> update(Library library) async {

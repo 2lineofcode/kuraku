@@ -1,5 +1,4 @@
 import 'package:ex_kit/ex.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:uicons_pro/uicons_pro.dart';
@@ -11,8 +10,8 @@ import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widgets.dart';
 import '../home_controller.dart';
+import '../home_panel/home_panel_video_info.dart';
 import '../page_explore/page_explore_controller.dart';
-import '../page_search/page_search_overlay.dart';
 import 'page_home_controller.dart';
 
 class PageHomeView extends GetView<PageHomeController> {
@@ -147,11 +146,6 @@ class PageHomeView extends GetView<PageHomeController> {
                   index: index,
                 ),
               );
-            case AppPref.homeSecCollection:
-              return _buildCollectionSection(
-                key: ValueKey(AppPref.homeSecCollection),
-                index: index,
-              );
             default:
               return const SizedBox.shrink();
           }
@@ -196,6 +190,26 @@ class PageHomeView extends GetView<PageHomeController> {
             }),
           ),
           Spacer(),
+
+          IconButton(
+            icon: Icon(UIconsPro.regularRounded.rotate_right, size: 12),
+            onPressed: refreshAction,
+          ),
+
+          if (showDirectToExplore == true) ...[
+            IconButton(
+              icon: Icon(UIconsPro.regularRounded.book_alt, size: 12),
+              onPressed: () async {
+                await Get.find<HomeController>().onMenuChange(kMenuExplore);
+                final exploreC = Get.find<PageExploreController>();
+                await exploreC.onMenuChange(kCustom);
+                exploreC.tecSearchLeft.text = title;
+                exploreC.onLeftListDoSearch(title);
+                await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
+              },
+            ),
+          ],
+
           GetBuilder(
             init: controller,
             builder: (controller) {
@@ -213,24 +227,6 @@ class PageHomeView extends GetView<PageHomeController> {
             },
           ),
 
-          if (showDirectToExplore == true) ...[
-            IconButton(
-              icon: Icon(UIconsPro.regularRounded.book_alt, size: 12),
-              onPressed: () async {
-                await Get.find<HomeController>().onMenuChange(kMenuExplore);
-                final exploreC = Get.find<PageExploreController>();
-                await exploreC.onMenuChange(kCustom);
-                exploreC.tecSearchLeft.text = title;
-                exploreC.onLeftListDoSearch(title);
-                await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
-              },
-            ),
-          ],
-
-          IconButton(
-            icon: Icon(UIconsPro.regularRounded.rotate_right, size: 12),
-            onPressed: refreshAction,
-          ),
         ]).pSymmetric(v: 12),
         GetBuilder(
           init: controller,
@@ -253,63 +249,6 @@ class PageHomeView extends GetView<PageHomeController> {
     ).hide(isVisible: list.isNotEmpty, key: key);
   }
 
-  Widget _buildCollectionSection({ Key? key, required int index}) {
-    return VStack(
-      key: key,
-      [
-        HStack([
-          Container(
-            decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 90, fillColor: AppColor.container),
-            child: HStack([
-              MouseRegion(
-                cursor: SystemMouseCursors.grab,
-                child: ReorderableDragStartListener(
-                  index: index,
-                  child: Icon(UIconsPro.regularRounded.list, size: 12).pOnly(right: 8),
-                ),
-              ),
-              'My Collection'.text.size(12).make(),
-            ]).pSymmetric(h: 12, v: 4).onInkTap(() {
-              final isVisible = !AppPref.getHomeSecCollection();
-              AppPref.setHomeSecCollection(isVisible);
-              controller.update();
-            }),
-          ),
-
-          IconButton(
-            icon: Icon(CupertinoIcons.add, size: 16),
-            onPressed: () => controller.addOrEditCollection(),
-          ),
-        ]).pSymmetric(v: 12),
-        GetBuilder(
-            init: PageHomeController(),
-            builder: (controller) {
-              return ListView.builder(
-                itemCount: controller.listCollection.length,
-                scrollDirection: Axis.horizontal,
-                itemBuilder: (context, index) {
-                  final item = controller.listCollection[index];
-                  return Container(
-                    width: 250,
-                    height: 150,
-                    color: AppColor.selected,
-                    child: ZStack([
-                      ExThumbnail(
-                        imageUrl: item.cover,
-                        width: 250,
-                        height: 150,
-                        fitUrl: BoxFit.cover,
-                        withProxy: false,
-                      ),
-                      '${item.name}'.text.ellipsis.bold.size(12).make().pSymmetric(h: 8, v: 4).color(AppColor.black180).cornerRadius(90).positioned(bottom: 8, right: 8),
-                    ]),
-                  ).onInkTap(() => controller.addOrEditCollection(header: item)).cornerRadius(8).pOnly(right: 12);
-                },
-              ).wh(double.infinity, 150).hide(isVisible: AppPref.getHomeSecCollection());
-            }),
-      ],
-    ).hide(key: key, isVisible: false);
-  }
 
   // ────────────────────────────────────────────────────────────────
   // ⵌ REUSABLE WIDGETS
@@ -317,7 +256,7 @@ class PageHomeView extends GetView<PageHomeController> {
   Widget buildLayoutFanArt(Videos video) {
     final double width = 260;
     return DoubleTap(
-      onSingleTap: () => PageSearchOverlay.onItemTap(video),
+      onSingleTap: () => HomePanelVideoInfo.open(video),
       onDoubleTap: () => HelperOpener.openVideoFile(video),
       child: Container(
         color: AppColor.container,
@@ -363,7 +302,7 @@ class PageHomeView extends GetView<PageHomeController> {
     showQuality = true,
   }) {
     return DoubleTap(
-      onSingleTap: () async => await PageSearchOverlay.onItemTap(video),
+      onSingleTap: () async => await HomePanelVideoInfo.open(video),
       onDoubleTap: () async => await HelperOpener.openVideoFile(video),
       child: Container(
         color: AppColor.container,
@@ -421,15 +360,13 @@ class PageHomeView extends GetView<PageHomeController> {
           ],
 
           // Quality
-          if (showQuality) ...[
-            video.quality != null
-                ? Container(
-                    color: AppColor.black120,
-                    child: HStack([
-                      '${HelperMisc.formatVideoQuality(video.quality ?? '').maxWords(1)}'.text.orange500.bold.size(10).minFontSize(10).make(),
-                    ]).pSymmetric(h: 4, v: 2),
-                  ).cornerRadius(4).tooltip(video.filesize?.toFileSize() != null ? '${video.filesize?.toFileSize()}' : '').positioned(bottom: 24, left: 4)
-                : 0.heightBox,
+          if (video.quality.isNotEmptyAndNotNull) ...[
+            Container(
+              color: AppColor.black120,
+              child: HStack([
+                '${HelperMisc.formatVideoQuality(video.quality ?? '').maxWords(1)}'.text.orange500.bold.size(10).minFontSize(10).make(),
+              ]).pSymmetric(h: 4, v: 2),
+            ).cornerRadius(4).tooltip(video.filesize?.toFileSizeFormat() != null ? '${video.filesize?.toFileSizeFormat()}' : '').positioned(bottom: 24, left: 4),
           ],
 
           // View count

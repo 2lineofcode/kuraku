@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math' show max;
 
 import 'package:ex_kit/ex.dart';
@@ -20,14 +19,15 @@ import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
-import '../home_edit_metadata.dart';
 import '../page_explore/page_explore_controller.dart';
 import '../page_home/page_home_controller.dart';
-import 'page_search_controller.dart';
+import '../page_search/page_search_controller.dart';
+import 'home_panel_metadata.dart';
+import 'home_panel_playlist.dart';
 
-mixin PageSearchOverlay {
+mixin HomePanelVideoInfo {
   //
-  static Future<void> onItemTap(Videos video) async {
+  static Future<void> open(Videos video) async {
     final _controller = Get.find<PageSearchController>();
     final _mediaInfo = <String>[].obs;
     final _translatedTitle = HelperDecensor.decensor(video.title ?? '').obs;
@@ -39,11 +39,9 @@ mixin PageSearchOverlay {
       OverPanel(
         alignment: Alignment.centerRight,
         width: 300,
-        animation: OverSlideAnimation(
-          beginAlignment: Alignment.centerRight,
-          reverseDurationMilliseconds: 100,
-          durationMilliseconds: 400,
-        ),
+        backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
+        animation: OverSlideAnimation(beginAlignment: Alignment.centerRight, reverseDurationMilliseconds: 100, durationMilliseconds: 100),
+        color: Colors.black.withAlpha(230),
         actions: OverlayActions(
           onReady: () async => _focusNode.requestFocus(),
         ),
@@ -88,7 +86,7 @@ mixin PageSearchOverlay {
                   if (video.quality.isNotEmptyAndNotNull) ...[
                     Container(
                       decoration: ExDecorator.box(borderRadius: 0, borderColor: Colors.transparent, fillColor: AppColor.black170),
-                      child: '${HelperMisc.formatVideoQuality(video.quality ?? '').maxWords(1)} (${video.filesize?.toFileSize()})'.text.bold.amber500.size(11).minFontSize(11).make().p4().pSymmetric(h: 4),
+                      child: '${HelperMisc.formatVideoQuality(video.quality ?? '').maxWords(1)} (${video.filesize?.toFileSizeFormat()})'.text.bold.amber500.size(11).minFontSize(11).make().p4().pSymmetric(h: 4),
                     ).cornerRadius(90).positioned(right: 4, bottom: 4),
                   ],
                 ]),
@@ -159,7 +157,7 @@ mixin PageSearchOverlay {
                             ? Container(
                                 decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                                 child: IconButton(
-                                  icon: Icon(UIconsPro.regularRounded.thought_bubble, size: 14),
+                                  icon: Icon(UIconsPro.regularRounded.refresh, size: 14),
                                   onPressed: () => _controller.renewMetadata(video),
                                 ),
                               ).pOnly(right: 8).tooltip('Renew Metadata')
@@ -173,6 +171,18 @@ mixin PageSearchOverlay {
                           ),
                         ).pOnly(right: 8).tooltip('Open File Path'),
 
+                        Container(
+                          decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
+                          child: IconButton(
+                            icon: Icon(UIconsPro.regularRounded.plus, size: 14),
+                            onPressed: () {
+                              Get.find<HomeController>().cart.add(video);
+                              Get.find<HomeController>().cart.unique();
+                              Overlayment.dismissLast();
+                            },
+                          ),
+                        ).pOnly(right: 8).tooltip('Add to Panel Cart'),
+
                         Spacer(),
                       ],
                     ).pOnly(bottom: 16),
@@ -185,73 +195,27 @@ mixin PageSearchOverlay {
                     constraints: BoxConstraints(minHeight: 100),
                     child: Container(
                       width: double.infinity,
-                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
+                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1, fillColor: Colors.transparent),
                       child: SingleChildScrollView(
                         child: VStack([
                           HStack([
-                            Icon(UIconsPro.regularRounded.square_code, size: 14).pOnly(right: 8),
-                            'Metadata'.text.size(14).bold.make().expand(),
+                            '# Metadata'.text.size(14).bold.make().expand(),
 
                             IconButton(
-                              icon: Icon(UIconsPro.regularRounded.information, size: 12),
-                              onPressed: () async { 
-
-                                // check if file exists
-                                if (!File(video.videoPath ?? '').existsSync()) {
-                                  await HelperToast.warn('Can\'t access file: ${video.videoPath}');
-                                  return;
-                                }
-                                await Overlayment.dismissLast();
-                                await FFprobeKit.getMediaInformation(video.videoPath!).then((medInfo) async {
-                                  final filename = video.videoPath?.getFileName().noExt();
-                                  final filepath = video.videoPath;
-                                  final vcodec = medInfo.getMediaInformation()?.getStreams().first.getCodec();
-                                  final acodec = medInfo.getMediaInformation()?.getStreams().last.getCodec();
-                                  final wh = '${medInfo.getMediaInformation()?.getStreams().first.getWidth()} x ${medInfo.getMediaInformation()?.getStreams().first.getHeight()}';
-                                  final ar = medInfo.getMediaInformation()?.getStreams().first.getDisplayAspectRatio();
-                                  final fps = medInfo.getMediaInformation()?.getStreams().first.getRealFrameRate();
-                                  final bitrate = medInfo.getMediaInformation()?.getStreams().first.getBitrate();
-                                  final filesize = medInfo.getMediaInformation()?.getSize()?.toInt()?.toFileSize();
-                                  final duration = HelperMisc.durationFormatFFmpeg(medInfo.getMediaInformation()?.getDuration()?.toInt() ?? 0);
-
-
-                                  await Overlayment.show(
-                                    context: Get.context!,
-                                    OverPanel(
-                                      alignment: Alignment.center,
-                                      width: 300,
-                                      child: VStack(
-                                        [
-                                          'Detail Information'.text.bold.xl2.make().pOnly(bottom: 12),
-                                          VxJson(
-                                            {
-                                              'Filename': filename,
-                                              'Video Codec': vcodec?.toUpperCase(),
-                                              'Audio Codec': acodec?.toUpperCase(),
-                                              'Resolution': wh,
-                                              'Aspect Ratio': ar,
-                                              'Frame Rate': fps,
-                                              'Bitrate': bitrate,
-                                              'File Size': filesize,
-                                              'Duration': duration,
-                                              'Filepath': filepath,
-
-                                            },
-                                          )
-                                        ],
-                                      ).p12().scrollVertical(),
-                                    ),
-                                  );
-                                });
-
-                                
-                              },
-                            ),
-                            IconButton(
-                              icon: Icon(UIconsPro.regularRounded.file_edit, size: 12),
+                              icon: Icon(UIconsPro.regularRounded.plus_hexagon , size: 16),
+                              tooltip: 'Add To Playlist',
                               onPressed: () async {
                                 await Overlayment.dismissLast();
-                                await HomeEditVideoDetail.onEditMetadata(video);
+                                await HomePanelPlaylist.showDialogAddToPlaylistItem([video]);
+                              },
+                            ),
+
+                            IconButton(
+                              icon: Icon(UIconsPro.regularRounded.pen_square , size: 16),
+                              tooltip: 'Edit Metadata',
+                              onPressed: () async {
+                                await Overlayment.dismissLast();
+                                await HomePanelMetadata.open(video);
                               },
                             ),
 
@@ -342,7 +306,7 @@ mixin PageSearchOverlay {
 
                             // filesize
                             'File Size:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.filesize?.toFileSize()}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                            '${video.filesize?.toFileSizeFormat()}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ]),
 
                           // ~~~
@@ -402,16 +366,10 @@ mixin PageSearchOverlay {
         alignment: Alignment.center,
         width: max(Get.width * 90 / 100, 400),
         height: max(Get.height * 80 / 100, 400),
-        animation: OverSlideAnimation(
-          beginAlignment: Alignment.bottomCenter,
-          reverseDurationMilliseconds: 100,
-          durationMilliseconds: 400,
-        ),
-        actions: OverlayActions(
-          onReady: () async {
-            focusNode.requestFocus();
-          },
-        ),
+        backgroundSettings: BackgroundSettings(blur: 5, color: Colors.transparent),
+        animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
+        color: Colors.black.withAlpha(230),
+        actions: OverlayActions(onReady: () async => focusNode.requestFocus()),
         child: FocusScope(
           autofocus: true,
           child: KeyboardListener(
@@ -695,7 +653,7 @@ mixin PageSearchOverlay {
       final stream = value.getMediaInformation()?.getStreams().first;
       output.add('${stream?.getWidth()}x${stream?.getHeight()}'); // -- [0] width x height
       output.add('${stream?.getHeight()}p'); // -- [1] resolution
-      output.add('${int.parse(medinfo!.getSize()!).toFileSize()}'); // -- [2] file size
+      output.add('${int.parse(medinfo!.getSize()!).toFileSizeFormat()}'); // -- [2] file size
       output.add('${HelperMisc.durationFormatFFmpeg(num.parse(medinfo.getFormatProperties()!['duration'].toString()))}'); // -- [3] duration
     }).catchError((e) {
       AppLog.logW('PageSearchOverlay._getMediaInfo [$path] -> $e');

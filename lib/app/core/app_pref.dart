@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../data/models/videos_entity.dart';
 import 'app_logging.dart';
 import 'app_setting.dart';
 
@@ -24,6 +25,21 @@ mixin AppPref {
 
   static int getAppMaxColi() => _pref.read(_kAppMaxColi) ?? 2;
   static void setAppMaxColi(int value) => _pref.write(_kAppMaxColi, value);
+
+  static List<Videos> getAppCart() {
+    final list = _pref.read<List>(_kAppCart);
+    if (list == null) return <Videos>[];
+    return list.map((e) => Videos.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+  static void setAppCart(List<Videos> value) => _pref.write(_kAppCart, value.map((e) => e.toJson()).toList());
+
+
+  static String getFavoriteCoverURL() => _pref.read(_kFavoriteCoverURL) ?? 'https://www.zenra.net/imgcache/max-content-width/blog/10/best-debuts-and-honorable-mentions-xx-677ad45348fe4.png';
+  static void setFavoriteCoverURL(String value) => _pref.write(_kFavoriteCoverURL, value);
+
+  static String getDefaultSearchEngine() => _pref.read(_kDefaultSearchEngine) ?? 'NJAV';
+  static void setDefaultSearchEngine(String value) => _pref.write(_kDefaultSearchEngine, value);
+
 
 
   // ** [download]
@@ -76,10 +92,6 @@ mixin AppPref {
   static void setHomeSecOldest(bool value) => _pref.write(_kHomeSecOldest, value);
   static const String homeSecOldest = _kHomeSecOldest;
 
-  static bool getHomeSecCollection() => _pref.read(_kHomeSecCollection) ?? true;
-  static void setHomeSecCollection(bool value) => _pref.write(_kHomeSecCollection, value);
-  static const String homeSecCollection = _kHomeSecCollection;
-
 
   // ** player
   static String getDefaultPlayer() => _pref.read(_kDefaultPlayer) ?? 'In App'; // In App | Default System
@@ -118,6 +130,9 @@ const _kAppFirstOpen = '_kAppFirstOpen';
 const _kAppLastOpen = '_kAppLastOpen';
 const _kAppHideSideMenu = '_kAppHideSideMenu';
 const _kAppMaxColi = '_kAppMaxColi';
+const _kAppCart = '_kAppCart';
+const _kFavoriteCoverURL = '_kFavoriteCoverURL';
+const _kDefaultSearchEngine = '_kDefaultSearchEngine';
 
 
 const _kDownloadPath = '_kDownloadPath';
@@ -134,7 +149,6 @@ const _kHomeSecMostWatch = '_kHomeSecMostWatch';
 const _kHomeSecNeverWatch = '_kHomeSecNeverWatch';
 const _kHomeSecRandom = '_kHomeSecRandom';
 const _kHomeSecOldest = '_kHomeSecOldest';
-const _kHomeSecCollection = '_kHomeSecCollection';
 
 // player
 const _kDefaultPlayer = '_kDefaultPlayer';

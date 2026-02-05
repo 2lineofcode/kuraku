@@ -10,6 +10,7 @@ import 'app_setting.dart';
 
 mixin Api {
   // https://pub.dev/packages/dio_cache_interceptor
+  // cache strategy, hit once keep 5 year 
   static CacheOptions _cacheOption(String appPath) => CacheOptions(
         store: SembastCacheStore(storePath: appPath, cacheStore: 'javit.dio'),
         policy: CachePolicy.forceCache,
@@ -37,7 +38,8 @@ mixin Api {
   static Future<Response> get(String url, {Map<String, dynamic>? queryParameters, bool withCache = true}) async {
     final appSettingService = Get.find<AppSettingService>();
     final cacheOptions = _cacheOption(appSettingService.appPath).copyWith(
-      policy: withCache ? CachePolicy.noCache : CachePolicy.forceCache,
+      // withCache=true => allow cached response, otherwise bypass cache
+      policy: withCache ? CachePolicy.forceCache : CachePolicy.noCache,
     );
 
     return await _dio.get(

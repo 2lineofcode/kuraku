@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
+import '../../core/app_pref.dart';
 import '../../routes/app_pages.dart';
 import 'player_controller.dart';
+import 'player_controls.dart';
 
 class PlayerMiniView extends StatelessWidget {
   const PlayerMiniView({super.key});
@@ -34,25 +37,79 @@ class _MiniPlayerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        width: 340,
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.85),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white10),
-          boxShadow: const [
-            BoxShadow(color: Colors.black54, offset: Offset(0, 8), blurRadius: 24),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildSurface(context),
-            _buildProgress(),
-            _buildInfoRow(),
-          ],
+    final shortcuts = <LogicalKeySet, Intent>{
+      LogicalKeySet(LogicalKeyboardKey.arrowRight): const SeekForward5sIntent(),
+      LogicalKeySet(LogicalKeyboardKey.arrowLeft): const SeekBackward5sIntent(),
+      LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.greater): const NextVideoIntent(),
+      LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.less): const PrevVideoIntent(),
+      LogicalKeySet(LogicalKeyboardKey.keyP): const MiniPlayerIntent(),
+
+    };
+
+    final actions = <Type, Action<Intent>>{
+      SeekForward5sIntent: CallbackAction<SeekForward5sIntent>(
+        onInvoke: (intent) {
+          controller.seekRelative(Duration(seconds: AppPref.getPlayerSeekShort()));
+          return null;
+        },
+      ),
+      SeekBackward5sIntent: CallbackAction<SeekBackward5sIntent>(
+        onInvoke: (intent) {
+          controller.seekRelative(Duration(seconds: -AppPref.getPlayerSeekShort()));
+          return null;
+        },
+      ),
+      NextVideoIntent: CallbackAction<NextVideoIntent>(
+        onInvoke: (intent) {
+          controller.nextVideo();
+          return null;
+        },
+      ),
+      PrevVideoIntent: CallbackAction<PrevVideoIntent>(
+        onInvoke: (intent) {
+          controller.prevVideo();
+          return null;
+        },
+      ),
+      MiniPlayerIntent: CallbackAction<MiniPlayerIntent>(onInvoke: (intent) async {
+        controller.exitMiniMode();
+        if (Get.currentRoute != Routes.PLAYER) {
+          await Get.toNamed(Routes.PLAYER);
+        } else {
+          controller.requestFocusOnPlayer();
+        }
+        return null;
+      })
+    };
+
+    return Shortcuts(
+      shortcuts: shortcuts,
+      child: Actions(
+        actions: actions,
+        child: Focus(
+          autofocus: true,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: 340,
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.85),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white10),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black54, offset: Offset(0, 8), blurRadius: 24),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSurface(context),
+                  _buildProgress(),
+                  _buildInfoRow(),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

@@ -1,12 +1,14 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
-import 'package:overlayment/overlayment.dart';
+import 'package:path/path.dart' as p;
 import 'package:process_run/process_run.dart' as shell;
-import 'package:sqflite/sqlite_api.dart';
+import 'package:sqflite/sqflite.dart';
 
-import '../../../core/app_color.dart';
+import '../../../../env.g.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
 import '../../../core/app_setting.dart';
@@ -16,6 +18,7 @@ import '../../../data/database/db_activity.dart';
 import '../../../data/database/db_library.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
+import '../../../utils/helper.dart';
 import '../../../utils/helper_toast.dart';
 import '../home_controller.dart';
 
@@ -31,6 +34,7 @@ class PageSettingsController extends GetxController {
 
   // ** config
   final tecDefaultPlayer = '${AppPref.getDefaultPlayer()}'.obs;
+  final tecDefaultSearchEngine = '${AppPref.getDefaultSearchEngine()}'.obs;
   final tecAppMaxColi = TextEditingController(text: AppPref.getAppMaxColi().toString());
   final tecPlayerSeekShort = TextEditingController(text: AppPref.getPlayerSeekShort().toString());
   final tecPlayerSeekMid = TextEditingController(text: AppPref.getPlayerSeekMid().toString());
@@ -38,18 +42,25 @@ class PageSettingsController extends GetxController {
 
   // **
   final appMiniMode = false.obs;
-  final applogText = ''.obs;
+
+  // ** storage
+  final storageList = <StorageUsage>[].obs;
+  final isLoadingStorage = false.obs;
 
   @override
   Future<void> onInit() async {
     super.onInit();
-    AppLog.logI('page settings ==> onInit called');
-    dbR18Version.value = await Get.find<DBService>().dbR18.getVersion();
+    await onRefresh();
+  }
+
+  Future<void> onRefresh() async {
+    final sw = Stopwatch()..start();
+    final r18db = Get.find<DBService>().dbR18;
+    dbR18Version.value = r18db == null ? 0 : await r18db.getVersion();
     totalLibrary.value = await DBLibrary.getCount();
     totalVideos.value = await DBVideos.getCount();
     totalFilesize.value = await DBVideos.getTotalFileSizeAllVideo() ?? 0;
     r18TotalVideo.value = await DBR18.getCountAllVideos();
-
 
     final current = Get.find<HomeController>().sideMenuWidth.value;
     if (current == 65) {
@@ -57,26 +68,55 @@ class PageSettingsController extends GetxController {
     } else {
       appMiniMode.value = false;
     }
+
+    final _last = await DBActivity.getAllRelapse();
     
-    final _last = await DBActivity.getAll(
-      where: 'type = ?',
-      whereArgs: [kActivityTypeRelapse],
-      orderBy: 'created_at DESC',
-    );
     if (_last.isNotEmpty) {
       lastRelapse.value = _last[0].createdAt?.reformatDate(to: 'MMM, d y HH:mm') ?? '';
     } else {
       lastRelapse.value = '-';
     }
 
+    AppLog.logI('page settings ==> onInit called: ${sw.elapsedMilliseconds} ms');
+  }
+
+  @override
+  void onClose() {
+    tecAppMaxColi.dispose();
+    tecPlayerSeekShort.dispose();
+    tecPlayerSeekMid.dispose();
+    tecPlayerSeekLong.dispose();
+    super.onClose();
+  }
+
+  @override
+  Future<void> onReady() async {
+    super.onReady();
+    await onRefreshStorage();
+  }
+
+  Future<void> onRefreshStorage() async {
+    isLoadingStorage.value = true;
+    try {
+      storageList.value = await _scanStorage();
+    } catch (e) {
+      await HelperToast.error('Failed to read storage: $e');
+    } finally {
+      isLoadingStorage.value = false;
+    }
+  }
+
+  Future<void> onVacuumDB() async {
+    await DBVideos.vacuum();
+    await HelperToast.success('Database vacuumed');
   }
 
   Future<void> onResetAll() async {
     await _openDialogConfirm(
       onYes: () async {
+        Get.back();
         await Get.find<DBService>().deleteAllData();
         await Get.find<HomeController>().onRefreshAllContent();
-        Get.back();
       },
     );
   }
@@ -96,16 +136,16 @@ class PageSettingsController extends GetxController {
       final lastUpdFromNow = _getNextUpdate(lastUpdate, intervalDays, today);
       final lastUpdFromNowStr = lastUpdFromNow.toStringEx(format: kYMd);
 
-      final dbVersionDate = DateTime.parse(dbR18Version.string);
-      final isOutdated = dbVersionDate.isBefore(lastUpdFromNow);
-
+      final dbVersionDate = dbR18Version.value > 0 ? DateTime.tryParse(dbR18Version.string) : null;
+      final isOutdated = dbVersionDate == null || dbVersionDate.isBefore(lastUpdFromNow);
 
       ExAlert.adaptive(
         title: Text('Information', textAlign: TextAlign.left),
         content: VStack([
           12.heightBox,
-          Text('Current Version\t: ${DateTime.parse(dbR18Version.string).toStringEx(format: kYMd)}').pOnly(bottom: 4),
-          Text('Last Update\t\t\t\t\t\t\t: $lastUpdFromNowStr'),
+          Text('Current Version\t: ${dbVersionDate?.toStringEx(format: kYMd) ?? '-'}').pOnly(bottom: 4),
+          Text('Last Update\t\t\t\t\t\t\t: $lastUpdFromNowStr').pOnly(bottom: 4),
+          !isOutdated ? Text('Next Update\t\t\t\t\t\t: ${lastUpdFromNow.add(7.days).toStringEx(format: kYMd)}').pOnly(bottom: 4) : 0.heightBox,
           isOutdated
               ? Text(
                   '🔥 New Version Database R18 is avaiable',
@@ -123,7 +163,7 @@ class PageSettingsController extends GetxController {
                     final appSetting = Get.find<AppSettingService>();
                     final home = Get.find<HomeController>();
 
-                    final serverUrl = 'https://r18dotdev.s3.eu-west-1.wasabisys.com/dumps';
+                    final serverUrl = Env.r18ServerUrl;
                     final outputFileName = 'r18dotdev_dump_$lastUpdFromNowStr.sql.gz';
 
                     await Dio().download(
@@ -161,7 +201,6 @@ class PageSettingsController extends GetxController {
               : 0.heightBox,
         ],
       );
-
     } catch (e) {
       await HelperToast.error(e.toString());
     }
@@ -190,33 +229,168 @@ class PageSettingsController extends GetxController {
     );
   }
 
-  Future<void> openAppLog() async {
-    await Overlayment.show(
-      context: Get.context,
-      OverPanel(
-        alignment: Alignment.centerLeft,
-        width: 400,
-        color: AppColor.selected,
-        height: Get.height,
-        child: VStack(
-          [
-            24.heightBox,
-            'APP LOG'.text.bold.make().pOnly(bottom: 12),
+  // ────────────────────────────────────────────────────────────────
+  // Storage helpers
+  // ────────────────────────────────────────────────────────────────
+  Future<List<StorageUsage>> _scanStorage() async {
+    final List<StorageUsage> result = [];
 
-            VStack([
-              Obx(() => '$applogText'.selectableText.make()),
-            ]).scrollVertical().expand(),
-            
-            // Spacer(),
-            ExButtonText(
-              label: 'Clear',
-              height: 32,
-              width: double.infinity,
-              onPressed: () => applogText.value = '',
-            ),
-          ],
-        ).p12(),
-      ),
+    final primary = await _readUsage(
+      appSetting.appPath,
+      label: Platform.isMacOS
+          ? 'Macintosh HD'
+          : Platform.isWindows && appSetting.appPath.length >= 2
+              ? appSetting.appPath.substring(0, 2)
+              : 'System Drive',
+      isExternal: false,
     );
+    if (primary != null) {
+      result.add(primary);
+    }
+
+    final externalMounts = await _discoverExternalMounts();
+    for (final mount in externalMounts) {
+      final info = await _readUsage(
+        mount,
+        label: _labelFromPath(mount),
+        isExternal: true,
+      );
+      if (info != null) {
+        result.add(info);
+      }
+    }
+
+    return result;
   }
+
+  Future<StorageUsage?> _readUsage(
+    String path, {
+    required String label,
+    required bool isExternal,
+  }) async {
+    try {
+      if (Platform.isWindows) {
+        final usage = await _readUsageWindows(path);
+        if (usage == null) return null;
+        return StorageUsage(
+          label: label,
+          path: path,
+          totalBytes: usage['total'] ?? 0,
+          freeBytes: usage['free'] ?? 0,
+          isExternal: isExternal,
+        );
+      } else {
+        final usage = await _readUsagePosix(path);
+        if (usage == null) return null;
+        return StorageUsage(
+          label: label,
+          path: path,
+          totalBytes: usage['total'] ?? 0,
+          freeBytes: usage['free'] ?? 0,
+          isExternal: isExternal,
+        );
+      }
+    } catch (e) {
+      AppLog.logD('Storage usage read failed for $path: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, int>?> _readUsagePosix(String path) async {
+    final result = await Process.run('df', ['-k', path]);
+    if (result.exitCode != 0) return null;
+    final lines = result.stdout.toString().trim().split('\n');
+    if (lines.length < 2) return null;
+    final parts = lines[1].split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+    if (parts.length < 4) return null;
+
+    final totalKb = int.tryParse(parts[1]);
+    final availableKb = int.tryParse(parts[3]);
+    if (totalKb == null || availableKb == null) return null;
+
+    return {
+      'total': totalKb * 1024,
+      'free': availableKb * 1024,
+    };
+  }
+
+  Future<Map<String, int>?> _readUsageWindows(String path) async {
+    // fsutil output is stable across Windows versions
+    final drive = path.length >= 2 ? path.substring(0, 2) : path;
+    final result = await Process.run('fsutil', ['volume', 'diskfree', drive]);
+    if (result.exitCode != 0) return null;
+
+    final freeMatch = RegExp(r'Total # of avail free bytes\s*:\s*(\d+)').firstMatch(result.stdout.toString());
+    final totalMatch = RegExp(r'Total # of bytes\s*:\s*(\d+)').firstMatch(result.stdout.toString());
+    if (freeMatch == null || totalMatch == null) return null;
+
+    return {
+      'free': int.tryParse(freeMatch.group(1) ?? '') ?? 0,
+      'total': int.tryParse(totalMatch.group(1) ?? '') ?? 0,
+    };
+  }
+
+  Future<List<String>> _discoverExternalMounts() async {
+    final mounts = <String>[];
+
+    if (Platform.isMacOS) {
+      final dir = Directory('/Volumes');
+      if (dir.existsSync()) {
+        for (final entity in dir.listSync()) {
+          if (entity is! Directory) continue;
+          final name = p.basename(entity.path);
+          if (name.startsWith('.')) continue;
+          if (name == 'Macintosh HD' || name == 'Macintosh HD - Data') continue;
+          mounts.add(entity.path);
+        }
+      }
+    } else if (Platform.isLinux) {
+      for (final base in ['/media', '/mnt']) {
+        final dir = Directory(base);
+        if (!dir.existsSync()) continue;
+        for (final entity in dir.listSync(recursive: false)) {
+          if (entity is Directory) {
+            mounts.add(entity.path);
+          }
+        }
+      }
+    } else if (Platform.isWindows) {
+      for (var codeUnit = 'D'.codeUnitAt(0); codeUnit <= 'Z'.codeUnitAt(0); codeUnit++) {
+        final letter = String.fromCharCode(codeUnit);
+        final drive = '$letter:\\\\';
+        if (Directory(drive).existsSync()) {
+          mounts.add(drive);
+        }
+      }
+    }
+
+    return mounts;
+  }
+
+  String _labelFromPath(String path) {
+    if (Platform.isWindows) {
+      return path.substring(0, 2);
+    }
+    final base = p.basename(path);
+    return base.isNotEmpty ? base : path;
+  }
+}
+
+class StorageUsage {
+  StorageUsage({
+    required this.label,
+    required this.path,
+    required this.totalBytes,
+    required this.freeBytes,
+    required this.isExternal,
+  });
+
+  final String label;
+  final String path;
+  final int totalBytes;
+  final int freeBytes;
+  final bool isExternal;
+
+  double get usedPct => totalBytes > 0 ? ((totalBytes - freeBytes) / totalBytes) * 100 : 0;
+  double get freePct => totalBytes > 0 ? (freeBytes / totalBytes) * 100 : 0;
 }

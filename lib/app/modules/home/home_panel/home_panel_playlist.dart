@@ -1,0 +1,458 @@
+import 'package:ex_kit/ex.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:overlayment/overlayment.dart';
+import 'package:uicons_pro/uicons_pro.dart';
+
+import '../../../../env.g.dart';
+import '../../../core/app_color.dart';
+import '../../../core/app_logging.dart';
+import '../../../core/app_pref.dart';
+import '../../../data/database/db_collection.dart';
+import '../../../data/database/db_videos.dart';
+import '../../../data/models/collection_entity.dart';
+import '../../../data/models/videos_entity.dart';
+import '../../../utils/helper.dart';
+import '../../widgets/widget_thumbnail.dart';
+import '../home_controller.dart';
+import '../page_home/page_home_controller.dart';
+
+mixin HomePanelPlaylist {
+  static final _controller = Get.find<HomeController>();
+  static final _playlistSelected = Collection().obs;
+  static final _isDetailMode = false.obs;
+  static final _isFavoriteMode = false.obs;
+  static final _listVideos = <Videos>[].obs;
+  static final _listFavoriteVideo = <Videos>[].obs;
+  static Future<List<_PlaylistVideoItem>>? _detailFuture;
+
+  static Future<void> open() async {
+    if (Overlayment.count > 0) { await Overlayment.dismissLast(); return; }
+
+    WidgetsBinding.instance.scheduleFrame();
+    await Overlayment.show(
+      context: Get.context,
+      OverPanel(
+        alignment: Alignment.centerRight,
+        width: 300,
+        backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
+        animation: OverSlideAnimation(beginAlignment: Alignment.centerRight, reverseDurationMilliseconds: 100, durationMilliseconds: 100),
+        color: Colors.black.withAlpha(230),
+        actions: OverlayActions(
+          onOpen: () async {
+            _controller.playlist.value = await DBCollection.getAllPlaylist();
+            _listFavoriteVideo.value = await DBVideos.getAll(where: 'is_favorite = 1');
+          },
+          onClose: (p0) async {
+            _listVideos.clear();
+            _isDetailMode.value = false;
+            _isFavoriteMode.value = false;
+            _detailFuture = null;
+          },
+        ),
+        child: VStack(
+          [
+            HStack(
+              [
+                Icon(UIconsPro.regularRounded.list, size: 16).pOnly(right: 12, left: 8),
+                Obx(() => 'Playlist (${_controller.playlist.length})'.text.bold.make()),
+                Spacer(),
+                Obx(
+                  () => IconButton(
+                    icon: Icon(Icons.chevron_left_rounded).tooltip('Back'),
+                    onPressed: () {
+                      _isDetailMode.value = false;
+                      _isFavoriteMode.value = false;
+                    },
+                  ).hide(isVisible: _isDetailMode.isTrue),
+                ),
+                Obx(
+                  () => IconButton(
+                    icon: Icon(UIconsPro.regularRounded.plus, size: 13).tooltip('Add New Playlist'),
+                    onPressed: () => showDialogAddOrEditPlaylist(),
+                  ).hide(isVisible: _isDetailMode.isFalse),
+                ),
+              ],
+            ),
+            Divider().pOnly(bottom: 4),
+            Obx(() => _isDetailMode.isFalse ? _uiHeader().expand() : _uiDetail().expand()),
+            Obx(
+              () => _isDetailMode.isTrue
+                  ? VStack([
+                      Divider(),
+                      ExButtonText(
+                        label: 'Play This Playlist',
+                        width: double.infinity,
+                        onPressed: () {
+                          Overlayment.dismissLast();
+                          HelperOpener.openVideoFile(_listVideos.first, playlist: _listVideos);
+                        },
+                      )
+                    ])
+                  : 0.heightBox,
+            ),
+          ],
+        ).p8(),
+      ),
+    );
+  }
+
+  static Future<void> showDialogAddOrEditPlaylist({Collection? playlist}) async {
+    await Overlayment.dismissLast();
+    final tecName = TextEditingController();
+    final fnName = FocusNode();
+    final tecCover = TextEditingController();
+
+    if (playlist != null) {
+      tecName.text = playlist.name ?? '';
+      tecCover.text = playlist.cover ?? '';
+    }
+
+    fnName.requestFocus();
+
+    ExAlert.adaptive(
+      title: Text(playlist == null ? 'New Playlist' : 'Edit Playlist', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.left).pOnly(bottom: 16),
+      content: VStack([
+        CupertinoTextField(
+          controller: tecName,
+          focusNode: fnName,
+          placeholder: 'Name',
+          prefix: Icon(CupertinoIcons.tag, size: 16).pOnly(left: 8),
+          style: TextStyle(color: Vx.white, fontSize: 12),
+          readOnly: playlist != null,
+        ).disabled(playlist != null).pOnly(bottom: 8),
+        CupertinoTextField(
+          controller: tecCover,
+          placeholder: 'Paste image URL here...',
+          prefix: Icon(CupertinoIcons.photo, size: 16).pOnly(left: 8),
+          style: TextStyle(fontSize: 12, color: Vx.white),
+        ),
+      ]),
+      actions: [
+        if (playlist != null && playlist.name != 'Favorite') ...[
+          CupertinoDialogAction(
+            child: Text('Delete', style: TextStyle(color: Vx.red500, fontSize: 13)),
+            onPressed: () async {
+              Get.back();
+              ExAlert.adaptive(
+                title: Text('Are you sure?', style: TextStyle(fontSize: 14)),
+                content: Text('Delete this playlist? this action can\'t be undo', style: TextStyle(fontSize: 12)).pOnly(top: 8),
+                actions: [
+                  CupertinoDialogAction(
+                    child: Text('Yes', style: TextStyle(color: Vx.red500, fontSize: 13)),
+                    onPressed: () async {
+                      Get.back();
+                      await DBCollection.deletePlaylist(playlist);
+                      await _controller.getAllPlaylist();
+                    },
+                  ),
+                  CupertinoDialogAction(
+                    child: Text('No', style: TextStyle(fontSize: 13)),
+                    onPressed: () => Get.back(),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        CupertinoDialogAction(
+          child: Text('Submit', style: TextStyle(fontSize: 13)),
+          onPressed: () async {
+            Get.back();
+
+            // Favorite Mode
+            if (playlist?.name == 'Favorite') {
+              AppLog.logD('message: favorite playlist can\'t be edited');
+              AppPref.setFavoriteCoverURL(tecCover.text);
+              return;
+            }
+
+            if (playlist == null) {
+              final newPL = Collection(
+                name: tecName.text,
+                cover: tecCover.text,
+                type: kCollectionTypePlaylist,
+              );
+              await DBCollection.addPlaylist(newPL);
+            } else {
+              playlist
+                ..name = tecName.text
+                ..cover = tecCover.text;
+              await DBCollection.updatePlaylist(playlist);
+            }
+            await _controller.getAllPlaylist();
+          },
+        ),
+      ],
+    );
+  }
+
+  static Future<void> showDialogAddToPlaylistItem(List<Videos> videos) async {
+    final allPlaylist = await DBCollection.getAllPlaylist();
+    if (allPlaylist.isEmpty) {
+      await HelperToast.warn('No playlist found. Please create one first.');
+      return;
+    }
+
+    final playlistNames = allPlaylist.map((e) => e.name ?? '').where((e) => e.isNotEmpty).toList();
+    if (playlistNames.isEmpty) {
+      await HelperToast.warn('Playlist name is empty. Please edit your playlists.');
+      return;
+    }
+
+    await Overlayment.show(
+      context: Get.context,
+      OverPanel(
+        alignment: Alignment.center,
+        width: 300,
+        height: 300,
+        animation: OverFadeAnimation( reverseDurationMilliseconds: 100, durationMilliseconds: 100 ),
+        backgroundSettings: BackgroundSettings(blur: 12),
+        color: Colors.black,
+
+        child: VStack([
+          'Select playlist'.text.bold.make().pOnly(bottom: 16),
+          ListView.separated(
+            itemCount: playlistNames.length,
+            separatorBuilder: (context, index) => 12.heightBox,
+            itemBuilder: (context, index) {
+              return Container(
+                decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
+                child: HStack([
+                  '${playlistNames[index]}'.text.make(),
+                ]).p12(),
+              ).onInkTap(() async {
+                await Overlayment.dismissLast();
+                await DBCollection.addPlaylistItemBulk(playlistNames[index], videos);
+                await HelperToast.success('Added ${videos.length} video(s) to ${playlistNames[index]}');
+              });
+            },
+          ).expand(),
+        ]).p12(),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // ⵌ _private
+  // ────────────────────────────────────────────────────────────────
+  static Widget _uiHeader() {
+    return ListView.separated(
+      itemCount: _controller.playlist.length + 1,
+      separatorBuilder: (context, index) => 12.heightBox,
+      itemBuilder: (context, index) {
+        
+        // * favorite
+        if (index == 0) {
+          return Container(
+            width: 300,
+            height: 150,
+            color: AppColor.selected,
+            child: ZStack([
+              ExThumbnail(
+                imageUrl: '${Env.imgUrl}${AppPref.getFavoriteCoverURL()}',
+                width: 300,
+                height: 150,
+                fitUrl: BoxFit.cover,
+                withProxy: false ,
+              ),
+              Obx(() => 'Favorite (${_listFavoriteVideo.length})'.text.ellipsis.bold.size(12).make().pSymmetric(h: 8, v: 4).color(AppColor.black180).cornerRadius(90).positioned(bottom: 8, right: 8)),
+              Icon(UIconsPro.regularRounded.pen_clip, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
+                showDialogAddOrEditPlaylist(
+                  playlist: Collection(
+                    name: 'Favorite',
+                    type: kCollectionTypePlaylist,
+                    cover: AppPref.getFavoriteCoverURL(),
+                  ),
+                );
+              }).positioned(left: 8, top: 4),
+
+            ]).onInkTap(() {
+              if (_listFavoriteVideo.isEmpty) return;
+              _isFavoriteMode.value = true;
+              _playlistSelected.value = Collection(name: 'Favorite', type: kCollectionTypePlaylist);
+              _listVideos.assignAll(_listFavoriteVideo);
+              _detailFuture = _buildFavoriteFuture();
+              _isDetailMode.value = true;
+            }),
+          ).cornerRadius(8);
+        }
+
+        final item = _controller.playlist[index - 1];
+        return Container(
+          width: 300,
+          height: 150,
+          color: AppColor.selected,
+          child: ZStack([
+            ExThumbnail(
+              imageUrl: item.cover,
+              width: 300,
+              height: 150,
+              fitUrl: BoxFit.cover,
+              withProxy: false,
+            ),
+            '${item.name} (${item.total! - 1})'.text.ellipsis.bold.size(12).make().pSymmetric(h: 8, v: 4).color(AppColor.black180).cornerRadius(90).positioned(bottom: 8, right: 8),
+            Icon(UIconsPro.regularRounded.pen_clip, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() => showDialogAddOrEditPlaylist(playlist: item)).positioned(left: 8, top: 4),
+          ]),
+        ).onInkTap(() {
+          _isFavoriteMode.value = false;
+          _playlistSelected.value = item;
+          _detailFuture = null;
+          _refreshDetail();
+          _isDetailMode.value = true;
+        }).cornerRadius(8);
+      },
+    );
+  }
+
+  static Widget _uiDetail() {
+    _detailFuture ??= _buildDetailFuture();
+
+    return FutureBuilder<List<_PlaylistVideoItem>>(
+      future: _detailFuture,
+      builder: (context, asyncSnapshot) {
+        if (asyncSnapshot.connectionState == ConnectionState.waiting) {
+          return Center(
+            child: CupertinoActivityIndicator(radius: 12),
+          );
+        }
+
+        final items = asyncSnapshot.data ?? [];
+
+        if (items.isEmpty) {
+          return VStack([
+            Icon(UIconsPro.regularRounded.list, size: 28, color: Vx.neutral400).pOnly(bottom: 12).centered(),
+            'Playlist still empty'.text.size(13).color(Vx.neutral300).makeCentered(),
+          ]).centered();
+        }
+
+        return ListView.separated(
+          itemCount: items.length,
+          separatorBuilder: (context, index) => Divider(color: AppColor.border),
+          itemBuilder: (context, index) {
+            final playlistItem = items[index].collection;
+            final video = items[index].video;
+            final videoId = playlistItem.videoId;
+
+            if (videoId.isNullOrEmpty) {
+              return ListTile(
+                leading: Icon(UIconsPro.regularRounded.info_guide, size: 16, color: Vx.orange300),
+                title: 'Video not found'.text.size(12).make(),
+              );
+            }
+
+            return Container(
+              child: HStack(
+                alignment: MainAxisAlignment.start,
+                crossAlignment: CrossAxisAlignment.start,
+                [
+                  ZStack([
+                    ExThumbnail(
+                      imageUrl: '${video.fanArt ?? ''}',
+                      videoPath: video.videoPath,
+                      width: 90,
+                      height: 110,
+                      prefix: 2.2,
+                      fitUrl: BoxFit.fitWidth,
+                    ).cornerRadius(4),
+                    '${HelperMisc.formatVideoQuality(video.quality ?? '').maxWords(1)}'
+                        .text
+                        .orange300
+                        .size(11)
+                        .minFontSize(11)
+                        .make()
+                        .pSymmetric(h: 4)
+                        .color(AppColor.black170)
+                        .cornerRadius(4)
+                        .positioned(bottom: 3, left: 3),
+                    if (video.videoPath?.isHasUncensored() == true) ...[
+                      'RM'.text.red400.size(11).minFontSize(11).make().pSymmetric(h: 4).color(AppColor.black170).cornerRadius(4).positioned(top: 3, right: 3),
+                    ],
+                    if (video.videoPath?.isHasEnSub() == true) ...[
+                      'EN'.text.blue400.size(11).minFontSize(11).make().pSymmetric(h: 4).color(AppColor.black170).cornerRadius(4).positioned(top: 3, right: 3),
+                    ],
+                    if (video.videoPath?.isHasIdSub() == true) ...[
+                      'ID'.text.blue400.size(11).minFontSize(11).make().pSymmetric(h: 4).color(AppColor.black170).cornerRadius(4).positioned(top: 3, right: 3),
+                    ],
+                  ]).pOnly(right: 12),
+                  VStack([
+                    '${video.videoCode == '' ? video.title?.maxWords(5) : video.videoCode}'.text.bold.ellipsis.maxLines(1).minFontSize(13).size(13).make().pOnly(bottom: 12),
+                    '${video.title}'.text.minFontSize(12).size(12).maxLines(3).ellipsis.make(),
+                    Spacer(),
+                    HStack([
+                      '${video.filesize?.toFileSizeFormat()}'.text.orange300.size(11).minFontSize(11).make().pOnly(right: 8).tooltip('${video.videoPath}'),
+                    ]).pOnly(top: 8),
+                  ]).h(110).expand(),
+                  VStack(
+                    [
+                      IconButton(
+                        icon: Icon(UIconsPro.regularRounded.minus_circle, size: 14),
+                        onPressed: () async {
+                          if (_isFavoriteMode.isTrue) {
+                            video.isFavorite = 0;
+                            await DBVideos.update(video);
+                            _listFavoriteVideo.removeWhere((v) => v.id == video.id);
+                            _listVideos.removeWhere((v) => v.id == video.id);
+                            _detailFuture = _buildFavoriteFuture();
+                            await Get.find<PageHomeController>().getListFavorite();
+                            _controller.update();
+                          } else {
+                            await DBCollection.deletePlaylistItems(_playlistSelected.value.name ?? '', videoId!);
+                            _controller.playlist.value = await DBCollection.getAllPlaylist();
+                            _refreshDetail();
+                          }
+                          _isDetailMode.refresh(); // force FutureBuilder rebuild
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ).p8(),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  static Future<List<_PlaylistVideoItem>> _buildDetailFuture() async {
+    if (_isFavoriteMode.isTrue) return _buildFavoriteFuture();
+
+    _listVideos.clear();
+    final items = await DBCollection.getPlaylist(_playlistSelected.value.name ?? '');
+
+    final videos = await Future.wait(
+      items.map((e) async {
+        if (e.videoId.isNullOrEmpty) return Videos();
+        try {
+          return await DBVideos.getByID(e.videoId!);
+        } catch (_) {
+          return Videos();
+        }
+      }),
+    );
+
+    final playlistItems = List.generate(items.length, (index) => _PlaylistVideoItem(items[index], videos[index]));
+    final validVideos = playlistItems.map((e) => e.video).where((v) => v.id != null).toList();
+    _listVideos.assignAll(validVideos);
+    return playlistItems;
+  }
+
+  static Future<List<_PlaylistVideoItem>> _buildFavoriteFuture() async {
+    final items = _listFavoriteVideo.map((v) => _PlaylistVideoItem(Collection(name: 'Favorite', videoId: v.id), v)).toList();
+    _listVideos.assignAll(_listFavoriteVideo);
+    return items;
+  }
+
+  static void _refreshDetail() {
+    _detailFuture = _buildDetailFuture();
+  }
+
+}
+
+class _PlaylistVideoItem {
+  _PlaylistVideoItem(this.collection, this.video);
+  final Collection collection;
+  final Videos video;
+}

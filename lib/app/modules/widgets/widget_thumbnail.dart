@@ -122,7 +122,10 @@ class _ExThumbnailC extends GetxController {
           final id = session.getSessionId();
           await FFmpegKit.cancel(id);
           AppLog.logW('[thumb] ⏰ ffmpeg timeout, canceled session $id');
-        } catch (_) {}
+        } catch (e, stackTrace) {
+          AppLog.logD('[thumb] ffmpeg timeout cancel failed: $e');
+          AppLog.logD('$stackTrace');
+        }
         if (!completer.isCompleted) completer.complete(null);
       });
 
@@ -213,7 +216,10 @@ class _ExThumbnailC extends GetxController {
       _memCache[videopath] = bytes;
       try {
         await file.writeAsBytes(bytes, flush: false);
-      } catch (_) {}
+      } catch (e, stackTrace) {
+        AppLog.logD('[thumb] disk cache write failed: $e');
+        AppLog.logD('$stackTrace');
+      }
     }
 
     return bytes;
@@ -255,7 +261,7 @@ class _AsyncLimiter {
   }
 }
 
-class ExThumbnail extends GetView<_ExThumbnailC> {
+class ExThumbnail extends StatefulWidget {
   final String? imageUrl;
   final String? videoPath;
   final double width;
@@ -284,45 +290,58 @@ class ExThumbnail extends GetView<_ExThumbnailC> {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final controller = Get.put(_ExThumbnailC());
+  State<ExThumbnail> createState() => _ExThumbnailState();
+}
 
-    if (imageUrl == null || imageUrl == '') {
+class _ExThumbnailState extends State<ExThumbnail> {
+  late final _ExThumbnailC controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = Get.isRegistered<_ExThumbnailC>()
+        ? Get.find<_ExThumbnailC>()
+        : Get.put(_ExThumbnailC(), permanent: true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.imageUrl == null || widget.imageUrl == '') {
       return FutureBuilder<Uint8List?>(
-        key: ValueKey('$videoPath#${position ?? 90}'),
-        future: controller.getThumbnail(videoPath ?? '', position: position),
+        key: ValueKey('${widget.videoPath}#${widget.position ?? 90}'),
+        future: controller.getThumbnail(widget.videoPath ?? '', position: widget.position),
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
-            return Icon(UIconsPro.regularRounded.loading, size: 32).wh(width, height).centered().color(AppColor.selected);
+            return Icon(UIconsPro.regularRounded.loading, size: 32).wh(widget.width, widget.height).centered().color(AppColor.selected);
           }
           return (snap.hasData && snap.data != null)
               ? Image.memory(
                   snap.data!,
-                  fit: fitMemory,
-                  width: width,
-                  height: height,
+                  fit: widget.fitMemory,
+                  width: widget.width,
+                  height: widget.height,
                 )
-              : Icon(Icons.broken_image, size: iconSize).wh(width, height).centered().color(AppColor.selected);
+              : Icon(Icons.broken_image, size: widget.iconSize).wh(widget.width, widget.height).centered().color(AppColor.selected);
         },
       );
     }
 
-    var fixImageUrl = imageUrl!;
-    if (imageUrl!.endsWith('ps.jpg')) {
-      fixImageUrl = imageUrl!.replaceAll('ps.jpg', 'pl.jpg');
+    var fixImageUrl = widget.imageUrl!;
+    if (widget.imageUrl!.endsWith('ps.jpg')) {
+      fixImageUrl = widget.imageUrl!.replaceAll('ps.jpg', 'pl.jpg');
     }
 
-    final double fastImageRenderWidth = width * (prefix ?? 1);
+    final double fastImageRenderWidth = widget.width * (widget.prefix ?? 1);
     return OverflowBox(
       alignment: Alignment.centerRight,
       maxWidth: fastImageRenderWidth,
-      maxHeight: height,
+      maxHeight: widget.height,
       child: CachedNetworkImage(
-        key: Key(withProxy == true ? '${fixImageUrl.genImageUrl()}' : '$fixImageUrl'),
-        imageUrl: withProxy == true ? '${fixImageUrl.genImageUrl()}' : '$fixImageUrl',
-        fit: fitUrl,
+        key: Key(widget.withProxy == true ? '${fixImageUrl.genImageUrl()}' : '$fixImageUrl'),
+        imageUrl: widget.withProxy == true ? '${fixImageUrl.genImageUrl()}' : '$fixImageUrl',
+        fit: widget.fitUrl,
         width: fastImageRenderWidth,
-        height: height,
+        height: widget.height,
         fadeInDuration: 300.milliseconds,
         cacheManager: CacheManager(
           Config(
@@ -336,11 +355,11 @@ class ExThumbnail extends GetView<_ExThumbnailC> {
           ),
         ),
         progressIndicatorBuilder: (c, url, progress) => Stack(children: [
-          Container(width: width, height: height, color: Vx.neutral800).shimmer(primaryColor: Vx.neutral800, secondaryColor: Vx.neutral900),
+          Container(width: widget.width, height: widget.height, color: Vx.neutral800).shimmer(primaryColor: Vx.neutral800, secondaryColor: Vx.neutral900),
           if (progress.progress != null) ' ${(progress.progress! * 100).toDoubleStringAsFixed(digit: 0)}%'.text.xs.align(TextAlign.center).makeCentered(),
         ]),
-        errorWidget: (c, e, s) => Icon(Icons.broken_image, size: iconSize).wh(width, height).centered().color(AppColor.selected),
+        errorWidget: (c, e, s) => Icon(Icons.broken_image, size: widget.iconSize).wh(widget.width, widget.height).centered().color(AppColor.selected),
       ),
-    ).color(backdropColor ?? AppColor.container).wh(width, height);
+    ).color(widget.backdropColor ?? AppColor.container).wh(widget.width, widget.height);
   }
 }

@@ -15,11 +15,12 @@ import '../../../env.g.dart';
 import '../../core/app_color.dart';
 import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
+import '../../data/database/db_profile.dart';
 import '../../data/database/db_videos.dart';
 import '../../data/models/videos_entity.dart';
 import '../../utils/helper.dart';
+import '../home/home_panel/home_panel_video_info.dart';
 import '../home/page_home/page_home_controller.dart';
-import '../home/page_search/page_search_overlay.dart';
 import '../widgets/widget_thumbnail.dart';
 
 class PlayerController extends GetxController with StateMixin<Videos>, GetSingleTickerProviderStateMixin {
@@ -56,6 +57,31 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   double _lastPersistedVolume = AppPref.getPlayerVolume();
   double _lastPersistedSpeed = AppPref.getPlayerSpeed();
   bool _hasSyncedPreferences = false;
+
+  Duration _sessionWatchDuration = Duration.zero;
+  DateTime? _playStartedAt;
+
+  void _accumulateWatchDuration() {
+    final started = _playStartedAt;
+    if (started == null) return;
+
+    final diff = DateTime.now().difference(started);
+    if (!diff.isNegative && diff.inMilliseconds > 0) {
+      _sessionWatchDuration += diff;
+    }
+    _playStartedAt = null;
+  }
+
+  Future<void> _persistWatchDuration() async {
+    // ensure latest in-flight segment is counted
+    _accumulateWatchDuration();
+    if (_sessionWatchDuration > Duration.zero) {
+      await DBProfile.updateTotalWatchDuration(_sessionWatchDuration);
+      AppLog.logD('_sessionWatchDuration -> ${_sessionWatchDuration.inSeconds} seconds');
+      
+      _sessionWatchDuration = Duration.zero;
+    }
+  }
 
   List<Videos>? _externalPlaylist;
 
@@ -118,7 +144,8 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       return false;
     }
 
-    final file = File(path!);
+    final decodedPath = Uri.parse(path!).toFilePath();
+    final file = File(decodedPath);
     if (!file.existsSync()) {
       await HelperToast.error('Cant access file: ${video.videoPath}');
       return false;
@@ -126,6 +153,8 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
     _externalPlaylist = playlist;
     currentVideo.value = video;
+    _sessionWatchDuration = Duration.zero;
+    _playStartedAt = null;
 
     await DBVideos.updateViewCount(currentVideo.value);
     await generatePlaylist();
@@ -141,6 +170,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   }
 
   Future<void> stopPlayback() async {
+    await _persistWatchDuration();
     try { await player.stop(); } 
     catch (_) {}
     playlist.clear();
@@ -166,7 +196,17 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   void _bindPlayerStreams() {
     _subscriptions.add(player.stream.position.listen((value) => position.value = value));
     _subscriptions.add(player.stream.duration.listen((value) => duration.value = value));
-    _subscriptions.add(player.stream.playing.listen((value) => isPlaying.value = value));
+    _subscriptions.add(player.stream.playing.listen((value) {
+      final nowPlaying = value;
+      if (nowPlaying) {
+        // start measuring watch time when playback starts/resumes
+        _playStartedAt ??= DateTime.now();
+      } else {
+        // accumulate watch time when playback pauses/stops
+        _accumulateWatchDuration();
+      }
+      isPlaying.value = nowPlaying;
+    }));
     _subscriptions.add(player.stream.buffering.listen((value) => isBuffering.value = value));
     _subscriptions.add(player.stream.bufferingPercentage.listen((value) => bufferingPercent.value = value));
 
@@ -322,7 +362,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       requestFocusOnPlayer();
       return;
     }
-    await PageSearchOverlay.onItemTap(currentVideo.value);
+    await HomePanelVideoInfo.open(currentVideo.value);
     requestFocusOnPlayer();
   }
 
@@ -343,6 +383,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       _listScrollController.jumpTo(currentIndexPlaying.value * 135);
     }
 
+    WidgetsBinding.instance.scheduleFrame();
     await Overlayment.show(
       context: Get.context,
       OverPanel(
@@ -448,7 +489,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
                           '${__item.title}'.text.minFontSize(12).size(12).maxLines(3).ellipsis.make(),
                           Spacer(),
                           HStack([
-                            '${__item.filesize?.toFileSize()}'.text.orange300.size(11).minFontSize(11).make().pOnly(right: 8).tooltip('${__item.videoPath}'),
+                            '${__item.filesize?.toFileSizeFormat()}'.text.orange300.size(11).minFontSize(11).make().pOnly(right: 8).tooltip('${__item.videoPath}'),
                             Spacer(),
                             Icon(
                               __item.isFavorite == 1 ? UIconsPro.solidRounded.star : UIconsPro.regularRounded.star,
@@ -462,7 +503,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
                                 __item.isFavorite = 1;
                                 await DBVideos.addToFavorite(__item);
                               }
-                              await Get.find<PageHomeController>().onInit();
+                              await Get.find<PageHomeController>().onRefresh();
                               _videos.refresh();
                             }).pOnly(right: 12),
                             if (!__item.actress.isEmptyOrNull) ...[
@@ -512,7 +553,10 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     await generatePlaylist();
     await showInfoOverlay('${currentIndexPlaying.value + 1}/${playlist.length}');
 
-    await DBVideos.updateViewCount(currentVideo.value);
+    try {
+      await DBVideos.updateViewCount(currentVideo.value);
+    } catch (_) {}
+
     change(newVideo, status: RxStatus.success());
     requestFocusOnPlayer();
   }
@@ -584,6 +628,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
   @override
   Future<void> onClose() async {
+    await _persistWatchDuration();
     for (final subscription in _subscriptions) {
       await subscription.cancel();
     }

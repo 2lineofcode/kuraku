@@ -1,3 +1,4 @@
+import 'package:dotted_border/dotted_border.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +13,11 @@ import '../../utils/helper.dart';
 import '../player/player_mini_view.dart';
 import '../widgets/widgets.dart';
 import 'home_controller.dart';
-import 'home_relapse.dart';
+import 'home_panel/home_panel_cart.dart';
+import 'home_panel/home_panel_library.dart';
+import 'home_panel/home_panel_log.dart';
+import 'home_panel/home_panel_playlist.dart';
+import 'home_panel/home_panel_relapse.dart';
 import 'page_download/page_download_view.dart';
 import 'page_explore/page_explore_view.dart';
 import 'page_home/page_home_view.dart';
@@ -28,6 +33,9 @@ class HomeView extends GetView<HomeController> {
     return DropRegion(
       formats: Formats.standardFormats,
       hitTestBehavior: HitTestBehavior.opaque,
+      onDropEnter: controller.onDropEnter,
+      onDropLeave: controller.onDropLeave,
+      onDropEnded: controller.onDropEnded,
       onDropOver: (event) {
         if (event.session.allowedOperations.contains(DropOperation.copy)) {
           return DropOperation.copy;
@@ -89,6 +97,7 @@ class HomeView extends GetView<HomeController> {
             ),
           ),
           const PlayerMiniView(),
+          dropOverlay(),
         ],
       ),
     );
@@ -124,14 +133,30 @@ class HomeView extends GetView<HomeController> {
                 )
               : 0.heightBox,
         ).pOnly(right: 8),
+
+        Obx(
+          () => IconButton(
+            icon: Icon(UIconsPro.regularRounded.bags_shopping, size: 14),
+            onPressed: () {
+              HomePanelCart.open();
+            },
+          ).badge(count: controller.cart.length, color: Vx.red500).tooltip('Cart: ⌘ + E').hide(isVisible: controller.cart.isNotEmpty),
+        ),
+
+        IconButton(
+          icon: Icon(UIconsPro.regularRounded.list, size: 14),
+          onPressed: () => HomePanelPlaylist.open(),
+          tooltip: 'Playlist: [⌘ + P]',
+        ),
+
         IconButton(
           icon: Icon(UIconsPro.regularRounded.banana, size: 14),
-          onPressed: () => HomeRelapse.openMenuRelapse(),
-          tooltip: 'Relapse :(',
+          onPressed: () => HomePanelRelapse.open(),
+          tooltip: 'Relapse: [⌘ + .]',
         ),
         IconButton(
           icon: Icon(UIconsPro.regularRounded.multiple_alt, size: 14),
-          onPressed: () => controller.onOpenLibrary(),
+          onPressed: () => HomePanelLibrary.open(),
           tooltip: 'Library',
         ).pOnly(right: 8),
       ],
@@ -235,12 +260,46 @@ class HomeView extends GetView<HomeController> {
 
   Widget footerContent() {
     return HStack([
-      Spacer(),
-      Obx(() => '${controller.footerText}'.text.size(11).ellipsis.maxLines(1).align(TextAlign.end).make().expand()),
+      Obx(() => '👋🏻 ${controller.profile.value.name}'.text.size(11).make().onInkTap((){
+        controller.onOpenProfile();
+      })),
+      Obx(() => '${controller.footerText}'.text.size(11).ellipsis.maxLines(1).align(TextAlign.end).make().onInkTap((){
+        HomePanelAppLog.open();
+      }).expand()),
     ]).p12();
   }
 
   Widget floatingActionButton() {
     return 0.heightBox;
+  }
+
+  Widget dropOverlay() {
+    return Obx(
+      () => IgnorePointer(
+        ignoring: controller.isDropHovering.isFalse,
+        child: AnimatedOpacity(
+          duration: 150.milliseconds,
+          opacity: controller.isDropHovering.value ? 1 : 0,
+          child: Material(
+            color: Colors.black.withAlpha(222),
+            child: Center(
+              child: DottedBorder(
+                options: RoundedRectDottedBorderOptions(radius: Radius.circular(12), color: Vx.white, strokeWidth: 1),
+                child: Container(
+                  width: 250,
+                  height: 150,
+                  decoration: BoxDecoration(color: AppColor.appBar, borderRadius: BorderRadius.circular(12)),
+                  child: VStack([
+                    Icon(UIconsPro.solidRounded.file_upload, size: 34, color: Vx.white).pOnly(bottom: 12).centered(),
+                    'Drop here'.text.bold.size(16).makeCentered().pOnly(bottom: 6),
+                    'Drop a folder to add Library\nDrop a .mp4 file to play instantly'.text.size(12).align(TextAlign.center).color(Vx.neutral400).makeCentered(),
+                  ]).centered(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

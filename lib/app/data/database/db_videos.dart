@@ -12,8 +12,20 @@ import '../models/videos_entity.dart';
 import '_init_db.dart';
 
 mixin DBVideos {
-  static final _db = Get.find<DBService>().dbMain;
+  static Database get _db => Get.find<DBService>().dbMain;
   static final _tableName = 'videos';
+  static const _allowedColumns = {
+    'id', 'root_path', 'video_path', 'video_code', 'title', 'title_ja',
+    'description', 'fan_art', 'poster', 'trailer', 'actress', 'category',
+    'release_date', 'release_date_formated', 'duration', 'duration_formated', 'studio', 
+    'label', 'director', 'series', 'screenshot', 'view_count', 'site',
+    'is_favorite', 'filesize', 'quality', 'created_at', 'updated_at',
+  };
+
+  static String _safeColumn(String column) {
+    if (_allowedColumns.contains(column)) return column;
+    throw ArgumentError('Unsupported column: $column');
+  }
 
   static Future<bool> _validation(Videos videos) async {
     final isDuplicateVideoPath = await getByVideoPath(videos.videoPath ?? '');
@@ -108,14 +120,16 @@ mixin DBVideos {
   static Future<List<Videos>> getAllLike(String column, String like, {String? jsonObject}) async {
     var part = '';
     if (jsonObject != null) part = '"$jsonObject":"';
+    final safeColumn = _safeColumn(column);
+    final likeQuery = '%$part$like%';
 
     try {
       final maps = await _db.rawQuery('''
         SELECT * FROM $_tableName
         WHERE 1=1
-          AND $column LIKE '%$part$like%'
+          AND $safeColumn LIKE ?
         ORDER BY release_date DESC
-      ''');
+      ''', [likeQuery]);
 
       return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
     } catch (e) {
@@ -124,14 +138,18 @@ mixin DBVideos {
   }
 
   static Future<List<Videos>> getAllVideoPath(String column, String like) async {
+    final safeColumn = _safeColumn(column);
+    final pathPrefix = '$like%';
+    final nestedPrefix = '$like/%/%';
+
     try {
       final maps = await _db.rawQuery('''
         SELECT * FROM $_tableName
         WHERE 1=1
-          AND $column LIKE '$like%' 
-          AND $column NOT LIKE '$like/%/%'
+          AND $safeColumn LIKE ? 
+          AND $safeColumn NOT LIKE ?
         ORDER BY video_code ASC, title ASC
-      ''');
+      ''', [pathPrefix, nestedPrefix]);
 
       return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
     } catch (e) {
@@ -140,17 +158,25 @@ mixin DBVideos {
   }
 
   static Future<List<Videos>> search(String s) async {
+    final query = '%$s%';
     final maps = await _db.rawQuery('''
       SELECT * FROM $_tableName 
       WHERE 1=1
-        AND video_code LIKE '%$s%'
-        OR title LIKE '%$s%'
-        OR video_path LIKE '%$s%'
-    ''', [s]);
+        AND (
+          video_code LIKE ?
+          OR title LIKE ?
+          OR video_path LIKE ?
+        )
+    ''', [query, query, query]);
     return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
   }
 
   // ** get_by
+  static Future<Videos> getByID(String id) async {
+    final maps = await _db.query(_tableName, where: 'id = ?', whereArgs: [id]);
+    return Videos.fromJson(maps.first);
+  }
+
   static Future<Videos> getByCode(String code) async {
     final maps = await _db.query(_tableName, where: 'video_code = ?', whereArgs: [code]);
     return Videos.fromJson(maps.first);
@@ -203,6 +229,11 @@ mixin DBVideos {
   // ────────────────────────────────────────────────────────────────
   // ⵌ helper
   static Future<void> deleteAll() async => await _db.delete(_tableName);
+  static Future<void> vacuum() async {
+    await _db.rawQuery('VACUUM');
+    AppLog.logD('VACUUM Done.');
+  }
+
 
   static Future<String> getRandomVideoCode() async {
     final maps = await _db.query(_tableName, orderBy: 'RANDOM()', limit: 1, where: 'video_code IS NOT NULL AND video_code != ""');

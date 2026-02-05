@@ -25,7 +25,6 @@ import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
 import '../home_controller.dart';
-import '../page_settings/page_settings_controller.dart';
 
 class PageDownloadController extends GetxController {
   final tecSearch = TextEditingController();
@@ -53,7 +52,6 @@ class PageDownloadController extends GetxController {
 
   // app setting
   final appSetting = Get.find<AppSettingService>();
-  final addToLog = Get.find<PageSettingsController>().applogText;
   final _perPage = 200;
   String _lastQuery = '';
   Set<String> _existingVideoCodes = {};
@@ -62,10 +60,18 @@ class PageDownloadController extends GetxController {
   @override
   Future<void> onInit() async {
     super.onInit();
-    AppLog.logI('page download ==> onInit called');
+    await onRefresh();
+  }
+
+  Future<void> onRefresh() async {
+    final sw = Stopwatch()..start();
+
     phSearch.value = 'Video Code or Title...';
+    scrollController.removeListener(_onScroll);
     scrollController.addListener(_onScroll);
     await onReset();
+
+    AppLog.logI('page download ==> onInit called: ${sw.elapsedMilliseconds} ms');
   }
 
   @override
@@ -333,9 +339,7 @@ class PageDownloadController extends GetxController {
   // ~ Download ────────────────────────────────────────────────────────────────
   Future<void> openDownloadLog() async {
     Get.back();
-    final data = await DBActivity.getAll(
-      where: 'type = ?',
-      whereArgs: [kActivityTypeDownload],
+    final data = await DBActivity.getDownloadLogs(
       orderBy: 'updated_at DESC',
       groupBy: 'json_extract(content, "\$.filename")',
     );
@@ -343,13 +347,11 @@ class PageDownloadController extends GetxController {
         context: Get.context,
         OverPanel(
           alignment: Alignment.center,
-          width: 680,
+          width: 550,
           height: Get.height * 0.5,
-          animation: OverSlideAnimation(
-            beginAlignment: Alignment.bottomCenter,
-            reverseDurationMilliseconds: 100,
-            durationMilliseconds: 400,
-          ),
+          backgroundSettings: BackgroundSettings(blur: 5, color: Colors.transparent),
+          animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
+          color: Colors.black.withAlpha(230),
           child: VStack([
             'Downloads'.text.bold.make().pOnly(bottom: 12),
 
@@ -382,7 +384,7 @@ class PageDownloadController extends GetxController {
                   height: 38,
                   child: HStack([
                     Icon(UIconsPro.regularRounded.trash, size: 11, color: Vx.red300).pOnly(right: 8),
-                    'Clear All Log'.text.size(11).minFontSize(11).red300.make(),
+                    'Clear All Download Log'.text.size(11).minFontSize(11).red300.make(),
                   ]),
                   onPressed: () {
                     Overlayment.dismissLast();
@@ -492,7 +494,7 @@ class PageDownloadController extends GetxController {
                                     }),
                                   ],
                                   Icon(UIconsPro.regularRounded.trash, size: 12).p4().tooltip('delete log').onInkTap(() async {
-                                    await DBActivity.deleteByFilename(jsonData['filename']);
+                                    await DBActivity.deleteDownloadLogByFilename(jsonData['filename']);
                                     await Overlayment.dismissLast();
                                     await openDownloadLog();
                                   }),
@@ -630,7 +632,7 @@ class PageDownloadController extends GetxController {
       }
 
       // log to activity
-      await DBActivity.add(Activity(type: kActivityTypeDownload, content: genJsonFormat('start', url, dir, filename)));
+      await DBActivity.addDownloadLog(Activity(type: kActivityTypeDownload, content: genJsonFormat('start', url, dir, filename)));
 
       // legacy env PATH (macOS only)
       const homebrewPath = '/opt/homebrew/bin';
@@ -660,7 +662,6 @@ class PageDownloadController extends GetxController {
           process.outLines.listen((s) {
             downloadStdout.value = s;
             Get.find<HomeController>().footerText.value = s;
-            addToLog.value += '- $s\n';
           }).onError((e) {
             AppLog.logE('listen stdout e -> $e');
             downloadStdout.value = '$e';
@@ -671,25 +672,23 @@ class PageDownloadController extends GetxController {
               downloadStdout.value = 'Download Failed 🔴';
 
               final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo();
-              Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSize()})';
+              Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSizeFormat()})';
               await HelperToast.error('Download Failed 🔴');
               
-              final currentActivity = await DBActivity.getByFilename(safeFilename);
-              currentActivity.content = genJsonFormat('failed', url, dir, safeFilename);
-              await DBActivity.update(currentActivity);
+              final currentActivity = await DBActivity.getDownloadLogByFilename(safeFilename);
+              await DBActivity.updateDownloadLog(id: currentActivity?.id ?? '', content: genJsonFormat('failed', url, dir, safeFilename));
               await HelperMisc.playSoundDownloadComplate();
             }
 
             if (code == 0) {
               downloadStdout.value = 'Download Finished ✅';
               final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo();
-              Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSize()})';
+              Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSizeFormat()})';
 
               await HelperToast.success('Download Finished ✅');
 
-              final currentActivity = await DBActivity.getByFilename(safeFilename);
-              currentActivity.content = genJsonFormat('finish', url, dir, safeFilename);
-              await DBActivity.update(currentActivity);
+              final currentActivity = await DBActivity.getDownloadLogByFilename(safeFilename);
+              await DBActivity.updateDownloadLog(id: currentActivity?.id ?? '', content: genJsonFormat('finish', url, dir, safeFilename));
               await HelperMisc.playSoundDownloadComplate();
 
               // create notification
@@ -730,7 +729,7 @@ class PageDownloadController extends GetxController {
       downloadStdout.value = '';
 
       final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo();
-      Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSize()})';
+      Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSizeFormat()})';
     } catch (e) {
       AppLog.logD('killProcessDownload e -> $e');
     }

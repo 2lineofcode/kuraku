@@ -13,8 +13,8 @@ import '../../../data/database/db_videos.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
+import '../home_panel/home_panel_video_info.dart';
 import '../page_explore/page_explore_controller.dart';
-import '../page_search/page_search_overlay.dart';
 import 'page_tools_controller.dart';
 
 class PageToolsView extends GetView<PageToolsController> {
@@ -71,101 +71,149 @@ class PageToolsView extends GetView<PageToolsController> {
         message: 'Hi There, Select Or Drag & Drop your JAV Folder Here',
       );
     }
-
     return VStack(
       [
-        // ** header
+        // ** options
         HStack([
           Obx(() => 'Top ${controller.topLargeFileSizeList.length} Large File'.text.make()),
-          Spacer(),
-          Obx(
-            () => HStack([
-              Checkbox.adaptive(
-                value: controller.isLocalOnlyTopLargeFile.value,
-                onChanged: (value) => controller.setLocalOnlyTopLargeFile(value ?? false),
-                visualDensity: VisualDensity.compact,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              'Local Only'.text.size(12).make().pOnly(left: 8),
-            ]).pOnly(right: 12),
-          ),
           Obx(
             () => ExButtonText(
               label: 'Re-Scan',
               labelSize: 12,
               onPressed: () async => controller.scanAndUpdateDBVideoRes(),
-            ).pOnly(right: 12).hide(isVisible: controller.isHasDataNotScanned.isFalse),
+            ).badge(size: 6, color: Vx.red500, position: VxBadgePosition.right).pOnly(right: 12).hide(isVisible: controller.isHasDataNotScanned.isFalse),
           ),
+          Spacer(),
+
+          HStack([
+            GestureDetector(
+              onTapDown: (details) async {
+                final value = await showMenu<String>(
+                  context: Get.context!,
+                  position: RelativeRect.fromLTRB(details.globalPosition.dx, details.globalPosition.dy, details.globalPosition.dx, details.globalPosition.dy),
+                  items: [
+                    PopupMenuItem(value: 'all', child: Text('All', style: TextStyle(fontSize: 12))),
+                    PopupMenuItem(value: 'internal', child: Text('Internal', style: TextStyle(fontSize: 12))),
+                    PopupMenuItem(value: 'external', child: Text('External', style: TextStyle(fontSize: 12))),
+                  ],
+                );
+
+                if (value != null) {
+                  controller.topLargeFilterMode.value = value;
+                  await controller.getTopLargeFileSize(mode: value);
+                }
+              },
+              child: Container(
+                width: 100,
+                decoration: ExDecorator.box(borderColor: Color(0xFF2B2A2F), fillColor: Colors.black, borderRadius: 6),
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: HStack(
+                  [
+                    Icon(UIconsPro.regularRounded.filter, size: 12).pOnly(right: 12),
+                    Obx(
+                      () => Text(
+                        controller.topLargeFilterMode.value.isEmpty ? '<select>' : controller.topLargeFilterMode.value.toTitleCase!,
+                        style: TextStyle(fontSize: 12, color: Vx.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          ]).pOnly(right: 12),
+
+          
         ]).pOnly(bottom: 12),
 
-        // ** content
+        // ** content 
         Expanded(
-          child: Table(
-            columnWidths: const {
-              0: FlexColumnWidth(1),
-              1: FlexColumnWidth(3),
-              2: FlexColumnWidth(1),
-              3: FlexColumnWidth(1),
-            },
-            border: TableBorder.all(width: 0.5, color: Vx.neutral700),
-            children: [
-              TableRow(
-                decoration: BoxDecoration(color: AppColor.container),
-                children: [
-                  'Code'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                  'Path'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                  'Quality'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                  'Size'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                ],
-              ),
-              ...List.generate(
-                controller.topLargeFileSizeList.length,
-                (index) {
-                  var item = controller.topLargeFileSizeList[index];
-                  return TableRow(
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(width: .5, color: Vx.neutral700)
+            ),
+            child: Column(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColor.container,
+                    border: Border(
+                      bottom: BorderSide(width: .5, color: Vx.neutral700)
+                    ),
+                  ),
+                  child: Row(
                     children: [
-                      // code
-                      '${item.videoCode.isNotEmptyAndNotNull ? item.videoCode : 'NON-JAV'}'
-                          .text
-                          .color(item.videoCode.isNotEmptyAndNotNull ? null : Vx.red300)
-                          .ellipsis
-                          .size(12)
-                          .make()
-                          .p12()
-                          .onInkTap(() async {
-                        final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
-                        await PageSearchOverlay.onItemTap(video!);
-                      }),
-
-                      // path
-                      if (HelperMisc.isExternalDrive(item.videoPath)) ...[
-                        'External → ${item.videoPath!.getLastSegments(segment: 1)}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
-                          final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
-                          await PageSearchOverlay.onItemTap(video!);
-                        }),
-                      ] else ...[
-                        'Local → ${item.videoPath!.getLastPath()}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
-                          final video = await DBVideos.getByVideoPath(item.videoPath ?? '');
-                          await PageSearchOverlay.onItemTap(video!);
-                        }),
-                      ],
-
-                      // quality
-                      '${HelperMisc.formatVideoQuality(item.quality ?? '')}'.text.ellipsis.make().tooltip(item.quality ?? '').p12(),
-
-                      // size
-                      '${item.filesize?.toFileSize()}'.text.ellipsis.make().p12(),
+                      _buildHeaderCell('Code', flex: 1),
+                      _buildHeaderCell('Path', flex: 3),
+                      _buildHeaderCell('Quality', flex: 1),
+                      _buildHeaderCell('Size', flex: 1, isLast: true),
                     ],
-                  );
-                },
-              ),
-            ],
-          ).scrollVertical(),
+                  ),
+                ),
+                Expanded(
+                  child: Obx(
+                    () {
+                      final hoveredIndex = controller.topLargeHoveredIndex.value;
+                      return ListView.builder(
+                        itemCount: controller.topLargeFileSizeList.length,
+                        itemBuilder: (context, index) {
+                        final item = controller.topLargeFileSizeList[index];
+                        final videoPath = item.videoPath ?? '';
+                        final isExternal = HelperMisc.isExternalDrive(videoPath);
+                        final pathLabel = isExternal ? 'External → ${videoPath.getLastSegments(segment: 1)}' : 'Local → ${videoPath.getLastPath()}';
+
+                        return InkWell(
+                          onHover: (isHover) => controller.onTopLargeHover(index, isHover),
+                          onTap: () async {
+                            final video = await DBVideos.getByVideoPath(videoPath);
+                            if (video != null) await HomePanelVideoInfo.open(video);
+                          },
+                          child: AnimatedContainer(
+                            duration: 120.milliseconds,
+                            decoration: BoxDecoration(
+                              color: hoveredIndex == index ? Vx.neutral800.withOpacity(.6) : Colors.transparent,
+                              border: Border(top: BorderSide(width: .5, color: Vx.neutral700)),
+                            ),
+                            child: Row(
+                              children: [
+                                _buildDataCell(
+                                  '${item.videoCode.isNotEmptyAndNotNull ? item.videoCode : 'NON-JAV'}'
+                                      .text
+                                      .color(item.videoCode.isNotEmptyAndNotNull ? null : Vx.red300)
+                                      .ellipsis
+                                      .size(12)
+                                      .make(),
+                                  flex: 1,
+                                ),
+                                _buildDataCell(
+                                  pathLabel.text.ellipsis.size(12).neutral400.make(),
+                                  flex: 3,
+                                ),
+                                _buildDataCell(
+                                  '${HelperMisc.formatVideoQuality(item.quality ?? '')}'.text.ellipsis.make().tooltip(item.quality ?? ''),
+                                  flex: 1,
+                                ),
+                                _buildDataCell(
+                                  '${item.filesize?.toFileSizeFormat()}'.text.ellipsis.make(),
+                                  flex: 1,
+                                  isLast: true,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     ).pOnly(left: 8);
   }
-
+ 
   Widget uiDuplicateVideo() {
     if (controller.duplicateVideoList.isEmpty) {
       return ExUiErrorOrEmpty(
@@ -204,23 +252,23 @@ class PageToolsView extends GetView<PageToolsController> {
                     children: [
                       // code
                       '${item.videoCode}'.text.ellipsis.size(12).make().p12().onInkTap(() {
-                        PageSearchOverlay.onItemTap(item);
+                        HomePanelVideoInfo.open(item);
                       }),
 
                       // path
                       if (HelperMisc.isExternalDrive(item.videoPath)) ...[
                         'External → ${item.videoPath!.getLastSegments(segment: 1)}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
-                          await PageSearchOverlay.onItemTap(item);
+                          await HomePanelVideoInfo.open(item);
                         }),
                       ] else ...[
                         'Local → ${item.videoPath!.getLastPath()}'.text.ellipsis.size(12).neutral400.make().p12().onInkTap(() async {
-                          await PageSearchOverlay.onItemTap(item);
+                          await HomePanelVideoInfo.open(item);
                         }),
                       ],
 
                       // size
-                      '${item.filesize?.toFileSize()}'.text.ellipsis.size(12).make().p12().onInkTap(() async {
-                        await PageSearchOverlay.onItemTap(item);
+                      '${item.filesize?.toFileSizeFormat()}'.text.ellipsis.size(12).make().p12().onInkTap(() async {
+                        await HomePanelVideoInfo.open(item);
                       }),
                     ],
                   );
@@ -245,7 +293,7 @@ class PageToolsView extends GetView<PageToolsController> {
             labelSize: 13,
             isLabelBold: true,
             onPressed: () => controller.addTodo(),
-          ).centered(),
+          ).tooltip('Add Todo: [⌘ + T]').centered(),
         ]).centered(),
       );
     }
@@ -254,9 +302,12 @@ class PageToolsView extends GetView<PageToolsController> {
         HStack([
           Obx(() => 'Total Todo: ${controller.todoList.length}'.text.make()),
           Spacer(),
-          IconButton(
-            icon: Icon(UIconsPro.regularRounded.plus, size: 14),
-            onPressed: () => controller.addTodo(),
+          Tooltip(
+            message: 'Add Todo: [⌘ + T]',
+            child: IconButton(
+              icon: Icon(UIconsPro.regularRounded.plus, size: 14),
+              onPressed: () => controller.addTodo(),
+            ),
           ),
         ]).pOnly(bottom: 12),
         Expanded(
@@ -320,6 +371,31 @@ class PageToolsView extends GetView<PageToolsController> {
   // ────────────────────────────────────────────────────────────────
   // ⵌ REUSABLE WIDGETS
   // ────────────────────────────────────────────────────────────────
+
+  Widget _buildHeaderCell(String label, {required int flex, bool isLast = false}) {
+    return Expanded(
+      flex: flex,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(right: isLast ? BorderSide.none : BorderSide(width: .5, color: Vx.neutral700)),
+        ),
+        child: label.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+      ),
+    );
+  }
+
+  Widget _buildDataCell(Widget child, {required int flex, bool isLast = false}) {
+    return Expanded(
+      flex: flex,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(right: isLast ? BorderSide.none : BorderSide(width: .5, color: Vx.neutral700)),
+        ),
+        child: child.p12(),
+      ),
+    );
+  }
+
   Widget _buildLeftPart() {
     return Container(
       width: 220,

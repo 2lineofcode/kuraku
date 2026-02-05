@@ -137,6 +137,7 @@ class _JavItState extends State<JavIt> with WindowListener {
           CupertinoDialogAction(
             child: Text('Download & Install', style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () async {
+              final sw = Stopwatch()..start();
               AppLog.logI('!!! Start Downloading R18 database & Install...');
 
               final appSetting = Get.find<AppSettingService>();
@@ -162,7 +163,7 @@ class _JavItState extends State<JavIt> with WindowListener {
                 final lastUpdFromNow = _getNextUpdate(lastUpdate, intervalDays, today);
                 final lastUpdFromNowStr = lastUpdFromNow.toStringEx(format: kYMd);
 
-                final serverUrl = 'https://r18dotdev.s3.eu-west-1.wasabisys.com/dumps';
+                final serverUrl = Env.r18ServerUrl;
                 final outputFileName = 'r18dotdev_dump_$lastUpdFromNowStr.sql.gz';
 
                 await Dio().download(
@@ -199,7 +200,11 @@ class _JavItState extends State<JavIt> with WindowListener {
                     });
                   },
                 );
-              } catch (_) {}
+
+                AppLog.logI('!!! Downloading R18 database & Install completed: ${sw.elapsed.inSeconds} seconds');
+              } catch (e) {
+                AppLog.logE('R18 setup failed: $e');
+              }
             },
           ),
         ],
@@ -213,9 +218,9 @@ class _JavItState extends State<JavIt> with WindowListener {
 Future<void> _requestNotificationPermissions() async {
   final isGranted = await AppNotification.requestPermissions();
   if (isGranted == true) {
-    print('Notification permissions granted');
+    AppLog.logI('Notification permissions granted');
   } else {
-    print('Notification permissions denied');
+    AppLog.logI('Notification permissions denied');
   }
 }
 

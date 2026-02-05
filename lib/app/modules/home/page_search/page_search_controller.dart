@@ -36,10 +36,25 @@ class PageSearchController extends GetxController {
   @override
   Future<void> onInit() async {
     super.onInit();
-    AppLog.logI('page search ==> onInit called');
+    await onRefresh();
+  }
+
+  Future<void> onRefresh() async {
+    final sw = Stopwatch()..start();
+
     isFresh.value = await DBVideos.getCount() == 0;
     phSearch.value = 'Video Code or Title or Path...';
     await onReset();
+
+    AppLog.logI('page search ==> onInit called: ${sw.elapsedMilliseconds} ms');
+  }
+
+  @override
+  void onClose() {
+    tecSearch.dispose();
+    fnSearch.dispose();
+    scrollGridController.dispose();
+    super.onClose();
   }
 
   Future<void> renewMetadata(Videos videos) async {

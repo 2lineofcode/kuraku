@@ -4,9 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
+import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
 import '../../../utils/helper.dart';
 import '../home_controller.dart';
@@ -49,7 +51,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                       HStack([
                         'Total Video'.text.size(11).minFontSize(11).neutral400.make(),
                         Spacer(),
-                        '${controller.totalVideos} (${controller.totalFilesize.value.toFileSize()})'.text.size(11).minFontSize(11).bold.make(),
+                        '${controller.totalVideos} (${controller.totalFilesize.value.toFileSizeFormat()})'.text.size(11).minFontSize(11).bold.make(),
                       ]).pOnly(bottom: 8),
                       HStack([
                         'Last Relapse'.text.size(11).minFontSize(11).neutral400.make(),
@@ -92,12 +94,6 @@ class PageSettingsView extends GetView<PageSettingsController> {
                   VStack(
                     [
                       ExButtonText(
-                        label: 'App Log',
-                        labelSize: 12,
-                        height: 32,
-                        onPressed: () => controller.openAppLog(),
-                      ).pOnly(bottom: 8),
-                      ExButtonText(
                         label: 'Keyboard Shortcuts',
                         labelSize: 12,
                         height: 32,
@@ -116,11 +112,19 @@ class PageSettingsView extends GetView<PageSettingsController> {
                         onPressed: () => controller.updateR18DB(),
                       ).pOnly(bottom: 8),
                       ExButtonText(
-                        label: 'Reset DB',
+                        label: 'Vacuum DB',
                         labelSize: 12,
                         height: 32,
-                        onPressed: () => controller.onResetAll(),
+                        onPressed: () => controller.onVacuumDB(),
                       ).pOnly(bottom: 8),
+                      if (kDebugMode) ...[
+                        ExButtonText(
+                          label: 'Reset DB',
+                          labelSize: 12,
+                          height: 32,
+                          onPressed: () => controller.onResetAll(),
+                        ).pOnly(bottom: 8),
+                      ]
                     ],
                   )
                 ],
@@ -206,6 +210,50 @@ class PageSettingsView extends GetView<PageSettingsController> {
                             ).expand(),
                           ],
                         ).pOnly(bottom: 8),
+
+                        HStack(
+                          [
+                            'Search Engine'.text.size(12).make().pOnly(right: 12).w(100),
+                            GestureDetector(
+                              onTapDown: (details) async {
+                                final value = await showMenu<String>(
+                                  context: context,
+                                  position: RelativeRect.fromLTRB(details.globalPosition.dx, details.globalPosition.dy, details.globalPosition.dx, details.globalPosition.dy),
+                                  items: [
+                                    PopupMenuItem(value: 'NJAV', child: Text('NJAV', style: TextStyle(fontSize: 12))),
+                                    PopupMenuItem(value: 'MISSAV', child: Text('MISSAV', style: TextStyle(fontSize: 12))),
+                                    PopupMenuItem(value: 'JAVMOST', child: Text('JAVMOST', style: TextStyle(fontSize: 12))),
+                                    PopupMenuItem(value: 'SEXTB', child: Text('SEXTB', style: TextStyle(fontSize: 12))),
+                                    PopupMenuItem(value: 'JAVGURU', child: Text('JAVGURU', style: TextStyle(fontSize: 12))),
+                                  ],
+                                );
+
+                                if (value != null) {
+                                  controller.tecDefaultSearchEngine.value = value;
+                                  AppPref.setDefaultSearchEngine(value);
+                                  AppLog.logD('value -> $value');
+                                }
+                              },
+                              child: Container(
+                                decoration: ExDecorator.box(borderColor: Color(0xFF2B2A2F), fillColor: Colors.black, borderRadius: 6),
+                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                child: HStack(
+                                  [
+                                    Icon(UIconsPro.regularRounded.web_design, size: 12).pOnly(right: 8),
+                                    Obx(
+                                      () => Text(
+                                        controller.tecDefaultSearchEngine.value.isEmpty ? 'NJAV' : controller.tecDefaultSearchEngine.value.toTitleCase!,
+                                        style: TextStyle(fontSize: 12, color: Vx.white),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ).expand(),
+                          ],
+                        ).pOnly(bottom: 8),
+
+
                         HStack(
                           [
                             'Maximum Coli Per-Day'.text.size(12).make().pOnly(right: 12).w(100),
@@ -278,39 +326,73 @@ class PageSettingsView extends GetView<PageSettingsController> {
           ).p12(),
         ),
 
-        // ! DEBUG FOR TEST ONLY, NOT SHOW IN PROD
-        if (kDebugMode) ...[
-          Container(
+        // storage usage
+        Obx(() {
+          Widget _storageRow(StorageUsage item) {
+            final usedPct = item.usedPct;
+            var color = Vx.green500;
+            if (usedPct >= 90) {
+              color = Vx.red600;
+            } else if (usedPct >= 80) {
+              color = Vx.orange500;
+            } else if (usedPct >= 60) {
+              color = Vx.yellow500;
+            }
+
+            return Container(
+              decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
+              width: double.infinity,
+              child: VStack(
+                [
+                  HStack([
+                    Icon(item.isExternal ? Icons.sd_storage : UIconsPro.boldRounded.laptop, size: 16).pOnly(right: 8),
+                    '${item.label}${item.isExternal ? ' (External)' : ''}'.text.bold.size(14).make(),
+                    Spacer(),
+                    item.path.text.size(10).neutral400.make(),
+                  ]).pOnly(bottom: 8),
+                  ExProgressBar(
+                    value: usedPct.toInt(),
+                    color1: color,
+                    color2: Vx.neutral500,
+                  ).h(8).pSymmetric(h: 12).pOnly(bottom: 8),
+                  HStack([
+                    'Available: ${item.freeBytes.toFileSizeFormat()}'.text.color(color).size(12).make().pOnly(left: 13),
+                    'Used: ${(item.totalBytes - item.freeBytes).toFileSizeFormat()}'.text.size(12).make().pOnly(left: 13),
+                    'Total: ${item.totalBytes.toFileSizeFormat()}'.text.size(12).make().pOnly(left: 13),
+                    Spacer(),
+                    '${usedPct.toStringAsFixed(1)}%'.text.color(color).size(12).make().pOnly(right: 12),
+                  ]),
+                ],
+              ).p12(),
+            );
+          }
+
+          final isLoading = controller.isLoadingStorage.value;
+          final items = controller.storageList;
+
+          return Container(
             decoration: ExDecorator.box(borderColor: AppColor.border),
             width: Get.width,
-            child: HStack(
+            child: VStack(
               [
-                'debug only'.text.make(),
-                ExButtonText(
-                  label: 'test',
-                  onPressed: () async {
-                    // final controller = Get.find<HomeController>();
-                    // controller.loadingText.value = 'Restarting...';
-                    // controller.change(0, status: RxStatus.loading());
-                    // await Get.delete<DBService>(force: true);
-
-                    // await Get.putAsync(() async {
-                    //   final service = DBService();
-                    //   await service.onReady();
-                    //   return service;
-                    // });
-
-                    // await 2.seconds.delay();
-                    // await Get.forceAppUpdate();
-                    // await controller.onRefreshAllContent();
-                    // await Get.forceAppUpdate();
-                    // controller.change(200, status: RxStatus.success());
-                  },
-                ),
+                HStack([
+                  'Storage Usage'.text.bold.size(16).make(),
+                  Spacer(),
+                  IconButton(
+                    icon: Icon(UIconsPro.regularRounded.refresh, size: 14),
+                    onPressed: () async => await controller.onRefreshStorage(),
+                  ),
+                ]).pOnly(bottom: 12),
+                if (isLoading)
+                  Center(child: CupertinoActivityIndicator().pSymmetric(v: 12))
+                else if (items.isEmpty)
+                  'No storage detected'.text.size(12).neutral400.make().pOnly(bottom: 8)
+                else
+                  ...items.map((item) => _storageRow(item).pOnly(bottom: 8)),
               ],
-            ).p8(),
-          ).pOnly(top: 12)
-        ],
+            ).p12(),
+          ).pOnly(top: 12);
+        }),
       ],
     ).scrollVertical();
   }

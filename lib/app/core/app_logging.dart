@@ -1,6 +1,7 @@
 import 'package:ex_kit/ex.dart' as ex;
 
 import '../../env.g.dart';
+import '../modules/home/home_panel/home_panel_log.dart';
 
 // ** LOGGING with Level ~
 enum LogLevel { error, warn, info, debug }
@@ -12,28 +13,34 @@ mixin AppLog {
     LogLevel level = LogLevel.debug;
     if (!_shouldLog(level)) return;
     ex.logC(ex.LogColor.white, message, name: _getPrefix(level));
+    HomePanelAppLog.add('DEBUG', message.toString());
   }
 
   static void logI(dynamic message) {
     LogLevel level = LogLevel.info;
     if (!_shouldLog(level)) return;
     ex.logC(ex.LogColor.cyan, message, name: _getPrefix(level));
+    HomePanelAppLog.add('INFO', message.toString());
+
   }
 
   static void logW(dynamic message) {
     LogLevel level = LogLevel.warn;
     if (!_shouldLog(level)) return;
     ex.logC(ex.LogColor.orange, message, name: _getPrefix(level));
+    HomePanelAppLog.add('WARNING', message.toString());
   }
 
   static void logE(dynamic message) {
     LogLevel level = LogLevel.error;
     if (!_shouldLog(level)) return;
     ex.logC(ex.LogColor.red, message, name: _getPrefix(level));
+    HomePanelAppLog.add('ERROR', message.toString());
   }
 
    static void logS(dynamic message) {
     ex.logC(ex.LogColor.green, message, name: 'Success');
+    HomePanelAppLog.add('OK', message.toString());
   }
 
   static bool _shouldLog(LogLevel level) {

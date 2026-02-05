@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as m;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:ex_kit/ex.dart';
@@ -277,12 +278,12 @@ extension JavitExtString on String {
 
     var output = this;
     if (endsWith('ps')) output = replaceFirst('ps', 'pl');
-    return '${Env.imgUrl}/$output.jpg';
+    return '${Env.imgUrl}https://pics.dmm.co.jp/$output.jpg';
   }
 
   String genAvatarUrl() {
     if (startsWith('http')) return this;
-    return '${Env.actressUrl}/$this';
+    return '${Env.imgUrl}https://pics.dmm.co.jp/mono/actjpgs/$this';
   }
 
   String genTrailerUrl() => '${Env.vidUrl}$this';
@@ -301,4 +302,17 @@ extension JavitExtDateTime on DateTime {
 
 extension JavitExtNumber on num {
   String numberFormat() => NumberFormat.currency(locale: 'id', symbol: '', decimalDigits: 0).format(this);
+
+  String toFileSizeFormat({int decimals = 2}) {
+    if (this <= 0) return '0 B';
+    
+    const suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    
+    // Using 1000 for decimal standard (common for storage)
+    int i = (m.log(this) / m.log(1000)).floor();
+    
+    double value = this / m.pow(1000, i);
+    
+    return '${value.toStringAsFixed(decimals)} ${suffixes[i]}';
+  }
 }

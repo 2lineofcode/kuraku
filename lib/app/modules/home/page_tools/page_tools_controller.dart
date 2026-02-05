@@ -14,7 +14,6 @@ import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../home_controller.dart';
 import '../page_explore/page_explore_controller.dart';
-import '../page_settings/page_settings_controller.dart';
 
 class PageToolsController extends GetxController with StateMixin {
   // ** part: top menu
@@ -24,7 +23,8 @@ class PageToolsController extends GetxController with StateMixin {
   // ** part: large filesize
   final isHasDataNotScanned = true.obs; // is has data not scanned filesize & resolution
   final topLargeFileSizeList = <Videos>[].obs;
-  final isLocalOnlyTopLargeFile = false.obs;
+  final topLargeFilterMode = 'all'.obs; // all | internal | external
+  final topLargeHoveredIndex = (-1).obs;
 
   // ** part: duplicate video
   final duplicateVideoList = <Videos>[].obs;
@@ -50,18 +50,30 @@ class PageToolsController extends GetxController with StateMixin {
   final rightListFiltered = <Map<String, dynamic>>[].obs;
   final filter = VideoFilterState();
 
-  final addToLog = Get.find<PageSettingsController>().applogText;
-
   @override
   Future<void> onInit() async {
     super.onInit();
-    AppLog.logI('page tools ==> onInit called');
+    await onRefresh();
+  }
+
+  Future<void> onRefresh() async {
+    final sw = Stopwatch()..start();
+
     await getTopLargeFileSize();
     await checkIsHasDataNotScanned();
     await onReset();
     await filterBySeries();
 
+    AppLog.logI('page tools ==> onInit called: ${sw.elapsedMilliseconds} ms');
     change(200, status: RxStatus.success());
+  }
+
+  @override
+  void onClose() {
+    tecFilterSearchLeft.dispose();
+    fnFilterSearchLeft.dispose();
+    leftListFocusNode.dispose();
+    super.onClose();
   }
 
   Future<void> onMenuChange(String menu) async {
@@ -78,6 +90,8 @@ class PageToolsController extends GetxController with StateMixin {
     currentFilterBy.value = kSeries;
     leftListSelected.value = '';
     tecFilterSearchLeft.text = '';
+    topLargeFilterMode.value = 'all';
+    topLargeHoveredIndex.value = -1;
     rightList.value = [];
     rightListFiltered.value = [];
     filter.isFiltered.value = false;
@@ -86,63 +100,108 @@ class PageToolsController extends GetxController with StateMixin {
   // ────────────────────────────────────────────────────────────────
   // ** part: kTopLargeFile
   // ────────────────────────────────────────────────────────────────
-  Future<void> getTopLargeFileSize() async {
+  Future<void> getTopLargeFileSize({String mode = 'all'}) async {
     topLargeFileSizeList.clear();
-
-    if (isLocalOnlyTopLargeFile.value) {
-      topLargeFileSizeList.value = await DBVideos.getAll(
-        where: 'filesize > 0 AND video_path NOT LIKE "/Volumes%"', 
-        orderBy: 'filesize DESC', 
-        limit: 200,
-      );
-      return;
-    } else {
-      topLargeFileSizeList.value = await DBVideos.getAll(
-        where: 'filesize > 0', 
-        orderBy: 'filesize DESC', 
-        limit: 200,
-      );
+    topLargeHoveredIndex.value = -1;
+    
+    var whereQ = 'filesize > 0';
+    switch (mode) {
+      case 'all': whereQ = 'filesize > 0'; break;
+      case 'internal': whereQ = 'filesize > 0 AND video_path NOT LIKE "/Volumes%"'; break;
+      case 'external': whereQ = 'filesize > 0 AND video_path LIKE "/Volumes%"'; break;
     }
+
+    topLargeFileSizeList.value = await DBVideos.getAll(
+      where: whereQ,
+      orderBy: 'filesize DESC',
+      limit: 200,
+    );
   }
 
+  void onTopLargeHover(int index, bool isHover) {
+    if (isHover) {
+      if (topLargeHoveredIndex.value != index) topLargeHoveredIndex.value = index;
+      return;
+    }
 
-  Future<void> setLocalOnlyTopLargeFile(bool value) async {
-    isLocalOnlyTopLargeFile.value = value;
-    await getTopLargeFileSize();
+    if (topLargeHoveredIndex.value == index) topLargeHoveredIndex.value = -1;
   }
 
   Future<void> checkIsHasDataNotScanned() async {
     final vid = await DBVideos.getAll(where: 'quality IS NULL OR quality = ""');
     for (var v in vid) {
-      addToLog.value += '- ${v.videoPath} still dont have metadata (resolution)\n';
+      AppLog.logD('checkIsHasDataNotScanned: ${v.videoPath}');
     }
     isHasDataNotScanned.value = vid.isEmpty;
   }
 
   Future<void> scanAndUpdateDBVideoRes() async {
-    HelperLoading.show(isDismissible: false);
     final home = Get.find<HomeController>();
     final videos = await DBVideos.getAll(where: 'quality IS NULL OR quality = ""');
-    for (var video in videos) {
-      final percentage = (videos.indexOf(video) + 1) * 100 / videos.length;
-      home.footerText.value = 'Scanning ${videos.indexOf(video) + 1}/${videos.length} | (${percentage.toStringAsFixed(2)}%)';
-      try {
-        final medInfo = await VideoCompress.getMediaInfo(video.videoPath!);
-        if (medInfo.width == null) continue;
-        video.quality = '${medInfo.width}x${medInfo.height}';
-        await DBVideos.update(video);
-      } catch (e) {
-        AppLog.logD('error, try (ffmpeg) way -> ${video.videoPath}');
-        await FFprobeKit.getMediaInformation(video.videoPath!).then((medInfo) {
-          if (medInfo.getMediaInformation() == null) return;
-          final stream = medInfo.getMediaInformation()?.getStreams().first;
-          video.quality = '${stream?.getWidth()}x${stream?.getHeight()}';
-          DBVideos.update(video);
-        });
-      }
+    if (videos.isEmpty) {
+      home.footerText.value = 'Idle | All videos already have quality';
+      return;
     }
-    await Get.find<HomeController>().onRefreshAllContent();
-    HelperLoading.dismiss();
+
+    HelperLoading.show(isDismissible: false);
+    final sw = Stopwatch()..start();
+    final total = videos.length;
+
+    try {
+      for (var i = 0; i < total; i++) {
+        final video = videos[i];
+        final percentage = ((i + 1) * 100 / total).toStringAsFixed(2);
+        home.footerText.value = 'Scanning ${i + 1}/$total | ($percentage%)';
+
+        final quality = await _extractQuality(video.videoPath ?? '');
+        if (quality != null) {
+          video.quality = quality;
+          await DBVideos.update(video);
+        }
+
+        // Yield to UI every few iterations to avoid visible freeze.
+        if (i % 5 == 0) await Future.delayed(const Duration(milliseconds: 1));
+      }
+
+      await home.onRefreshAllContent();
+      isHasDataNotScanned.value = true;
+      AppLog.logI('scanAndUpdateDBVideoRes finished in ${sw.elapsedMilliseconds} ms');
+    } finally {
+      HelperLoading.dismiss();
+    }
+  }
+
+  Future<String?> _extractQuality(String path) async {
+    if (path.isEmpty) return null;
+
+    try {
+      final medInfo = await VideoCompress.getMediaInfo(path);
+      if (medInfo.width != null && medInfo.height != null) {
+        return '${medInfo.width}x${medInfo.height}';
+      }
+    } catch (e) {
+      AppLog.logD('VideoCompress failed for $path => $e');
+    }
+
+    try {
+      final probe = await FFprobeKit.getMediaInformation(path);
+      final info = probe.getMediaInformation();
+      final streams = info?.getStreams();
+
+      if (streams != null) {
+        for (final stream in streams) {
+          final width = stream.getWidth();
+          final height = stream.getHeight();
+          if (width != null && height != null) {
+            return '${width}x$height';
+          }
+        }
+      }
+    } catch (e) {
+      AppLog.logE('FFprobeKit failed for $path => $e');
+    }
+
+    return null;
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -156,18 +215,20 @@ class PageToolsController extends GetxController with StateMixin {
   // ** part: kTodo
   // ────────────────────────────────────────────────────────────────
   Future<void> getTodos() async {
-    final todoo = await DBActivity.getAll(where: 'type = ?', whereArgs: [kActivityTypeTodo]);
-    for (var todo in todoo) {
+    final todos = await DBActivity.getTodos();
+    for (var todo in todos) {
       try {
         final existVideo = await DBVideos.getByCode(todo.content ?? '');
         if (todo.content == existVideo.videoCode) todo.content = '✔︎ ${todo.content}';
-      } catch (_) {}
+      } catch (e) {
+        AppLog.logD('Todo match check failed for "${todo.content}": $e');
+      }
     }
-    todoList.value = todoo;
+    todoList.value = todos;
   }
 
   Future<void> deleteTodos(Activity todo) async {
-    await DBActivity.delete(todo);
+    await DBActivity.deleteTodo(todo.id ?? '');
     await getTodos();
   }
 
@@ -188,7 +249,7 @@ class PageToolsController extends GetxController with StateMixin {
           placeholder: 'TODO',
           onSubmitted: (value) async {
             final newTodo = Activity(type: kActivityTypeTodo, content: value);
-            await DBActivity.add(newTodo);
+            await DBActivity.addTodo(newTodo.content ?? '');
             await getTodos();
             Get.back();
           },
@@ -199,7 +260,7 @@ class PageToolsController extends GetxController with StateMixin {
           child: Text('Save', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           onPressed: () async {
             final newTodo = Activity(type: kActivityTypeTodo, content: tecTodo.text);
-            await DBActivity.add(newTodo);
+            await DBActivity.addTodo(newTodo.content ?? '');
             await getTodos();
             Get.back();
           },
@@ -285,7 +346,9 @@ class PageToolsController extends GetxController with StateMixin {
         onLeftListTap(item, leftListSelectedIndex.value);
         leftListFocusNode.requestFocus();
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLog.logD('Arrow up navigation failed: $e');
+    }
   }
 
   void onLeftListKeyPressedArrowDown() {
@@ -296,7 +359,9 @@ class PageToolsController extends GetxController with StateMixin {
         onLeftListTap(item, leftListSelectedIndex.value);
         leftListFocusNode.requestFocus();
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLog.logD('Arrow down navigation failed: $e');
+    }
   }
 
   Future<void> onLeftListDoSearch(String q) async {

@@ -13,7 +13,10 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../env.g.dart';
 import '../modules/home/home_controller.dart';
-import '../modules/home/home_relapse.dart';
+import '../modules/home/home_panel/home_panel_cart.dart';
+import '../modules/home/home_panel/home_panel_log.dart';
+import '../modules/home/home_panel/home_panel_playlist.dart';
+import '../modules/home/home_panel/home_panel_relapse.dart';
 import '../modules/home/page_download/page_download_controller.dart';
 import '../modules/home/page_tools/page_tools_controller.dart';
 import '../routes/app_pages.dart';
@@ -65,7 +68,6 @@ class AppSettingService extends GetxService {
       AppPref.homeSecNewAdd,
       AppPref.homeSecNeverWatch,
       AppPref.homeSecOldest,
-      AppPref.homeSecCollection,
     ]);
     await pref.writeIfNull(AppPref.homeSecNewRelease, true);
     await pref.writeIfNull(AppPref.homeSecRandom, true);
@@ -118,7 +120,9 @@ class AppSettingService extends GetxService {
         );
 
         await file.writeAsBytes(bytes);
-      } catch (_) {}
+      } catch (e) {
+        AppLog.logE('Failed expose asset file ($fileName): $e');
+      }
     }
 
     // create file
@@ -134,8 +138,15 @@ class AppSettingService extends GetxService {
   // ⵌ hotkey
   // ────────────────────────────────────────────────────────────────
   Future<void> setupHotkey() async {
+    void _logHotkeyError(String action, Object e, StackTrace stackTrace) {
+      AppLog.logE('Hotkey action failed [$action]: $e');
+      AppLog.logE('$stackTrace');
+    }
+
     HotKey _hotKeyEsc = HotKey(key: PhysicalKeyboardKey.escape, modifiers: [], scope: HotKeyScope.inapp);
-    HotKey _hotKeyX = HotKey(key: PhysicalKeyboardKey.keyX, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKeyE = HotKey(key: PhysicalKeyboardKey.keyE, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKeyP = HotKey(key: PhysicalKeyboardKey.keyP, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKeyL = HotKey(key: PhysicalKeyboardKey.keyL, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyR = HotKey(key: PhysicalKeyboardKey.keyR, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyD = HotKey(key: PhysicalKeyboardKey.keyD, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyT = HotKey(key: PhysicalKeyboardKey.keyT, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
@@ -150,41 +161,67 @@ class AppSettingService extends GetxService {
     HotKey _hotKeyComma = HotKey(key: PhysicalKeyboardKey.comma, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
 
     await hotKeyManager.register(_hotKeyEsc, keyUpHandler: (hotKey) {
-      AppLog.logD('hotKeyEsc Pressed');
+      // AppLog.logD('hotKeyEsc Pressed');
       try { 
         if (Get.currentRoute == Routes.HOME || Get.currentRoute == Routes.ROOT) {
           Get.back();           
         }
         Overlayment.dismissLast();
-      } catch (_) {}
+      } catch (e, stackTrace) {
+        _logHotkeyError('esc', e, stackTrace);
+      }
     });
 
-    await hotKeyManager.register(_hotKeyX, keyUpHandler: (hotKey) {
-      AppLog.logD('hotKeyX Pressed');
-      try { Get.back(); Overlayment.dismissLast(); } 
-      catch (_) {}
+    await hotKeyManager.register(_hotKeyE, keyUpHandler: (hotKey) {
+      // AppLog.logD('hotKeyE Pressed');
+      try { HomePanelCart.open(); } 
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+e', e, stackTrace);
+      }
+    });
+
+    await hotKeyManager.register(_hotKeyP, keyUpHandler: (hotKey) {
+      // AppLog.logD('hotKeyP Pressed');
+      try { HomePanelPlaylist.open(); } 
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+p', e, stackTrace);
+      }
+    });
+
+    await hotKeyManager.register(_hotKeyL, keyUpHandler: (hotKey) {
+      // AppLog.logD('hotKeyL Pressed');
+      try { HomePanelAppLog.open(); } 
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+l', e, stackTrace);
+      }
     });
 
     await hotKeyManager.register(_hotKeyR, keyUpHandler: (hotKey) {
-      AppLog.logD('hotKeyR Pressed');
+      // AppLog.logD('hotKeyR Pressed');
       try { Get.find<HomeController>().onRefreshAllContent(); } 
-      catch (_) {}
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+r', e, stackTrace);
+      }
     });
 
     await hotKeyManager.register(_hotKeyD, keyUpHandler: (hotKey) {
-      AppLog.logD('hotKeyD Pressed');
+      // AppLog.logD('hotKeyD Pressed');
       try { Get.find<PageDownloadController>().openDialogDownload(); } 
-      catch (_) {}
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+d', e, stackTrace);
+      }
     });
 
     await hotKeyManager.register(_hotKeyT, keyUpHandler: (hotKey) {
-      AppLog.logD('hotKeyT Pressed');
+      // AppLog.logD('hotKeyT Pressed');
       try { Get.find<PageToolsController>().addTodo(); } 
-      catch (_) {}
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+t', e, stackTrace);
+      }
     });
 
     await hotKeyManager.register(_hotKeyB, keyUpHandler: (hotKey) {
-      AppLog.logD('hotKeyB Pressed');
+      // AppLog.logD('hotKeyB Pressed');
       final current = Get.find<HomeController>().sideMenuWidth.value;
       if (current == 65) {
         Get.find<HomeController>().sideMenuWidth.value = 180;
@@ -196,45 +233,59 @@ class AppSettingService extends GetxService {
     });
 
     await hotKeyManager.register(_hotKeyDot, keyUpHandler: (hotKey) async {
-      AppLog.logD('hotKeyDot Pressed');
-      try { await HomeRelapse.openMenuRelapse(); } 
-      catch (_) {}
+      // AppLog.logD('hotKeyDot Pressed');
+      try { await HomePanelRelapse.open(); } 
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+.', e, stackTrace);
+      }
     });
 
     await hotKeyManager.register(_hotKey1, keyUpHandler: (hotKey) {
-      AppLog.logD('hotKey1 Pressed');
+      // AppLog.logD('hotKey1 Pressed');
       try { Get.find<HomeController>().onMenuChange(kMenuHome); } 
-      catch (_) {}
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+1', e, stackTrace);
+      }
     });
 
     await hotKeyManager.register(_hotKey2, keyUpHandler: (hotKey) {
-      AppLog.logD('hotKey2 Pressed');
+      // AppLog.logD('hotKey2 Pressed');
       try { Get.find<HomeController>().onMenuChange(kMenuSearch); } 
-      catch (_) {}
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+2', e, stackTrace);
+      }
     });
 
     await hotKeyManager.register(_hotKey3, keyUpHandler: (hotKey) {
-      AppLog.logD('hotKey3 Pressed');
+      // AppLog.logD('hotKey3 Pressed');
       try { Get.find<HomeController>().onMenuChange(kMenuExplore); } 
-      catch (_) {}
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+3', e, stackTrace);
+      }
     });
 
     await hotKeyManager.register(_hotKey4, keyUpHandler: (hotKey) {
-      AppLog.logD('hotKey4 Pressed');
+      // AppLog.logD('hotKey4 Pressed');
       try { Get.find<HomeController>().onMenuChange(kMenuDownload); }
-      catch (_) {}
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+4', e, stackTrace);
+      }
     });
 
     await hotKeyManager.register(_hotKey5, keyUpHandler: (hotKey) {
-      AppLog.logD('hotKey5 Pressed');
+      // AppLog.logD('hotKey5 Pressed');
       try { Get.find<HomeController>().onMenuChange(kMenuTools); } 
-      catch (_) {}
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+5', e, stackTrace);
+      }
     });
 
     await hotKeyManager.register(_hotKeyComma, keyUpHandler: (hotKey) {
-      AppLog.logD('hotKeyComma Pressed');
+      // AppLog.logD('hotKeyComma Pressed');
       try { Get.find<HomeController>().onMenuChange(kMenuSetting); } 
-      catch (_) {}
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+,', e, stackTrace);
+      }
     });
 
   }

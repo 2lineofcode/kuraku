@@ -9,7 +9,7 @@ import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
-import '../page_search/page_search_overlay.dart';
+import '../home_panel/home_panel_video_info.dart';
 
 class PageExploreController extends GetxController {
   final isFresh = true.obs;
@@ -56,11 +56,19 @@ class PageExploreController extends GetxController {
   @override
   Future<void> onInit() async {
     super.onInit();
-    AppLog.logI('page explore ==> onInit called');
+    await onRefresh();
+  }
+
+  Future<void> onRefresh() async {
+    final sw = Stopwatch()..start();
+
+    r18ScrollController.removeListener(_onScroll);
     r18ScrollController.addListener(_onScroll);
     await onMenuChange(kActress);
     phSearchLeft.value = 'Search (${leftList.length})...';
     isFresh.value = await DBVideos.getCount() == 0;
+    
+    AppLog.logI('page explore ==> onInit called: ${sw.elapsedMilliseconds} ms');
   }
 
   @override
@@ -278,7 +286,7 @@ class PageExploreController extends GetxController {
   }
 
   Future<void> onRightListTap(Videos item) async {
-    await PageSearchOverlay.onItemTap(item);
+    await HomePanelVideoInfo.open(item);
   }
 
   // ~ Filters ────────────────────────────────────────────────────────────────

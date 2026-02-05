@@ -66,5 +66,3 @@ scripts/
 
 test*.dart
 .roo/*
-AGENT*.md
-TODO.md

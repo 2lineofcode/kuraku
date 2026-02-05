@@ -14,7 +14,7 @@ import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widgets.dart';
 import '../home_controller.dart';
-import '../page_search/page_search_overlay.dart';
+import '../home_panel/home_panel_video_info.dart';
 import 'page_explore_controller.dart';
 
 class PageExploreView extends GetView<PageExploreController> {
@@ -479,8 +479,8 @@ class PageExploreView extends GetView<PageExploreController> {
     showQuality = true,
   }) {
     return DoubleTap(
-      onSingleTap: () async => await PageSearchOverlay.onItemTap(video),
-      onDoubleTap: () async => await HelperOpener.openVideoFile(video),
+      onSingleTap: () async => await HomePanelVideoInfo.open(video),
+      onDoubleTap: () async => await HelperOpener.openVideoFile(video, playlist: controller.rightListLocal.value),
       child: Container(
         color: AppColor.container,
         child: ZStack([
@@ -537,15 +537,13 @@ class PageExploreView extends GetView<PageExploreController> {
           ],
 
           // Quality
-          if (showQuality) ...[
-            video.quality != null
-                ? Container(
-                    color: AppColor.black120,
-                    child: HStack([
-                      '${HelperMisc.formatVideoQuality(video.quality ?? '').maxWords(1)}'.text.orange500.bold.size(10).minFontSize(10).make(),
-                    ]).pSymmetric(h: 4, v: 2),
-                  ).cornerRadius(4).tooltip(video.filesize?.toFileSize() != null ? '${video.filesize?.toFileSize()}' : '').positioned(bottom: 24, left: 4)
-                : 0.heightBox,
+          if (video.quality.isNotEmptyAndNotNull) ...[
+            Container(
+              color: AppColor.black120,
+              child: HStack([
+                '${HelperMisc.formatVideoQuality(video.quality ?? '').maxWords(1)}'.text.orange500.bold.size(10).minFontSize(10).make(),
+              ]).pSymmetric(h: 4, v: 2),
+            ).cornerRadius(4).tooltip(video.filesize?.toFileSizeFormat() != null ? '${video.filesize?.toFileSizeFormat()}' : '').positioned(bottom: 24, left: 4)
           ],
 
           // View count

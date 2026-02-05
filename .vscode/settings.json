@@ -1,87 +1,91 @@
 {
-    "better-comments.tags": [
-        {
-            "tag": "!",
-            "color": "#FF2D00",
-            "strikethrough": false,
-            "underline": false,
-            "backgroundColor": "transparent",
-            "bold": false,
-            "italic": false
-        },
-        {
-            "tag": "?",
-            "color": "#3498DB",
-            "strikethrough": false,
-            "underline": false,
-            "backgroundColor": "transparent",
-            "bold": false,
-            "italic": false
-        },
-        {
-            "tag": "//",
-            "color": "#474747",
-            "strikethrough": true,
-            "underline": false,
-            "backgroundColor": "transparent",
-            "bold": false,
-            "italic": false
-        },
-        {
-            "tag": "todo",
-            "color": "#FF8C00",
-            "strikethrough": false,
-            "underline": false,
-            "backgroundColor": "transparent",
-            "bold": false,
-            "italic": false
-        },
-        {
-            "tag": "*",
-            "color": "#98C379",
-            "strikethrough": false,
-            "underline": false,
-            "backgroundColor": "transparent",
-            "bold": false,
-            "italic": false
-        }
-    ],
-    "files.exclude": {
-        "**/.git": true,
-        "**/.svn": true,
-        "**/.hg": true,
-        "**/.DS_Store": true,
-        "**/Thumbs.db": true,
-        "**/CVS": true,
-        ".idea": true,
-        ".dart_**": true,
-        ".firebase": true,
-        ".flutter-**": true,
-        "linux": true,
-        "android": true,
-        "windows": true,
-        "macos": false,
-        "ios": true,
-        "web": true,
-        "build": false,
-        "supabase": true,
-        "*.iml": true
+  "better-comments.tags": [
+    {
+      "tag": "!",
+      "color": "#FF2D00",
+      "strikethrough": false,
+      "underline": false,
+      "backgroundColor": "transparent",
+      "bold": false,
+      "italic": false
     },
-    "explorerExclude.backup": {},
-    "dart.lineLength": 200,
-    "workbench.editor.enablePreview": true,
-    "editor.codeActionsOnSave": {
-        "source.fixAll": "explicit"
+    {
+      "tag": "?",
+      "color": "#3498DB",
+      "strikethrough": false,
+      "underline": false,
+      "backgroundColor": "transparent",
+      "bold": false,
+      "italic": false
     },
-    "explorer.fileNesting.enabled": true,
-    "explorer.fileNesting.expand": false,
-    "explorer.fileNesting.patterns": {
-        "pubspec.yaml": "pubspec.lock,pubspec_overrides.yaml,.packages,.flutter-plugins,.flutter-plugins-dependencies,.metadata, analysis_options.yaml, flutter_launcher_icons.yaml, devtools_options.yaml",
-        "README.md": "README.md, supabase_local.md",
-        "*.dart": "${capture}.g.dart",
-        "firebase.json": "firebase.json, .firebaserc",
-        ".env": ".env, .env.dev, .env.local, .env.staging, .env.prod, env.g.dart",
+    {
+      "tag": "//",
+      "color": "#474747",
+      "strikethrough": true,
+      "underline": false,
+      "backgroundColor": "transparent",
+      "bold": false,
+      "italic": false
     },
-    "postman.settings.dotenv-detection-notification-visibility": false,
-    "chatgpt.openOnStartup": false,
+    {
+      "tag": "todo",
+      "color": "#FF8C00",
+      "strikethrough": false,
+      "underline": false,
+      "backgroundColor": "transparent",
+      "bold": false,
+      "italic": false
+    },
+    {
+      "tag": "*",
+      "color": "#98C379",
+      "strikethrough": false,
+      "underline": false,
+      "backgroundColor": "transparent",
+      "bold": false,
+      "italic": false
+    }
+  ],
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "**/flutter/ephemeral": true,
+    "**/Flutter/ephemeral": true,
+    "**/.symlinks": true,
+    "**/.plugin_symlinks": true,
+    "**/CVS": true,
+    ".idea": true,
+    ".dart_**": true,
+    ".firebase": true,
+    ".flutter-**": true,
+    "linux": true,
+    "android": true,
+    "windows": true,
+    "macos": false,
+    "ios": true,
+    "web": true,
+    "build": false,
+    "supabase": true,
+    "*.iml": true
+  },
+  "explorerExclude.backup": {},
+  "dart.lineLength": 200,
+  "workbench.editor.enablePreview": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit"
+  },
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "pubspec.yaml": "pubspec.lock,pubspec_overrides.yaml,.packages,.flutter-plugins,.flutter-plugins-dependencies,.metadata, analysis_options.yaml, flutter_launcher_icons.yaml, devtools_options.yaml",
+    "README.md": "README.md, supabase_local.md",
+    "*.dart": "${capture}.g.dart",
+    "firebase.json": "firebase.json, .firebaserc",
+    ".env": ".env, .env.dev, .env.local, .env.staging, .env.prod, env.g.dart"
+  },
+  "postman.settings.dotenv-detection-notification-visibility": false,
+  "chatgpt.openOnStartup": false
 }

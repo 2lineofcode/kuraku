@@ -10,38 +10,42 @@ import 'package:path/path.dart' as p;
 import 'package:uicons_pro/uicons_pro.dart';
 import 'package:video_compress/video_compress.dart';
 
-import '../../core/app_color.dart';
-import '../../core/app_logging.dart';
-import '../../core/const.dart';
-import '../../data/database/db_library.dart';
-import '../../data/database/db_r18.dart';
-import '../../data/database/db_videos.dart';
-import '../../data/models/library_entity.dart';
-import '../../data/models/videos_entity.dart';
-import '../../utils/helper_file_picker.dart';
-import '../../utils/helper_misc.dart';
-import '../../utils/helper_opener.dart';
-import '../../utils/helper_toast.dart';
-import 'home_controller.dart';
+import '../../../core/app_color.dart';
+import '../../../core/app_logging.dart';
+import '../../../core/const.dart';
+import '../../../data/database/db_library.dart';
+import '../../../data/database/db_r18.dart';
+import '../../../data/database/db_videos.dart';
+import '../../../data/models/library_entity.dart';
+import '../../../data/models/videos_entity.dart';
+import '../../../utils/helper_file_picker.dart';
+import '../../../utils/helper_misc.dart';
+import '../../../utils/helper_opener.dart';
+import '../../../utils/helper_toast.dart';
+import '../home_controller.dart';
 
 /// A mixin for managing library-related functionalities in the home screen.
-mixin HomeLibrary {
-  static final _home = Get.find<HomeController>();
+mixin HomePanelLibrary {
+  static final _controller = Get.find<HomeController>();
 
   /// Displays the library menu as an overlay panel.
   /// This menu shows a list of libraries, allows adding new ones,
   /// and rescanning existing ones.
-  static Future<void> openMenuLibrary(List<Library> library) async {
+  static Future<void> open() async {
+
+    final library = await DBLibrary.getAll();
+
+    if (Overlayment.count > 0) { await Overlayment.dismissLast(); return; }
+
+    WidgetsBinding.instance.scheduleFrame();
     await Overlayment.show(
       context: Get.context,
       OverPanel(
         alignment: Alignment.centerRight,
         width: 300,
-        animation: OverSlideAnimation(
-          beginAlignment: Alignment.centerRight,
-          reverseDurationMilliseconds: 100,
-          durationMilliseconds: 400,
-        ),
+        backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
+        animation: OverSlideAnimation(beginAlignment: Alignment.centerRight, reverseDurationMilliseconds: 100, durationMilliseconds: 100),
+        color: Colors.black.withAlpha(230),
         child: VStack([
           HStack(
             [
@@ -61,7 +65,7 @@ mixin HomeLibrary {
                 tooltip: 'Add New Library',
                 onPressed: () {
                   Overlayment.dismissLast();
-                  openDialogAddorEditLibrary();
+                  showDialogAddorEditLibrary();
                 },
               ),
             ],
@@ -100,19 +104,19 @@ mixin HomeLibrary {
                         tooltip: 'Rescan Folder `${item.alias}`',
                         onPressed: () async => {
                           await Overlayment.dismissLast(),
-                          doRescanVideoFromLibrary(item),
+                          _doRescanVideoFromLibrary(item),
                         },
                       ),
                     ]).onInkTap(() async {
                       await Overlayment.dismissLast();
-                      await openDialogAddorEditLibrary(library: item);
+                      await showDialogAddorEditLibrary(library: item);
                     });
                   },
                 ).expand(),
 
           Container(
             width: double.infinity,
-            decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
+            decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4, fillColor: Colors.black),
             child: HStack([
               'Total Folder: ${await DBLibrary.getCount()}'.text.size(12).make(),
               Spacer(),
@@ -127,7 +131,7 @@ mixin HomeLibrary {
 
   /// Opens a dialog to add or edit a library.
   /// This dialog handles input for the library's alias and root path.
-  static Future<void> openDialogAddorEditLibrary({Library? library, bool isFromDrop = false}) async {
+  static Future<void> showDialogAddorEditLibrary({Library? library, bool isFromDrop = false}) async {
     final tfAlias = TextEditingController(text: library?.alias);
     final tfRootPath = TextEditingController(text: library?.rootFolder);
     final fnRootPath = FocusNode();
@@ -189,7 +193,7 @@ mixin HomeLibrary {
               prefix: Icon(UIconsPro.regularRounded.tags, size: 14).pOnly(left: 8),
               style: TextStyle(fontSize: 13, color: Vx.white),
               onSubmitted: (value) async {
-                await onSubmit(
+                await _onSubmit(
                   alias: tfAlias.text,
                   rootPath: tfRootPath.text,
                   library: library,
@@ -208,7 +212,7 @@ mixin HomeLibrary {
             child: Text('Delete', style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () {
               DBLibrary.delete(library);
-              doDeleteVideoFromLibrary(library);
+              _doDeleteVideoFromLibrary(library);
               Get.back();
             },
           ),
@@ -217,7 +221,7 @@ mixin HomeLibrary {
         CupertinoDialogAction(
           child: Text('Submit', style: TextStyle(fontSize: 13)),
           onPressed: () async {
-            await onSubmit(
+            await _onSubmit(
               alias: tfAlias.text,
               rootPath: tfRootPath.text,
               library: library,
@@ -232,7 +236,7 @@ mixin HomeLibrary {
 
   /// Handles the submission logic for adding or editing a library.
   /// Validates input and performs the appropriate database operations.
-  static Future<void> onSubmit({
+  static Future<void> _onSubmit({
     required String alias,
     required String rootPath,
     required Library? library,
@@ -253,7 +257,7 @@ mixin HomeLibrary {
       if (isFromDrop) {
         Get.back();
         await DBLibrary.add(library);
-        await doAddorEditVideoFromLibrary(library);
+        await _doAddorEditVideoFromLibrary(library);
       } else {
         Get.back();
         await DBLibrary.update(library);
@@ -265,7 +269,7 @@ mixin HomeLibrary {
     librarySelected.alias = alias;
     await DBLibrary.add(librarySelected);
     Get.back();
-    await doAddorEditVideoFromLibrary(librarySelected);
+    await _doAddorEditVideoFromLibrary(librarySelected);
   }
 
 
@@ -274,15 +278,15 @@ mixin HomeLibrary {
   /// Processes and adds/edits videos from a specific library.
   /// Scans for video files and updates the database with metadata if available.
   // ────────────────────────────────────────────────────────────────
-  static Future<void> doAddorEditVideoFromLibrary(Library library) async {
+  static Future<void> _doAddorEditVideoFromLibrary(Library library) async {
     AppLog.logD('Start processing library: ${library.alias}');
     final sw = Stopwatch();
     sw.start();
 
     if (library.videos == null || library.videos!.isEmpty) return;
 
-    _home.footerText.value = '◎ Scanning and processing videos...';
-    _home.change(200, status: RxStatus.loading());
+    _controller.footerText.value = '◎ Scanning and processing videos...';
+    _controller.change(200, status: RxStatus.loading());
 
     final videos = library.videos!;
     final totalVideos = videos.length;
@@ -297,17 +301,17 @@ mixin HomeLibrary {
       
       // Update progress
       processedCounter.value++;
-      _home.loadingText.value = 'Progress: ${processedCounter.value} of $totalVideos (${(processedCounter.value * 100 / totalVideos).toInt()}%)';
+      _controller.loadingText.value = 'Progress: ${processedCounter.value} of $totalVideos (${(processedCounter.value * 100 / totalVideos).toInt()}%)';
     }).toList();
 
     // Wait for all processing to complete
     await Future.wait(processingFutures);
 
     if (videosToAdd.isNotEmpty) {
-      _home.footerText.value = '◎ Committing ${videosToAdd.length} Videos';
+      _controller.footerText.value = '◎ Committing ${videosToAdd.length} Videos';
       await DBVideos.addBulk(videosToAdd);
     } else {
-      _home.footerText.value = '◎ No new videos to add.';
+      _controller.footerText.value = '◎ No new videos to add.';
     }
 
     sw.stop();
@@ -315,7 +319,7 @@ mixin HomeLibrary {
     await HelperToast.success('Finish • ${sw.elapsedMilliseconds}ms | ${videosToAdd.length} Videos Added');
 
 
-    await _home.onRefreshAllContent();
+    await _controller.onRefreshAllContent();
   }
 
   // ** PROCESS VIDEO
@@ -397,10 +401,10 @@ mixin HomeLibrary {
   // ────────────────────────────────────────────────────────────────
   /// Deletes all videos associated with a specific library.
   // ────────────────────────────────────────────────────────────────
-  static Future<void> doDeleteVideoFromLibrary(Library library) async {
+  static Future<void> _doDeleteVideoFromLibrary(Library library) async {
     await DBVideos.deleteByRootPath(library.rootFolder ?? '');
     await DBLibrary.delete(library);
-    await _home.onRefreshAllContent();
+    await _controller.onRefreshAllContent();
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -411,7 +415,7 @@ mixin HomeLibrary {
   // - collect (add, delete, update)
   // - update library
   // ────────────────────────────────────────────────────────────────
-  static Future<void> doRescanVideoFromLibrary(Library library) async {
+  static Future<void> _doRescanVideoFromLibrary(Library library) async {
     try {
       final oldData = library;
       final newData = await HelperFilePicker.scanFolderAndSubFolder(library.rootFolder ?? '');
@@ -441,7 +445,7 @@ mixin HomeLibrary {
       if (pathToAdd.isNotEmpty) {
         // Need to create a new library object with only the new videos
         final libraryWithNewVideos = Library(videos: pathToAdd, rootFolder: oldData.rootFolder);
-        await doAddorEditVideoFromLibrary(libraryWithNewVideos);
+        await _doAddorEditVideoFromLibrary(libraryWithNewVideos);
         await HelperToast.info('${library.alias} | Added ${pathToAdd.length} videos');
       }
 
@@ -450,7 +454,7 @@ mixin HomeLibrary {
           await DBVideos.deleteByVideoPath(pathToDelete[i]);
         }
         await HelperToast.warn('${library.alias} | Deleted ${pathToDelete.length} videos');
-        await _home.onRefreshAllContent();
+        await _controller.onRefreshAllContent();
       }
     } catch (e) {
       AppLog.logE(e);
@@ -464,7 +468,7 @@ mixin HomeLibrary {
     try {
       if (libraries.isEmpty) return;
 
-      _home.footerText.value = '◎ Rescanning...';
+      _controller.footerText.value = '◎ Rescanning...';
 
       // 1) Build oldMap from current library objects (assumed DB state)
       final Map<String, List<String>> oldMap = {};
@@ -575,7 +579,7 @@ mixin HomeLibrary {
         final root = entry.key;
         final list = entry.value;
         final libToAdd = Library(videos: list, rootFolder: root);
-        await doAddorEditVideoFromLibrary(libToAdd);
+        await _doAddorEditVideoFromLibrary(libToAdd);
       }
 
       // 7) Apply remaining deletes (those not used in moves)
@@ -599,11 +603,11 @@ mixin HomeLibrary {
         AppLog.logD('[RescanAll] Move ${mv['oldPath']} -> ${mv['newPath']}');
       }
 
-      _home.footerText.value = 'Idle | Total Video: ${await DBVideos.getCount()}';
+      _controller.footerText.value = 'Idle | Total Video: ${await DBVideos.getCount()}';
 
       if (remainingAdds.isNotEmpty || delCandidates.isNotEmpty || moves.isNotEmpty) {
         await HelperToast.info('Finish • ${remainingAdds.length} added • ${delCandidates.length} deleted • ${moves.length} moved');
-        await _home.onRefreshAllContent();
+        await _controller.onRefreshAllContent();
       }
     } catch (e) {
       AppLog.logE('[RescanAll]: $e');
@@ -624,4 +628,5 @@ mixin HomeLibrary {
       });
     }
   }
+
 }

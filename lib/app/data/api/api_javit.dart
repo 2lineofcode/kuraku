@@ -9,6 +9,7 @@ const kProviderR18 = 'r18';
 const kProviderNJav = 'njav';
 
 mixin ApiJavit {
+  
   static Future<JavitMetadata> getMetadata({required String code}) async {
     if (code.isValidVideoCode() == false) {
       throw Exception('Invalid video code for $code');
@@ -33,13 +34,4 @@ mixin ApiJavit {
       throw ApiException(e.toString());
     }
   }
-
-  // static Future<Map<String, dynamic>> ranking({String provider = kProviderNJav}) async {
-  //   try {
-  //     final res = await Api.get('/api/$provider/star_rank', withCache: false);
-  //     return res.data;
-  //   } catch (e) {
-  //     throw ApiException(e.toString());
-  //   }
-  // }
 }

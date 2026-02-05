@@ -9,8 +9,9 @@ class Collection {
   String? videoId;
   String? createdAt;
   String? updatedAt;
+  int? total;
 
-  Collection({this.id, this.type, this.name, this.cover, this.videoId, this.createdAt, this.updatedAt});
+  Collection({this.id, this.type, this.name, this.cover, this.videoId, this.createdAt, this.updatedAt, this.total});
 
   Collection.fromJson(Map<String, dynamic> json) {
     id = json['id'];
@@ -20,6 +21,7 @@ class Collection {
     videoId = json['video_id'];
     createdAt = json['created_at'];
     updatedAt = json['updated_at'];
+    total = json['total'];
   }
 
   Map<String, dynamic> toJson() {

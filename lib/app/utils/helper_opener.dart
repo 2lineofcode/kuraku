@@ -28,9 +28,9 @@ import '../data/database/db_videos.dart';
 import '../data/models/__javit_search_entity.dart';
 import '../data/models/videos_entity.dart';
 import '../modules/home/home_controller.dart';
+import '../modules/home/home_panel/home_panel_video_info.dart';
 import '../modules/home/page_explore/page_explore_controller.dart';
 import '../modules/home/page_home/page_home_controller.dart';
-import '../modules/home/page_search/page_search_overlay.dart';
 import '../modules/home/page_tools/page_tools_controller.dart';
 import '../modules/player/player_controller.dart';
 import '../modules/widgets/widget_auto_complate.dart';
@@ -116,7 +116,7 @@ mixin HelperOpener {
       final x = await DBVideos.getByCode(video.videoCode ?? '');
       if (x.videoCode.isNotEmptyAndNotNull) {
         HelperLoading.dismiss();
-        await PageSearchOverlay.onItemTap(x);
+        await HomePanelVideoInfo.open(x);
         return;
       }
     } catch (_) {}
@@ -138,20 +138,16 @@ mixin HelperOpener {
 
     final _translatedTitle = HelperDecensor.decensor(video.title ?? '').obs;
 
-
+    WidgetsBinding.instance.scheduleFrame();
     await Overlayment.show(
       context: Get.context,
       OverPanel(
         alignment: Alignment.centerRight,
         width: 300,
-        animation: OverSlideAnimation(
-          beginAlignment: Alignment.centerRight,
-          reverseDurationMilliseconds: 100,
-          durationMilliseconds: 400,
-        ),
-        actions: OverlayActions(
-          onReady: () async => _focusNode.requestFocus(),
-        ),
+        backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
+        animation: OverSlideAnimation(beginAlignment: Alignment.centerRight, reverseDurationMilliseconds: 100, durationMilliseconds: 100),
+        color: Colors.black.withAlpha(230),
+        actions: OverlayActions(onReady: () async => _focusNode.requestFocus()),
         child: FocusScope(
           autofocus: true,
           child: KeyboardListener(
@@ -182,14 +178,8 @@ mixin HelperOpener {
                     '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
                       HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
                     }).pSymmetric(v: 8),
-
                     Obx(
-                      () => _translatedTitle.value.text
-                          .align(TextAlign.center)
-                          .size(10)
-                          .minFontSize(10)
-                          .makeCentered()
-                          .onInkTap(
+                      () => _translatedTitle.value.text.align(TextAlign.center).size(10).minFontSize(10).makeCentered().onInkTap(
                         () async {
                           HelperMisc.copyToClipboard(video.title, showToast: true);
                           final translator = GoogleTranslator();
@@ -200,7 +190,6 @@ mixin HelperOpener {
                         },
                       ),
                     ).tooltip(video.videoPath ?? ''),
-                    
                     ExDivider().pSymmetric(v: 16),
                   ],
                 ).pSymmetric(h: 16),
@@ -228,7 +217,28 @@ mixin HelperOpener {
                         icon: Icon(UIconsPro.regularRounded.arrow_square_down, size: 16),
                         onPressed: () async {
                           await Overlayment.dismissLast();
-                          await launchUrlString('${Env.njavUrl}/en/search/${video.videoCode}');
+
+                          final searchEngine = AppPref.getDefaultSearchEngine();
+                          switch (searchEngine.toLowerCase()) {
+                            case 'njav':
+                              await launchUrlString('${Env.njavUrl}/${video.videoCode}');
+                              break;
+                            case 'missav':
+                              await launchUrlString('${Env.missavUrl}/${video.videoCode}');
+                              break;
+                            case 'javmost':
+                              await launchUrlString('${Env.javmostUrl}/${video.videoCode}');
+                              break;
+                            case 'sextb':
+                              await launchUrlString('${Env.sextbUrl}/${video.videoCode}');
+                              break;
+                            case 'javguru':
+                              await launchUrlString('${Env.javguruUrl}/?s=${video.videoCode}');
+                              break;
+                            default:
+                              await launchUrlString('${Env.njavUrl}/${video.videoCode}');
+                              break;
+                          }
 
                           try {
                             item['is_clicked'] = true;
@@ -261,7 +271,7 @@ mixin HelperOpener {
                     constraints: BoxConstraints(minHeight: 100),
                     child: Container(
                       width: double.infinity,
-                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
+                      decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1, fillColor: Colors.transparent),
                       child: SingleChildScrollView(
                         child: VStack([
                           HStack([
@@ -446,22 +456,17 @@ mixin HelperOpener {
     final idxSelected = 0.obs;
     final focusNode = FocusNode();
 
+    WidgetsBinding.instance.scheduleFrame();
     await Overlayment.show(
       context: Get.context,
       OverPanel(
         alignment: Alignment.center,
         width: max(Get.width * 90 / 100, 400),
         height: max(Get.height * 80 / 100, 400),
-        animation: OverSlideAnimation(
-          beginAlignment: Alignment.bottomCenter,
-          reverseDurationMilliseconds: 100,
-          durationMilliseconds: 400,
-        ),
-        actions: OverlayActions(
-          onReady: () async {
-            focusNode.requestFocus();
-          },
-        ),
+        backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
+        animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
+        color: Colors.black.withAlpha(230),
+        actions: OverlayActions(onReady: () async => focusNode.requestFocus()),
         child: FocusScope(
           autofocus: true,
           child: KeyboardListener(
@@ -600,6 +605,9 @@ mixin HelperOpener {
       return;
     }
 
+    // AppLog.logD('video -> $video');
+    // return;
+
     var trailerUrl = '';
 
     HelperLoading.show();
@@ -680,6 +688,7 @@ mixin HelperOpener {
 
     HelperLoading.dismiss();
 
+    WidgetsBinding.instance.scheduleFrame();
     await Overlayment.show(
       context: Get.context,
       OverPanel(
@@ -714,28 +723,48 @@ mixin HelperOpener {
 
   static Future<void> openKeyboardShortcuts() async {
     final shortcuts = <Map<String, String>>[
-      {'key': 'Esc', 'action': 'Close Dialog / Panel'},
-      {'key': '⌘ + X', 'action': 'Close Dialog / Panel'},
-      {'key': '⌘ + R', 'action': 'Reload All Page'},
-      {'key': '⌘ + D', 'action': 'Open New Dialog Download'},
-      {'key': '⌘ + T', 'action': 'Open New Add Todo'},
-      {'key': '⌘ + B', 'action': 'Show/Hide Side Menu'},
-      {'key': '⌘ + 1', 'action': 'Open Home Page'},
-      {'key': '⌘ + 2', 'action': 'Open Library Page'},
-      {'key': '⌘ + 3', 'action': 'Open Explore Page'},
-      {'key': '⌘ + 4', 'action': 'Open Download Page'},
-      {'key': '⌘ + 5', 'action': 'Open Tool Page'},
-      {'key': '⌘ + ,', 'action': 'Open Setting Page'},
+      {'key': 'Esc',    'action': 'Close dialog/panel'},
+
+      {'key': '⌘ + 1',  'action': 'Go to Home'},
+      {'key': '⌘ + 2',  'action': 'Go to Library'},
+      {'key': '⌘ + 3',  'action': 'Go to Explore'},
+      {'key': '⌘ + 4',  'action': 'Go to Downloads'},
+      {'key': '⌘ + 5',  'action': 'Go to Tools'},
+      {'key': '⌘ + B',  'action': 'Show/hide side menu (mini mode)'},
+      {'key': '⌘ + D',  'action': 'Open new download dialog'},
+      {'key': '⌘ + E',  'action': 'Open video cart panel'},
+      {'key': '⌘ + L',  'action': 'Open app log panel'},
+      {'key': '⌘ + P',  'action': 'Open playlist panel'},
+      {'key': '⌘ + R',  'action': 'Reload all pages'},
+      {'key': '⌘ + T',  'action': 'Add new todo'},
+
+      {'key': '⌘ + ,',  'action': 'Open Settings'},
+      {'key': '⌘ + .',  'action': 'Open relapse panel'},
     ];
+
+    
+    WidgetsBinding.instance.scheduleFrame();
     await Overlayment.show(
       context: Get.context,
       OverPanel(
-        alignment: Alignment.center,
-        width: MediaQuery.of(Get.context!).size.width * 90 / 100,
-        height: MediaQuery.of(Get.context!).size.width * 9.0 / 16.0,
+        alignment: Alignment.centerLeft,
+        width: 400,
+        height: Get.height,
+        backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
+        animation: OverSlideAnimation(beginAlignment: Alignment.centerLeft, reverseDurationMilliseconds: 100, durationMilliseconds: 100),
+        color: Colors.black,
         child: VStack(
           [
-            'Keyboard Shortcuts'.text.bold.size(16).make().pOnly(bottom: 12),
+            HStack(
+              [
+                'Keyboard Shortcuts'.text.bold.size(16).make().pOnly(left: 12),
+                Spacer(),
+                IconButton(
+                  icon: Icon(UIconsPro.regularRounded.cross, size: 14),
+                  onPressed: () => Overlayment.dismissLast(),
+                ),
+              ],
+            ).pOnly(bottom: 4),
             Table(
               border: TableBorder.all(color: AppColor.border),
               columnWidths: const {
@@ -767,8 +796,6 @@ mixin HelperOpener {
     );
   }
 
-
-
   // ────────────────────────────────────────────────────────────────
   // ⵌ filter
   // ────────────────────────────────────────────────────────────────
@@ -780,35 +807,32 @@ mixin HelperOpener {
     Future<void> Function()? onReset,
     Future<void> Function(List<T> filtered)? onApplied,
     double widthFactor = 0.5,
-
     bool? showVideoCode = true,
     bool? showActressName = true,
     bool? showCategories = true,
     bool? showYears = true,
     bool applyLocalFilter = true,
-
   }) async {
     await state.ensureOptionsLoaded();
 
+    WidgetsBinding.instance.scheduleFrame();
     await Overlayment.show(
       context: Get.context!,
       OverPanel(
         alignment: Alignment.center,
         width: 500,
-        animation: OverFadeAnimation(
-          reverseDurationMilliseconds: 100,
-          durationMilliseconds: 100,
-        ),
+        backgroundSettings: BackgroundSettings(blur: 5, color: Colors.transparent),
+        animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
+        color: Colors.black.withAlpha(230),
         child: VStack(
           [
             'Filter'.text.bold.make().pOnly(bottom: 16),
             Container(
-              decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 12),
+              decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 12, fillColor: Colors.black),
               child: VStack(
                 [
                   HStack(
                     [
-
                       if (showVideoCode ?? true) ...[
                         CupertinoTextField(
                           controller: state.tecVideoCode,
@@ -818,7 +842,6 @@ mixin HelperOpener {
                         ).expand(),
                         12.widthBox,
                       ],
-                      
                       if (showActressName ?? true) ...[
                         ExAutoComplate(
                           controller: state.tecActressName,
@@ -828,10 +851,8 @@ mixin HelperOpener {
                           onSelected: (s) => state.tecActressName.text = s,
                         ).expand(),
                       ],
-                      
                     ],
                   ).pOnly(bottom: 16),
-                  
                   if (showCategories ?? true) ...[
                     Obx(
                       () => Wrap(
@@ -865,8 +886,6 @@ mixin HelperOpener {
                       },
                     ).pOnly(bottom: 12),
                   ],
-                  
-
                   if (showYears ?? true) ...[
                     HStack(
                       [
@@ -905,7 +924,6 @@ mixin HelperOpener {
                       ],
                     ),
                   ],
-                  
                 ],
               ).p12(),
             ),
@@ -926,7 +944,7 @@ mixin HelperOpener {
                     if (onReset != null) await onReset();
                     await Overlayment.dismissLast();
                   },
-                ).pOnly(right: 12),
+                ).pOnly(right: 8),
                 ExButtonElevated(
                   height: 38,
                   label: 'Apply',
@@ -953,8 +971,6 @@ mixin HelperOpener {
     );
   }
 }
-
-
 
 class VideoFilterAdapter<T> {
   const VideoFilterAdapter({
