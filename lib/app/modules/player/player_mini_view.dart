@@ -93,7 +93,7 @@ class _MiniPlayerCard extends StatelessWidget {
             child: Container(
               width: 340,
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.85),
+                color: Colors.black.withValues(alpha: 0.85),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.white10),
                 boxShadow: const [

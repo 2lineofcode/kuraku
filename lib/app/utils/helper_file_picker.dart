@@ -8,7 +8,7 @@ mixin HelperFilePicker {
 
   // ** pickFolderSubFolder
   static Future<Library?> pickFolderSubFolder() async {
-    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+    String? selectedDirectory = await FilePicker.getDirectoryPath();
 
     if (selectedDirectory != null) {
       final directory = Directory(selectedDirectory);

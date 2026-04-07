@@ -176,8 +176,11 @@ mixin HomePanelVideoInfo {
                           child: IconButton(
                             icon: Icon(UIconsPro.regularRounded.plus, size: 14),
                             onPressed: () {
-                              Get.find<HomeController>().cart.add(video);
-                              Get.find<HomeController>().cart.unique();
+                              final homeController = Get.find<HomeController>();
+                              final isAdded = homeController.addToCart(video);
+                              if (!isAdded) {
+                                HelperToast.info('Already in panel cart');
+                              }
                               Overlayment.dismissLast();
                             },
                           ),

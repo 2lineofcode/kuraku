@@ -1,6 +1,7 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
@@ -19,22 +20,60 @@ class PageDownloadView extends GetView<PageDownloadController> {
       [
         HStack([
           Obx(
-            () => CupertinoTextField(
-              controller: controller.tecSearch,
-              focusNode: controller.fnSearch,
-              clearButtonMode: OverlayVisibilityMode.editing,
-              placeholder: '${controller.phSearch}',
-              style: TextStyle(color: Vx.white, fontSize: 14),
-              prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
-              suffix: HStack(
-                [
-                  // ** TODO
-                ],
-              ),
-              onSubmitted: (s) {
-                controller.currentPage.value = 1;
-                controller.onSearch(s);
-              },
+            () => VStack(
+              [
+                CallbackShortcuts(
+                  bindings: {
+                    SingleActivator(LogicalKeyboardKey.arrowDown): () => controller.onCommandArrowDown(),
+                    SingleActivator(LogicalKeyboardKey.arrowUp): () => controller.onCommandArrowUp(),
+                  },
+                  child: CupertinoTextField(
+                    controller: controller.tecSearch,
+                    focusNode: controller.fnSearch,
+                    clearButtonMode: OverlayVisibilityMode.editing,
+                    placeholder: '${controller.phSearch}',
+                    style: TextStyle(color: Vx.white, fontSize: 14),
+                    prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+                    suffix: HStack(
+                      [
+                        // ** TODO
+                      ],
+                    ),
+                    onChanged: (s) => controller.onSearchTextChanged(s),
+                    onSubmitted: (s) => controller.onCommandEnterOrSearch(s),
+                  ),
+                ),
+                Obx(
+                  () => controller.isCommandSuggestionVisible.isTrue
+                      ? Container(
+                          margin: EdgeInsets.only(top: 4),
+                          decoration: BoxDecoration(
+                            color: AppColor.container,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Vx.neutral700, width: .5),
+                          ),
+                          child: VStack(
+                            List.generate(controller.commandSuggestions.length, (i) {
+                              final item = controller.commandSuggestions[i];
+                              final isSelected = controller.selectedCommandIndex.value == i;
+                              return Container(
+                                width: double.infinity,
+                                color: isSelected ? AppColor.selected.withAlpha(90) : Colors.transparent,
+                                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                child: VStack(
+                                  [
+                                    item.value.text.size(12).minFontSize(12).bold.make(),
+                                    item.description.text.size(10).minFontSize(10).neutral400.make().pOnly(top: 2),
+                                  ],
+                                  crossAlignment: CrossAxisAlignment.start,
+                                ),
+                              ).onInkTap(() => controller.onPickSearchCommand(item.value));
+                            }),
+                          ),
+                        )
+                      : 0.heightBox,
+                ),
+              ],
             ).expand(),
           ),
           Obx(

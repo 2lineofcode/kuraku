@@ -53,6 +53,43 @@ class HomeController extends GetxController with StateMixin {
   // cart
   final cart = <Videos>[].obs;
 
+  String _cartIdentity(Videos video) {
+    final videoPath = (video.videoPath ?? '').trim().toLowerCase();
+    if (videoPath.isNotEmpty) return 'path:$videoPath';
+
+    final id = (video.id ?? '').trim().toLowerCase();
+    if (id.isNotEmpty) return 'id:$id';
+
+    final videoCode = (video.videoCode ?? '').trim().toLowerCase();
+    if (videoCode.isNotEmpty) return 'code:$videoCode';
+
+    final title = (video.title ?? '').trim().toLowerCase();
+    return 'title:$title';
+  }
+
+  void deduplicateCart() {
+    final seen = <String>{};
+    final unique = <Videos>[];
+
+    for (final item in cart) {
+      final key = _cartIdentity(item);
+      if (seen.add(key)) unique.add(item);
+    }
+
+    if (unique.length != cart.length) {
+      cart.value = unique;
+    }
+  }
+
+  bool addToCart(Videos video) {
+    final key = _cartIdentity(video);
+    final isAlreadyExists = cart.any((item) => _cartIdentity(item) == key);
+    if (isAlreadyExists) return false;
+
+    cart.add(video);
+    return true;
+  }
+
   // profile
   final profile = Profile().obs;
 
@@ -69,6 +106,7 @@ class HomeController extends GetxController with StateMixin {
     AppLog.logI('root home ==> onInit called');
 
     cart.value = AppPref.getAppCart();
+    deduplicateCart();
     ever<List<Videos>>(cart, (value) => AppPref.setAppCart(value));
 
     profile.value = await DBProfile.getProfile() ?? Profile();
@@ -198,6 +236,24 @@ class HomeController extends GetxController with StateMixin {
   // ────────────────────────────────────────────────────────────────
   // ⵌ profile
   // ────────────────────────────────────────────────────────────────
+  String _watchTimeFormat(int totalSeconds) {
+    if (totalSeconds <= 0) return '0 seconds';
+
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    // final seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      return '$hours hours, $minutes minutes';
+    }
+
+    if (minutes > 0) {
+      return '$minutes minutes';
+    }
+
+    return '0 minutes';
+  }
+
   Future<void> onOpenProfile() async {
     final tfName = TextEditingController(text: profile.value.name);
     final fnName = FocusNode();
@@ -269,7 +325,7 @@ class HomeController extends GetxController with StateMixin {
             
             Text('• First Open App: ${profile.value.createdAt?.reformatDate(from: kFull, to: kMdY)}').pOnly(bottom: 4),
             Text('• Total Relapse: ${countAll.value} Times').pOnly(bottom: 4),
-            Text('• Watch Time: ${Duration(seconds: profile.value.totalWatchDuration ?? 0).inMinutes} Minutes', ).pOnly(bottom: 4),
+            Text('• Watch Time: ${_watchTimeFormat(profile.value.totalWatchDuration ?? 0)}').pOnly(bottom: 4),
           ],
         ),
       ),

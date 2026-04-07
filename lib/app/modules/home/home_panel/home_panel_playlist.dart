@@ -355,7 +355,10 @@ mixin HomePanelPlaylist {
                       height: 110,
                       prefix: 2.2,
                       fitUrl: BoxFit.fitWidth,
-                    ).cornerRadius(4),
+                    ).onDoubleTap(() async {
+                      await Overlayment.dismissLast();
+                      await HelperOpener.openVideoFile(video, playlist: _listVideos);
+                    }).cornerRadius(4),
                     '${HelperMisc.formatVideoQuality(video.quality ?? '').maxWords(1)}'
                         .text
                         .orange300

@@ -290,10 +290,20 @@ class PageExploreController extends GetxController {
   }
 
   // ~ Filters ────────────────────────────────────────────────────────────────
+  static Iterable<String> _splitCsvField(dynamic value) {
+    if (value == null) return const <String>[];
+    if (value is Iterable) {
+      return value.map((e) => '${e ?? ''}'.trim()).where((e) => e.isNotEmpty);
+    }
+    final raw = '$value'.trim();
+    if (raw.isEmpty) return const <String>[];
+    return raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
+  }
+
   final _filterAdapter = VideoFilterAdapter<Map<String, dynamic>>(
     videoCode: (video) => video['video_code'] ?? '',
-    actresses: (video) => video['actresses'] ?? <String>[],
-    categories: (video) => video['categories'] ?? <String>[],
+    actresses: (video) => _splitCsvField(video['actresses']),
+    categories: (video) => _splitCsvField(video['categories']),
     releaseDate: (video) => video['release_date'] ?? '',
     categoryMatch: (videoCategories, selected) => videoCategories.toSet().containsAll(selected),
   );
@@ -304,13 +314,43 @@ class PageExploreController extends GetxController {
   }
 
   Future<void> openDialogFilter() async {
+    final codesWithoutCategories = rightListR18
+        .where((video) => _splitCsvField(video['categories']).isEmpty)
+        .map((video) => '${video['video_code'] ?? ''}'.trim())
+        .where((code) => code.isNotEmpty)
+        .toSet()
+        .toList();
+
+    if (codesWithoutCategories.isNotEmpty) {
+      final categoriesByCode = await DBR18.getCategoriesByVideoCodes(codesWithoutCategories);
+      if (categoriesByCode.isNotEmpty) {
+        for (final video in rightListR18) {
+          final code = '${video['video_code'] ?? ''}'.trim();
+          final categories = categoriesByCode[code];
+          if (categories == null || categories.isEmpty) continue;
+          video['categories'] = categories.join(', ');
+        }
+      }
+    }
+
+    final categories = <String>[];
+    for (final video in rightListR18) {
+      categories.addAll(_splitCsvField(video['categories']));
+    }
+
+    if (categories.isNotEmpty) {
+      filter.categories
+        ..assignAll(categories.toSet().toList()..sort())
+        ..refresh();
+    }
+
     await HelperOpener.openFilterDialog<Map<String, dynamic>>(
       state: filter,
       allVideos: rightListR18.toList(),
       videos: rightListR18Filtered,
       adapter: _filterAdapter,
       showActressName: false,
-      showCategories: false,
+      showCategories: true,
     );
   }
 

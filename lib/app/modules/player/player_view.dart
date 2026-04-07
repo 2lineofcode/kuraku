@@ -9,13 +9,18 @@ class PlayerView extends GetView<PlayerController> {
   const PlayerView({super.key});
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+
         if (controller.isMiniMode.value || controller.isPlayerVisible.isFalse) {
-          return true;
+          Get.back();
+          return;
         }
+
         await controller.stopPlayback();
-        return true;
+        Get.back();
       },
       child: Scaffold(
         backgroundColor: Colors.black,

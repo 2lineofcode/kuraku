@@ -1,13 +1,8 @@
-// ignore_for_file: unused_element, unused_local_variable
-
 import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
-import 'package:glob/glob.dart';
-import 'package:glob/list_local_fs.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../../core/app_logging.dart';
-import '../../core/app_setting.dart';
 import '_init_db.dart';
 
 mixin DBR18 {
@@ -20,7 +15,7 @@ mixin DBR18 {
     } finally {
       stopwatch.stop();
       final funcName = _resolveCaller();
-      final renderedSql = _formatSqlWithArgs(sql, args);
+      // final renderedSql = _formatSqlWithArgs(sql, args);
       // AppLog.logD('EXEC: $funcName | $renderedSql | ${stopwatch.elapsedMilliseconds} ms');
       AppLog.logD('EXEC: $funcName | ${stopwatch.elapsedMilliseconds} ms');
     }
@@ -42,22 +37,6 @@ mixin DBR18 {
       if (!fn.startsWith('_')) return fn;
     }
     return 'unknown';
-  }
-
-  static String _formatSqlWithArgs(String sql, List<Object?> args) {
-    var formatted = sql;
-    for (final arg in args) {
-      formatted = formatted.replaceFirst('?', _formatArg(arg));
-    }
-    return formatted.replaceAll(RegExp(r'\s+'), ' ').trim();
-  }
-
-  static String _formatArg(Object? arg) {
-    if (arg == null) return 'NULL';
-    if (arg is num) return '$arg';
-    if (arg is bool) return arg ? '1' : '0';
-    final escaped = arg.toString().replaceAll("'", "''");
-    return "'$escaped'";
   }
 
   static Future<List<Map<String, dynamic>>> _rawQuery(
@@ -190,20 +169,10 @@ mixin DBR18 {
     };
   }
 
-  static Future<bool> _validation() async {
-    final db = _db;
-    if (db == null) return false;
-
-    var files = Glob('r18*.db').listSync(root: Get.find<AppSettingService>().appPath);
-    files.sort((a, b) => b.path.compareTo(a.path));
-    if (files.isEmpty) return false;
-
-    if (await files[0].exists()) return true;
-    return false;
-  }
+  static bool _isReady() => _db != null;
 
   static Future<int> getCountAllVideos() async {
-    if (await _validation() == false) return 0;
+    if (!_isReady()) return 0;
     final List<Map<String, dynamic>> maps = await _rawQuery('''
       SELECT count(*) as total FROM derived_video v
       --- WHERE v.dvd_id IS NOT NULL
@@ -212,7 +181,7 @@ mixin DBR18 {
   }
 
   static Future<Map<String, dynamic>?> getVideo(String code) async {
-    if (await _validation() == false) return null;
+    if (!_isReady()) return null;
 
     final maps = await _rawQuery('''
         SELECT
@@ -245,8 +214,8 @@ mixin DBR18 {
     return maps.isNotEmpty ? maps[0] : null;
   }
 
-  static Future<List<Map<String, dynamic>>> search( String query, { int? page = 1, int? perPage = 100, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, }) async {
-    if (await _validation() == false) return [];
+  static Future<List<Map<String, dynamic>>> search(String query, { int? page = 1, int? perPage = 100, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd}) async {
+    if (!_isReady()) return [];
 
     final searchString = '%$query%';
     final limit = perPage ?? 100;
@@ -299,8 +268,8 @@ mixin DBR18 {
     return maps;
   }
 
-  static Future<int> getSearchCount( String query, { String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, }) async {
-    if (await _validation() == false) return 0;
+  static Future<int> getSearchCount(String query, {String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd}) async {
+    if (!_isReady()) return 0;
 
     final searchString = '%$query%';
     final subQuery = '''
@@ -331,8 +300,95 @@ mixin DBR18 {
     return maps[0]['total'] as int;
   }
 
+  static Future<List<Map<String, dynamic>>> getByFilter({
+    int? page = 1,
+    int? perPage = 100,
+    String? videoCode,
+    String? actressName,
+    List<String>? categories,
+    int? yearStart,
+    int? yearEnd,
+  }) async {
+    if (!_isReady()) return [];
+
+    final limit = perPage ?? 100;
+    final offset = ((page ?? 1) - 1) * limit;
+    final filter = _buildFilterClause(
+      videoCode: videoCode,
+      actressName: actressName,
+      categories: categories,
+      yearStart: yearStart,
+      yearEnd: yearEnd,
+    );
+    final blacklist = _buildBlacklistClause();
+
+    final maps = await _rawQuery('''
+    SELECT
+        v.content_id AS id,                                       -- id
+        v.dvd_id AS video_code,                                   -- video_code
+        COALESCE(t.target_en, v.title_en, v.title_ja) AS title,   -- title
+        v.runtime_mins AS duration,                               -- duration
+        v.release_date AS release_date,                           -- release_date
+        v.sample_url AS trailer,                                  -- trailer
+        v.jacket_full_url AS fan_art,                             -- fanart
+        v.jacket_thumb_url AS poster,                             -- poster
+        v.gallery_full_first AS ssfirst,                          -- screenshot[0]
+        v.gallery_full_last AS sslast,                            -- screenshot[n]
+        GROUP_CONCAT(dc.name_en, ', ') AS categories,             -- categories
+        GROUP_CONCAT(da.name_romaji, ', ') AS actresses           -- actresses
+    FROM derived_video v
+    LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
+    LEFT JOIN derived_video_category dvc ON dvc.content_id = v.content_id
+    LEFT JOIN derived_category dc on dc.id = dvc.category_id
+    LEFT JOIN derived_video_actress dva ON dva.content_id = v.content_id
+    LEFT JOIN derived_actress da ON da.id = dva.actress_id
+    WHERE
+      v.dvd_id IS NOT NULL
+      AND v.release_date IS NOT NULL
+      ${filter['sql']}
+      ${blacklist['sql']}
+    GROUP BY v.dvd_id
+    ORDER BY v.release_date DESC
+    LIMIT ? OFFSET ?
+  ''', [...filter['args'], ...blacklist['args'], limit, offset]);
+
+    return maps;
+  }
+
+  static Future<int> getByFilterCount({
+    String? videoCode,
+    String? actressName,
+    List<String>? categories,
+    int? yearStart,
+    int? yearEnd,
+  }) async {
+    if (!_isReady()) return 0;
+
+    final filter = _buildFilterClause(
+      videoCode: videoCode,
+      actressName: actressName,
+      categories: categories,
+      yearStart: yearStart,
+      yearEnd: yearEnd,
+    );
+    final blacklist = _buildBlacklistClause();
+
+    final maps = await _rawQuery('''
+    SELECT
+      COUNT(DISTINCT v.dvd_id) AS total
+    FROM derived_video v
+    WHERE
+      v.dvd_id IS NOT NULL
+      AND v.release_date IS NOT NULL
+      ${filter['sql']}
+      ${blacklist['sql']}
+  ''', [...filter['args'], ...blacklist['args']]);
+
+    return maps[0]['total'] as int;
+  }
+
   static Future<List<Map<String, dynamic>>> getAllActress({String? q}) async {
-    if (await _validation() == false) return [];
+    if (!_isReady()) return [];
 
     var whereClause = '''
     name_romaji IS NOT NULL
@@ -342,7 +398,7 @@ mixin DBR18 {
     AND name_romaji NOT GLOB '*[!@#\$%%^&*()_-+=~`{}|:;"<>?,./]*'
     AND LENGTH(name_romaji) >= 3
   ''';
-    var whereArgs = [];
+    final whereArgs = <Object?>[];
 
     if (q != null) {
       whereClause += ' AND name_romaji LIKE ?';
@@ -362,7 +418,7 @@ mixin DBR18 {
   }
 
   static Future<List<Map<String, dynamic>>> getActress(String code) async {
-    if (await _validation() == false) return [];
+    if (!_isReady()) return [];
 
     final maps = await _rawQuery('''
         SELECT DISTINCT 
@@ -378,33 +434,35 @@ mixin DBR18 {
   }
 
   static Future<List<Map<String, dynamic>>> getAllSeries({String? q}) async {
-    if (await _validation() == false) return [];
+    if (!_isReady()) return [];
     final whereArgs = <Object?>[];
 
-    String filter = 'WHERE s.name_en IS NOT NULL';
+    var filter = 'WHERE s.name_en IS NOT NULL';
     if (q != null) {
       filter += ' AND s.name_en LIKE ?';
       whereArgs.add('%$q%');
     }
 
     final maps = await _rawQuery('''
-        SELECT
-          s.*,
-          (SELECT MAX(release_date) FROM derived_video v WHERE v.series_id = s.id) AS max_release_date
-        FROM derived_series s
-        $filter
-        AND max_release_date IS NOT NULL
-        ORDER BY max_release_date DESC
+        SELECT * FROM (
+          SELECT
+            s.*,
+            (SELECT MAX(release_date) FROM derived_video v WHERE v.series_id = s.id) AS max_release_date
+          FROM derived_series s
+          $filter
+        ) x
+        WHERE x.max_release_date IS NOT NULL
+        ORDER BY x.max_release_date DESC
       ''', whereArgs);
 
     return maps;
   }
 
   static Future<List<Map<String, dynamic>>> getAllCategories({String? q}) async {
-    if (await _validation() == false) return [];
+    if (!_isReady()) return [];
 
     var whereClause = 'name_en IS NOT NULL';
-    var whereArgs = [];
+    final whereArgs = <Object?>[];
 
     if (q != null) {
       whereClause += ' AND name_en LIKE ?';
@@ -424,7 +482,7 @@ mixin DBR18 {
   }
 
   static Future<List<Map<String, dynamic>>> getCategory(String code) async {
-    if (await _validation() == false) return [];
+    if (!_isReady()) return [];
 
     final maps = await _rawQuery('''
         SELECT DISTINCT
@@ -435,23 +493,70 @@ mixin DBR18 {
         JOIN derived_category cat ON cat.id = c.category_id
         WHERE 1=1
           AND v.dvd_id = ? 
-          AND cat.name_en NOT NULL
+          AND cat.name_en IS NOT NULL
       ''', [code]);
 
     return maps;
   }
 
+  static Future<Map<String, List<String>>> getCategoriesByVideoCodes(List<String> videoCodes) async {
+    if (!_isReady() || videoCodes.isEmpty) return {};
+
+    final codes = videoCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    if (codes.isEmpty) return {};
+
+    final placeholders = List.filled(codes.length, '?').join(', ');
+    final rows = await _rawQuery('''
+      SELECT
+        v.dvd_id AS video_code,
+        cat.name_en AS category
+      FROM derived_video_category c
+      JOIN derived_video v ON v.content_id = c.content_id
+      JOIN derived_category cat ON cat.id = c.category_id
+      WHERE v.dvd_id IN ($placeholders)
+        AND cat.name_en IS NOT NULL
+    ''', codes);
+
+    final grouped = <String, Set<String>>{};
+    for (final row in rows) {
+      final code = '${row['video_code'] ?? ''}'.trim();
+      final category = '${row['category'] ?? ''}'.trim();
+      if (code.isEmpty || category.isEmpty) continue;
+
+      grouped.putIfAbsent(code, () => <String>{}).add(category);
+    }
+
+    final out = <String, List<String>>{};
+    grouped.forEach((code, categories) {
+      final sorted = categories.toList()..sort();
+      out[code] = sorted;
+    });
+
+    return out;
+  }
+
   static Future<Map<String, dynamic>?> getDirector(String code) async {
-    if (await _validation() == false) return null;
+    if (!_isReady()) return null;
 
     final maps = await _rawQuery('''
-        SELECT DISTINCT 
+        SELECT
           d.*
-        FROM derived_video_director vd
-        JOIN derived_video v ON v.content_id = vd.content_id
-        JOIN derived_director d ON d.id = vd.director_id
-        WHERE 1=1
-          AND v.dvd_id = ?
+        FROM derived_director d
+        WHERE d.id IN (
+          SELECT vd.director_id
+          FROM derived_video_director vd
+          WHERE vd.content_id = (
+            SELECT v.content_id
+            FROM derived_video v
+            WHERE v.dvd_id = ?
+            LIMIT 1
+          )
+        )
+        LIMIT 1
       ''', [code]);
 
     return maps.isNotEmpty ? maps[0] : null;
@@ -461,7 +566,7 @@ mixin DBR18 {
   // ⵌ Actress
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosByActress(int actressId) async {
-    if (await _validation() == false) return 0;
+    if (!_isReady()) return 0;
 
     final blacklist = _buildBlacklistClause();
     final maps = await _rawQuery('''
@@ -491,7 +596,7 @@ mixin DBR18 {
     int page = 1,
     int perPage = 10000,
   }) async {
-    if (await _validation() == false) return [];
+    if (!_isReady()) return [];
 
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
@@ -528,7 +633,7 @@ mixin DBR18 {
   // ⵌ Category
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosByCategory(String categoryName) async {
-    if (await _validation() == false) return 0;
+    if (!_isReady()) return 0;
 
     final maps = await _rawQuery('''
       SELECT 
@@ -546,7 +651,7 @@ mixin DBR18 {
     int page = 1,
     int perPage = 10000,
   }) async {
-    if (await _validation() == false) return [];
+    if (!_isReady()) return [];
 
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
@@ -579,7 +684,7 @@ mixin DBR18 {
   // ⵌ Label
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosByLabel(String labelName) async {
-    if (await _validation() == false) return 0;
+    if (!_isReady()) return 0;
 
     final blacklist = _buildBlacklistClause();
     final maps = await _rawQuery('''
@@ -600,7 +705,7 @@ mixin DBR18 {
     int page = 1,
     int perPage = 10000,
   }) async {
-    if (await _validation() == false) return [];
+    if (!_isReady()) return [];
 
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
@@ -632,7 +737,7 @@ mixin DBR18 {
   // ⵌ Series
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosBySeries(String series) async {
-    if (await _validation() == false) return 0;
+    if (!_isReady()) return 0;
 
     final blacklist = _buildBlacklistClause();
     final useLike = series.contains('%') || series.contains('_');
@@ -673,7 +778,7 @@ mixin DBR18 {
     int page = 1,
     int perPage = 10000,
   }) async {
-    if (await _validation() == false) return [];
+    if (!_isReady()) return [];
 
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
@@ -708,7 +813,7 @@ mixin DBR18 {
   // ⵌ Maker / Studio
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosByStudio(String studio) async {
-    if (await _validation() == false) return 0;
+    if (!_isReady()) return 0;
 
     final blacklist = _buildBlacklistClause();
     final maps = await _rawQuery('''
@@ -729,7 +834,7 @@ mixin DBR18 {
     int page = 1,
     int perPage = 10000,
   }) async {
-    if (await _validation() == false) return [];
+    if (!_isReady()) return [];
 
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
@@ -761,7 +866,7 @@ mixin DBR18 {
   // ⵌ Director
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosByDirector(String director) async {
-    if (await _validation() == false) return 0;
+    if (!_isReady()) return 0;
 
     final maps = await _rawQuery('''
       SELECT 
@@ -779,7 +884,7 @@ mixin DBR18 {
     int page = 1,
     int perPage = 10000,
   }) async {
-    if (await _validation() == false) return [];
+    if (!_isReady()) return [];
 
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
@@ -812,7 +917,7 @@ mixin DBR18 {
   // ⵌ Year
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosByYear(String year) async {
-    if (await _validation() == false) return 0;
+    if (!_isReady()) return 0;
 
     final blacklist = _buildBlacklistClause();
     final maps = await _rawQuery('''
@@ -832,7 +937,7 @@ mixin DBR18 {
     int page = 1,
     int perPage = 10000,
   }) async {
-    if (await _validation() == false) return [];
+    if (!_isReady()) return [];
 
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
@@ -869,7 +974,7 @@ mixin DBR18 {
     int? yearStart,
     int? yearEnd,
   }) async {
-    if (await _validation() == false) return [];
+    if (!_isReady()) return [];
 
     final yM = DateTime.now().toStringEx(format: 'yyyy-MM');
     final dd = DateTime.now().toStringEx(format: 'dd');
@@ -933,7 +1038,7 @@ mixin DBR18 {
     int? yearStart,
     int? yearEnd,
   }) async {
-    if (await _validation() == false) return 0;
+    if (!_isReady()) return 0;
 
     final yM = DateTime.now().toStringEx(format: 'yyyy-MM');
     final dd = DateTime.now().toStringEx(format: 'dd');

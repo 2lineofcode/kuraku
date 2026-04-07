@@ -20,6 +20,7 @@ mixin HomePanelCart {
   static final _controller = Get.find<HomeController>();
 
   static Future<void> open() async {
+    _controller.deduplicateCart();
     if (_controller.cart.isEmpty) return;
 
     if (Overlayment.count > 0) { await Overlayment.dismissLast(); return; }

@@ -40,7 +40,7 @@ class DBService extends GetxService {
     await Directory(appPath).create(recursive: true);
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       singleInstance: true,
       onConfigure: _onConfigure,
       onCreate: _onCreate,
@@ -59,7 +59,7 @@ class DBService extends GetxService {
       AppLog.logW('R18 database not found at startup');
       return null;
     }
-    
+
     final r18SqlFile = files.first.path;
 
     final date = r18SqlFile.allBetween('r18_', '.db').replaceAll('_', '').toInt();
@@ -84,11 +84,11 @@ class DBService extends GetxService {
     }
   }
 
-  void _onConfigure(Database db) async {
+  Future<void> _onConfigure(Database db) async {
     await db.execute('PRAGMA foreign_keys = ON');
   }
 
-  void _onCreate(Database db, int version) async {
+  Future<void> _onCreate(Database db, int version) async {
     // Drop existing Test table (optional, only if you want to remove it)
     await db.execute('DROP TABLE IF EXISTS library');
     await db.execute('DROP TABLE IF EXISTS videos');
@@ -201,18 +201,79 @@ class DBService extends GetxService {
       )
     ''');
 
+    await _createFeatureTables(db);
   }
 
-
-
-  void _onUpgrade(Database db, int oldVersion, int newVersion) async {
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     AppLog.logD('Upgrading DB from $oldVersion to $newVersion');
 
     if (oldVersion < 2) {
-      //...add query here...
+      await _createFeatureTables(db);
     }
   }
 
+  Future<void> _createFeatureTables(Database db) async {
+    // watch next queue
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS watch_next_queue (
+        id                          TEXT PRIMARY KEY,
+        name                        TEXT,
+        is_active                   INTEGER DEFAULT 0,
+        rules_json                  TEXT,
+        created_at                  TEXT,
+        updated_at                  TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS watch_next_item (
+        id                          TEXT PRIMARY KEY,
+        queue_id                    TEXT,
+        video_id                    TEXT,
+        video_path                  TEXT,
+        position                    INTEGER,
+        score                       REAL DEFAULT 0,
+        status                      TEXT,               -- pending | playing | done | skipped
+        reason                      TEXT,
+        created_at                  TEXT,
+        updated_at                  TEXT
+      )
+    ''');
+
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_watch_next_item_queue ON watch_next_item(queue_id);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_watch_next_item_status ON watch_next_item(status);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_watch_next_item_position ON watch_next_item(position);');
+
+    // watch sessions (for dashboard trend)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS watch_session (
+        id                          TEXT PRIMARY KEY,
+        video_id                    TEXT,
+        video_code                  TEXT,
+        watched_seconds             INTEGER,
+        created_at                  TEXT
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_watch_session_created_at ON watch_session(created_at);');
+
+    // health snapshot
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS health_snapshot (
+        id                          TEXT PRIMARY KEY,
+        snapshot_date               TEXT,
+        total_video                 INTEGER,
+        duplicate_paths             INTEGER,
+        missing_files               INTEGER,
+        external_offline            INTEGER,
+        missing_metadata            INTEGER,
+        watch_seconds_7d            INTEGER,
+        watch_seconds_30d           INTEGER,
+        created_at                  TEXT
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_health_snapshot_date ON health_snapshot(snapshot_date);');
+
+  }
 
   Database get mainDatabase => dbMain;
   Database? get r18Database => dbR18;
@@ -222,12 +283,16 @@ class DBService extends GetxService {
     await DBVideos.deleteAll();
     await DBActivity.deleteAll();
     await DBCollection.deleteAll();
+    await dbMain.delete('watch_next_queue');
+    await dbMain.delete('watch_next_item');
+    await dbMain.delete('watch_session');
+    await dbMain.delete('health_snapshot');
     await vacumDB();
   }
 
   Future<bool> vacumDB() async {
     try {
-      await dbMain.rawQuery('VACUUM;');
+      await dbMain.execute('VACUUM;');
       return true;
     } catch (e) {
       AppLog.logE('Error vacuuming database: $e');

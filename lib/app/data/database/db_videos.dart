@@ -13,7 +13,7 @@ import '_init_db.dart';
 
 mixin DBVideos {
   static Database get _db => Get.find<DBService>().dbMain;
-  static final _tableName = 'videos';
+  static const _tableName = 'videos';
   static const _allowedColumns = {
     'id', 'root_path', 'video_path', 'video_code', 'title', 'title_ja',
     'description', 'fan_art', 'poster', 'trailer', 'actress', 'category',
@@ -31,6 +31,10 @@ mixin DBVideos {
     final isDuplicateVideoPath = await getByVideoPath(videos.videoPath ?? '');
     if (isDuplicateVideoPath != null) return false;
     return true;
+  }
+
+  static List<Videos> _toVideos(List<Map<String, dynamic>> maps) {
+    return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
   }
 
   static Future<void> addBulk(List<Videos> videos) async {
@@ -51,7 +55,7 @@ mixin DBVideos {
           video.category![j].category = dec;
         }
       }
-      
+
       // decensored fix `series`
       if (video.series.isNotEmptyAndNotNull) {
         final dec = HelperDecensor.decensor(video.series);
@@ -71,7 +75,6 @@ mixin DBVideos {
       // Check validation
       final isOK = await _validation(video);
       if (isOK) videosToInsert.add(video.toJson());
-      
     }
 
     // 2. Perform a single database transaction for insertion
@@ -102,19 +105,9 @@ mixin DBVideos {
     await _db.delete(_tableName, where: 'root_path = ?', whereArgs: [rootPath]);
   }
 
-  static Future<List<Videos>> getAll({
-    String? where,
-    List<Object?>? whereArgs,
-    String? orderBy,
-    String? groupBy,
-    int? limit
-  }) async {
-    try {
-      final maps = await _db.query(_tableName, where: where, whereArgs: whereArgs, groupBy: groupBy, orderBy: orderBy, limit: limit);
-      return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
-    } catch (e) {
-      throw Exception('${e.toString()}');
-    }
+  static Future<List<Videos>> getAll({String? where, List<Object?>? whereArgs, String? orderBy, String? groupBy, int? limit}) async {
+    final maps = await _db.query(_tableName, where: where, whereArgs: whereArgs, groupBy: groupBy, orderBy: orderBy, limit: limit);
+    return _toVideos(maps);
   }
 
   static Future<List<Videos>> getAllLike(String column, String like, {String? jsonObject}) async {
@@ -123,38 +116,31 @@ mixin DBVideos {
     final safeColumn = _safeColumn(column);
     final likeQuery = '%$part$like%';
 
-    try {
-      final maps = await _db.rawQuery('''
-        SELECT * FROM $_tableName
-        WHERE 1=1
-          AND $safeColumn LIKE ?
-        ORDER BY release_date DESC
-      ''', [likeQuery]);
+    final maps = await _db.rawQuery('''
+      SELECT * FROM $_tableName
+      WHERE 1=1
+        AND $safeColumn LIKE ?
+      ORDER BY release_date DESC
+    ''', [likeQuery]);
 
-      return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
-    } catch (e) {
-      throw Exception('${e.toString()}');
-    }
+    return _toVideos(maps);
   }
 
   static Future<List<Videos>> getAllVideoPath(String column, String like) async {
     final safeColumn = _safeColumn(column);
-    final pathPrefix = '$like%';
-    final nestedPrefix = '$like/%/%';
+    final normalizedLike = like.endsWith('%') ? like : '$like%';
+    final basePath = normalizedLike.endsWith('%') ? normalizedLike.substring(0, normalizedLike.length - 1) : normalizedLike;
+    final nestedPrefix = '$basePath/%/%';
 
-    try {
-      final maps = await _db.rawQuery('''
-        SELECT * FROM $_tableName
-        WHERE 1=1
-          AND $safeColumn LIKE ? 
-          AND $safeColumn NOT LIKE ?
-        ORDER BY video_code ASC, title ASC
-      ''', [pathPrefix, nestedPrefix]);
+    final maps = await _db.rawQuery('''
+      SELECT * FROM $_tableName
+      WHERE 1=1
+        AND $safeColumn LIKE ? 
+        AND $safeColumn NOT LIKE ?
+      ORDER BY video_code ASC, title ASC
+    ''', [normalizedLike, nestedPrefix]);
 
-      return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
-    } catch (e) {
-      throw Exception('${e.toString()}');
-    }
+    return _toVideos(maps);
   }
 
   static Future<List<Videos>> search(String s) async {
@@ -168,7 +154,7 @@ mixin DBVideos {
           OR video_path LIKE ?
         )
     ''', [query, query, query]);
-    return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
+    return _toVideos(maps);
   }
 
   // ** get_by
@@ -189,26 +175,26 @@ mixin DBVideos {
 
   static Future<List<Videos>> getBySeries(String series) async {
     final maps = await _db.query(_tableName, where: 'series = ?', whereArgs: [series]);
-    return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
+    return _toVideos(maps);
   }
 
-   static Future<List<Videos>> getByActress(String actressName) async {
+  static Future<List<Videos>> getByActress(String actressName) async {
     final maps = await _db.rawQuery('''
       SELECT * FROM $_tableName WHERE json_extract(actress, '\$[0].name_romaji') LIKE ?
     ''', ['%$actressName%']);
-    return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
+    return _toVideos(maps);
   }
 
   // ** end get_by
 
   static Future<int> getCount() async {
-    final maps = await _db.query(_tableName);
-    return maps.length;
+    final maps = await _db.rawQuery('SELECT COUNT(*) AS total FROM $_tableName');
+    return maps.isNotEmpty ? (maps.first['total'] as int? ?? 0) : 0;
   }
 
   static Future<void> updateViewCount(Videos video) async {
     final upd = video;
-    upd.viewCount = video.viewCount! + 1;
+    upd.viewCount = (video.viewCount ?? 0) + 1;
     await _db.update(_tableName, upd.toJson(), where: 'id = ?', whereArgs: [video.id]);
   }
 
@@ -233,7 +219,6 @@ mixin DBVideos {
     await _db.rawQuery('VACUUM');
     AppLog.logD('VACUUM Done.');
   }
-
 
   static Future<String> getRandomVideoCode() async {
     final maps = await _db.query(_tableName, orderBy: 'RANDOM()', limit: 1, where: 'video_code IS NOT NULL AND video_code != ""');
@@ -453,7 +438,6 @@ mixin DBVideos {
     return maps;
   }
 
-
   static Future<List<Videos>> getListDuplicateVideos() async {
     final maps = await _db.rawQuery('''
         SELECT * FROM $_tableName v
@@ -467,9 +451,8 @@ mixin DBVideos {
         ORDER BY 
           v.video_code, v.video_path;
       ''');
-    return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
+    return _toVideos(maps);
   }
-
 
   static Future<num?> getTotalFileSizeAllVideo() async {
     final maps = await _db.rawQuery('SELECT sum(filesize) as total FROM videos');

@@ -15,22 +15,29 @@ import '../../../core/app_logging.dart';
 import '../../../core/app_notification.dart';
 import '../../../core/app_pref.dart';
 import '../../../core/app_setting.dart';
+import '../../../data/api/api_javmost.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/__javit_search_entity.dart';
+import '../../../data/models/__javmost_new_release.dart';
 import '../../../data/models/activity_entity.dart';
 import '../../../utils/helper_loading.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
 import '../home_controller.dart';
+import 'page_download_helper.dart';
 
 class PageDownloadController extends GetxController {
   final tecSearch = TextEditingController();
   final fnSearch = FocusNode();
   final phSearch = ''.obs;
   final scrollController = ScrollController();
+  final searchCommands = PageDownloadCommandEngine.commands.map((e) => e.value).toList(growable: false);
+  final commandSuggestions = <PageDownloadCommand>[].obs;
+  final isCommandSuggestionVisible = false.obs;
+  final selectedCommandIndex = (-1).obs;
 
   final response = JavitSearch().obs;
   final hasNextPage = false.obs;
@@ -84,7 +91,10 @@ class PageDownloadController extends GetxController {
   }
 
   Future<void> onSearch(String s) async {
-    if (s.isEmpty) {
+    _hideCommandSuggestions();
+    final hasAnyFilter = _hasAnyFilter();
+
+    if (s.isEmpty && hasAnyFilter == false) {
       await onReset();
       return;
     }
@@ -126,6 +136,59 @@ class PageDownloadController extends GetxController {
     _existingVideoCodes = {};
     isLoading.value = false;
     isLoadingMore.value = false;
+    _hideCommandSuggestions();
+  }
+
+  void onSearchTextChanged(String s) {
+    final value = s.trim();
+    if (value.startsWith('/')) {
+      commandSuggestions.value = PageDownloadCommandEngine.byPrefix(value);
+      isCommandSuggestionVisible.value = commandSuggestions.isNotEmpty;
+      selectedCommandIndex.value = commandSuggestions.isEmpty ? -1 : 0;
+      return;
+    }
+
+    _hideCommandSuggestions();
+  }
+
+  Future<void> onPickSearchCommand(String command) async {
+    if (command == '/online') {
+      tecSearch.text = '/online ';
+      tecSearch.selection = TextSelection.fromPosition(TextPosition(offset: tecSearch.text.length));
+      _hideCommandSuggestions();
+      return;
+    }
+
+    tecSearch.text = command;
+    tecSearch.selection = TextSelection.fromPosition(TextPosition(offset: command.length));
+    currentPage.value = 1;
+    await onSearch(command);
+  }
+
+  void _hideCommandSuggestions() {
+    isCommandSuggestionVisible.value = false;
+    selectedCommandIndex.value = -1;
+    commandSuggestions.clear();
+  }
+
+  void onCommandArrowDown() {
+    if (isCommandSuggestionVisible.isFalse || commandSuggestions.isEmpty) return;
+    selectedCommandIndex.value = (selectedCommandIndex.value + 1) % commandSuggestions.length;
+  }
+
+  void onCommandArrowUp() {
+    if (isCommandSuggestionVisible.isFalse || commandSuggestions.isEmpty) return;
+    selectedCommandIndex.value = (selectedCommandIndex.value - 1 + commandSuggestions.length) % commandSuggestions.length;
+  }
+
+  Future<void> onCommandEnterOrSearch(String input) async {
+    final idx = selectedCommandIndex.value;
+    if (isCommandSuggestionVisible.isTrue && idx >= 0 && idx < commandSuggestions.length) {
+      await onPickSearchCommand(commandSuggestions[idx].value);
+      return;
+    }
+    currentPage.value = 1;
+    await onSearch(input.trim());
   }
 
   bool get _hasCustomYearRange {
@@ -160,7 +223,12 @@ class PageDownloadController extends GetxController {
   }
 
   Future<void> _refreshSearchWithFilters({bool showLoading = false}) async {
-    if (_lastQuery.isEmpty) return;
+    final route = PageDownloadQueryPlanner.decide(
+      query: _lastQuery,
+      hasFilter: _hasAnyFilter(),
+      isApiCommand: _isJavMostCommand(_lastQuery),
+    );
+    if (route == PageDownloadQueryRoute.none) return;
 
     if (showLoading) {
       isLoading.value = true;
@@ -179,9 +247,12 @@ class PageDownloadController extends GetxController {
     final yearStart = _filterYearStart();
     final yearEnd = _filterYearEnd();
 
-    switch (_lastQuery) {
-      case '/new':
-        totalResults.value = await DBR18.getNewReleaseCount(
+    switch (route) {
+      case PageDownloadQueryRoute.apiCommand:
+        totalResults.value = 0;
+        break;
+      case PageDownloadQueryRoute.dbFilterOnly:
+        totalResults.value = await DBR18.getByFilterCount(
           videoCode: videoCode,
           actressName: actressName,
           categories: categories,
@@ -189,7 +260,7 @@ class PageDownloadController extends GetxController {
           yearEnd: yearEnd,
         );
         break;
-      default:
+      case PageDownloadQueryRoute.dbSearch:
         totalResults.value = await DBR18.getSearchCount(
           _lastQuery,
           videoCode: videoCode,
@@ -198,6 +269,8 @@ class PageDownloadController extends GetxController {
           yearStart: yearStart,
           yearEnd: yearEnd,
         );
+        break;
+      case PageDownloadQueryRoute.none:
         break;
     }
 
@@ -226,11 +299,17 @@ class PageDownloadController extends GetxController {
   }
 
   Future<void> _loadPage({required bool isLoadMore}) async {
-    if (_lastQuery.isEmpty) return;
+    final route = PageDownloadQueryPlanner.decide(
+      query: _lastQuery,
+      hasFilter: _hasAnyFilter(),
+      isApiCommand: _isJavMostCommand(_lastQuery),
+    );
+    if (route == PageDownloadQueryRoute.none) return;
     if (isLoadMore && hasNextPage.isFalse) return;
     if (isLoadMore) isLoadingMore.value = true;
 
     try {
+      final sw = Stopwatch()..start();
       final videoCode = _filterVideoCode();
       final actressName = _filterActressName();
       final categories = _filterCategories();
@@ -238,9 +317,27 @@ class PageDownloadController extends GetxController {
       final yearEnd = _filterYearEnd();
 
       final List<Map<String, dynamic>> r18videos;
-      switch (_lastQuery) {
-        case '/new':
-          r18videos = await DBR18.getNewRelease(
+      final isJavMostApi = route == PageDownloadQueryRoute.apiCommand;
+      var apiTotal = 0;
+
+      switch (route) {
+        case PageDownloadQueryRoute.apiCommand:
+          final apiData = await _fetchJavMostByCommand(_lastQuery, currentPage.value);
+          apiTotal = apiData.total ?? 0;
+          r18videos = _mapJavMostNewReleaseToRows(
+            apiData.result ?? [],
+            videoCode: videoCode,
+            actressName: actressName,
+            categories: categories,
+            yearStart: yearStart,
+            yearEnd: yearEnd,
+          );
+          if (currentPage.value == 1 && r18videos.isEmpty) {
+            await HelperToast.info('No result from command "$_lastQuery"');
+          }
+          break;
+        case PageDownloadQueryRoute.dbFilterOnly:
+          r18videos = await DBR18.getByFilter(
             page: currentPage.value,
             perPage: _perPage + 1,
             videoCode: videoCode,
@@ -250,7 +347,7 @@ class PageDownloadController extends GetxController {
             yearEnd: yearEnd,
           );
           break;
-        default:
+        case PageDownloadQueryRoute.dbSearch:
           r18videos = await DBR18.search(
             _lastQuery,
             page: currentPage.value,
@@ -262,6 +359,9 @@ class PageDownloadController extends GetxController {
             yearEnd: yearEnd,
           );
           break;
+        case PageDownloadQueryRoute.none:
+          r18videos = [];
+          break;
       }
 
       if (_existingVideoCodes.isEmpty) {
@@ -269,8 +369,14 @@ class PageDownloadController extends GetxController {
         _existingVideoCodes = existVideos.map((e) => e.videoCode ?? '').toSet();
       }
 
-      hasNextPage.value = r18videos.length > _perPage;
-      final pageItems = r18videos.take(_perPage).toList();
+      final pageItems = isJavMostApi ? r18videos : r18videos.take(_perPage).toList();
+      if (isJavMostApi) {
+        totalResults.value = apiTotal;
+        final currentLoaded = isLoadMore ? allVideos.length : 0;
+        hasNextPage.value = apiTotal > currentLoaded + pageItems.length;
+      } else {
+        hasNextPage.value = r18videos.length > _perPage;
+      }
 
       final output = <JavitSearchResult>[];
       for (var i = 0; i < pageItems.length; i++) {
@@ -308,11 +414,133 @@ class PageDownloadController extends GetxController {
 
       videos.value = allVideos.toList();
       _syncHavingVideos(videos.toList());
+      sw.stop();
+      AppLog.logD('download_query route=$route page=${currentPage.value} items=${pageItems.length} in ${sw.elapsedMilliseconds} ms');
     } catch (e) {
       AppLog.logE('_loadPage e -> $e');
     } finally {
       if (isLoadMore) isLoadingMore.value = false;
     }
+  }
+
+  bool _isJavMostCommand(String query) {
+    final q = query.trim().toLowerCase();
+    return PageDownloadCommandEngine.isCommand(q) || _isOnlineSearchQuery(q);
+  }
+
+  bool _isOnlineSearchQuery(String query) {
+    return query.startsWith('/online ');
+  }
+
+  String _extractOnlineSearchKeyword(String query) {
+    final q = query.trim();
+    if (_isOnlineSearchQuery(q) == false) return '';
+    return q.substring('/online '.length).trim();
+  }
+
+  bool _hasAnyFilter() {
+    return _filterVideoCode() != null ||
+        _filterActressName() != null ||
+        (_filterCategories()?.isNotEmpty ?? false) ||
+        _hasCustomYearRange;
+  }
+
+  Future<JavMostModel> _fetchJavMostByCommand(String command, int page) async {
+    final normalized = command.trim().toLowerCase();
+    if (_isOnlineSearchQuery(normalized)) {
+      final keyword = _extractOnlineSearchKeyword(normalized);
+      if (keyword.isEmpty) return JavMostModel(result: [], success: true, total: 0);
+      return ApiJavMost.search(s: keyword, page: page);
+    }
+
+    switch (normalized) {
+      case '/new-release':
+        return ApiJavMost.getNewRelease(page: page);
+      case '/top-monthly':
+        return ApiJavMost.getTopMonthly(page: page);
+      case '/top-weekly':
+        return ApiJavMost.getTopWeekly(page: page);
+      case '/top-daily':
+        return ApiJavMost.getTopDaily(page: page);
+      case '/best-rated':
+        return ApiJavMost.getBestRating(page: page);
+      case '/online':
+        return JavMostModel(result: [], success: true, total: 0);
+      default:
+        return ApiJavMost.getNewRelease(page: page);
+    }
+  }
+
+  List<Map<String, dynamic>> _mapJavMostNewReleaseToRows(
+    List<dynamic> items, {
+    String? videoCode,
+    String? actressName,
+    List<String>? categories,
+    int? yearStart,
+    int? yearEnd,
+  }) {
+    final output = <Map<String, dynamic>>[];
+
+    final qVideoCode = videoCode?.trim().toLowerCase();
+    final qActress = actressName?.trim().toLowerCase();
+    final qCategories = categories?.map((e) => e.trim().toLowerCase()).where((e) => e.isNotEmpty).toList() ?? const <String>[];
+
+    for (final item in items) {
+      final rawCode = (item.name ?? '').toString().trim();
+      final rawTitle = (item.fullName ?? item.name ?? '').toString();
+      final rawRelease = (item.release ?? '').toString();
+      final rawActresses = (item.star ?? '').toString();
+      final rawCategories = (item.genre ?? '').toString();
+
+      final actresses = rawActresses
+          .split(RegExp(r',|/'))
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+      final categoryList = rawCategories
+          .split(RegExp(r',|/'))
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+
+      if (qVideoCode != null && qVideoCode.isNotEmpty) {
+        if (rawCode.toLowerCase().contains(qVideoCode) == false) continue;
+      }
+
+      if (qActress != null && qActress.isNotEmpty) {
+        final hasActress = actresses.any((e) => e.toLowerCase().contains(qActress));
+        if (hasActress == false) continue;
+      }
+
+      if (qCategories.isNotEmpty) {
+        final lowerCategories = categoryList.map((e) => e.toLowerCase()).toSet();
+        final hasAllCategories = qCategories.every((e) => lowerCategories.contains(e));
+        if (hasAllCategories == false) continue;
+      }
+
+      if (yearStart != null && yearEnd != null) {
+        final date = DateTime.tryParse(rawRelease);
+        final year = date?.year;
+        if (year == null || year < yearStart || year > yearEnd) continue;
+      }
+
+      output.add({
+        'id': item.url ?? rawCode,
+        'video_code': rawCode,
+        'title': rawTitle,
+        'duration': int.tryParse((item.length ?? '').toString().replaceAll(RegExp(r'[^0-9]'), '')),
+        'release_date': rawRelease,
+        'trailer': item.dataPreview ?? '',
+        'fan_art': item.cover ?? '',
+        'poster': item.cover ?? '',
+        'ssfirst': '',
+        'sslast': '',
+        'categories': categoryList.join(', '),
+        'actresses': actresses.join(', '),
+      });
+    }
+
+    return output;
   }
 
   void _onScroll() {
@@ -539,7 +767,7 @@ class PageDownloadController extends GetxController {
                   placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
                   style: TextStyle(fontSize: 13, color: Vx.neutral500),
                   onTap: () async {
-                    await FilePicker.platform.getDirectoryPath(initialDirectory: tecDir.text).then((dir) {
+                    await FilePicker.getDirectoryPath(initialDirectory: tecDir.text).then((dir) {
                       if (dir != null) {
                         AppPref.setDownloadPath(dir);
                         tecDir.text = dir;

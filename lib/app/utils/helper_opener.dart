@@ -814,13 +814,24 @@ mixin HelperOpener {
     bool applyLocalFilter = true,
   }) async {
     await state.ensureOptionsLoaded();
+    await Future<void>.delayed(Duration.zero);
+    await WidgetsBinding.instance.endOfFrame;
 
-    WidgetsBinding.instance.scheduleFrame();
+    if (Get.context == null) return;
+    final visibleSectionCount = [
+      showVideoCode ?? true,
+      showActressName ?? true,
+      showCategories ?? true,
+      showYears ?? true,
+    ].where((v) => v).length;
+    final panelHeight = 180 + (visibleSectionCount * 45);
+
     await Overlayment.show(
       context: Get.context!,
       OverPanel(
         alignment: Alignment.center,
         width: 500,
+        height: panelHeight.toDouble().clamp(220, 340),
         backgroundSettings: BackgroundSettings(blur: 5, color: Colors.transparent),
         animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
         color: Colors.black.withAlpha(230),

@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:math';
+
 import 'package:ex_kit/ex.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:flutter/cupertino.dart';
@@ -7,8 +10,10 @@ import 'package:video_compress/video_compress.dart';
 
 import '../../../core/app_logging.dart';
 import '../../../data/database/db_activity.dart';
+import '../../../data/database/db_health.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
+import '../../../data/database/db_watch_next.dart';
 import '../../../data/models/activity_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
@@ -17,7 +22,7 @@ import '../page_explore/page_explore_controller.dart';
 
 class PageToolsController extends GetxController with StateMixin {
   // ** part: top menu
-  final menus = [kTopLargeFile, kDuplicate, kAdvanceSearch, kTodo].obs;
+  final menus = [kTopLargeFile, kDuplicate, kAdvanceSearch, kTodo, kWatchNextQueue, kHealthDashboard].obs;
   final currentMenuSelected = kTopLargeFile.obs;
 
   // ** part: large filesize
@@ -28,9 +33,24 @@ class PageToolsController extends GetxController with StateMixin {
 
   // ** part: duplicate video
   final duplicateVideoList = <Videos>[].obs;
+  final duplicateHoveredIndex = (-1).obs;
 
   // ** part: todo
   final todoList = <Activity>[].obs;
+  final todoHoveredIndex = (-1).obs;
+
+  // ** part: watch next queue
+  final watchNextVideos = <Videos>[].obs;
+  final watchNextMaxItems = 120.obs;
+  final watchNextPreferUnwatched = true.obs;
+  final watchNextPreferRecent = true.obs;
+  final watchNextRandomMix = 0.25.obs;
+  final watchNextLastGeneratedAt = ''.obs;
+  final _watchNextItemIdByPath = <String, String>{};
+
+  // ** part: health dashboard
+  final healthSummary = <String, dynamic>{}.obs;
+  final healthLastUpdatedAt = ''.obs;
 
   // ** part: advance search
   // -> left part
@@ -61,6 +81,7 @@ class PageToolsController extends GetxController with StateMixin {
 
     await getTopLargeFileSize();
     await checkIsHasDataNotScanned();
+    await DBWatchNext.ensureDefaultQueue();
     await onReset();
     await filterBySeries();
 
@@ -83,6 +104,8 @@ class PageToolsController extends GetxController with StateMixin {
       case kDuplicate: await getDuplicateVideos(); break;
       case kAdvanceSearch: break;
       case kTodo: await getTodos(); break;
+      case kWatchNextQueue: await loadWatchNextQueue(); break;
+      case kHealthDashboard: await refreshHealthDashboard(); break;
     }
   }
 
@@ -92,9 +115,122 @@ class PageToolsController extends GetxController with StateMixin {
     tecFilterSearchLeft.text = '';
     topLargeFilterMode.value = 'all';
     topLargeHoveredIndex.value = -1;
+    duplicateHoveredIndex.value = -1;
+    todoHoveredIndex.value = -1;
     rightList.value = [];
     rightListFiltered.value = [];
     filter.isFiltered.value = false;
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // ** part: Watch Next Queue
+  // ────────────────────────────────────────────────────────────────
+  double _watchNextScore(Videos video) {
+    final random = Random();
+    var score = 0.0;
+
+    final hasPath = (video.videoPath ?? '').isNotEmpty;
+    if (!hasPath || !File(video.videoPath!).existsSync()) return -1000;
+
+    if (watchNextPreferUnwatched.value && (video.viewCount ?? 0) == 0) score += 40;
+    if (watchNextPreferRecent.value) {
+      final release = DateTime.tryParse(video.releaseDate ?? '');
+      if (release != null) {
+        final day = DateTime.now().difference(release).inDays;
+        if (day <= 30) score += 25;
+        else if (day <= 90) score += 10;
+      }
+    }
+
+    if (video.isFavorite == 1) score += 8;
+    if ((video.duration ?? 0) > 0) score += 4;
+    score += random.nextDouble() * 100 * watchNextRandomMix.value;
+    return score;
+  }
+
+  Future<void> generateWatchNextQueue() async {
+    final queue = await DBWatchNext.getActiveQueue();
+    final rules = {
+      'max_items': watchNextMaxItems.value,
+      'prefer_unwatched': watchNextPreferUnwatched.value,
+      'prefer_recent': watchNextPreferRecent.value,
+      'random_mix': watchNextRandomMix.value,
+    };
+    await DBWatchNext.updateQueueRules(queue.id, rules);
+
+    final all = await DBVideos.getAll(
+      where: 'video_path IS NOT NULL AND video_path != ""',
+      orderBy: 'updated_at DESC',
+      limit: 5000,
+    );
+
+    final ranked = all.map((v) => {'video': v, 'score': _watchNextScore(v)}).where((e) => (e['score'] as double) > -100).toList();
+    ranked.sort((a, b) => (b['score'] as double).compareTo(a['score'] as double));
+
+    final selected = ranked.take(watchNextMaxItems.value).map((e) => e['video'] as Videos).toList();
+    await DBWatchNext.rebuildItems(queue.id, selected);
+    watchNextLastGeneratedAt.value = DateTime.now().toStringEx();
+    await loadWatchNextQueue();
+  }
+
+  Future<void> loadWatchNextQueue() async {
+    final queue = await DBWatchNext.getActiveQueue();
+    final items = await DBWatchNext.getItems(queue.id, status: 'pending');
+    _watchNextItemIdByPath.clear();
+    watchNextVideos.clear();
+
+    for (final item in items) {
+      if (item.videoPath.isEmpty) continue;
+      final video = await DBVideos.getByVideoPath(item.videoPath);
+      if (video == null) continue;
+      _watchNextItemIdByPath[item.videoPath] = item.id;
+      watchNextVideos.add(video);
+    }
+  }
+
+  Future<void> playWatchNextQueue() async {
+    if (watchNextVideos.isEmpty) {
+      await HelperToast.info('Queue is empty. Generate queue first.');
+      return;
+    }
+    final first = watchNextVideos.first;
+    final itemId = _watchNextItemIdByPath[first.videoPath ?? ''];
+    if (itemId != null) await DBWatchNext.setItemStatus(itemId, 'playing');
+    await HelperOpener.openVideoFile(first, playlist: watchNextVideos.toList());
+  }
+
+  Future<void> markWatchNextDone(Videos video) async {
+    final itemId = _watchNextItemIdByPath[video.videoPath ?? ''];
+    if (itemId == null) return;
+    await DBWatchNext.setItemStatus(itemId, 'done');
+    await loadWatchNextQueue();
+  }
+
+  Future<void> skipWatchNext(Videos video) async {
+    final itemId = _watchNextItemIdByPath[video.videoPath ?? ''];
+    if (itemId == null) return;
+    await DBWatchNext.setItemStatus(itemId, 'skipped', reason: 'manual skip');
+    await loadWatchNextQueue();
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // ** part: Health Dashboard
+  // ────────────────────────────────────────────────────────────────
+  Future<void> refreshHealthDashboard({bool saveSnapshot = false}) async {
+    final summary = await DBHealth.computeSummary();
+    healthSummary.value = {
+      'totalVideo': summary.totalVideo,
+      'duplicatePaths': summary.duplicatePaths,
+      'missingFiles': summary.missingFiles,
+      'externalOffline': summary.externalOffline,
+      'missingMetadata': summary.missingMetadata,
+      'watchSeconds7d': summary.watchSeconds7d,
+      'watchSeconds30d': summary.watchSeconds30d,
+    };
+    healthLastUpdatedAt.value = DateTime.now().toStringEx();
+    if (saveSnapshot) {
+      await DBHealth.saveSnapshot(summary);
+    }
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -208,13 +344,24 @@ class PageToolsController extends GetxController with StateMixin {
   // ** part: kFindDuplicate
   // ────────────────────────────────────────────────────────────────
   Future<void> getDuplicateVideos() async {
+    duplicateHoveredIndex.value = -1;
     duplicateVideoList.value = await DBVideos.getListDuplicateVideos();
+  }
+
+  void onDuplicateHover(int index, bool isHover) {
+    if (isHover) {
+      if (duplicateHoveredIndex.value != index) duplicateHoveredIndex.value = index;
+      return;
+    }
+
+    if (duplicateHoveredIndex.value == index) duplicateHoveredIndex.value = -1;
   }
 
   // ────────────────────────────────────────────────────────────────
   // ** part: kTodo
   // ────────────────────────────────────────────────────────────────
   Future<void> getTodos() async {
+    todoHoveredIndex.value = -1;
     final todos = await DBActivity.getTodos();
     for (var todo in todos) {
       try {
@@ -225,6 +372,15 @@ class PageToolsController extends GetxController with StateMixin {
       }
     }
     todoList.value = todos;
+  }
+
+  void onTodoHover(int index, bool isHover) {
+    if (isHover) {
+      if (todoHoveredIndex.value != index) todoHoveredIndex.value = index;
+      return;
+    }
+
+    if (todoHoveredIndex.value == index) todoHoveredIndex.value = -1;
   }
 
   Future<void> deleteTodos(Activity todo) async {
@@ -409,3 +565,5 @@ const kDuplicate = 'Duplicate Videos';
 const kTodo = 'Todo';
 const kTopLargeFile = 'Large File';
 const kAdvanceSearch = 'Advance Search (R18)';
+const kWatchNextQueue = 'Watch Next Queue';
+const kHealthDashboard = 'Health Dashboard';

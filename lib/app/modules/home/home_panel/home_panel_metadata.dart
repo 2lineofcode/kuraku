@@ -19,7 +19,7 @@ mixin HomePanelMetadata {
     // helpers for consistent micro UI styling
     Widget sectionLabel(String title) => HStack([
           title.text.semiBold.size(12).white.make(),
-          Expanded(child: Divider(color: AppColor.border.withOpacity(.6)).pOnly(left: 12)),
+          Expanded(child: Divider(color: AppColor.border.withValues(alpha: .6)).pOnly(left: 12)),
         ]).pOnly(bottom: 8, top: 16);
 
     Widget inputField({required String label, required TextEditingController controller, String? placeholder, Widget? suffix}) {
@@ -27,7 +27,7 @@ mixin HomePanelMetadata {
         label.text.size(11).color(Vx.neutral400).make(),
         6.heightBox,
         DecoratedBox(
-          decoration: ExDecorator.box(borderRadius: 8, borderColor: AppColor.border, fillColor: AppColor.container.withOpacity(.65)),
+          decoration: ExDecorator.box(borderRadius: 8, borderColor: AppColor.border, fillColor: AppColor.container.withValues(alpha: .65)),
           child: HStack([
             CupertinoTextField(
               controller: controller,
@@ -65,7 +65,7 @@ mixin HomePanelMetadata {
           child: Container(
             height: 44,
             decoration: BoxDecoration(
-              color: AppColor.container.withOpacity(.85),
+              color: AppColor.container.withValues(alpha: .85),
               border: Border(
                 right: isLeft ? BorderSide(color: AppColor.border, width: .4) : BorderSide.none,
               ),
@@ -116,7 +116,7 @@ mixin HomePanelMetadata {
                   init: Get.find<HomeController>(),
                   builder: (controller) {
                     return DecoratedBox(
-                      decoration: ExDecorator.box(borderRadius: 10, borderColor: AppColor.border, fillColor: AppColor.container.withOpacity(.4)),
+                      decoration: ExDecorator.box(borderRadius: 10, borderColor: AppColor.border, fillColor: AppColor.container.withValues(alpha: .4)),
                       child: actresses.isEmpty
                           ? 'No actress added'.text.color(Vx.neutral500).size(11).makeCentered().p16()
                           : Wrap(
@@ -162,7 +162,7 @@ mixin HomePanelMetadata {
                   init: Get.find<HomeController>(),
                   builder: (controller) {
                     return DecoratedBox(
-                      decoration: ExDecorator.box(borderRadius: 10, borderColor: AppColor.border, fillColor: AppColor.container.withOpacity(.4)),
+                      decoration: ExDecorator.box(borderRadius: 10, borderColor: AppColor.border, fillColor: AppColor.container.withValues(alpha: .4)),
                       child: categories.isEmpty
                           ? 'No category added'.text.color(Vx.neutral500).size(11).makeCentered().p16()
                           : Wrap(
@@ -183,7 +183,7 @@ mixin HomePanelMetadata {
                                       .pSymmetric(h: 10, v: 8)
                                       .box
                                       .border(color: AppColor.border)
-                                      .color(AppColor.container.withOpacity(.7))
+                                      .color(AppColor.container.withValues(alpha: .7))
                                       .withRounded(value: 30)
                                       .make(),
                                 )

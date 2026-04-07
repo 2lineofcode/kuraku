@@ -16,7 +16,7 @@ const kActivityTypeRelapse = 'relapse';
 
 mixin DBActivity {
   static Database get _db => Get.find<DBService>().dbMain;
-  static final _tableName = 'activity';
+  static const _tableName = 'activity';
 
   // ────────────────────────────────────────────────────────────────
   // ⵌ COMMON UTILITIES
@@ -105,8 +105,7 @@ mixin DBActivity {
   // ────────────────────────────────────────────────────────────────
   static Future<Activity?> getTodo(String id) => _queryOne(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeTodo]);
 
-  static Future<List<Activity>> getTodos({String? orderBy}) =>
-      _query(where: 'type = ?', whereArgs: [kActivityTypeTodo], orderBy: orderBy ?? 'updated_at DESC');
+  static Future<List<Activity>> getTodos({String? orderBy}) => _query(where: 'type = ?', whereArgs: [kActivityTypeTodo], orderBy: orderBy ?? 'updated_at DESC');
 
   static Future<Activity?> addTodo(String content) async {
     final todo = Activity(type: kActivityTypeTodo, content: content.trim());
@@ -129,8 +128,7 @@ mixin DBActivity {
   // ────────────────────────────────────────────────────────────────
   // ⵌ PART: DOWNLOAD LOG
   // ────────────────────────────────────────────────────────────────
-  static Future<Activity?> getDownloadLog(String id) =>
-      _queryOne(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeDownload]);
+  static Future<Activity?> getDownloadLog(String id) => _queryOne(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeDownload]);
 
   static Future<Activity?> getDownloadLogByFilename(String filename) => _queryOne(
         where: 'type = ? AND json_extract(content, "\$.filename") LIKE ?',
@@ -158,8 +156,7 @@ mixin DBActivity {
     return current;
   }
 
-  static Future<void> deleteDownloadLog(String id) =>
-      _delete(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeDownload]);
+  static Future<void> deleteDownloadLog(String id) => _delete(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeDownload]);
 
   static Future<void> deleteDownloadLogByFilename(String filename) => _delete(
         where: 'type = ? AND json_extract(content, "\$.filename") LIKE ?',
@@ -171,9 +168,7 @@ mixin DBActivity {
   // ────────────────────────────────────────────────────────────────
   // ⵌ PART: RELAPSE / ACTIVITY
   // ────────────────────────────────────────────────────────────────
-  static Future<Activity?> getRelapse(String id) =>
-      _queryOne(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeRelapse]);
-
+  static Future<Activity?> getRelapse(String id) => _queryOne(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeRelapse]);
 
   /// Returns relapse data grouped by date with aggregated `times`.
   static Future<List<Activity>> getAllRelapse() async {
@@ -204,11 +199,10 @@ mixin DBActivity {
     return current;
   }
 
-  static Future<void> deleteRelapse(String id) =>
-      _delete(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeRelapse]);
+  static Future<void> deleteRelapse(String id) => _delete(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeRelapse]);
 
   static Future<void> deleteRelapseByDateLimitOne(String date) =>
-      _db.rawQuery('DELETE FROM $_tableName WHERE type = ? AND content = ? ORDER BY content DESC, id DESC LIMIT 1', [kActivityTypeRelapse, date]);
+      _db.rawDelete('DELETE FROM $_tableName WHERE type = ? AND content = ? ORDER BY content DESC, id DESC LIMIT 1', [kActivityTypeRelapse, date]);
 
   static Future<int> countRelapse({DateTime? start, DateTime? end}) async {
     if (start == null && end == null) {

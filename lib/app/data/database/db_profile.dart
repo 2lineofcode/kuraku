@@ -7,10 +7,10 @@ import '_init_db.dart';
 
 mixin DBProfile {
   static Database get _db => Get.find<DBService>().dbMain;
-  static final _tableName = 'profile';
+  static const _tableName = 'profile';
 
   static Future<Profile?> getProfile() async {
-    final List<Map<String, dynamic>> maps = await _db.query(_tableName, where: 'id = 1');
+    final List<Map<String, dynamic>> maps = await _db.query(_tableName, where: 'id = ?', whereArgs: ['1']);
     return maps.isNotEmpty ? Profile.fromJson(maps.first) : null;
   }
 
@@ -26,5 +26,4 @@ mixin DBProfile {
     profile.totalWatchDuration = (profile.totalWatchDuration ?? 0) + duration.inSeconds;
     await update(profile);
   }
-
 }

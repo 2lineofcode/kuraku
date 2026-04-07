@@ -9,7 +9,11 @@ import '_init_db.dart';
 
 mixin DBLibrary {
   static Database get _db => Get.find<DBService>().dbMain;
-  static final _tableName = 'library';
+  static const _tableName = 'library';
+
+  static List<Library> _toLibraries(List<Map<String, dynamic>> maps) {
+    return List.generate(maps.length, (index) => Library.fromJson(maps[index]));
+  }
 
   static Future<bool> _validation(Library library) async {
     final isDuplicateRootFolder = await getByRootFolder(library.rootFolder ?? '');
@@ -43,24 +47,23 @@ mixin DBLibrary {
 
   static Future<List<Library>> getAll() async {
     final List<Map<String, dynamic>> maps = await _db.query(_tableName);
-    return List.generate(maps.length, (index) => Library.fromJson(maps[index]));
+    return _toLibraries(maps);
   }
 
   static Future<List<Library>> getByID(String id) async {
     final List<Map<String, dynamic>> maps = await _db.query(_tableName, where: 'id = ?', whereArgs: [id]);
-    return List.generate(maps.length, (index) => Library.fromJson(maps[index]));
+    return _toLibraries(maps);
   }
 
   static Future<List<Library>> getByRootFolder(String rootFolder) async {
     final List<Map<String, dynamic>> maps = await _db.query(_tableName, where: 'root_folder = ?', whereArgs: [rootFolder]);
-    return List.generate(maps.length, (index) => Library.fromJson(maps[index]));
+    return _toLibraries(maps);
   }
 
   static Future<int> getCount() async {
-    final List<Map<String, dynamic>> maps = await _db.query(_tableName);
-    return maps.length;
+    final maps = await _db.rawQuery('SELECT COUNT(*) AS total FROM $_tableName');
+    return maps.isNotEmpty ? (maps.first['total'] as int? ?? 0) : 0;
   }
 
   static Future<void> deleteAll() async => await _db.delete(_tableName);
-
 }

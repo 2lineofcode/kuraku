@@ -17,8 +17,10 @@ import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
 import '../../data/database/db_profile.dart';
 import '../../data/database/db_videos.dart';
+import '../../data/database/db_watch_session.dart';
 import '../../data/models/videos_entity.dart';
 import '../../utils/helper.dart';
+import '../home/home_controller.dart';
 import '../home/home_panel/home_panel_video_info.dart';
 import '../home/page_home/page_home_controller.dart';
 import '../widgets/widget_thumbnail.dart';
@@ -77,6 +79,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     _accumulateWatchDuration();
     if (_sessionWatchDuration > Duration.zero) {
       await DBProfile.updateTotalWatchDuration(_sessionWatchDuration);
+      await DBWatchSession.addSession(video: currentVideo.value, duration: _sessionWatchDuration);
       AppLog.logD('_sessionWatchDuration -> ${_sessionWatchDuration.inSeconds} seconds');
       
       _sessionWatchDuration = Duration.zero;
@@ -506,6 +509,15 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
                               await Get.find<PageHomeController>().onRefresh();
                               _videos.refresh();
                             }).pOnly(right: 12),
+                            Icon(UIconsPro.regularRounded.plus, size: 13).onInkTap(() async {
+                              final homeController = Get.find<HomeController>();
+                              final isAdded = homeController.addToCart(__item);
+                              if (isAdded) {
+                                await HelperToast.success('Added to panel cart');
+                              } else {
+                                await HelperToast.info('Already in panel cart');
+                              }
+                            }).tooltip('Add to Panel Cart').pOnly(right: 12),
                             if (!__item.actress.isEmptyOrNull) ...[
                               Icon(UIconsPro.regularRounded.person_dolly, size: 13).pOnly(right: 8).onInkTap(() async {
                                 final _fltr = await DBVideos.getByActress(__item.actress?[0].nameRomaji ?? '');

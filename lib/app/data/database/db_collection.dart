@@ -14,14 +14,14 @@ const kCollectionTypeActressFavorite = 'actress_favorite';
 
 mixin DBCollection {
   static Database get _db => Get.find<DBService>().dbMain;
-  static final _tableName = 'collection';
+  static const _tableName = 'collection';
 
   // ────────────────────────────────────────────────────────────────
   // ⵌ COMMON UTILITIES
   // ────────────────────────────────────────────────────────────────
   static Collection _stamp(Collection collection) {
     final now = DateTime.now().toStringEx();
-    collection.id = UuidV4().generate();
+    collection.id ??= UuidV4().generate();
     collection.createdAt ??= now;
     collection.updatedAt = now;
     return collection;
@@ -56,7 +56,6 @@ mixin DBCollection {
     );
     return dup.isEmpty;
   }
-
 
   static Future<bool> _insert(Collection collection) async {
     if (!await _validation(collection)) return false;
@@ -95,7 +94,6 @@ mixin DBCollection {
     );
     return List.generate(maps.length, (index) => Collection.fromJson(maps[index]));
   }
-
 
   // ────────────────────────────────────────────────────────────────
   // ⵌ PART: Playlist
@@ -146,14 +144,42 @@ mixin DBCollection {
   }
 
   static Future<void> addPlaylistItemBulk(String playlistName, List<Videos> videos) async {
-    for (final video in videos) {
-      await addPlaylistItems(playlistName, video.id ?? '');
-    }
+    if (videos.isEmpty) return;
+
+    await _db.transaction((txn) async {
+      for (final video in videos) {
+        final videoId = video.id ?? '';
+        if (videoId.isEmpty) continue;
+
+        final playlist = Collection(
+          type: kCollectionTypePlaylist,
+          name: playlistName,
+          videoId: videoId,
+          createdAt: DateTime.now().toStringEx(),
+          updatedAt: DateTime.now().toStringEx(),
+        );
+
+        final where = 'type = ? AND name = ? AND video_id = ?';
+        final whereArgs = [kCollectionTypePlaylist, playlistName, videoId];
+        final dup = await txn.query(
+          _tableName,
+          where: where,
+          whereArgs: whereArgs,
+          limit: 1,
+        );
+        if (dup.isNotEmpty) continue;
+
+        if (playlist.id.isNullOrEmpty) {
+          playlist.id = UuidV4().generate();
+        }
+
+        await txn.insert(_tableName, playlist.toJson());
+      }
+    });
   }
 
   // -- req : name, video_id
   static Future<void> deletePlaylistItems(String playlistName, String videoId) async {
     await _delete(where: 'type = ? AND name = ? AND video_id = ?', whereArgs: [kCollectionTypePlaylist, playlistName, videoId]);
   }
-
 }
