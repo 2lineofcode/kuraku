@@ -16,8 +16,17 @@ import 'page_settings_controller.dart';
 
 class PageSettingsView extends GetView<PageSettingsController> {
   const PageSettingsView({super.key});
+
   @override
   Widget build(BuildContext context) {
+    return Obx(
+      () => controller.appLogMode.value == false 
+        ? uiMainContent(context).scrollVertical() 
+        : uiAppLog(context).scrollVertical(),
+    );
+  }
+
+  Widget uiMainContent(BuildContext context) {
     return VStack(
       [
         // ! APP INFO
@@ -41,7 +50,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                       HStack([
                         'Version'.text.size(11).minFontSize(11).neutral400.make(),
                         Spacer(),
-                        '(${Env.appVer})'.text.size(11).minFontSize(11).bold.make(),
+                        '${Env.appVer}'.text.size(11).minFontSize(11).bold.make(),
                       ]).pOnly(bottom: 8),
                       HStack([
                         'Total Library'.text.size(11).minFontSize(11).neutral400.make(),
@@ -86,40 +95,46 @@ class PageSettingsView extends GetView<PageSettingsController> {
             // row 2 ~
             Container(
               width: 100,
-              height: 240,
+              // height: 240,
               decoration: ExDecorator.box(borderColor: AppColor.border),
               child: VStack(
                 [
                   'Sensitif Action'.text.bold.make().pOnly(bottom: 16),
                   VStack(
                     [
+                       ExButtonText(
+                        label: '🧾 Open App Log',
+                        labelSize: 12,
+                        height: 32,
+                        onPressed: () => controller.onOpenAppLog(),
+                      ).pOnly(bottom: 8),
                       ExButtonText(
-                        label: 'Keyboard Shortcuts',
+                        label: '⌨️ Keyboard Shortcuts',
                         labelSize: 12,
                         height: 32,
                         onPressed: () => HelperOpener.openKeyboardShortcuts(),
                       ).pOnly(bottom: 8),
                       ExButtonText(
-                        label: 'Go App Folder',
+                        label: '📁 Go App Folder',
                         labelSize: 12,
                         height: 32,
                         onPressed: () => HelperOpener.openFolder(controller.appSetting.appPath),
                       ).pOnly(bottom: 8),
                       ExButtonText(
-                        label: 'Update R18 DB',
+                        label: '📁 Go Cache Folder',
+                        labelSize: 12,
+                        height: 32,
+                        onPressed: () => HelperOpener.openFolder('/Users/adit/Library/Caches/net_thumbnail'),
+                      ).pOnly(bottom: 8),
+                      ExButtonText(
+                        label: '🔄 Update R18 DB',
                         labelSize: 12,
                         height: 32,
                         onPressed: () => controller.updateR18DB(),
                       ).pOnly(bottom: 8),
-                      ExButtonText(
-                        label: 'Vacuum DB',
-                        labelSize: 12,
-                        height: 32,
-                        onPressed: () => controller.onVacuumDB(),
-                      ).pOnly(bottom: 8),
                       if (kDebugMode) ...[
                         ExButtonText(
-                          label: 'Reset DB',
+                          label: '🔥 Reset DB',
                           labelSize: 12,
                           height: 32,
                           onPressed: () => controller.onResetAll(),
@@ -210,7 +225,6 @@ class PageSettingsView extends GetView<PageSettingsController> {
                             ).expand(),
                           ],
                         ).pOnly(bottom: 8),
-
                         HStack(
                           [
                             'Search Engine'.text.size(12).make().pOnly(right: 12).w(100),
@@ -252,8 +266,6 @@ class PageSettingsView extends GetView<PageSettingsController> {
                             ).expand(),
                           ],
                         ).pOnly(bottom: 8),
-
-
                         HStack(
                           [
                             'Maximum Coli Per-Day'.text.size(12).make().pOnly(right: 12).w(100),
@@ -394,6 +406,163 @@ class PageSettingsView extends GetView<PageSettingsController> {
           ).pOnly(top: 12);
         }),
       ],
-    ).scrollVertical();
+    );
+  }
+
+  Widget uiAppLog(BuildContext context) {
+    return VStack(
+      [
+        HStack([
+          IconButton(
+            onPressed: () {
+              controller.appLogMode.value = false;
+            },
+            icon: Icon(Icons.arrow_back_rounded),
+          ).pOnly(right: 12),
+          'APP LOG'.text.bold.make(),
+          Spacer(),
+
+          CupertinoTextField(
+            controller: controller.tecAppLogFilter,
+            style: TextStyle(fontSize: 13, color: Vx.white),
+            placeholder: 'Filter logs...',
+            placeholderStyle: TextStyle(fontSize: 12, color: Vx.neutral500),
+            onChanged: (s) => controller.appLogKeyword.value = s,
+          ).w(150).pOnly(right: 12),
+
+
+          GestureDetector(
+            onTapDown: (details) async {
+              final value = await showMenu<String>(
+                context: context,
+                position: RelativeRect.fromLTRB(details.globalPosition.dx, details.globalPosition.dy, details.globalPosition.dx, details.globalPosition.dy),
+                items: [
+                  PopupMenuItem(value: 'ALL', child: Text('ALL', style: TextStyle(fontSize: 12))),
+                  PopupMenuItem(value: 'DEBUG', child: Text('DEBUG', style: TextStyle(fontSize: 12))),
+                  PopupMenuItem(value: 'INFO', child: Text('INFO', style: TextStyle(fontSize: 12))),
+                  PopupMenuItem(value: 'WARN', child: Text('WARN', style: TextStyle(fontSize: 12))),
+                  PopupMenuItem(value: 'ERROR', child: Text('ERROR', style: TextStyle(fontSize: 12))),
+                ],
+              );
+
+              if (value != null) {
+                controller.appLogLevelSelected.value = value;
+              }
+            },
+            child: Container(
+              decoration: ExDecorator.box(borderColor: Color(0xFF2B2A2F), fillColor: Colors.black, borderRadius: 6),
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: HStack(
+                [
+                  Icon(CupertinoIcons.list_dash, size: 16).pOnly(right: 8),
+                  Obx(
+                    () => Text(
+                      controller.appLogLevelSelected.value.isEmpty ? 'Select Level' : controller.appLogLevelSelected.value,
+                      style: TextStyle(fontSize: 12, color: Vx.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ).w(100),
+          
+          8.widthBox,
+          ExButtonText(
+            label: 'Clear',
+            labelSize: 11,
+            height: 28,
+            width: 60,
+            onPressed: () => controller.clearAppLog(),
+          ),
+        ]).pOnly(bottom: 12),
+
+
+        Obx(() {
+          final logs = controller.filteredAppLogs;
+          Color _badgeText(String level) {
+            switch (level) {
+              case 'DEBUG': return Color(0xFF60A5FA);
+              case 'INFO': return Color(0xFF34D399);
+              case 'WARN': return Color(0xFFF59E0B);
+              case 'ERROR': return Color(0xFFEF4444);
+              case 'OK': return Color(0xFF10B981);
+              default: return Color(0xFF9CA3AF);
+            }
+          }
+
+          Color _badgeBg(String level) {
+            switch (level) {
+              case 'DEBUG': return Color(0x332563EB);
+              case 'INFO': return Color(0x3322C55E);
+              case 'WARN': return Color(0x33F59E0B);
+              case 'ERROR': return Color(0x33EF4444);
+              case 'OK': return Color(0x3310B981);
+              default: return Color(0x334B5563);
+            }
+          }
+
+          return Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Vx.neutral700),
+            ),
+            child: VStack([
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+                  border: Border(bottom: BorderSide(color: Vx.neutral700)),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: HStack([
+                  'TIME'.text.size(11).semiBold.make().w(160),
+                  'LEVEL'.text.size(11).semiBold.make().w(84),
+                  'MESSAGE'.text.size(11).semiBold.make().expand(),
+                ]),
+              ),
+              if (logs.isEmpty)
+                'No app logs'.text.size(12).make().p12()
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: NeverScrollableScrollPhysics(),
+                  itemCount: logs.length,
+                  itemBuilder: (c, index) {
+                    final item = logs[index];
+                    final level = controller.normalizeLogLevel(item.type);
+                    final createdAt = (item.createdAt ?? '-').replaceAll('T', ' ').split('.').first;
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: index % 2 == 0 ? Vx.neutral900 : Vx.neutral800,
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Vx.neutral800,
+                            width: index == logs.length - 1 ? 0 : 1,
+                          ),
+                        ),
+                      ),
+                      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      child: HStack([
+                        createdAt.text.size(11).make().w(160),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: _badgeBg(level),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                          child: level.text.size(10).semiBold.color(_badgeText(level)).makeCentered(),
+                        ).w(80),
+                        (item.content ?? '-').text.size(12).make().pOnly(left: 12).onInkTap(() {
+                          HelperMisc.copyToClipboard(item.content ?? '-', showToast: true, toastDuration: 500.milliseconds);
+                        }).expand(),
+                      ]),
+                    );
+                  },
+                ),
+            ]),
+          );
+        }),
+      ],
+    );
   }
 }

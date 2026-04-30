@@ -3,6 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:toastification/toastification.dart';
 
+import '../modules/home/home_panel/home_panel_log.dart';
+
 mixin HelperToast {
   static Future<void> error(
     String? message, {
@@ -10,6 +12,7 @@ mixin HelperToast {
     Duration duration = const Duration(seconds: 5),
     Alignment? alignment,
   }) async {
+    await HomePanelAppLog.add('ERROR', message.toString());
     toastification.show(
       context: Get.context,
       type: ToastificationType.error,
@@ -30,6 +33,7 @@ mixin HelperToast {
     Duration duration = const Duration(seconds: 2),
     Alignment? alignment,
   }) async {
+    await HomePanelAppLog.add('SUCCESS', message.toString());
     toastification.show(
       context: Get.context,
       type: ToastificationType.success,
@@ -50,6 +54,7 @@ mixin HelperToast {
     Duration duration = const Duration(seconds: 2),
     Alignment? alignment,
   }) async {
+    await HomePanelAppLog.add('INFO', message.toString());
     toastification.show(
       context: Get.context,
       type: ToastificationType.info,
@@ -70,6 +75,7 @@ mixin HelperToast {
     Duration duration = const Duration(seconds: 2),
     Alignment? alignment,
   }) async {
+    await HomePanelAppLog.add('WARN', message.toString());
     toastification.show(
       context: Get.context,
       type: ToastificationType.warning,

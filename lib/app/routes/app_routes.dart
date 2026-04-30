@@ -5,4 +5,5 @@ abstract class Routes {
   static const ROOT = '/';
   static const HOME = '/home';
   static const PLAYER = '/player';
+  static const IMG_VIEWER = '/img-viewer';
 }

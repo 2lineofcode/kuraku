@@ -15,7 +15,6 @@ import '../widgets/widgets.dart';
 import 'home_controller.dart';
 import 'home_panel/home_panel_cart.dart';
 import 'home_panel/home_panel_library.dart';
-import 'home_panel/home_panel_log.dart';
 import 'home_panel/home_panel_playlist.dart';
 import 'home_panel/home_panel_relapse.dart';
 import 'page_download/page_download_view.dart';
@@ -263,8 +262,9 @@ class HomeView extends GetView<HomeController> {
       Obx(() => '👋🏻 ${controller.profile.value.name}'.text.size(11).make().onInkTap((){
         controller.onOpenProfile();
       })),
+      
       Obx(() => '${controller.footerText}'.text.size(11).ellipsis.maxLines(1).align(TextAlign.end).make().onInkTap((){
-        HomePanelAppLog.open();
+        controller.onOpenSettingsAppLog();
       }).expand()),
     ]).p12();
   }

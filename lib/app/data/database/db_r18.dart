@@ -119,8 +119,11 @@ mixin DBR18 {
       clauses.add('EXISTS ('
           'SELECT 1 FROM derived_video_actress dva2 '
           'JOIN derived_actress da2 ON da2.id = dva2.actress_id '
-          'WHERE dva2.content_id = v.content_id AND da2.name_romaji LIKE ?'
+          'WHERE dva2.content_id = v.content_id '
+          'AND (da2.name_romaji LIKE ? OR da2.name_kana LIKE ? OR da2.name_kanji LIKE ?)'
           ')');
+      args.add('%$actressName%');
+      args.add('%$actressName%');
       args.add('%$actressName%');
     }
 
@@ -212,6 +215,30 @@ mixin DBR18 {
       ''', [code]);
 
     return maps.isNotEmpty ? maps[0] : null;
+  }
+
+  static Future<Map<String, String>> getPosterByCodes(List<String> codes) async {
+    if (!_isReady()) return {};
+    final uniqueCodes = codes.where((e) => e.trim().isNotEmpty).map((e) => e.trim()).toSet().toList();
+    if (uniqueCodes.isEmpty) return {};
+
+    final placeholders = List.filled(uniqueCodes.length, '?').join(', ');
+    final maps = await _rawQuery('''
+      SELECT
+        v.dvd_id AS video_code,
+        v.jacket_thumb_url AS poster
+      FROM derived_video v
+      WHERE v.dvd_id IN ($placeholders)
+    ''', uniqueCodes);
+
+    final result = <String, String>{};
+    for (final row in maps) {
+      final code = (row['video_code'] ?? '').toString();
+      final poster = (row['poster'] ?? '').toString();
+      if (code.isEmpty || poster.isEmpty) continue;
+      result[code] = poster;
+    }
+    return result;
   }
 
   static Future<List<Map<String, dynamic>>> search(String query, { int? page = 1, int? perPage = 100, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd}) async {
@@ -391,27 +418,42 @@ mixin DBR18 {
     if (!_isReady()) return [];
 
     var whereClause = '''
-    name_romaji IS NOT NULL
-    AND name_romaji GLOB '[a-zA-Z]*'
-    AND name_romaji NOT GLOB '*[0-9]*'
-    AND name_romaji NOT GLOB '*[(-)]*'
-    AND name_romaji NOT GLOB '*[!@#\$%%^&*()_-+=~`{}|:;"<>?,./]*'
-    AND LENGTH(name_romaji) >= 3
+    (
+      (
+        name_romaji IS NOT NULL
+        AND TRIM(name_romaji) != ''
+        AND name_romaji GLOB '[a-zA-Z]*'
+        AND name_romaji NOT GLOB '*[0-9]*'
+        AND name_romaji NOT GLOB '*[(-)]*'
+        AND name_romaji NOT GLOB '*[!@#\$%%^&*()_-+=~`{}|:;"<>?,./]*'
+        AND LENGTH(name_romaji) >= 3
+      )
+      OR (
+        name_kana IS NOT NULL
+        AND TRIM(name_kana) != ''
+      )
+      OR (
+        name_kanji IS NOT NULL
+        AND TRIM(name_kanji) != ''
+      )
+    )
   ''';
     final whereArgs = <Object?>[];
 
-    if (q != null) {
-      whereClause += ' AND name_romaji LIKE ?';
+    if (q != null && q.trim().isNotEmpty) {
+      whereClause += ' AND (name_romaji LIKE ? OR name_kana LIKE ? OR name_kanji LIKE ?)';
+      whereArgs.add('%$q%');
+      whereArgs.add('%$q%');
       whereArgs.add('%$q%');
     }
 
     final maps = await _query(
       'derived_actress',
-      columns: ['*', 'name_romaji AS name_en'],
+      columns: ['*', 'COALESCE(NULLIF(name_romaji, ""), NULLIF(name_kana, ""), name_kanji) AS name_en'],
       where: whereClause,
       whereArgs: whereArgs,
-      groupBy: 'name_romaji',
-      orderBy: 'name_romaji',
+      groupBy: 'COALESCE(NULLIF(name_romaji, ""), NULLIF(name_kana, ""), name_kanji)',
+      orderBy: 'name_en COLLATE NOCASE',
     );
 
     return maps;

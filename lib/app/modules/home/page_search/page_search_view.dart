@@ -102,9 +102,22 @@ class PageSearchView extends GetView<PageSearchController> {
 
           
         ]).pOnly(bottom: 24),
-        Obx(
-          () => controller.isSearchMode.isTrue ? 'Result: ${controller.videos.length} Videos'.text.size(12).make().pOnly(bottom: 16) : 0.heightBox,
-        ),
+
+
+        Obx(() => controller.isSearchMode.isTrue
+            ? HStack(
+                [
+                  'Result: ${controller.videos.length} Videos'.text.size(12).make(),
+                  Spacer(),
+                  if (controller.videos.isNotEmpty) ...[
+                    'PLAY ALL'.text.underline.size(12).make().pOnly(right: 16).onInkTap(() {
+                      HelperOpener.openVideoFile(controller.videos.first, playlist: controller.videos);
+                    }),
+                  ],
+                ],
+              ).pOnly(bottom: 16)
+            : 0.heightBox),
+        
         Obx(
           () => controller.videos.isEmpty
               ? ExUiErrorOrEmpty(

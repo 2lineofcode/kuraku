@@ -40,7 +40,7 @@ class DBService extends GetxService {
     await Directory(appPath).create(recursive: true);
     return await openDatabase(
       path,
-      version: 2,
+      version: 4,
       singleInstance: true,
       onConfigure: _onConfigure,
       onCreate: _onCreate,
@@ -210,41 +210,18 @@ class DBService extends GetxService {
     if (oldVersion < 2) {
       await _createFeatureTables(db);
     }
+
+    if (oldVersion < 3) {
+      await _createFeatureTables(db);
+    }
+
+    if (oldVersion < 4) {
+      await _dropRemovedFeatureTables(db);
+    }
   }
 
   Future<void> _createFeatureTables(Database db) async {
-    // watch next queue
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS watch_next_queue (
-        id                          TEXT PRIMARY KEY,
-        name                        TEXT,
-        is_active                   INTEGER DEFAULT 0,
-        rules_json                  TEXT,
-        created_at                  TEXT,
-        updated_at                  TEXT
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS watch_next_item (
-        id                          TEXT PRIMARY KEY,
-        queue_id                    TEXT,
-        video_id                    TEXT,
-        video_path                  TEXT,
-        position                    INTEGER,
-        score                       REAL DEFAULT 0,
-        status                      TEXT,               -- pending | playing | done | skipped
-        reason                      TEXT,
-        created_at                  TEXT,
-        updated_at                  TEXT
-      )
-    ''');
-
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_watch_next_item_queue ON watch_next_item(queue_id);');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_watch_next_item_status ON watch_next_item(status);');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_watch_next_item_position ON watch_next_item(position);');
-
-    // watch sessions (for dashboard trend)
+    // watch sessions
     await db.execute('''
       CREATE TABLE IF NOT EXISTS watch_session (
         id                          TEXT PRIMARY KEY,
@@ -256,23 +233,26 @@ class DBService extends GetxService {
     ''');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_watch_session_created_at ON watch_session(created_at);');
 
-    // health snapshot
+    // achievement unlock history
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS health_snapshot (
+      CREATE TABLE IF NOT EXISTS achievement_unlock (
         id                          TEXT PRIMARY KEY,
-        snapshot_date               TEXT,
-        total_video                 INTEGER,
-        duplicate_paths             INTEGER,
-        missing_files               INTEGER,
-        external_offline            INTEGER,
-        missing_metadata            INTEGER,
-        watch_seconds_7d            INTEGER,
-        watch_seconds_30d           INTEGER,
-        created_at                  TEXT
+        achievement_key             TEXT UNIQUE,
+        title                       TEXT,
+        description                 TEXT,
+        unlocked_at                 TEXT,
+        created_at                  TEXT,
+        updated_at                  TEXT
       )
     ''');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_health_snapshot_date ON health_snapshot(snapshot_date);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_achievement_unlock_key ON achievement_unlock(achievement_key);');
 
+  }
+
+  Future<void> _dropRemovedFeatureTables(Database db) async {
+    await db.execute('DROP TABLE IF EXISTS watch_next_item');
+    await db.execute('DROP TABLE IF EXISTS watch_next_queue');
+    await db.execute('DROP TABLE IF EXISTS health_snapshot');
   }
 
   Database get mainDatabase => dbMain;
@@ -283,10 +263,8 @@ class DBService extends GetxService {
     await DBVideos.deleteAll();
     await DBActivity.deleteAll();
     await DBCollection.deleteAll();
-    await dbMain.delete('watch_next_queue');
-    await dbMain.delete('watch_next_item');
     await dbMain.delete('watch_session');
-    await dbMain.delete('health_snapshot');
+    await dbMain.delete('achievement_unlock');
     await vacumDB();
   }
 

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:ex_kit/ex.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
@@ -27,6 +29,121 @@ import '../home_controller.dart';
 /// A mixin for managing library-related functionalities in the home screen.
 mixin HomePanelLibrary {
   static final _controller = Get.find<HomeController>();
+  static final Map<String, StreamSubscription<FileSystemEvent>> _libraryWatchSubs = {};
+  static final Map<String, Timer> _libraryWatchDebounce = {};
+  static final Set<String> _libraryRescanInProgress = {};
+  static const Duration _watchDebounce = Duration(seconds: 3);
+
+  static bool _isSupportedVideoPath(String path) {
+    final pth = path.toLowerCase();
+    return pth.endsWith('.mp4')
+        || pth.endsWith('.mkv')
+        || pth.endsWith('.avi')
+        || pth.endsWith('.mov')
+        || pth.endsWith('.wmv')
+        || pth.endsWith('.flv')
+        || pth.endsWith('.webm')
+        || pth.endsWith('.m4v');
+  }
+
+  static bool _shouldIgnoreWatchEvent(FileSystemEvent event) {
+    final path = event.path;
+    if (path.isEmpty) return true;
+
+    final lower = path.toLowerCase();
+    if (lower.contains('/.ds_store') || lower.contains('/.tras') || lower.contains('/@eaDir'.toLowerCase())) {
+      return true;
+    }
+
+    if (lower.endsWith('.part') || lower.endsWith('.tmp') || lower.endsWith('.crdownload')) {
+      return true;
+    }
+
+    // Folder move/rename events may not carry video extension.
+    // Keep watcher responsive by allowing directory events to trigger rescan.
+    final isDirectoryEvent = Directory(path).existsSync();
+    if (isDirectoryEvent) return false;
+
+    return !_isSupportedVideoPath(path);
+  }
+
+  static Future<void> startAutoRescanWatcher() async {
+    final libraries = await DBLibrary.getAll();
+    await _syncLibraryWatchers(libraries);
+  }
+
+  static Future<void> runStartupReconcile() async {
+    final libraries = await DBLibrary.getAll();
+    if (libraries.isEmpty) return;
+
+    await doRescanAllVideoFromLibrary(
+      libraries,
+      showSummaryToast: false,
+      preserveInputState: true,
+    );
+  }
+
+  static Future<void> stopAutoRescanWatcher() async {
+    for (final sub in _libraryWatchSubs.values) {
+      await sub.cancel();
+    }
+    _libraryWatchSubs.clear();
+    for (final t in _libraryWatchDebounce.values) {
+      t.cancel();
+    }
+    _libraryWatchDebounce.clear();
+    _libraryRescanInProgress.clear();
+  }
+
+  static Future<void> _syncLibraryWatchers(List<Library> libraries) async {
+    final roots = libraries.map((e) => (e.rootFolder ?? '').trim()).where((e) => e.isNotEmpty).toSet();
+
+    final toRemove = _libraryWatchSubs.keys.where((root) => !roots.contains(root)).toList();
+    for (final root in toRemove) {
+      await _libraryWatchSubs[root]?.cancel();
+      _libraryWatchSubs.remove(root);
+      _libraryWatchDebounce.remove(root)?.cancel();
+    }
+
+    for (final root in roots) {
+      if (_libraryWatchSubs.containsKey(root)) continue;
+      final dir = Directory(root);
+      if (!dir.existsSync()) continue;
+
+      try {
+        final sub = dir.watch(recursive: true).listen((event) {
+          if (_shouldIgnoreWatchEvent(event)) return;
+          _libraryWatchDebounce[root]?.cancel();
+          _libraryWatchDebounce[root] = Timer(_watchDebounce, () async {
+            await _runAutoRescanForRoot(root);
+          });
+        }, onError: (e) {
+          AppLog.logW('[LibraryWatcher] Watch error for $root: $e');
+        });
+
+        _libraryWatchSubs[root] = sub;
+      } catch (e) {
+        AppLog.logW('[LibraryWatcher] Failed to watch $root: $e');
+      }
+    }
+  }
+
+  static Future<void> _runAutoRescanForRoot(String root) async {
+    if (_libraryRescanInProgress.contains(root)) return;
+    _libraryRescanInProgress.add(root);
+    try {
+      final libraries = await DBLibrary.getAll();
+      final library = libraries.firstWhereOrNull((e) => (e.rootFolder ?? '').trim() == root);
+      if (library == null) return;
+
+      AppLog.logD('[LibraryWatcher] Auto rescan triggered for: ${library.alias ?? root}');
+      await _doRescanVideoFromLibrary(library, fromAutoWatcher: true);
+    } catch (e) {
+      AppLog.logW('[LibraryWatcher] Auto rescan failed for $root: $e');
+    } finally {
+      _libraryRescanInProgress.remove(root);
+    }
+  }
 
   /// Displays the library menu as an overlay panel.
   /// This menu shows a list of libraries, allows adding new ones,
@@ -91,8 +208,8 @@ mixin HomePanelLibrary {
                         ).pOnly(right: 8),
                         VStack([
                           '${item.alias}'.text.ellipsis.make().pOnly(right: 8),
-                          '${item.rootFolder!.getLastSegments()}'.text.size(10).minFontSize(10).neutral500.make(),
-                        ]),
+                          '${item.rootFolder!.getLastSegments()}'.text.size(10).minFontSize(10).neutral500.ellipsis.make(),
+                        ]).expand(),
                       ]).expand(),
 
                       Container(
@@ -250,9 +367,9 @@ mixin HomePanelLibrary {
     }
 
     // Edit mode
-    if (library != null) {
-      library.alias = alias;
-      library.rootFolder = rootPath;
+      if (library != null) {
+        library.alias = alias;
+        library.rootFolder = rootPath;
 
       if (isFromDrop) {
         Get.back();
@@ -261,6 +378,7 @@ mixin HomePanelLibrary {
       } else {
         Get.back();
         await DBLibrary.update(library);
+        await startAutoRescanWatcher();
       }
       return;
     }
@@ -270,6 +388,7 @@ mixin HomePanelLibrary {
     await DBLibrary.add(librarySelected);
     Get.back();
     await _doAddorEditVideoFromLibrary(librarySelected);
+    await startAutoRescanWatcher();
   }
 
 
@@ -278,34 +397,49 @@ mixin HomePanelLibrary {
   /// Processes and adds/edits videos from a specific library.
   /// Scans for video files and updates the database with metadata if available.
   // ────────────────────────────────────────────────────────────────
-  static Future<void> _doAddorEditVideoFromLibrary(Library library) async {
+  static Future<void> _doAddorEditVideoFromLibrary(
+    Library library, {
+    bool refreshAfter = true,
+    bool showFinishToast = true,
+    bool showLoading = true,
+  }) async {
     AppLog.logD('Start processing library: ${library.alias}');
     final sw = Stopwatch();
     sw.start();
 
     if (library.videos == null || library.videos!.isEmpty) return;
 
-    _controller.footerText.value = '◎ Scanning and processing videos...';
-    _controller.change(200, status: RxStatus.loading());
+    if (showLoading) {
+      _controller.footerText.value = '◎ Scanning and processing videos...';
+      _controller.change(200, status: RxStatus.loading());
+    }
 
     final videos = library.videos!;
     final totalVideos = videos.length;
     final videosToAdd = <Videos>[];
+    var processedCounter = 0;
+    var cursor = 0;
+    final workerCount = math.min(6, totalVideos);
 
-    final processedCounter = 0.obs;
+    final workers = List.generate(workerCount, (_) async {
+      while (true) {
+        if (cursor >= totalVideos) break;
+        final currentIndex = cursor;
+        cursor++;
 
-    // Process videos in parallel
-    final List<Future<void>> processingFutures = videos.map((videoPath) async {
-      final processedVideo = await _processVideo(videoPath, library.rootFolder);
-      if (processedVideo != null) videosToAdd.add(processedVideo);
-      
-      // Update progress
-      processedCounter.value++;
-      _controller.loadingText.value = 'Progress: ${processedCounter.value} of $totalVideos (${(processedCounter.value * 100 / totalVideos).toInt()}%)';
-    }).toList();
+        final videoPath = videos[currentIndex];
+        final processedVideo = await _processVideo(videoPath, library.rootFolder);
+        if (processedVideo != null) {
+          videosToAdd.add(processedVideo);
+        }
 
-    // Wait for all processing to complete
-    await Future.wait(processingFutures);
+        processedCounter++;
+        if (processedCounter % 1 == 0 || processedCounter == totalVideos) {
+          _controller.loadingText.value = 'Progress: $processedCounter of $totalVideos (${(processedCounter * 100 / totalVideos).toInt()}%)';
+        }
+      }
+    });
+    await Future.wait(workers);
 
     if (videosToAdd.isNotEmpty) {
       _controller.footerText.value = '◎ Committing ${videosToAdd.length} Videos';
@@ -316,10 +450,13 @@ mixin HomePanelLibrary {
 
     sw.stop();
     AppLog.logD('Time taken: ${sw.elapsedMilliseconds}ms');
-    await HelperToast.success('Finish • ${sw.elapsedMilliseconds}ms | ${videosToAdd.length} Videos Added');
+    if (showFinishToast) {
+      await HelperToast.success('Finish • ${sw.elapsedMilliseconds}ms | ${videosToAdd.length} Videos Added');
+    }
 
-
-    await _controller.onRefreshAllContent();
+    if (refreshAfter) {
+      await _controller.onRefreshAllContent();
+    }
   }
 
   // ** PROCESS VIDEO
@@ -366,14 +503,18 @@ mixin HomePanelLibrary {
       newVideo.poster = '${dataVideo['poster']}';
 
       // logic for screenshot
-      if (dataVideo['sslast'] != null) {
+      if (dataVideo['sslast'] != null && dataVideo['ssfirst'] != null) {
         final screenshots = <String>[];
-        final total = int.parse(dataVideo['sslast'].toString().split('-').last);
+        final total = int.tryParse(dataVideo['sslast'].toString().split('-').last) ?? 0;
         final filename = dataVideo['ssfirst'].toString();
         final base = filename.contains('jp-') ? filename.removeLast(1) : '${filename.allBefore('-')}jp-';
 
-        for (var i = 1; i <= total; i++) screenshots.add('$base$i');
-        newVideo.screenshot = screenshots;
+        if (total > 0) {
+          for (var i = 1; i <= total; i++) {
+            screenshots.add('$base$i');
+          }
+          newVideo.screenshot = screenshots;
+        }
       }
 
       final file = File(videoPath);
@@ -404,6 +545,7 @@ mixin HomePanelLibrary {
   static Future<void> _doDeleteVideoFromLibrary(Library library) async {
     await DBVideos.deleteByRootPath(library.rootFolder ?? '');
     await DBLibrary.delete(library);
+    await startAutoRescanWatcher();
     await _controller.onRefreshAllContent();
   }
 
@@ -415,7 +557,7 @@ mixin HomePanelLibrary {
   // - collect (add, delete, update)
   // - update library
   // ────────────────────────────────────────────────────────────────
-  static Future<void> _doRescanVideoFromLibrary(Library library) async {
+  static Future<void> _doRescanVideoFromLibrary(Library library, {bool fromAutoWatcher = true}) async {
     try {
       final oldData = library;
       final newData = await HelperFilePicker.scanFolderAndSubFolder(library.rootFolder ?? '');
@@ -424,37 +566,67 @@ mixin HomePanelLibrary {
 
       final pathToAdd = <String>[];
       final pathToDelete = <String>[];
+      final oldVideos = Set<String>.from(oldData.videos ?? const <String>[]);
+      final newVideos = Set<String>.from(newData.videos ?? const <String>[]);
 
-      for (final newVideo in newData.videos ?? []) {
-        if (oldData.videos == null || !oldData.videos!.contains(newVideo)) {
-          pathToAdd.add(newVideo);
-        }
-      }
-
-      for (final oldVideo in oldData.videos ?? []) {
-        if (!newData.videos!.contains(oldVideo)) {
-          pathToDelete.add(oldVideo);
-        }
-      }
+      pathToAdd.addAll(newVideos.difference(oldVideos));
+      pathToDelete.addAll(oldVideos.difference(newVideos));
 
       // Update library
       oldData.totalVideo = newData.totalVideo;
       oldData.videos = newData.videos;
       await DBLibrary.update(oldData);
 
-      if (pathToAdd.isNotEmpty) {
-        // Need to create a new library object with only the new videos
-        final libraryWithNewVideos = Library(videos: pathToAdd, rootFolder: oldData.rootFolder);
-        await _doAddorEditVideoFromLibrary(libraryWithNewVideos);
-        await HelperToast.info('${library.alias} | Added ${pathToAdd.length} videos');
+      final moves = <Map<String, String>>[];
+      final remainingAdds = <String>[];
+      final remainingDeletes = List<String>.from(pathToDelete);
+      final delByName = <String, List<String>>{};
+
+      for (final oldPath in pathToDelete) {
+        final name = p.basename(oldPath);
+        delByName.putIfAbsent(name, () => []).add(oldPath);
       }
 
-      if (pathToDelete.isNotEmpty) {
-        for (var i = 0; i < pathToDelete.length; i++) {
-          await DBVideos.deleteByVideoPath(pathToDelete[i]);
+      for (final newPath in pathToAdd) {
+        final name = p.basename(newPath);
+        final candidates = delByName[name];
+        if (candidates != null && candidates.isNotEmpty) {
+          final matchedOldPath = candidates.removeAt(0);
+          moves.add({
+            'oldRoot': oldData.rootFolder ?? '',
+            'oldPath': matchedOldPath,
+            'newRoot': oldData.rootFolder ?? '',
+            'newPath': newPath,
+          });
+          remainingDeletes.remove(matchedOldPath);
+        } else {
+          remainingAdds.add(newPath);
         }
-        await HelperToast.warn('${library.alias} | Deleted ${pathToDelete.length} videos');
-        await _controller.onRefreshAllContent();
+      }
+
+      if (moves.isNotEmpty) {
+        final moved = await DBVideos.moveVideoPaths(moves);
+        AppLog.logD('[RescanSingle] ${library.alias} | moved=$moved');
+      }
+
+      if (remainingAdds.isNotEmpty) {
+        final libraryWithNewVideos = Library(videos: remainingAdds, rootFolder: oldData.rootFolder);
+        await _doAddorEditVideoFromLibrary(
+          libraryWithNewVideos,
+          refreshAfter: false,
+          showFinishToast: false,
+          showLoading: false,
+        );
+        await HelperToast.info('${library.alias} | Added ${remainingAdds.length} videos');
+      }
+
+      if (remainingDeletes.isNotEmpty) {
+        await DBVideos.deleteByVideoPaths(remainingDeletes);
+        await HelperToast.warn('${library.alias} | Deleted ${remainingDeletes.length} videos');
+      }
+
+      if (moves.isNotEmpty || remainingAdds.isNotEmpty || remainingDeletes.isNotEmpty) {
+        await _controller.onRefreshAllContent(preserveInputState: fromAutoWatcher);
       }
     } catch (e) {
       AppLog.logE(e);
@@ -464,7 +636,11 @@ mixin HomePanelLibrary {
   // ────────────────────────────────────────────────────────────────
   // Rescan All libraries (detect cross-library moves by basename)
   // ────────────────────────────────────────────────────────────────
-  static Future<void> doRescanAllVideoFromLibrary(List<Library> libraries) async {
+  static Future<void> doRescanAllVideoFromLibrary(
+    List<Library> libraries, {
+    bool showSummaryToast = true,
+    bool preserveInputState = true,
+  }) async {
     try {
       if (libraries.isEmpty) return;
 
@@ -561,13 +737,8 @@ mixin HomePanelLibrary {
         }
       }
 
-      // 5) Apply moves: update DB path immediately
-      for (final m in moves) {
-        final updVideo = await DBVideos.getByVideoPath(m['oldPath']!);
-        updVideo?.videoPath = m['newPath'];
-        updVideo?.rootPath = p.dirname(m['newPath']!);
-        await DBVideos.update(updVideo!);
-      }
+      // 5) Apply moves: batch update DB paths.
+      final movedUpdatedRows = await DBVideos.moveVideoPaths(moves);
 
       // 6) For remaining adds, group by root and call doAddorEditVideoFromLibrary per root
       final Map<String, List<String>> addsByRoot = {};
@@ -579,15 +750,20 @@ mixin HomePanelLibrary {
         final root = entry.key;
         final list = entry.value;
         final libToAdd = Library(videos: list, rootFolder: root);
-        await _doAddorEditVideoFromLibrary(libToAdd);
+        await _doAddorEditVideoFromLibrary(
+          libToAdd,
+          refreshAfter: false,
+          showFinishToast: false,
+          showLoading: false,
+        );
       }
 
       // 7) Apply remaining deletes (those not used in moves)
       // delCandidates list still contains leftovers; delete them
-      for (final d in List<Map<String, String>>.from(delCandidates)) {
-        final delPath = d['path']!;
-        await DBVideos.deleteByVideoPath(delPath);
-      }
+      final delPaths = List<String>.from(
+        List<Map<String, String>>.from(delCandidates).map((d) => d['path'] ?? '').where((p) => p.isNotEmpty),
+      );
+      await DBVideos.deleteByVideoPaths(delPaths);
 
       // 8) Update each library metadata in DB to reflect scanned state
       for (final lib in scannedLibraries) {
@@ -598,7 +774,7 @@ mixin HomePanelLibrary {
       }
 
       // 9) Summary log
-      AppLog.logD('[RescanAll] Finished | Adds=${remainingAdds.length}, Deletes=${delCandidates.length}, Moves=${moves.length}');
+      AppLog.logD('[RescanAll] Finished | Adds=${remainingAdds.length}, Deletes=${delCandidates.length}, Moves=${moves.length}, MoveUpdated=$movedUpdatedRows');
       for (final mv in moves) {
         AppLog.logD('[RescanAll] Move ${mv['oldPath']} -> ${mv['newPath']}');
       }
@@ -606,8 +782,10 @@ mixin HomePanelLibrary {
       _controller.footerText.value = 'Idle | Total Video: ${await DBVideos.getCount()}';
 
       if (remainingAdds.isNotEmpty || delCandidates.isNotEmpty || moves.isNotEmpty) {
-        await HelperToast.info('Finish • ${remainingAdds.length} added • ${delCandidates.length} deleted • ${moves.length} moved');
-        await _controller.onRefreshAllContent();
+        if (showSummaryToast) {
+          await HelperToast.info('Finish • ${remainingAdds.length} added • ${delCandidates.length} deleted • ${moves.length} moved');
+        }
+        await _controller.onRefreshAllContent(preserveInputState: preserveInputState);
       }
     } catch (e) {
       AppLog.logE('[RescanAll]: $e');
@@ -623,8 +801,15 @@ mixin HomePanelLibrary {
       AppLog.logD('error, try (ffmpeg) way -> ${video.videoPath}');
       await FFprobeKit.getMediaInformation(video.videoPath!).then((medInfo) {
         if (medInfo.getMediaInformation() == null) return;
-        final stream = medInfo.getMediaInformation()?.getStreams().first;
-        video.quality = '${stream?.getWidth()}x${stream?.getHeight()}';
+        final streams = medInfo.getMediaInformation()?.getStreams();
+        if (streams == null || streams.isEmpty) return;
+        final stream = streams.firstWhere(
+          (s) => s.getWidth() != null && s.getHeight() != null,
+          orElse: () => streams.first,
+        );
+        if (stream.getWidth() != null && stream.getHeight() != null) {
+          video.quality = '${stream.getWidth()}x${stream.getHeight()}';
+        }
       });
     }
   }

@@ -12,6 +12,7 @@ import '../../../utils/helper.dart';
 mixin HomePanelAppLog {
 
   static final _appLogRuntime = <AppLogRuntime>[].obs;
+  static RxList<AppLogRuntime> get appLogRuntime => _appLogRuntime;
 
   static Future<void> open() async {
     if (Overlayment.count > 0) { await Overlayment.dismissLast(); return; }

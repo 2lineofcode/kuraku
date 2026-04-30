@@ -15,6 +15,8 @@ import '../../../env.g.dart';
 import '../../core/app_color.dart';
 import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
+import '../../data/database/db_activity.dart';
+import '../../data/database/db_gamification.dart';
 import '../../data/database/db_profile.dart';
 import '../../data/database/db_videos.dart';
 import '../../data/database/db_watch_session.dart';
@@ -52,6 +54,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   final volume = AppPref.getPlayerVolume().obs;
   final playbackSpeed = AppPref.getPlayerSpeed().obs;
   final bufferingPercent = 0.0.obs;
+  final isAudioNormalizationEnabled = AppPref.getPlayerAudioNormalization().obs;
 
   late AnimationController infoAnimationController;
 
@@ -59,6 +62,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   double _lastPersistedVolume = AppPref.getPlayerVolume();
   double _lastPersistedSpeed = AppPref.getPlayerSpeed();
   bool _hasSyncedPreferences = false;
+  bool _isAutoAdvancing = false;
 
   Duration _sessionWatchDuration = Duration.zero;
   DateTime? _playStartedAt;
@@ -80,6 +84,16 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     if (_sessionWatchDuration > Duration.zero) {
       await DBProfile.updateTotalWatchDuration(_sessionWatchDuration);
       await DBWatchSession.addSession(video: currentVideo.value, duration: _sessionWatchDuration);
+
+      final summary = await DBGamification.syncAndGetSummary();
+      if (Get.isRegistered<HomeController>()) {
+        final home = Get.find<HomeController>();
+        home.profile.value = await DBProfile.getProfile() ?? home.profile.value;
+        home.streakDays.value = summary.streakDays;
+        home.achievementCount.value = summary.achievementCount;
+        home.latestAchievementTitles.value = summary.latestAchievements.map((e) => e.title).toList();
+      }
+
       AppLog.logD('_sessionWatchDuration -> ${_sessionWatchDuration.inSeconds} seconds');
       
       _sessionWatchDuration = Duration.zero;
@@ -137,10 +151,22 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     infoAnimationController = AnimationController(vsync: this, duration: 1.seconds, reverseDuration: 200.milliseconds);
 
     _bindPlayerStreams();
+    await applyAudioNormalization(enabled: isAudioNormalizationEnabled.value, persist: false);
     change(currentVideo.value, status: RxStatus.loading());
   }
 
   Future<bool> startPlayback(Videos video, {List<Videos>? playlist}) async {
+
+    // check maxColi Count
+    final todayColi = await DBActivity.getCountRelapseToday();
+    AppLog.logD('todayColi -> $todayColi');
+    if (todayColi >= AppPref.getAppMaxColi()) {
+      await HelperToast.error('Max coli count reached for today. Please try again tomorrow.');
+      Get.back();
+      return false;
+    }
+
+
     final path = video.videoPath;
     if (path.isNullOrEmpty) {
       await HelperToast.error('Video path is null');
@@ -239,8 +265,43 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     }));
 
     _subscriptions.add(player.stream.error.listen((value) async {
-      if (value.isNotEmpty) await HelperToast.error(value);
+      if (value.isEmpty) return;
+      if (_shouldIgnoreNoAudioError(value)) {
+        AppLog.logD('Ignored player no-audio error: $value');
+        return;
+      }
+      await HelperToast.error(value);
     }));
+
+    _subscriptions.add(player.stream.completed.listen((value) async {
+      if (value != true) return;
+      if (_isAutoAdvancing) return;
+      if (currentIndexPlaying.value < 0) return;
+      if (currentIndexPlaying.value + 1 >= playlist.length) return;
+
+      _isAutoAdvancing = true;
+      try {
+        await nextVideo();
+      } finally {
+        _isAutoAdvancing = false;
+      }
+    }));
+  }
+
+  bool _shouldIgnoreNoAudioError(String message) {
+    final msg = message.toLowerCase();
+    final isNoAudio = msg.contains('no audio')
+        || msg.contains('audio track')
+        || msg.contains('audio stream')
+        || msg.contains('failed to initialize audio')
+        || msg.contains('audio output')
+        || msg.contains('audio filter initialized failed')
+        || msg.contains('audio filter init failed')
+        || msg.contains('option af: dynaudnorm doesn\'t exist')
+        || msg.contains('option af:')
+        || msg.contains('[ao]')
+        || msg.contains('ao/');
+    return isNoAudio;
   }
 
   Future<void> _openVideo(Videos video) async {
@@ -267,6 +328,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
         play: true,
       );
 
+      await applyAudioNormalization(enabled: isAudioNormalizationEnabled.value, persist: false);
       await player.setRate(playbackSpeed.value);
       await player.setVolume(volume.value * 100);
       _hasSyncedPreferences = true;
@@ -287,6 +349,56 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     AppPref.setPlayerVolume(normalized);
     _hasSyncedPreferences = true;
     await player.setVolume(normalized * 100);
+  }
+
+  Future<void> applyAudioNormalization({required bool enabled, bool persist = true}) async {
+    final platform = player.platform;
+    if (platform is! NativePlayer) {
+      isAudioNormalizationEnabled.value = enabled;
+      if (persist) AppPref.setPlayerAudioNormalization(enabled);
+      return;
+    }
+
+    if (!enabled) {
+      try {
+        await platform.setProperty('af', '');
+      } catch (e) {
+        AppLog.logD('disable audio normalization failed: $e');
+      }
+      isAudioNormalizationEnabled.value = false;
+      if (persist) AppPref.setPlayerAudioNormalization(false);
+      return;
+    }
+
+    const candidates = <String>[
+      'lavfi=[acompressor=threshold=-18dB:ratio=3:attack=10:release=180:makeup=4dB]',
+      'lavfi=[loudnorm=I=-16:TP=-1.5:LRA=11]',
+      'lavfi=[alimiter=limit=0.95]',
+    ];
+
+    var applied = false;
+    for (final filter in candidates) {
+      try {
+        await platform.setProperty('af', filter);
+        applied = true;
+        break;
+      } catch (e) {
+        AppLog.logD('audio normalization candidate failed ($filter): $e');
+      }
+    }
+
+    if (!applied) {
+      try {
+        await platform.setProperty('af', '');
+      } catch (_) {}
+      isAudioNormalizationEnabled.value = false;
+      AppPref.setPlayerAudioNormalization(false);
+      AppLog.logW('Audio normalization unsupported. Disabled automatically.');
+      return;
+    }
+
+    isAudioNormalizationEnabled.value = true;
+    if (persist) AppPref.setPlayerAudioNormalization(true);
   }
 
   Future<void> adjustVolume(double delta) async {
@@ -421,6 +533,10 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
               placeholder: 'Search (${_videos.length})...',
               style: TextStyle(color: Vx.white, fontSize: 14),
               prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+              // suffix: IconButton(
+              //   icon: Icon(Icons.sort, size: 14, color: Vx.neutral300),
+              //   onPressed: () {},
+              // ).pOnly(right: 4),
               onSubmitted: (q) async {
                 if (q.isEmpty) {
                   _videos.value = await DBVideos.getAll(
@@ -492,46 +608,47 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
                           '${__item.title}'.text.minFontSize(12).size(12).maxLines(3).ellipsis.make(),
                           Spacer(),
                           HStack([
-                            '${__item.filesize?.toFileSizeFormat()}'.text.orange300.size(11).minFontSize(11).make().pOnly(right: 8).tooltip('${__item.videoPath}'),
-                            Spacer(),
-                            Icon(
-                              __item.isFavorite == 1 ? UIconsPro.solidRounded.star : UIconsPro.regularRounded.star,
-                              color: __item.isFavorite == 1 ? Colors.orange : null,
-                              size: 13,
-                            ).onInkTap(() async {
-                              if (__item.isFavorite == 1) {
-                                __item.isFavorite = 0;
-                                await DBVideos.removeFromFavorite(__item);
-                              } else {
-                                __item.isFavorite = 1;
-                                await DBVideos.addToFavorite(__item);
-                              }
-                              await Get.find<PageHomeController>().onRefresh();
-                              _videos.refresh();
-                            }).pOnly(right: 12),
-                            Icon(UIconsPro.regularRounded.plus, size: 13).onInkTap(() async {
-                              final homeController = Get.find<HomeController>();
-                              final isAdded = homeController.addToCart(__item);
-                              if (isAdded) {
-                                await HelperToast.success('Added to panel cart');
-                              } else {
-                                await HelperToast.info('Already in panel cart');
-                              }
-                            }).tooltip('Add to Panel Cart').pOnly(right: 12),
-                            if (!__item.actress.isEmptyOrNull) ...[
-                              Icon(UIconsPro.regularRounded.person_dolly, size: 13).pOnly(right: 8).onInkTap(() async {
-                                final _fltr = await DBVideos.getByActress(__item.actress?[0].nameRomaji ?? '');
-                                _videos.value = _fltr;
-                                update();
-                              }).tooltip(__item.actress?[0].nameRomaji ?? ''),
-                            ],
-                            if (__item.series.isNotEmptyAndNotNull) ...[
-                              Icon(UIconsPro.regularRounded.tags, size: 13).pOnly(right: 8).onInkTap(() async {
-                                final _fltr = await DBVideos.getBySeries(__item.series ?? '');
-                                _videos.value = _fltr;
-                                update();
-                              }).tooltip(__item.series ?? ''),
-                            ],
+                            '${__item.filesize?.toFileSizeFormat()}'.text.orange300.size(11).minFontSize(11).ellipsis.make().tooltip('${__item.videoPath}').expand(),
+                            HStack([
+                              Icon(
+                                __item.isFavorite == 1 ? UIconsPro.solidRounded.star : UIconsPro.regularRounded.star,
+                                color: __item.isFavorite == 1 ? Colors.orange : null,
+                                size: 13,
+                              ).onInkTap(() async {
+                                if (__item.isFavorite == 1) {
+                                  __item.isFavorite = 0;
+                                  await DBVideos.removeFromFavorite(__item);
+                                } else {
+                                  __item.isFavorite = 1;
+                                  await DBVideos.addToFavorite(__item);
+                                }
+                                await Get.find<PageHomeController>().onRefresh();
+                                _videos.refresh();
+                              }).pOnly(left: 8),
+                              Icon(UIconsPro.regularRounded.plus, size: 13).onInkTap(() async {
+                                final homeController = Get.find<HomeController>();
+                                final isAdded = homeController.addToCart(__item);
+                                if (isAdded) {
+                                  await HelperToast.success('Added to panel cart');
+                                } else {
+                                  await HelperToast.info('Already in panel cart');
+                                }
+                              }).tooltip('Add to Panel Cart').pOnly(left: 12),
+                              if (!__item.actress.isEmptyOrNull) ...[
+                                Icon(UIconsPro.regularRounded.person_dolly, size: 13).pOnly(left: 12).onInkTap(() async {
+                                  final _fltr = await DBVideos.getByActress(__item.actress?[0].nameRomaji ?? '');
+                                  _videos.value = _fltr;
+                                  update();
+                                }).tooltip(__item.actress?[0].nameRomaji ?? ''),
+                              ],
+                              if (__item.series.isNotEmptyAndNotNull) ...[
+                                Icon(UIconsPro.regularRounded.tags, size: 13).pOnly(left: 12).onInkTap(() async {
+                                  final _fltr = await DBVideos.getBySeries(__item.series ?? '');
+                                  _videos.value = _fltr;
+                                  update();
+                                }).tooltip(__item.series ?? ''),
+                              ],
+                            ]),
                           ]).pOnly(top: 8),
                         ]).h(110).expand(),
                       ],

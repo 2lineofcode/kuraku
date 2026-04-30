@@ -21,6 +21,7 @@ import '../../../data/database/db_videos.dart';
 import '../../../utils/helper.dart';
 import '../../../utils/helper_toast.dart';
 import '../home_controller.dart';
+import '../home_panel/home_panel_log.dart';
 
 class PageSettingsController extends GetxController {
   final appSetting = Get.find<AppSettingService>();
@@ -43,9 +44,17 @@ class PageSettingsController extends GetxController {
   // **
   final appMiniMode = false.obs;
 
+
   // ** storage
   final storageList = <StorageUsage>[].obs;
   final isLoadingStorage = false.obs;
+
+  // ** app_log
+  final appLogMode = false.obs;
+  final appLogLevelSelected = 'ALL'.obs;
+  final appLogKeyword = ''.obs;
+  final appLogData = HomePanelAppLog.appLogRuntime;
+  final tecAppLogFilter = TextEditingController();
 
   @override
   Future<void> onInit() async {
@@ -86,6 +95,7 @@ class PageSettingsController extends GetxController {
     tecPlayerSeekShort.dispose();
     tecPlayerSeekMid.dispose();
     tecPlayerSeekLong.dispose();
+    tecAppLogFilter.dispose();
     super.onClose();
   }
 
@@ -106,9 +116,39 @@ class PageSettingsController extends GetxController {
     }
   }
 
-  Future<void> onVacuumDB() async {
-    await DBVideos.vacuum();
-    await HelperToast.success('Database vacuumed');
+  Future<void> onOpenAppLog() async {
+    appLogMode.value = true;
+    appLogLevelSelected.value = 'ALL';
+    appLogKeyword.value = '';
+    tecAppLogFilter.clear();
+    await Future.delayed(100.milliseconds);
+  }
+
+  List<AppLogRuntime> get filteredAppLogs {
+    final selected = appLogLevelSelected.value.toUpperCase();
+    final keyword = appLogKeyword.value.trim().toLowerCase();
+
+    return appLogData.where((item) {
+      final level = normalizeLogLevel(item.type);
+      final passLevel = selected == 'ALL' || level == selected;
+      if (!passLevel) return false;
+      if (keyword.isEmpty) return true;
+
+      final createdAt = (item.createdAt ?? '').toLowerCase();
+      final content = (item.content ?? '').toLowerCase();
+      final type = (item.type ?? '').toLowerCase();
+      return createdAt.contains(keyword) || content.contains(keyword) || type.contains(keyword);
+    }).toList();
+  }
+
+  String normalizeLogLevel(String? rawLevel) {
+    final upper = (rawLevel ?? '').toUpperCase();
+    if (upper == 'WARNING') return 'WARN';
+    return upper;
+  }
+
+  void clearAppLog() {
+    HomePanelAppLog.clear();
   }
 
   Future<void> onResetAll() async {

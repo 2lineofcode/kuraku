@@ -11,6 +11,7 @@ import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
+import '../../player/player_multi_view.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
 import 'home_panel_library.dart';
@@ -150,10 +151,16 @@ mixin HomePanelCart {
                 Container(
                   decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                   child: HStack([
-                    Icon(UIconsPro.regularRounded.play, size: 14).pOnly(right: 8),
-                    'Play as Playlist'.text.size(13).make(),
+                    Icon(UIconsPro.regularRounded.play, size: 14)
                   ]).p(10).pSymmetric(h: 12),
                 ).onInkTap(() => _playVideos()).pOnly(right: 8).tooltip('Play as Playlist'),
+
+                Container(
+                  decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
+                  child: HStack([
+                    Icon(UIconsPro.regularRounded.camera_movie, size: 14)
+                  ]).p(10).pSymmetric(h: 12),
+                ).onInkTap(() => _openInGridPlayer()).pOnly(right: 8).tooltip('Open in Grid Player'),
 
                 Container(
                   decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
@@ -256,6 +263,12 @@ mixin HomePanelCart {
   static Future<void> _playVideos() async {
     await Overlayment.dismissLast();
     await HelperOpener.openVideoFile(_controller.cart.first, playlist: _controller.cart);
+  }
+
+  static Future<void> _openInGridPlayer() async {
+    await Overlayment.dismissLast();
+    await Get.to(() => const PlayerMultiView(), arguments: _controller.cart.toList());
+
   }
 
   // ────────────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ import 'package:uicons_pro/uicons_pro.dart';
 import '../../core/app_color.dart';
 import '../../core/app_pref.dart';
 import '../../utils/helper.dart';
+import '../widgets/widget_thumbnail.dart';
 import 'player_controller.dart';
 
 class PlayerControls extends StatefulWidget {
@@ -43,6 +44,10 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   DateTime? _lastEqualPress;
   bool _isVolumePointerInside = false;
   bool _isVolumeDragging = false;
+  bool _isSeekPreviewVisible = false;
+  double _seekPreviewDx = 0;
+  int _seekPreviewSecond = 0;
+  int _lastSeekHoverUpdateMs = 0;
 
   late final StreamSubscription<bool> _playingSubscription;
   late final StreamSubscription<int> _focusSubscription;
@@ -54,6 +59,19 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   double _saturation = 0;
   double _hue = 0;
   double _gamma = 0;
+  String _activeAdjustmentPreset = 'Custom';
+  bool _hasSavedCustomPreset = AppPref.hasPlayerCustomAdjustment();
+  static const List<String> _videoPresetNames = [
+    'Cinematic',
+    'Vivid',
+    'Noir',
+    'Warm',
+    'Cool',
+    'Soft',
+    'Punch',
+    'Night',
+    'Flat',
+  ];
 
   @override
   void initState() {
@@ -191,7 +209,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
             focusNode: _focusNode,
             autofocus: true,
             child: MouseRegion(
-              // onHover: (_) => _onUserInteraction(),
+              onEnter: (_) => _onPointerActivity(),
+              onHover: (_) => _onPointerActivity(),
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTap: _onUserInteraction,
@@ -277,6 +296,9 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   Widget _buildTopBar() {
     return Obx(() {
       final video = widget.controller.currentVideo.value;
+      final totalPlaylist = widget.controller.playlist.length;
+      final currentPlaylistIndex = widget.controller.currentIndexPlaying.value;
+      final currentPlaylistNumber = totalPlaylist > 0 ? (currentPlaylistIndex + 1).clamp(1, totalPlaylist) : 0;
 
       return AnimatedOpacity(
         opacity: _controlsVisible ? 1.0 : 0.0,
@@ -296,6 +318,15 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    Text(
+                      totalPlaylist > 0 ? '($currentPlaylistNumber/$totalPlaylist)  •' : '(0/0) •',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ).pOnly(right: 8),
+
                     Text(
                       video.videoCode!.isNotBlank ? video.videoCode! : 'NON-JAV',
                       style: TextStyle(
@@ -471,68 +502,156 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     final playedFraction = sliderValue / maxPosition;
     final bufferedFraction = bufferPercent.isNaN ? 0.0 : bufferPercent.clamp(0.0, 100.0) / 100.0;
 
-    return SizedBox(
-      height: 32,
-      child: Stack(
-        alignment: Alignment.centerLeft,
-        children: [
-          Container(
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .2),
-              borderRadius: BorderRadius.circular(999),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final seekWidth = constraints.maxWidth <= 0 ? 1.0 : constraints.maxWidth;
+        final hasVideoPath = (widget.controller.currentVideo.value.videoPath ?? '').isNotEmpty;
+
+        double calcValueFromDx(double dx) {
+          final ratio = (dx / seekWidth).clamp(0.0, 1.0);
+          return ratio * maxPosition;
+        }
+
+        void onSeekHover(Offset localPosition) {
+          final nowMs = DateTime.now().millisecondsSinceEpoch;
+          final value = calcValueFromDx(localPosition.dx);
+          final hoverSecondRaw = (value / 1000).floor();
+          final hoverSecond = (hoverSecondRaw ~/ 10) * 10;
+          final dx = localPosition.dx.clamp(0.0, seekWidth);
+
+          final isThrottled = nowMs - _lastSeekHoverUpdateMs < 200;
+          final isSameFrame = hoverSecond == _seekPreviewSecond && (dx - _seekPreviewDx).abs() < 8;
+          if (isThrottled && isSameFrame) return;
+
+          _lastSeekHoverUpdateMs = nowMs;
+          setState(() {
+            _isSeekPreviewVisible = true;
+            _seekPreviewDx = dx;
+            _seekPreviewSecond = hoverSecond;
+          });
+        }
+
+        final previewWidth = 140.0;
+        final previewLeft = (_seekPreviewDx - (previewWidth / 2)).clamp(0.0, (seekWidth - previewWidth).clamp(0.0, seekWidth));
+        final previewTimestamp = _formatDuration(Duration(seconds: _seekPreviewSecond));
+
+        return MouseRegion(
+          onEnter: (event) => onSeekHover(event.localPosition),
+          onHover: (event) => onSeekHover(event.localPosition),
+          onExit: (_) {
+            if (_isSeekPreviewVisible) {
+              setState(() => _isSeekPreviewVisible = false);
+            }
+          },
+          child: SizedBox(
+            height: 32,
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.centerLeft,
+              children: [
+                if (_isSeekPreviewVisible && hasVideoPath) ...[
+                  Positioned(
+                    left: previewLeft,
+                    top: -106,
+                    child: Container(
+                      width: previewWidth,
+                      padding: EdgeInsets.all(6),
+                      decoration: ExDecorator.box(
+                        borderRadius: 8,
+                        borderColor: Colors.white24,
+                        fillColor: Colors.black.withValues(alpha: .9),
+                      ),
+                      child: VStack(
+                        [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: ExThumbnail(
+                              imageUrl: '',
+                              videoPath: widget.controller.currentVideo.value.videoPath,
+                              width: previewWidth - 12,
+                              height: 72,
+                              position: _seekPreviewSecond,
+                              fitMemory: BoxFit.cover,
+                            ),
+                          ),
+                          previewTimestamp.text.white.size(11).makeCentered().pOnly(top: 4),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: .2),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                FractionallySizedBox(
+                  widthFactor: bufferedFraction.clamp(playedFraction, 1.0),
+                  child: Container(
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .15),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                FractionallySizedBox(
+                  widthFactor: playedFraction.clamp(0.0, 1.0),
+                  child: Container(
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Color(0xFFFF0034),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 0,
+                    thumbShape: RoundSliderThumbShape(enabledThumbRadius: 7),
+                    overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
+                    activeTrackColor: Colors.transparent,
+                    inactiveTrackColor: Colors.transparent,
+                    thumbColor: Colors.white,
+                    overlayColor: Colors.white24,
+                  ),
+                  child: Slider(
+                    min: 0,
+                    max: maxPosition.toDouble(),
+                    value: sliderValue,
+                    onChangeStart: (value) {
+                      _cancelHideTimer();
+                      setState(() {
+                        _isSeekPreviewVisible = true;
+                        _seekPreviewSecond = ((value / 1000).floor() ~/ 10) * 10;
+                      });
+                    },
+                    onChanged: (value) {
+                      setState(() {
+                        _scrubValue = value;
+                        _isSeekPreviewVisible = true;
+                        _seekPreviewSecond = ((value / 1000).floor() ~/ 10) * 10;
+                      });
+                    },
+                    onChangeEnd: (value) async {
+                      _scrubValue = null;
+                      await widget.controller.seek(Duration(milliseconds: value.round()));
+                      if (widget.controller.isPlaying.value) {
+                        _startHideTimer();
+                      }
+                      final target = widget.controller.position.value;
+                      final total = widget.controller.duration.value;
+                      _showInfo('${_formatDuration(target)} / ${_formatDuration(total)}');
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
-          FractionallySizedBox(
-            widthFactor: bufferedFraction.clamp(playedFraction, 1.0),
-            child: Container(
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .15),
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-          FractionallySizedBox(
-            widthFactor: playedFraction.clamp(0.0, 1.0),
-            child: Container(
-              height: 4,
-              decoration: BoxDecoration(
-                color: Color(0xFFFF0034),
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 0,
-              thumbShape: RoundSliderThumbShape(enabledThumbRadius: 7),
-              overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
-              activeTrackColor: Colors.transparent,
-              inactiveTrackColor: Colors.transparent,
-              thumbColor: Colors.white,
-              overlayColor: Colors.white24,
-            ),
-            child: Slider(
-              min: 0,
-              max: maxPosition.toDouble(),
-              value: sliderValue,
-              onChangeStart: (_) => _cancelHideTimer(),
-              onChanged: (value) => setState(() => _scrubValue = value),
-              onChangeEnd: (value) async {
-                _scrubValue = null;
-                await widget.controller.seek(Duration(milliseconds: value.round()));
-                if (widget.controller.isPlaying.value) {
-                  _startHideTimer();
-                }
-                final target = widget.controller.position.value;
-                final total = widget.controller.duration.value;
-                _showInfo('${_formatDuration(target)} / ${_formatDuration(total)}');
-              },
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -763,6 +882,12 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                 ),
 
                 IconButton(
+                  icon: const Icon(Icons.bookmark_add, color: Colors.white, size: 18),
+                  tooltip: 'Save current as custom',
+                  onPressed: _saveCurrentCustomPreset,
+                ),
+
+                IconButton(
                   icon: const Icon(Icons.close, color: Colors.white, size: 18),
                   tooltip: 'Close',
                   onPressed: () => setState(() => _showVideoAdjustments = false),
@@ -771,31 +896,84 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               ],
             ),
             const SizedBox(height: 4),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  if (_hasSavedCustomPreset) ...[
+                    _buildPresetChip('Saved'),
+                    6.widthBox,
+                  ],
+                  for (var i = 0; i < _videoPresetNames.length; i++) ...[
+                    _buildPresetChip(_videoPresetNames[i]),
+                    if (i != _videoPresetNames.length - 1) 6.widthBox,
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             _buildAdjustmentSlider('Brightness', _brightness, -100, 100, (v) async {
-              setState(() => _brightness = v);
+              setState(() {
+                _brightness = v;
+                _activeAdjustmentPreset = 'Custom';
+              });
               final p = widget.controller.player.platform;
               if (p is NativePlayer) await p.setProperty('brightness', v.toStringAsFixed(0));
             }),
             _buildAdjustmentSlider('Contrast', _contrast, -100, 100, (v) async {
-              setState(() => _contrast = v);
+              setState(() {
+                _contrast = v;
+                _activeAdjustmentPreset = 'Custom';
+              });
               final p = widget.controller.player.platform;
               if (p is NativePlayer) await p.setProperty('contrast', v.toStringAsFixed(0));
             }),
             _buildAdjustmentSlider('Saturation', _saturation, -100, 100, (v) async {
-              setState(() => _saturation = v);
+              setState(() {
+                _saturation = v;
+                _activeAdjustmentPreset = 'Custom';
+              });
               final p = widget.controller.player.platform;
               if (p is NativePlayer) await p.setProperty('saturation', v.toStringAsFixed(0));
             }),
             _buildAdjustmentSlider('Hue', _hue, -180, 180, (v) async {
-              setState(() => _hue = v);
+              setState(() {
+                _hue = v;
+                _activeAdjustmentPreset = 'Custom';
+              });
               final p = widget.controller.player.platform;
               if (p is NativePlayer) await p.setProperty('hue', v.toStringAsFixed(0));
             }),
             _buildAdjustmentSlider('Gamma', _gamma, -100, 100, (v) async {
-              setState(() => _gamma = v);
+              setState(() {
+                _gamma = v;
+                _activeAdjustmentPreset = 'Custom';
+              });
               final p = widget.controller.player.platform;
               if (p is NativePlayer) await p.setProperty('gamma', v.toStringAsFixed(0));
             }),
+
+            Divider(color: Colors.white30).pOnly(bottom: 8),
+
+            HStack([
+              Obx(
+                () => Checkbox.adaptive(
+                  value: widget.controller.isAudioNormalizationEnabled.value,
+                  onChanged: (value) async {
+                    final enabled = value ?? false;
+                    await widget.controller.applyAudioNormalization(enabled: enabled);
+                    final active = widget.controller.isAudioNormalizationEnabled.value;
+                    if (enabled && !active) {
+                      _showInfo('Audio normalization unsupported');
+                    } else {
+                      _showInfo(active ? 'Audio normalization on' : 'Audio normalization off');
+                    }
+                    _showControls();
+                  },
+                ),
+              ),
+              'Audio Normalization'.text.white.size(12).make().pOnly(left: 8),
+            ]),
           ],
         ),
       ),
@@ -857,22 +1035,188 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   }
 
   Future<void> _resetVideoAdjustments() async {
+    await _applyVideoAdjustments(
+      brightness: 0,
+      contrast: 0,
+      saturation: 0,
+      hue: 0,
+      gamma: 0,
+      presetName: 'Custom',
+    );
+    _showInfo('Adjustments reset');
+  }
+
+  Future<void> _saveCurrentCustomPreset() async {
+    AppPref.setPlayerCustomAdjustment({
+      'brightness': _brightness,
+      'contrast': _contrast,
+      'saturation': _saturation,
+      'hue': _hue,
+      'gamma': _gamma,
+    });
+    if (!_hasSavedCustomPreset) {
+      setState(() => _hasSavedCustomPreset = true);
+    }
+    _showInfo('Custom preset saved');
+  }
+
+  Widget _buildPresetChip(String name) {
+    final isActive = _activeAdjustmentPreset == name;
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: () async => _applyVideoAdjustmentPreset(name),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: ExDecorator.box(
+          borderRadius: 999,
+          fillColor: isActive ? Colors.white : Colors.white.withValues(alpha: .08),
+          borderColor: isActive ? Colors.white : Colors.white24,
+        ),
+        child: Text(
+          name,
+          style: TextStyle(
+            color: isActive ? Colors.black : Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _applyVideoAdjustmentPreset(String preset) async {
+    if (preset == 'Saved') {
+      final values = AppPref.getPlayerCustomAdjustment();
+      if (values.isEmpty) {
+        _showInfo('No saved preset');
+        return;
+      }
+      await _applyVideoAdjustments(
+        brightness: values['brightness'] ?? 0,
+        contrast: values['contrast'] ?? 0,
+        saturation: values['saturation'] ?? 0,
+        hue: values['hue'] ?? 0,
+        gamma: values['gamma'] ?? 0,
+        presetName: 'Saved',
+      );
+      return;
+    }
+
+    final values = _videoPresetValues[preset];
+    if (values != null) {
+      await _applyVideoAdjustments(
+        brightness: values['brightness'] ?? 0,
+        contrast: values['contrast'] ?? 0,
+        saturation: values['saturation'] ?? 0,
+        hue: values['hue'] ?? 0,
+        gamma: values['gamma'] ?? 0,
+        presetName: preset,
+      );
+      return;
+    }
+
+    await _applyVideoAdjustments(
+      brightness: 0,
+      contrast: 0,
+      saturation: 0,
+      hue: 0,
+      gamma: 0,
+      presetName: 'Custom',
+    );
+  }
+
+  static const Map<String, Map<String, double>> _videoPresetValues = {
+    'Cinematic': {
+      'brightness': -8,
+      'contrast': 18,
+      'saturation': -12,
+      'hue': 0,
+      'gamma': -6,
+    },
+    'Vivid': {
+      'brightness': 4,
+      'contrast': 16,
+      'saturation': 22,
+      'hue': 0,
+      'gamma': 6,
+    },
+    'Noir': {
+      'brightness': -6,
+      'contrast': 28,
+      'saturation': -100,
+      'hue': 0,
+      'gamma': -4,
+    },
+    'Warm': {
+      'brightness': 2,
+      'contrast': 8,
+      'saturation': 10,
+      'hue': 8,
+      'gamma': 2,
+    },
+    'Cool': {
+      'brightness': 0,
+      'contrast': 10,
+      'saturation': 6,
+      'hue': -10,
+      'gamma': 1,
+    },
+    'Soft': {
+      'brightness': 6,
+      'contrast': -14,
+      'saturation': -8,
+      'hue': 0,
+      'gamma': 10,
+    },
+    'Punch': {
+      'brightness': 1,
+      'contrast': 24,
+      'saturation': 18,
+      'hue': 0,
+      'gamma': -2,
+    },
+    'Night': {
+      'brightness': -16,
+      'contrast': 12,
+      'saturation': -18,
+      'hue': 0,
+      'gamma': -8,
+    },
+    'Flat': {
+      'brightness': 0,
+      'contrast': -22,
+      'saturation': -20,
+      'hue': 0,
+      'gamma': 8,
+    },
+  };
+
+  Future<void> _applyVideoAdjustments({
+    required double brightness,
+    required double contrast,
+    required double saturation,
+    required double hue,
+    required double gamma,
+    required String presetName,
+  }) async {
     setState(() {
-      _brightness = 0;
-      _contrast = 0;
-      _saturation = 0;
-      _hue = 0;
-      _gamma = 0;
+      _brightness = brightness;
+      _contrast = contrast;
+      _saturation = saturation;
+      _hue = hue;
+      _gamma = gamma;
+      _activeAdjustmentPreset = presetName;
     });
 
     final p = widget.controller.player.platform;
     if (p is NativePlayer) {
-      await p.setProperty('brightness', '0');
-      await p.setProperty('contrast', '0');
-      await p.setProperty('saturation', '0');
-      await p.setProperty('hue', '0');
-      await p.setProperty('gamma', '0');
+      await p.setProperty('brightness', brightness.toStringAsFixed(0));
+      await p.setProperty('contrast', contrast.toStringAsFixed(0));
+      await p.setProperty('saturation', saturation.toStringAsFixed(0));
+      await p.setProperty('hue', hue.toStringAsFixed(0));
+      await p.setProperty('gamma', gamma.toStringAsFixed(0));
     }
+    _showInfo('Preset: $presetName');
   }
 
 
@@ -900,6 +1244,10 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     }
 
     setState(() => _showVideoAdjustments = false);
+  }
+
+  void _onPointerActivity() {
+    _showControls();
   }
 
   void _startHideTimer() {

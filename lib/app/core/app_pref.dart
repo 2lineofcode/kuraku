@@ -112,6 +112,31 @@ mixin AppPref {
   static int getPlayerSeekLong() => _pref.read(_kPlayerSeekLong) ?? 60;
   static void setPlayerSeekLong(int value) => _pref.write(_kPlayerSeekLong, value);
 
+  static bool getPlayerAudioNormalization() => _pref.read(_kPlayerAudioNormalization) ?? false;
+  static void setPlayerAudioNormalization(bool value) => _pref.write(_kPlayerAudioNormalization, value);
+
+  static bool hasPlayerCustomAdjustment() {
+    final data = _pref.read<Map>(_kPlayerCustomAdjustment);
+    return data != null && data.isNotEmpty;
+  }
+
+  static Map<String, double> getPlayerCustomAdjustment() {
+    final data = _pref.read<Map>(_kPlayerCustomAdjustment);
+    if (data == null) return {};
+    final map = Map<String, dynamic>.from(data);
+    return {
+      'brightness': (map['brightness'] as num?)?.toDouble() ?? 0,
+      'contrast': (map['contrast'] as num?)?.toDouble() ?? 0,
+      'saturation': (map['saturation'] as num?)?.toDouble() ?? 0,
+      'hue': (map['hue'] as num?)?.toDouble() ?? 0,
+      'gamma': (map['gamma'] as num?)?.toDouble() ?? 0,
+    };
+  }
+
+  static void setPlayerCustomAdjustment(Map<String, double> value) {
+    _pref.write(_kPlayerCustomAdjustment, value);
+  }
+
   // helper
   static bool getBool(String key) => _pref.read(key) ?? false;
   static void setBool(String key, bool value) => _pref.write(key, value);
@@ -157,3 +182,5 @@ const _kPlayerSpeed = '_kPlayerSpeed';
 const _kPlayerSeekShort = '_kPlayerSeekShort';
 const _kPlayerSeekMid = '_kPlayerSeekMid';
 const _kPlayerSeekLong = '_kPlayerSeekLong';
+const _kPlayerAudioNormalization = '_kPlayerAudioNormalization';
+const _kPlayerCustomAdjustment = '_kPlayerCustomAdjustment';

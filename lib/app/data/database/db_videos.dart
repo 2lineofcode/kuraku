@@ -101,8 +101,54 @@ mixin DBVideos {
     await _db.delete(_tableName, where: 'video_path = ?', whereArgs: [videoPath]);
   }
 
+  static Future<void> deleteByVideoPaths(List<String> videoPaths) async {
+    if (videoPaths.isEmpty) return;
+    final unique = videoPaths.where((p) => p.trim().isNotEmpty).toSet().toList();
+    if (unique.isEmpty) return;
+
+    // Keep below SQLite variable limit.
+    const chunkSize = 800;
+    await _db.transaction((txn) async {
+      for (var i = 0; i < unique.length; i += chunkSize) {
+        final chunk = unique.sublist(i, i + chunkSize > unique.length ? unique.length : i + chunkSize);
+        final placeholders = List.filled(chunk.length, '?').join(', ');
+        await txn.rawDelete(
+          'DELETE FROM $_tableName WHERE video_path IN ($placeholders)',
+          chunk,
+        );
+      }
+    });
+  }
+
   static Future<void> deleteByRootPath(String rootPath) async {
     await _db.delete(_tableName, where: 'root_path = ?', whereArgs: [rootPath]);
+  }
+
+  static Future<int> moveVideoPaths(List<Map<String, String>> moves) async {
+    if (moves.isEmpty) return 0;
+    var updatedRows = 0;
+    final now = DateTime.now().toStringEx();
+
+    await _db.transaction((txn) async {
+      for (final move in moves) {
+        final oldPath = (move['oldPath'] ?? '').trim();
+        final newPath = (move['newPath'] ?? '').trim();
+        final newRoot = (move['newRoot'] ?? '').trim();
+        if (oldPath.isEmpty || newPath.isEmpty || newRoot.isEmpty) continue;
+
+        final affected = await txn.rawUpdate(
+          '''
+          UPDATE $_tableName
+          SET video_path = ?, root_path = ?, updated_at = ?
+          WHERE video_path = ?
+          ''',
+          [newPath, newRoot, now, oldPath],
+        );
+        updatedRows += affected;
+      }
+    });
+
+    return updatedRows;
   }
 
   static Future<List<Videos>> getAll({String? where, List<Object?>? whereArgs, String? orderBy, String? groupBy, int? limit}) async {

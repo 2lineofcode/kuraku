@@ -32,8 +32,6 @@ class PageToolsView extends GetView<PageToolsController> {
             case kTopLargeFile: return uiTopLargeFileSize().expand();
             case kDuplicate: return uiDuplicateVideo().expand();
             case kTodo: return uiTODO().expand();
-            case kWatchNextQueue: return uiWatchNextQueue().expand();
-            case kHealthDashboard: return uiHealthDashboard().expand();
             case kAdvanceSearch: return uiAdvanceSearch().expand();
             default: return Container();
           }
@@ -144,6 +142,7 @@ class PageToolsView extends GetView<PageToolsController> {
                   ),
                   child: Row(
                     children: [
+                      _buildHeaderCell('Thumbnail', flex: 1),
                       _buildHeaderCell('Code', flex: 1),
                       _buildHeaderCell('Path', flex: 3),
                       _buildHeaderCell('Quality', flex: 1),
@@ -177,6 +176,13 @@ class PageToolsView extends GetView<PageToolsController> {
                             ),
                             child: Row(
                               children: [
+                                _buildDataCell(
+                                  _buildMediaThumbnail(
+                                    poster: item.poster ?? '',
+                                    preferVideoPath: true,
+                                  ),
+                                  flex: 1,
+                                ),
                                 _buildDataCell(
                                   '${item.videoCode.isNotEmptyAndNotNull ? item.videoCode : 'NON-JAV'}'
                                       .text
@@ -338,70 +344,113 @@ class PageToolsView extends GetView<PageToolsController> {
           ),
         ]).pOnly(bottom: 12),
         Expanded(
-          child: Obx(
-            () => Table(
-              columnWidths: const {
-                0: FlexColumnWidth(4),
-                1: FlexColumnWidth(1),
-              },
-              border: TableBorder.all(width: 0.5, color: Vx.neutral700),
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(width: .5, color: Vx.neutral700),
+            ),
+            child: Column(
               children: [
-                TableRow(
-                  decoration: BoxDecoration(color: AppColor.container),
-                  children: [
-                    'Todo'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                    'Action'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                  ],
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColor.container,
+                    border: Border(
+                      bottom: BorderSide(width: .5, color: Vx.neutral700),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      _buildHeaderCell('Thumbnail', flex: 1),
+                      _buildHeaderCell('Todo', flex: 4),
+                      _buildHeaderCell('Action', flex: 1, isLast: true),
+                    ],
+                  ),
                 ),
-                ...List.generate(
-                  controller.todoList.length,
-                  (index) {
-                    final item = controller.todoList[index];
-                    final rowColor = controller.todoHoveredIndex.value == index ? Vx.neutral800.withValues(alpha: .6) : Colors.transparent;
-                    return TableRow(
-                      children: [
-                        MouseRegion(
-                          onEnter: (_) => controller.onTodoHover(index, true),
-                          onExit: (_) => controller.onTodoHover(index, false),
-                          child: AnimatedContainer(
-                            duration: 120.milliseconds,
-                            color: rowColor,
-                            child: '${item.content}'.text.ellipsis.size(12).make().p12().onInkTap(() {
-                              final code = item.content?.replaceAll('✔︎', '').trim() ?? '';
-                              if (code.isValidVideoCode()) {
-                                var video = <String, dynamic>{};
-                                video['video_code'] = code;
-                                HelperOpener.openVideoInfo(video);
-                              }
-                            }),
-                          ),
-                        ),
-                        MouseRegion(
-                          onEnter: (_) => controller.onTodoHover(index, true),
-                          onExit: (_) => controller.onTodoHover(index, false),
-                          child: AnimatedContainer(
-                            duration: 120.milliseconds,
-                            color: rowColor,
-                            child: HStack(
-                              [
-                                IconButton(
-                                  icon: Icon(UIconsPro.regularRounded.trash, size: 14, color: Vx.neutral400),
-                                  onPressed: () => controller.deleteTodos(controller.todoList[index]),
-                                ),
-                              ],
+                Expanded(
+                  child: Obx(
+                    () {
+                      final hoveredIndex = controller.todoHoveredIndex.value;
+                      return ListView.builder(
+                        itemCount: controller.todoList.length,
+                        itemBuilder: (context, index) {
+                          final item = controller.todoList[index];
+                          final todoText = item.content ?? '';
+                          final code = todoText.replaceAll('✔︎', '').trim();
+
+                          return InkWell(
+                            onHover: (isHover) => controller.onTodoHover(index, isHover),
+                            onTap: () {
+                              if (!code.isValidVideoCode()) return;
+                              final video = <String, dynamic>{'video_code': code};
+                              HelperOpener.openVideoInfo(video);
+                            },
+                            child: AnimatedContainer(
+                              duration: 120.milliseconds,
+                              decoration: BoxDecoration(
+                                color: hoveredIndex == index ? Vx.neutral800.withValues(alpha: .6) : Colors.transparent,
+                                border: Border(top: BorderSide(width: .5, color: Vx.neutral700)),
+                              ),
+                              child: Row(
+                                children: [
+                                  _buildDataCell(_buildTodoThumbnail(todoText), flex: 1),
+                                  _buildDataCell(todoText.text.ellipsis.size(12).make(), flex: 4),
+                                  _buildDataCell(
+                                    IconButton(
+                                      icon: Icon(UIconsPro.regularRounded.trash, size: 14, color: Vx.neutral400),
+                                      onPressed: () => controller.deleteTodos(item),
+                                    ).centered(),
+                                    flex: 1,
+                                    isLast: true,
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
               ],
-            ).scrollVertical(),
+            ),
           ),
         ),
       ],
     ).pOnly(left: 8);
+  }
+
+  Widget _buildTodoThumbnail(String? todoContent) {
+    final code = (todoContent ?? '').replaceAll('✔︎', '').trim();
+    if (!code.isValidVideoCode()) {
+      return Icon(Icons.image_not_supported, size: 18, color: Vx.neutral500).centered();
+    }
+
+    final poster = controller.todoPosterByCode[code] ?? '';
+    if (poster.isEmpty) {
+      return Icon(Icons.broken_image, size: 18, color: Vx.neutral500).centered();
+    }
+
+    return _buildMediaThumbnail(poster: poster);
+  }
+
+  Widget _buildMediaThumbnail({String poster = '', String videoPath = '', bool preferVideoPath = false}) {
+    final hasPoster = poster.trim().isNotEmpty;
+    final hasVideoPath = videoPath.trim().isNotEmpty;
+    final useVideoPath = hasVideoPath && (preferVideoPath || !hasPoster);
+
+    if (!hasPoster && !hasVideoPath) {
+      return Icon(Icons.broken_image, size: 18, color: Vx.neutral500).centered();
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: ExThumbnail(
+        imageUrl: useVideoPath ? '' : poster,
+        videoPath: useVideoPath ? videoPath : '',
+        width: 80,
+        height: 100,
+        prefix: 1.9,
+      ),
+    ).centered();
   }
 
   Widget uiAdvanceSearch() {
@@ -409,119 +458,6 @@ class PageToolsView extends GetView<PageToolsController> {
       _buildLeftPart().pOnly(right: 12),
       _buildRightPart().expand(),
     ]).pOnly(left: 8);
-  }
-
-  Widget uiWatchNextQueue() {
-    String fmtSeconds(num s) {
-      final d = Duration(seconds: s.toInt());
-      final h = d.inHours;
-      final m = d.inMinutes.remainder(60);
-      if (h > 0) return '${h}h ${m}m';
-      return '${d.inMinutes}m';
-    }
-
-    return VStack([
-      HStack([
-        'Queue Size'.text.size(12).make(),
-        Obx(() => '(${controller.watchNextVideos.length})'.text.bold.size(12).make().pOnly(left: 6)),
-        Spacer(),
-        ExButtonText(label: 'Generate', labelSize: 12, onPressed: () => controller.generateWatchNextQueue()).pOnly(right: 8),
-        ExButtonText(label: 'Play', labelSize: 12, onPressed: () => controller.playWatchNextQueue()),
-      ]).pOnly(bottom: 12),
-      HStack([
-        Obx(() => Checkbox.adaptive(value: controller.watchNextPreferUnwatched.value, onChanged: (v) => controller.watchNextPreferUnwatched.value = v ?? true)),
-        'Prefer Unwatched'.text.size(12).make(),
-        16.widthBox,
-        Obx(() => Checkbox.adaptive(value: controller.watchNextPreferRecent.value, onChanged: (v) => controller.watchNextPreferRecent.value = v ?? true)),
-        'Prefer Recent'.text.size(12).make(),
-        16.widthBox,
-        'Random Mix'.text.size(12).make().pOnly(right: 8),
-        Obx(
-          () => Slider(
-            min: 0,
-            max: 1,
-            value: controller.watchNextRandomMix.value,
-            divisions: 10,
-            label: controller.watchNextRandomMix.value.toStringAsFixed(2),
-            onChanged: (v) => controller.watchNextRandomMix.value = v,
-          ).w(140),
-        ),
-        16.widthBox,
-        'Max'.text.size(12).make().pOnly(right: 8),
-        IconButton(
-          icon: Icon(UIconsPro.regularRounded.minus, size: 13),
-          onPressed: () => controller.watchNextMaxItems.value = (controller.watchNextMaxItems.value - 10).clamp(20, 500),
-        ).w(28),
-        Obx(() => '${controller.watchNextMaxItems.value}'.text.size(12).make().w(40)),
-        IconButton(
-          icon: Icon(UIconsPro.regularRounded.plus, size: 13),
-          onPressed: () => controller.watchNextMaxItems.value = (controller.watchNextMaxItems.value + 10).clamp(20, 500),
-        ).w(28),
-      ]).pOnly(bottom: 12),
-      Expanded(
-        child: Obx(
-          () => ListView.builder(
-            itemCount: controller.watchNextVideos.length,
-            itemBuilder: (context, i) {
-              final item = controller.watchNextVideos[i];
-              return Container(
-                decoration: BoxDecoration(border: Border(bottom: BorderSide(width: .4, color: Vx.neutral700))),
-                child: HStack([
-                  '${i + 1}'.text.size(11).neutral500.make().w(32),
-                  '${item.videoCode}'.text.bold.size(12).ellipsis.make().w(120),
-                  '${item.title}'.text.size(12).ellipsis.make().expand(),
-                  '${fmtSeconds(item.duration ?? 0)}'.text.size(11).neutral400.make().pOnly(left: 8, right: 8),
-                  IconButton(icon: Icon(UIconsPro.regularRounded.progress_complete, size: 13), onPressed: () => controller.markWatchNextDone(item)),
-                  IconButton(icon: Icon(UIconsPro.regularRounded.cross, size: 13), onPressed: () => controller.skipWatchNext(item)),
-                ]).pSymmetric(h: 8, v: 6),
-              );
-            },
-          ),
-        ),
-      ),
-    ]).pOnly(left: 8);
-  }
-
-  Widget uiHealthDashboard() {
-    String fmtSec(dynamic value) {
-      final s = (value as num?)?.toInt() ?? 0;
-      final d = Duration(seconds: s);
-      return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
-    }
-
-    Widget card(String label, String value, {Color? color}) {
-      return Container(
-        width: 220,
-        padding: EdgeInsets.all(12),
-        decoration: ExDecorator.box(borderColor: AppColor.border, fillColor: AppColor.container, borderRadius: 8),
-        child: VStack([
-          label.text.size(11).neutral400.make(),
-          value.text.bold.size(16).color(color).make().pOnly(top: 6),
-        ], crossAlignment: CrossAxisAlignment.start),
-      ).pOnly(right: 12, bottom: 12);
-    }
-
-    return Obx(() {
-      final h = controller.healthSummary;
-      return VStack([
-        HStack([
-          ExButtonText(label: 'Refresh', labelSize: 12, onPressed: () => controller.refreshHealthDashboard()).pOnly(right: 8),
-          Spacer(),
-          'Updated: ${controller.healthLastUpdatedAt.value.isEmpty ? '-' : controller.healthLastUpdatedAt.value.reformatDate(to: 'yy/MM/dd HH:mm:ss')}'.text.size(11).neutral500.make(),
-        ]).pOnly(bottom: 12),
-        Wrap(
-          children: [
-            card('Total Video', '${h['totalVideo'] ?? 0}'),
-            card('Duplicate Paths', '${h['duplicatePaths'] ?? 0}', color: Vx.orange300),
-            card('Missing Files', '${h['missingFiles'] ?? 0}', color: Vx.red300),
-            card('External Offline', '${h['externalOffline'] ?? 0}', color: Vx.red300),
-            card('Missing Metadata', '${h['missingMetadata'] ?? 0}', color: Vx.amber300),
-            card('Watch 7 Days', fmtSec(h['watchSeconds7d'])),
-            card('Watch 30 Days', fmtSec(h['watchSeconds30d'])),
-          ],
-        ).expand(),
-      ]).pOnly(left: 8);
-    });
   }
 
   // ────────────────────────────────────────────────────────────────
