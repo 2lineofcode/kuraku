@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -84,9 +86,20 @@ mixin HomePanelPlaylist {
                       ExButtonText(
                         label: 'Play This Playlist',
                         width: double.infinity,
-                        onPressed: () {
-                          Overlayment.dismissLast();
-                          HelperOpener.openVideoFile(_listVideos.first, playlist: _listVideos);
+                        onPressed: () async {
+                          final playableVideos = _listVideos.where((video) {
+                            final path = (video.videoPath ?? '').trim();
+                            if (path.isEmpty) return false;
+                            return File(path).existsSync();
+                          }).toList();
+
+                          if (playableVideos.isEmpty) {
+                            await HelperToast.warn('No playable video found. Check your external drive connection.');
+                            return;
+                          }
+
+                          await Overlayment.dismissLast();
+                          await HelperOpener.openVideoFile(playableVideos.first, playlist: playableVideos);
                         },
                       )
                     ])

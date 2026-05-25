@@ -76,6 +76,16 @@ class ImgViewerController extends GetxController {
     selectImage(selectedIndex.value + 1);
   }
 
+  void shuffleImages() {
+    if (images.length <= 1) return;
+    final shuffled = images.toList()..shuffle();
+    images.assignAll(shuffled);
+
+    selectedIndex.value = 0;
+    resetZoom();
+    _scrollThumbnailToSelected();
+  }
+
   void selectImage(int index) {
     if (images.isEmpty) return;
     selectedIndex.value = index.clamp(0, images.length - 1).toInt();

@@ -6,6 +6,41 @@ import re
 import time
 import datetime
 
+
+SCRIPT_NAME = "r18_to_javit"
+SCRIPT_VERSION = "1.1.0"
+SCRIPT_UPDATED_AT = "2026-05-26"
+
+
+def cleanup_old_r18_dbs(workdir, keep_db_path):
+    keep_abs = os.path.abspath(keep_db_path)
+    for db_path in glob.glob(os.path.join(workdir, "r18*.db")):
+        abs_path = os.path.abspath(db_path)
+        if abs_path == keep_abs:
+            continue
+        try:
+            os.remove(abs_path)
+            print(f"🧹 Removed old DB: {abs_path}")
+        except Exception as e:
+            print(f"⚠️ Failed removing old DB: {abs_path} | {e}")
+
+
+def cleanup_source_files(input_sql_file):
+    try:
+        if os.path.exists(input_sql_file):
+            os.remove(input_sql_file)
+            print(f"🧹 Removed source SQL: {input_sql_file}")
+    except Exception as e:
+        print(f"⚠️ Failed removing source SQL: {input_sql_file} | {e}")
+
+    gz_path = f"{input_sql_file}.gz"
+    try:
+        if os.path.exists(gz_path):
+            os.remove(gz_path)
+            print(f"🧹 Removed source GZ: {gz_path}")
+    except Exception as e:
+        print(f"⚠️ Failed removing source GZ: {gz_path} | {e}")
+
 # tested : 00:01:20 ~ 00:02:00
 def psql2sqlite(in_psql_file, out_sqlite_file):
     conn = None
@@ -244,6 +279,8 @@ def psql2sqlite(in_psql_file, out_sqlite_file):
 
 
 if __name__ == "__main__":
+    print(f"🧩 {SCRIPT_NAME} v{SCRIPT_VERSION} ({SCRIPT_UPDATED_AT})")
+
     parser = argparse.ArgumentParser(description="PSQL to SQLite converter")
     parser.add_argument(
         "-d", "--dir",
@@ -273,5 +310,8 @@ if __name__ == "__main__":
 
     print(f"Input SQL: {input_sql_file}")
     print(f"Output DB: {output_sqlite_db}")
+    print(f"Target DB Version Tag: {version}")
 
+    cleanup_old_r18_dbs(workdir, output_sqlite_db)
     psql2sqlite(input_sql_file, output_sqlite_db)
+    cleanup_source_files(input_sql_file)

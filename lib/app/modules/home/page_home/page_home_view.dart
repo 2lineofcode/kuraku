@@ -34,7 +34,7 @@ class PageHomeView extends GetView<PageHomeController> {
     return Obx(
       () => ReorderableListView.builder(
         buildDefaultDragHandles: false,
-        onReorder: (int oldIndex, int newIndex) {
+        onReorderItem: (int oldIndex, int newIndex) {
           if (newIndex > oldIndex) newIndex -= 1;
           final item = controller.homeSectionOrder.removeAt(oldIndex);
           controller.homeSectionOrder.insert(newIndex, item);

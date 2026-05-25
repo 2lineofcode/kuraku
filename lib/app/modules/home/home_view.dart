@@ -1,5 +1,6 @@
 import 'package:dotted_border/dotted_border.dart';
 import 'package:ex_kit/ex.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_popup/flutter_popup.dart';
@@ -118,16 +119,58 @@ class HomeView extends GetView<HomeController> {
     return HStack(
       [
         Obx(
+          () {
+            controller.topNavSearchRevision.value;
+            if (controller.isTopNavSearchExpanded.isFalse) {
+              return IconButton(
+                icon: Icon(UIconsPro.regularRounded.search, size: 14),
+                onPressed: controller.focusTopNavSearch,
+                tooltip: 'Search: [⌘ + F]',
+              ).pOnly(right: 8);
+            }
+
+            return CupertinoTextField(
+              controller: controller.tecTopNavSearch,
+              focusNode: controller.fnTopNavSearch,
+              enabled: controller.isTopNavSearching.isFalse,
+              clearButtonMode: OverlayVisibilityMode.never,
+              placeholder: 'Anything...',
+              style: TextStyle(color: Vx.white, fontSize: 14),
+              prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+              suffix: HStack(
+                [
+                  if (controller.isTopNavSearching.isTrue)
+                    CupertinoActivityIndicator(radius: 7).pOnly(right: 8),
+                  if (controller.tecTopNavSearch.text.isNotEmpty && controller.isTopNavSearching.isFalse)
+                    IconButton(
+                      icon: Icon(Icons.close_rounded, size: 14, color: Vx.neutral500),
+                      visualDensity: VisualDensity.compact,
+                      splashRadius: 12,
+                      tooltip: 'Clear',
+                      onPressed: controller.clearTopNavSearch,
+                    ).wh(28, 28),
+                ],
+              ),
+              onChanged: controller.onTopNavSearchChanged,
+              onSubmitted: controller.onTopNavSearchSubmitted,
+            ).w(180).pOnly(right: 10);
+          },
+        ),
+
+        Obx(
           () => controller.totalVideo.value > 0
               ? CustomPopup(
                   barrierColor: Vx.amber500.withAlpha(50),
-                  content: '${HelperBadge.getBadgeTotVidTooltip(controller.totalVideo.value)}'.text.black.size(12).make().w(250),
+                  content: VStack(
+                    [
+                      '${HelperBadge.getBadgeTotVidText(controller.totalVideo.value)}'.text.black.size(13).bold.make().pOnly(bottom: 6),
+                      '${HelperBadge.getBadgeTotVidTooltip(controller.totalVideo.value)}'.text.black.size(12).make(),
+                    ],
+                    crossAlignment: CrossAxisAlignment.start,
+                  ).w(250),
                   child: Container(
-                    decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 16, fillColor: AppColor.selected.withAlpha(100)),
-                    child: HStack([
-                      HelperBadge.getBadgeTotVidIcons(controller.totalVideo.value).pOnly(right: 8),
-                      '${HelperBadge.getBadgeTotVidText(controller.totalVideo.value)}'.text.size(12).make(),
-                    ]).pSymmetric(h: 12, v: 4),
+                    decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 90, fillColor: AppColor.selected.withAlpha(100)),
+                    child: HelperBadge.getBadgeTotVidIcons(controller.totalVideo.value).p(6),
                   ),
                 )
               : 0.heightBox,
@@ -263,10 +306,42 @@ class HomeView extends GetView<HomeController> {
         controller.onOpenProfile();
       })),
       
-      Obx(() => '${controller.footerText}'.text.size(11).ellipsis.maxLines(1).align(TextAlign.end).make().onInkTap((){
+      Obx(() => footerStatusText().onInkTap((){
         controller.onOpenSettingsAppLog();
       }).expand()),
     ]).p12();
+  }
+
+  Widget footerStatusText() {
+    final footerText = controller.footerText.value;
+    final storageText = footerText.startsWith('Idle | Total Video:') ? controller.footerStorageText.value : '';
+
+    if (storageText.isEmpty) {
+      return footerText.text.size(11).ellipsis.maxLines(1).align(TextAlign.end).make();
+    }
+
+    final usedPct = controller.footerStorageUsedPct.value;
+    var color = Vx.green500;
+    if (usedPct >= 90) {
+      color = Vx.red600;
+    } else if (usedPct > 85) {
+      color = Vx.orange500;
+    } else if (usedPct > 80) {
+      color = Vx.yellow500;
+    }
+
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(text: footerText),
+          TextSpan(text: storageText, style: TextStyle(color: color)),
+        ],
+      ),
+      style: TextStyle(fontSize: 11, color: Vx.white),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.end,
+    );
   }
 
   Widget floatingActionButton() {

@@ -149,6 +149,7 @@ class AppSettingService extends GetxService {
     HotKey _hotKeyL = HotKey(key: PhysicalKeyboardKey.keyL, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyR = HotKey(key: PhysicalKeyboardKey.keyR, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyD = HotKey(key: PhysicalKeyboardKey.keyD, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKeyF = HotKey(key: PhysicalKeyboardKey.keyF, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyT = HotKey(key: PhysicalKeyboardKey.keyT, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyB = HotKey(key: PhysicalKeyboardKey.keyB, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyDot = HotKey(key: PhysicalKeyboardKey.period, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
@@ -164,9 +165,11 @@ class AppSettingService extends GetxService {
       // AppLog.logD('hotKeyEsc Pressed');
       try { 
         if (Get.currentRoute == Routes.HOME || Get.currentRoute == Routes.ROOT) {
-          Get.back();           
+          Get.back(); return;
         }
-        Overlayment.dismissLast();
+
+        if (Overlayment.count > 0)  Overlayment.dismissLast();
+
       } catch (e, stackTrace) {
         _logHotkeyError('esc', e, stackTrace);
       }
@@ -209,6 +212,14 @@ class AppSettingService extends GetxService {
       try { Get.find<PageDownloadController>().openDialogDownload(); } 
       catch (e, stackTrace) {
         _logHotkeyError('meta+d', e, stackTrace);
+      }
+    });
+
+    await hotKeyManager.register(_hotKeyF, keyUpHandler: (hotKey) {
+      // AppLog.logD('hotKeyF Pressed');
+      try { Get.find<HomeController>().focusTopNavSearch(); }
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+f', e, stackTrace);
       }
     });
 

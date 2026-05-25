@@ -202,21 +202,53 @@ class PageSettingsController extends GetxController {
                     Get.back();
                     final appSetting = Get.find<AppSettingService>();
                     final home = Get.find<HomeController>();
+                    final dbService = Get.find<DBService>();
+                    final dio = Dio();
 
                     final serverUrl = Env.r18ServerUrl;
-                    final outputFileName = 'r18dotdev_dump_$lastUpdFromNowStr.sql.gz';
+                    String? outputFileName;
+                    String? gzPath;
+                    DioException? lastDownloadError;
 
-                    await Dio().download(
-                      '$serverUrl/$outputFileName',
-                      '${appSetting.appPath}/$outputFileName',
-                      onReceiveProgress: (received, total) {
-                        final percent = ((received / total) * 100).toStringAsFixed(0);
-                        home.footerText.value = 'DO NOT CLOSE APP | Downloading ($percent%) ...';
-                      },
-                    );
+                    for (var i = 0; i < 8; ) {
+                      final candidateDate = lastUpdFromNow.subtract(Duration(days: i * 7));
+                      final candidateDateStr = candidateDate.toStringEx(format: kYMd);
+                      outputFileName = 'r18dotdev_dump_$candidateDateStr.sql.gz';
+                      gzPath = '${appSetting.appPath}/$outputFileName';
+
+                      try {
+                        await dio.download(
+                          '$serverUrl/$outputFileName',
+                          gzPath,
+                          onReceiveProgress: (received, total) {
+                            final percent = total > 0 ? ((received / total) * 100).toStringAsFixed(0) : '0';
+                            home.footerText.value = 'DO NOT CLOSE APP | Downloading ($percent%) ...';
+                          },
+                        );
+                        break;
+                      } on DioException catch (e) {
+                        lastDownloadError = e;
+                        final statusCode = e.response?.statusCode ?? 0;
+                        if (statusCode == 404) {
+                          await HelperToast.error('Version for $candidateDateStr not found, try update tommorow.');
+                          return;
+                        }
+                        rethrow;
+                      }
+                    }
+
+                    if (gzPath == null || File(gzPath).existsSync() == false) {
+                      throw Exception('R18 dump not found on server (tried last 8 weekly versions). Last error: ${lastDownloadError?.message ?? 'unknown'}');
+                    }
 
                     home.footerText.value = 'DO NOT CLOSE APP | Extracting...';
-                    await shell.run('gunzip "${appSetting.appPath}/$outputFileName"');
+                    await shell.run('gunzip "$gzPath"');
+
+                    // Release file lock so Python can rotate old r18*.db safely.
+                    try {
+                      await dbService.dbR18?.close();
+                      dbService.dbR18 = null;
+                    } catch (_) {}
 
                     home.footerText.value = 'DO NOT CLOSE APP | Importing... will take 4-15 minutes..';
                     await shell.run(

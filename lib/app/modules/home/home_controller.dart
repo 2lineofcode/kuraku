@@ -10,6 +10,7 @@ import 'package:uuid/v4.dart';
 
 import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
+import '../../core/app_setting.dart';
 import '../../core/const.dart';
 import '../../data/database/db_activity.dart';
 import '../../data/database/db_collection.dart';
@@ -42,10 +43,17 @@ class HomeController extends GetxController with StateMixin {
     {'icon': UIconsPro.regularRounded.operating_system_upgrade, 'name': kMenuSetting},
   ];
   final currentMenuSelected = kMenuHome.obs;
+  final tecTopNavSearch = TextEditingController();
+  final fnTopNavSearch = FocusNode();
+  final isTopNavSearchExpanded = false.obs;
+  final isTopNavSearching = false.obs;
+  final topNavSearchRevision = 0.obs;
 
   final loadingText = '...'.obs;
   final totalVideo = 0.obs;
   final footerText = ''.obs;
+  final footerStorageText = ''.obs;
+  final footerStorageUsedPct = 0.0.obs;
   final sideMenuWidth = 180.0.obs;
 
   // library
@@ -108,6 +116,7 @@ class HomeController extends GetxController with StateMixin {
   @override
   Future<void> onInit() async {
     super.onInit();
+    fnTopNavSearch.addListener(_onTopNavSearchFocusChanged);
     
     change(200, status: RxStatus.loading());
     AppLog.logI('root home ==> onInit called');
@@ -122,8 +131,7 @@ class HomeController extends GetxController with StateMixin {
     await _syncGamification();
     profile.value = await DBProfile.getProfile() ?? Profile();
 
-    final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo() ?? 0;
-    footerText.value = 'Iddle | Total Video: ${totalVideo.value} (${_totalFileSize.toFileSizeFormat()})';
+    await updateFooterSummary();
 
     sideMenuWidth.value = AppPref.getAppHideSideMenu() ? 65 : 180;
 
@@ -140,6 +148,9 @@ class HomeController extends GetxController with StateMixin {
   @override
   void onClose() {
     HomePanelLibrary.stopAutoRescanWatcher();
+    fnTopNavSearch.removeListener(_onTopNavSearchFocusChanged);
+    tecTopNavSearch.dispose();
+    fnTopNavSearch.dispose();
     super.onClose();
   }
 
@@ -163,11 +174,10 @@ class HomeController extends GetxController with StateMixin {
       await DBActivity.getCountRelapseToday();
       isDangerMode.value = await DBActivity.getCountRelapseToday() >= AppPref.getAppMaxColi();
 
-      final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo() ?? 0;
       totalVideo.value = await DBVideos.getCount();
       await _syncGamification();
       profile.value = await DBProfile.getProfile() ?? Profile();
-      footerText.value = 'Iddle | Total Video: ${totalVideo.value} (${_totalFileSize.toFileSizeFormat()})';
+      await updateFooterSummary();
 
       AppLog.logS('${preserveInputState ? 'Refresh Background Content' : 'Refresh All Content'} Take Time: ${sw.elapsedMilliseconds} ms');
       change(200, status: RxStatus.success());
@@ -190,6 +200,153 @@ class HomeController extends GetxController with StateMixin {
 
   Future<void> onMenuChange(String menu) async {
     currentMenuSelected.value = menu;
+  }
+
+  Future<void> updateFooterSummary() async {
+    totalVideo.value = await DBVideos.getCount();
+
+    final storage = await _readStorageUsage();
+    if (storage == null || storage['total'] == 0) {
+      footerText.value = 'Idle | Total Video: ${totalVideo.value}';
+      footerStorageText.value = '';
+      footerStorageUsedPct.value = 0;
+      return;
+    }
+
+    final total = storage['total'] ?? 0;
+    final free = storage['free'] ?? 0;
+    final usedPct = total > 0 ? ((total - free) / total) * 100 : 0;
+    footerText.value = 'Idle | Total Video: ${totalVideo.value}';
+    footerStorageText.value = ' | Avaiable: ${free.toFileSizeFormat()} (${usedPct.toStringAsFixed(1)}%)';
+    footerStorageUsedPct.value = usedPct.toDouble();
+  }
+
+  Future<Map<String, int>?> _readStorageUsage() async {
+    try {
+      final path = Get.find<AppSettingService>().appPath;
+      if (Platform.isWindows) return await _readStorageUsageWindows(path);
+      return await _readStorageUsagePosix(path);
+    } catch (e) {
+      AppLog.logD('Footer storage read failed: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, int>?> _readStorageUsagePosix(String path) async {
+    final result = await Process.run('df', ['-k', path]);
+    if (result.exitCode != 0) return null;
+
+    final lines = result.stdout.toString().trim().split('\n');
+    if (lines.length < 2) return null;
+
+    final parts = lines[1].split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+    if (parts.length < 4) return null;
+
+    final totalKb = int.tryParse(parts[1]);
+    final availableKb = int.tryParse(parts[3]);
+    if (totalKb == null || availableKb == null) return null;
+
+    return {
+      'total': totalKb * 1024,
+      'free': availableKb * 1024,
+    };
+  }
+
+  Future<Map<String, int>?> _readStorageUsageWindows(String path) async {
+    final drive = path.length >= 2 ? path.substring(0, 2) : path;
+    final result = await Process.run('fsutil', ['volume', 'diskfree', drive]);
+    if (result.exitCode != 0) return null;
+
+    final freeMatch = RegExp(r'Total # of avail free bytes\s*:\s*(\d+)').firstMatch(result.stdout.toString());
+    final totalMatch = RegExp(r'Total # of bytes\s*:\s*(\d+)').firstMatch(result.stdout.toString());
+    if (freeMatch == null || totalMatch == null) return null;
+
+    return {
+      'free': int.tryParse(freeMatch.group(1) ?? '') ?? 0,
+      'total': int.tryParse(totalMatch.group(1) ?? '') ?? 0,
+    };
+  }
+
+  Future<void> onTopNavSearchSubmitted(String input) async {
+    final query = input.trim();
+    if (query.isEmpty) {
+      isTopNavSearchExpanded.value = false;
+      topNavSearchRevision.value++;
+      return;
+    }
+    if (isTopNavSearching.isTrue) return;
+
+    isTopNavSearching.value = true;
+    try {
+      final localVideos = await DBVideos.search(query);
+      if (localVideos.isNotEmpty) {
+        final search = Get.find<PageSearchController>();
+        search.tecSearch.text = query;
+        search.filter.reset();
+        search.videos.value = localVideos;
+        search.allVideos.value = localVideos;
+        search.isFresh.value = false;
+        search.isSearchMode.value = true;
+        currentMenuSelected.value = kMenuSearch;
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (search.scrollGridController.hasClients) {
+            search.scrollGridController.jumpTo(0);
+          }
+          search.fnSearch.requestFocus();
+        });
+        return;
+      }
+
+      final download = Get.find<PageDownloadController>();
+      download.filter.reset();
+      download.tecSearch.text = query;
+      download.currentPage.value = 1;
+      currentMenuSelected.value = kMenuDownload;
+      await download.onSearch(query);
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (download.scrollController.hasClients) {
+          download.scrollController.jumpTo(0);
+        }
+        download.fnSearch.requestFocus();
+      });
+    } finally {
+      isTopNavSearching.value = false;
+      tecTopNavSearch.clear();
+      isTopNavSearchExpanded.value = false;
+      topNavSearchRevision.value++;
+    }
+  }
+
+  void clearTopNavSearch() {
+    tecTopNavSearch.clear();
+    isTopNavSearchExpanded.value = false;
+    topNavSearchRevision.value++;
+  }
+
+  void focusTopNavSearch() {
+    isTopNavSearchExpanded.value = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      fnTopNavSearch.requestFocus();
+      tecTopNavSearch.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: tecTopNavSearch.text.length,
+      );
+    });
+  }
+
+  void onTopNavSearchChanged(String input) {
+    if (input.isEmpty && isTopNavSearching.isFalse) {
+      isTopNavSearchExpanded.value = false;
+    }
+    topNavSearchRevision.value++;
+  }
+
+  void _onTopNavSearchFocusChanged() {
+    if (fnTopNavSearch.hasFocus || tecTopNavSearch.text.isNotEmpty || isTopNavSearching.isTrue) return;
+    isTopNavSearchExpanded.value = false;
+    topNavSearchRevision.value++;
   }
 
   Future<void> onOpenSettingsAppLog() async {
@@ -219,7 +376,7 @@ class HomeController extends GetxController with StateMixin {
 
       reader.getValue<Uri>(Formats.fileUri, (data) {
         if (data != null) {
-          droppedPaths.add(data.path);
+          droppedPaths.add(_normalizeDropPath(data));
         }
         completer.complete();
       });
@@ -229,6 +386,8 @@ class HomeController extends GetxController with StateMixin {
     if (droppedPaths.isEmpty) return;
 
     final folderPaths = <String>[];
+    final folderImagePaths = <String>[];
+    final folderLibraryPaths = <String>[];
     final videoPaths = <String>[];
     final imagePaths = <String>[];
     var hasUnsupportedFile = false;
@@ -250,7 +409,22 @@ class HomeController extends GetxController with StateMixin {
     }
 
     if (folderPaths.isNotEmpty) {
-      unawaited(_openDroppedFolders(folderPaths));
+      for (final folderPath in folderPaths) {
+        final folderImages = await _collectFolderImagesIfOnlyImages(folderPath);
+        if (folderImages.isNotEmpty) {
+          folderImagePaths.addAll(folderImages);
+        } else {
+          folderLibraryPaths.add(folderPath);
+        }
+      }
+    }
+
+    if (folderImagePaths.isNotEmpty) {
+      unawaited(_openDroppedImages(folderImagePaths));
+    }
+
+    if (folderLibraryPaths.isNotEmpty) {
+      unawaited(_openDroppedFolders(folderLibraryPaths));
     }
 
     if (imagePaths.isNotEmpty && folderPaths.isEmpty && videoPaths.isEmpty && !hasUnsupportedFile) {
@@ -265,14 +439,81 @@ class HomeController extends GetxController with StateMixin {
   }
 
   bool _isImagePath(String path) {
+    if (!path.contains('.')) return false;
+
     final ext = path.toLowerCase().split('.').last;
-    return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'].contains(ext);
+    return {
+      'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'heic', 'heif', 
+      'tiff', 'tif', 'svg', 'avif', 'apng', 'ico', 'raw', 'arw', 
+      'cr2', 'nef', 'orf', 'sr2'
+    }.contains(ext);
+  }
+
+  String _normalizeDropPath(Uri uri) {
+    try {
+      return uri.toFilePath();
+    } catch (_) {
+      return Uri.decodeFull(uri.path);
+    }
+  }
+
+  String _normalizeRawDropPath(String rawPath) {
+    final value = rawPath.trim();
+    final uri = Uri.tryParse(value);
+    if (uri == null) return value;
+
+    if (uri.scheme == 'file') {
+      try {
+        return Uri(
+          scheme: uri.scheme,
+          host: uri.host,
+          path: uri.path,
+        ).toFilePath();
+      } catch (_) {
+        return Uri.decodeFull(uri.path);
+      }
+    }
+
+    return value;
+  }
+
+  Future<List<String>> _collectFolderImagesIfOnlyImages(String folderPath) async {
+    try {
+      final folder = Directory(folderPath);
+      if (!await folder.exists()) return [];
+
+      final files = <String>[];
+      await for (final entity in folder.list(recursive: true, followLinks: false)) {
+        if (entity is! File) continue;
+
+        final fileName = entity.path.getLastPath().toLowerCase();
+        if (_isIgnoredSystemFile(fileName)) continue;
+
+        files.add(entity.path);
+        if (_isImagePath(entity.path) == false) {
+          return [];
+        }
+      }
+
+      if (files.isEmpty) return [];
+      files.sort();
+      return files;
+    } catch (e) {
+      AppLog.logW('Drop image folder scan failed: $e');
+      return [];
+    }
+  }
+
+  bool _isIgnoredSystemFile(String fileName) {
+    return fileName.startsWith('.') ||
+        fileName == 'thumbs.db' ||
+        fileName == 'desktop.ini';
   }
 
   Future<void> _openDroppedImages(List<String> paths) async {
     final images = <String>[];
     for (final path in paths) {
-      final decodedPath = Uri.parse(path).toFilePath();
+      final decodedPath = _normalizeRawDropPath(path);
       final file = File(decodedPath);
       if (file.existsSync()) images.add(decodedPath);
     }
@@ -290,8 +531,8 @@ class HomeController extends GetxController with StateMixin {
 
   Future<void> _openDroppedFolders(List<String> paths) async {
     for (final path in paths) {
-      final _path = path.removeLast(1)!;
-      final newLibrary = await HelperFilePicker.scanFolderAndSubFolder(_path);
+      final normalizedPath = path.endsWith(Platform.pathSeparator) ? path.substring(0, path.length - 1) : path;
+      final newLibrary = await HelperFilePicker.scanFolderAndSubFolder(normalizedPath);
       newLibrary?.alias = newLibrary.rootFolder?.getLastPath();
 
       await HomePanelLibrary.showDialogAddorEditLibrary(library: newLibrary, isFromDrop: true);
@@ -324,7 +565,7 @@ class HomeController extends GetxController with StateMixin {
   }
 
   Future<Videos?> _createDroppedVideo(String path) async {
-    final decodedPath = Uri.parse(path).toFilePath();
+    final decodedPath = _normalizeRawDropPath(path);
     final file = File(decodedPath);
     if (!file.existsSync()) {
       await HelperToast.warn('File not found');

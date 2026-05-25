@@ -86,34 +86,60 @@ mixin HelperOpener {
   // **
   // ────────────────────────────────────────────────────────────────
   static Future<void> openVideoInfo(dynamic item) async {
-    late Map<String, dynamic>? dataVideo;
+    Map<String, dynamic>? dataVideo;
     HelperLoading.show();
 
+    final candidates = <String>[];
+
+
+    void _pushCode(String? value) {
+      final code = (value ?? '').trim();
+      if (code.isEmpty) return;
+      if (candidates.contains(code)) return;
+      candidates.add(code);
+    }
+
+    String _getRawCode(dynamic source) {
+      if (source is JavitSearchResult) return source.videoCode ?? '';
+      if (source is Videos) return source.videoCode ?? '';
+      if (source is Map<String, dynamic>) return source['video_code']?.toString() ?? '';
+      return '';
+    }
+
+    final rawCode = _getRawCode(item);
+    _pushCode(rawCode);
+    _pushCode(rawCode.getVideoCode());
+    _pushCode(rawCode.toUpperCase());
+    _pushCode(rawCode.getVideoCode().toUpperCase());
+
+    for (final code in candidates) {
+      dataVideo = await DBR18.getVideo(code);
+      if (dataVideo != null) break;
+    }
+
     // ** -> from download page
-    if (item is JavitSearchResult) {
-      final fixCode = item.videoCode?.getVideoCode() ?? '';
-      dataVideo = await DBR18.getVideo(fixCode);
-    }
-
-    // ** -> from library
-    else if (item is Videos) {
-      final fixCode = item.videoCode?.getVideoCode() ?? '';
-      dataVideo = await DBR18.getVideo(fixCode);
-    }
-
-    // ** -> from r18
-    else {
-      dataVideo = await DBR18.getVideo(item['video_code']);
+    if (dataVideo == null && item is JavitSearchResult) {
+      dataVideo = {
+        'video_code': item.videoCode ?? rawCode,
+        'title': item.title ?? '',
+        'fan_art': item.fanArt ?? '',
+        'poster': item.poster ?? '',
+        'trailer': item.trailer ?? '',
+        'release_date': item.releaseDate ?? '',
+        'duration': item.duration ?? 0,
+      };
     }
 
     final video = Videos.fromJson(dataVideo ?? {});
-    final dataCategory = await DBR18.getCategory(video.videoCode ?? '');
-    final dataActress = await DBR18.getActress(video.videoCode ?? '');
-    final dataDirector = await DBR18.getDirector(video.videoCode ?? '');
+    final resolvedCode = (video.videoCode ?? '').trim();
+    final dataCategory = resolvedCode.isEmpty ? <Map<String, dynamic>>[] : await DBR18.getCategory(resolvedCode);
+    final dataActress = resolvedCode.isEmpty ? <Map<String, dynamic>>[] : await DBR18.getActress(resolvedCode);
+    final dataDirector = resolvedCode.isEmpty ? null : await DBR18.getDirector(resolvedCode);
 
     // new
     try {
-      final x = await DBVideos.getByCode(video.videoCode ?? '');
+      if (resolvedCode.isEmpty) throw Exception('empty video code');
+      final x = await DBVideos.getByCode(resolvedCode);
       if (x.videoCode.isNotEmptyAndNotNull) {
         HelperLoading.dismiss();
         await HomePanelVideoInfo.open(x);
@@ -294,22 +320,32 @@ mixin HelperOpener {
                                     .onInkTap(() async {
                                       // ** on actress clicked
                                       try {
-                                        final check = await DBVideos.getByActress(video.actress?[i].nameRomaji ?? '');
                                         final name = '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}';
+                                        final isRomaji = RegExp(r"^[A-Za-z0-9 .,'-]+$").hasMatch(name) && RegExp(r'[A-Za-z]').hasMatch(name);
 
-                                        if (check.isNotEmpty) {
-                                          await _home.onMenuChange(kMenuExplore);
-                                          await _explore.onMenuChange(kActress);
-                                          _explore.tecSearchLeft.text = name;
-                                          _explore.onLeftListDoSearch(name);
-                                          await _explore.onLeftListTap(_explore.leftListFiltered[0]);
-                                        } else {
+                                        if (isRomaji == false) {
                                           await _home.onMenuChange(kMenuTools);
                                           await _tool.onMenuChange(kAdvanceSearch);
                                           _tool.currentFilterBy.value = kActress;
                                           _tool.tecFilterSearchLeft.text = name;
                                           await _tool.onLeftListDoSearch(name);
                                           await _tool.onLeftListTap(_tool.leftList[0], 0);
+                                        } else {
+                                          final check = await DBVideos.getByActress(video.actress?[i].nameRomaji ?? '');
+                                          if (check.isNotEmpty) {
+                                            await _home.onMenuChange(kMenuExplore);
+                                            await _explore.onMenuChange(kActress);
+                                            _explore.tecSearchLeft.text = name;
+                                            _explore.onLeftListDoSearch(name);
+                                            await _explore.onLeftListTap(_explore.leftListFiltered[0]);
+                                          } else {
+                                            await _home.onMenuChange(kMenuTools);
+                                            await _tool.onMenuChange(kAdvanceSearch);
+                                            _tool.currentFilterBy.value = kActress;
+                                            _tool.tecFilterSearchLeft.text = name;
+                                            await _tool.onLeftListDoSearch(name);
+                                            await _tool.onLeftListTap(_tool.leftList[0], 0);
+                                          }
                                         }
                                       } catch (_) {}
                                     })

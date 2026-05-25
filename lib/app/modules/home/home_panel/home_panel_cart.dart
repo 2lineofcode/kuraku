@@ -261,8 +261,19 @@ mixin HomePanelCart {
   // ? Play Videos
   // ────────────────────────────────────────────────────────────────
   static Future<void> _playVideos() async {
+    final playableVideos = _controller.cart.where((video) {
+      final path = (video.videoPath ?? '').trim();
+      if (path.isEmpty) return false;
+      return File(path).existsSync();
+    }).toList();
+
+    if (playableVideos.isEmpty) {
+      await HelperToast.warn('No playable video found. Check your external drive connection.');
+      return;
+    }
+
     await Overlayment.dismissLast();
-    await HelperOpener.openVideoFile(_controller.cart.first, playlist: _controller.cart);
+    await HelperOpener.openVideoFile(playableVideos.first, playlist: playableVideos);
   }
 
   static Future<void> _openInGridPlayer() async {

@@ -414,6 +414,7 @@ class PageDownloadController extends GetxController {
 
       videos.value = allVideos.toList();
       _syncHavingVideos(videos.toList());
+      _scheduleLoadMoreIfNeeded();
       sw.stop();
       AppLog.logD('download_query route=$route page=${currentPage.value} items=${pageItems.length} in ${sw.elapsedMilliseconds} ms');
     } catch (e) {
@@ -544,11 +545,29 @@ class PageDownloadController extends GetxController {
   }
 
   void _onScroll() {
-    if (scrollController.position.pixels >= scrollController.position.maxScrollExtent - 240) {
-      if (hasNextPage.isTrue && isLoadingMore.isFalse && isLoading.isFalse) {
-        currentPage.value += 1;
-        _loadPage(isLoadMore: true);
-      }
+    _triggerLoadMoreIfNeeded();
+  }
+
+  void onViewportMetricsChanged() {
+    _scheduleLoadMoreIfNeeded();
+  }
+
+  void _scheduleLoadMoreIfNeeded() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _triggerLoadMoreIfNeeded();
+    });
+  }
+
+  void _triggerLoadMoreIfNeeded() {
+    if (scrollController.hasClients == false) return;
+    if (hasNextPage.isFalse || isLoadingMore.isTrue || isLoading.isTrue) return;
+
+    final position = scrollController.position;
+    final isNearBottom = position.pixels >= position.maxScrollExtent - 240;
+    final isNotScrollableYet = position.maxScrollExtent <= 0;
+    if (isNearBottom || isNotScrollableYet) {
+      currentPage.value += 1;
+      _loadPage(isLoadMore: true);
     }
   }
 
@@ -899,8 +918,7 @@ class PageDownloadController extends GetxController {
             if (code == 1) {
               downloadStdout.value = 'Download Failed 🔴';
 
-              final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo();
-              Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSizeFormat()})';
+              await Get.find<HomeController>().updateFooterSummary();
               await HelperToast.error('Download Failed 🔴');
               
               final currentActivity = await DBActivity.getDownloadLogByFilename(safeFilename);
@@ -910,8 +928,7 @@ class PageDownloadController extends GetxController {
 
             if (code == 0) {
               downloadStdout.value = 'Download Finished ✅';
-              final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo();
-              Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSizeFormat()})';
+              await Get.find<HomeController>().updateFooterSummary();
 
               await HelperToast.success('Download Finished ✅');
 
@@ -956,8 +973,7 @@ class PageDownloadController extends GetxController {
       currentProcessDownload.value = null;
       downloadStdout.value = '';
 
-      final _totalFileSize = await DBVideos.getTotalFileSizeAllVideo();
-      Get.find<HomeController>().footerText.value = 'Iddle | Total Video: ${await DBVideos.getCount()} (${_totalFileSize?.toFileSizeFormat()})';
+      await Get.find<HomeController>().updateFooterSummary();
     } catch (e) {
       AppLog.logD('killProcessDownload e -> $e');
     }

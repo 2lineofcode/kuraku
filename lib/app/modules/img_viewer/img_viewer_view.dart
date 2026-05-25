@@ -15,31 +15,63 @@ class ImgViewerView extends GetView<ImgViewerController> {
 
   @override
   Widget build(BuildContext context) {
+    final isMacOS = Platform.isMacOS;
+    final macTopInset = MediaQuery.of(context).padding.top;
+    final macTitleInset = isMacOS ? 0.0 : 0.0;
+    final macBackInset = isMacOS ? 80.0 : 0.0;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: AppColor.appBar,
-        title: Obx(() {
-          final title = controller.title.value.isEmpty ? 'Image Viewer' : controller.title.value;
-          final counter = controller.images.isEmpty ? '' : '  ${controller.selectedIndex.value + 1}/${controller.images.length}';
-          return Text('$title$counter', style: const TextStyle(fontSize: 14));
-        }),
+        toolbarHeight: 44,
+        leadingWidth: isMacOS ? (52 + macBackInset) : 52,
+        titleSpacing: isMacOS ? 4 : NavigationToolbar.kMiddleSpacing,
+        actionsPadding: EdgeInsets.only(right: 4, left: isMacOS ? 8 : 0),
+        toolbarTextStyle: const TextStyle(fontSize: 14),
+        titleTextStyle: const TextStyle(fontSize: 14),
+        iconTheme: const IconThemeData(size: 20),
+        title: Padding(
+          padding: EdgeInsets.only(left: macTitleInset),
+          child: Obx(() {
+            final title = controller.title.value.isEmpty ? 'Image Viewer' : controller.title.value;
+            final counter = controller.images.isEmpty ? '' : '  ${controller.selectedIndex.value + 1}/${controller.images.length}';
+            return Text('$title$counter', style: const TextStyle(fontSize: 14));
+          }),
+        ),
+        leading: Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: EdgeInsets.only(left: macBackInset),
+            child: const BackButton(),
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(isMacOS && macTopInset > 0 ? macTopInset * 0.35 : 0),
+          child: const SizedBox.shrink(),
+        ),
         actions: [
-          IconButton(
+          _buildAppBarAction(
+            tooltip: 'Shuffle',
+            onPressed: controller.shuffleImages,
+            icon: Icons.shuffle,
+          ),
+          _buildAppBarAction(
             tooltip: 'Zoom out',
             onPressed: controller.zoomOut,
-            icon: const Icon(Icons.remove),
+            icon: Icons.remove,
           ),
-          IconButton(
+          _buildAppBarAction(
             tooltip: 'Reset zoom',
             onPressed: controller.resetZoom,
-            icon: const Icon(Icons.center_focus_strong),
+            icon: Icons.center_focus_strong,
           ),
-          IconButton(
+          _buildAppBarAction(
             tooltip: 'Zoom in',
             onPressed: controller.zoomIn,
-            icon: const Icon(Icons.add),
+            icon: Icons.add,
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: Focus(
@@ -70,6 +102,11 @@ class ImgViewerView extends GetView<ImgViewerController> {
 
           if (event.logicalKey == LogicalKeyboardKey.digit0) {
             controller.resetZoom();
+            return KeyEventResult.handled;
+          }
+
+          if (event.logicalKey == LogicalKeyboardKey.keyQ) {
+            Get.back();
             return KeyEventResult.handled;
           }
 
@@ -127,6 +164,23 @@ class ImgViewerView extends GetView<ImgViewerController> {
         'No image found',
         style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 14),
       ),
+    );
+  }
+
+  Widget _buildAppBarAction({
+    required String tooltip,
+    required VoidCallback onPressed,
+    required IconData icon,
+  }) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      iconSize: 18,
+      splashRadius: 16,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      padding: const EdgeInsets.all(6),
     );
   }
 

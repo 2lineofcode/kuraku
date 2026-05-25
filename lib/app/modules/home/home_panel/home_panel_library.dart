@@ -779,7 +779,7 @@ mixin HomePanelLibrary {
         AppLog.logD('[RescanAll] Move ${mv['oldPath']} -> ${mv['newPath']}');
       }
 
-      _controller.footerText.value = 'Idle | Total Video: ${await DBVideos.getCount()}';
+      await _controller.updateFooterSummary();
 
       if (remainingAdds.isNotEmpty || delCandidates.isNotEmpty || moves.isNotEmpty) {
         if (showSummaryToast) {

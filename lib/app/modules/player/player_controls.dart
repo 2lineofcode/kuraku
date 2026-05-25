@@ -337,7 +337,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                     ),
                     if (video.viewCount != null && video.viewCount! > 0)
                       Text(
-                        ' • ${video.viewCount} views',
+                        ' • ${video.viewCount} views • ${video.videoPath?.isHasIdSub() == true ? '🇮🇩 ID Sub' : video.videoPath?.isHasEnSub() == true ? '🇬🇧 EN Sub' : 'No Sub' } • ${video.videoPath?.isHasUncensored() == true ? '🎞️ Uncensored' : 'Censored'}',
                         style: TextStyle(
                           fontSize: 11,
                           color: Colors.white.withValues(alpha: .7),

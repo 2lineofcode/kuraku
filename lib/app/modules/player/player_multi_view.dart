@@ -10,7 +10,11 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/app_color.dart';
+import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
+import '../../data/database/db_gamification.dart';
+import '../../data/database/db_profile.dart';
+import '../../data/database/db_watch_session.dart';
 import '../../data/models/videos_entity.dart';
 
 class PlayerMultiView extends StatefulWidget {
@@ -36,7 +40,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
   @override
   void dispose() {
     for (final item in _items) {
-      item.dispose();
+      unawaited(item.dispose());
     }
     _shortcutFocusNode.dispose();
     super.dispose();
@@ -86,16 +90,18 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
       );
 
       try {
+        item.videoSize.addListener(_onVideoSizeChanged);
+        item.bindPlayerStreams();
+
         await player.open(
           Media(Uri.file(path).toString()),
           play: true,
         );
 
-        item.videoSize.addListener(_onVideoSizeChanged);
-        item.bindVideoSizeStream();
         _items.add(item);
       } catch (e) {
-        await player.dispose();
+        item.videoSize.removeListener(_onVideoSizeChanged);
+        await item.dispose();
         _items.add(
           _MultiVideoItem(
             video: video,
@@ -864,9 +870,33 @@ class _MultiVideoItem {
   final FocusNode focusNode = FocusNode();
   final ValueNotifier<Size?> videoSize = ValueNotifier<Size?>(null);
   final List<StreamSubscription> _subscriptions = [];
+  Duration _sessionWatchDuration = Duration.zero;
+  DateTime? _playStartedAt;
+  bool _isDisposed = false;
 
-  void bindVideoSizeStream() {
+  void bindPlayerStreams() {
     if (player == null) return;
+
+    if (player!.state.playing) {
+      _playStartedAt ??= DateTime.now();
+    }
+
+    _subscriptions.add(
+      player!.stream.playing.listen((value) {
+        if (value) {
+          _playStartedAt ??= DateTime.now();
+        } else {
+          _accumulateWatchDuration();
+        }
+      }),
+    );
+    _subscriptions.add(
+      player!.stream.completed.listen((value) {
+        if (value == true) {
+          _accumulateWatchDuration();
+        }
+      }),
+    );
 
     num? width;
     num? height;
@@ -890,7 +920,37 @@ class _MultiVideoItem {
     );
   }
 
+  void _accumulateWatchDuration() {
+    final started = _playStartedAt;
+    if (started == null) return;
+
+    final diff = DateTime.now().difference(started);
+    if (!diff.isNegative && diff.inMilliseconds > 0) {
+      _sessionWatchDuration += diff;
+    }
+    _playStartedAt = null;
+  }
+
+  Future<void> _persistWatchDuration() async {
+    _accumulateWatchDuration();
+    if (_sessionWatchDuration <= Duration.zero) return;
+
+    try {
+      await DBProfile.updateTotalWatchDuration(_sessionWatchDuration);
+      await DBWatchSession.addSession(video: video, duration: _sessionWatchDuration);
+      await DBGamification.syncAndGetSummary();
+      AppLog.logD('multi watch duration -> ${video.videoCode ?? video.id ?? '-'}: ${_sessionWatchDuration.inSeconds} seconds');
+
+      _sessionWatchDuration = Duration.zero;
+    } catch (e) {
+      AppLog.logW('Failed to save multi watch duration: $e');
+    }
+  }
+
   Future<void> dispose() async {
+    if (_isDisposed) return;
+    _isDisposed = true;
+    _accumulateWatchDuration();
     for (final sub in _subscriptions) {
       await sub.cancel();
     }
@@ -899,5 +959,6 @@ class _MultiVideoItem {
     } catch (_) {}
     videoSize.dispose();
     focusNode.dispose();
+    await _persistWatchDuration();
   }
 }

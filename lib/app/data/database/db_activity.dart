@@ -170,6 +170,17 @@ mixin DBActivity {
   // ────────────────────────────────────────────────────────────────
   static Future<Activity?> getRelapse(String id) => _queryOne(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeRelapse]);
 
+  static Future<Activity?> getLatestRelapseTransaction() async {
+    final maps = await _db.query(
+      _tableName,
+      where: 'type = ?',
+      whereArgs: [kActivityTypeRelapse],
+      orderBy: 'created_at DESC',
+      limit: 1,
+    );
+    return maps.isEmpty ? null : Activity.fromJson(maps.first);
+  }
+
   /// Returns relapse data grouped by date with aggregated `times`.
   static Future<List<Activity>> getAllRelapse() async {
     final maps = await _db.rawQuery('''

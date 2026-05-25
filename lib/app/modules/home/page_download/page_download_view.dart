@@ -139,36 +139,41 @@ class PageDownloadView extends GetView<PageDownloadController> {
   }
 
   Widget modeWrapView() {
-    return GridView.builder(
-      controller: controller.scrollController,
-      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 300,
-        mainAxisExtent: 200,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 300 / 200,
-      ),
-      itemCount: controller.videos.length + (controller.isLoadingMore.isTrue ? 1 : 0),
-      itemBuilder: (context, i) {
-        if (i >= controller.videos.length) {
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (_) {
+        controller.onViewportMetricsChanged();
+        return false;
+      },
+      child: GridView.builder(
+        controller: controller.scrollController,
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 300,
+          mainAxisExtent: 200,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 300 / 200,
+        ),
+        itemCount: controller.videos.length + (controller.isLoadingMore.isTrue ? 1 : 0),
+        itemBuilder: (context, i) {
+          if (i >= controller.videos.length) {
+            return Container(
+              color: AppColor.container,
+              child: Center(
+                child: CupertinoActivityIndicator(radius: 12),
+              ),
+            ).cornerRadius(8);
+          }
+          final item = controller.videos[i];
           return Container(
             color: AppColor.container,
-            child: Center(
-              child: CupertinoActivityIndicator(radius: 12),
-            ),
-          ).cornerRadius(8);
-        }
-        final item = controller.videos[i];
-        return Container(
-          color: AppColor.container,
-          child: ZStack([
-            ExThumbnail(
-              imageUrl: item.fanArt ?? '',
-              width: 300,
-              height: 200,
-              fitUrl: BoxFit.cover,
-              withProxy: false,
-            ).wh(300, 200),
+            child: ZStack([
+              ExThumbnail(
+                imageUrl: item.fanArt ?? '',
+                width: 300,
+                height: 200,
+                fitUrl: BoxFit.cover,
+                withProxy: false,
+              ).wh(300, 200),
 
             // ** match (already have )
             _buildOverlayContainer(
@@ -239,11 +244,12 @@ class PageDownloadView extends GetView<PageDownloadController> {
                 '${HelperDecensor.decensor(item.title ?? '')}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240).hide(isVisible: item.title != null && item.title != ''),
               ]).p8(),
             ).positioned(bottom: 0, left: 0, right: 0),
-          ]),
-        ).cornerRadius(8).onInkTap(() {
-          HelperOpener.openVideoInfo(item);
-        });
-      },
+            ]),
+          ).cornerRadius(8).onInkTap(() {
+            HelperOpener.openVideoInfo(item);
+          });
+        },
+      ),
     );
   }
 

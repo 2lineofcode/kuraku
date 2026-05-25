@@ -23,6 +23,7 @@ mixin HomePanelRelapse {
     final countWeek = 0.obs;
     final countMonth = 0.obs;
     final countAll = 0.obs;
+    final lastTransaction = ''.obs;
 
     relapse.value = await DBActivity.getAllRelapse();
 
@@ -53,6 +54,9 @@ mixin HomePanelRelapse {
     countWeek.value = weekTotal;
     countMonth.value = monthTotal;
     countAll.value = allTotal;
+    final latestTransaction = await DBActivity.getLatestRelapseTransaction();
+    final latestCreatedAt = latestTransaction?.createdAt ?? '';
+    lastTransaction.value = latestCreatedAt.isEmpty ? '-' : latestCreatedAt;
 
     if (Overlayment.count > 0) { await Overlayment.dismissLast(); return; }
 
@@ -156,6 +160,7 @@ mixin HomePanelRelapse {
                 'This Week: ${countWeek.value}'.text.size(12).make(),
                 'This Month: ${countMonth.value}'.text.size(12).make(),
                 'All Time: ${countAll.value}'.text.size(12).make().pOnly(top: 8),
+                'Last Transaction: ${lastTransaction.value == '-' ? '-' : lastTransaction.value.reformatDate(to: 'MMM d, yyyy HH:mm')}'.text.size(12).make().pOnly(top: 8),
               ]).p12(),
             ).pSymmetric(v: 12),
           ],
