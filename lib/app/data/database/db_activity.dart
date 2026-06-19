@@ -184,11 +184,17 @@ mixin DBActivity {
   /// Returns relapse data grouped by date with aggregated `times`.
   static Future<List<Activity>> getAllRelapse() async {
     final maps = await _db.rawQuery('''
-      SELECT *, count(content) as times
+      SELECT
+        max(id) as id,
+        type,
+        content,
+        count(content) as times,
+        max(created_at) as created_at,
+        max(updated_at) as updated_at
       FROM $_tableName
       WHERE type = ?
-      GROUP BY content
-      ORDER BY content desc
+      GROUP BY type, content
+      ORDER BY content desc, created_at desc
     ''', [kActivityTypeRelapse]);
     return List.generate(maps.length, (index) => Activity.fromJson(maps[index]));
   }

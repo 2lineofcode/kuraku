@@ -34,9 +34,8 @@ class ImgViewerView extends GetView<ImgViewerController> {
         title: Padding(
           padding: EdgeInsets.only(left: macTitleInset),
           child: Obx(() {
-            final title = controller.title.value.isEmpty ? 'Image Viewer' : controller.title.value;
             final counter = controller.images.isEmpty ? '' : '  ${controller.selectedIndex.value + 1}/${controller.images.length}';
-            return Text('$title$counter', style: const TextStyle(fontSize: 14));
+            return Text('${controller.currentTitle}$counter', style: const TextStyle(fontSize: 14));
           }),
         ),
         leading: Align(
@@ -55,6 +54,16 @@ class ImgViewerView extends GetView<ImgViewerController> {
             tooltip: 'Shuffle',
             onPressed: controller.shuffleImages,
             icon: Icons.shuffle,
+          ),
+          _buildAppBarAction(
+            tooltip: 'Rotate left',
+            onPressed: controller.rotateCounterClockwise,
+            icon: Icons.rotate_left,
+          ),
+          _buildAppBarAction(
+            tooltip: 'Rotate right',
+            onPressed: controller.rotateClockwise,
+            icon: Icons.rotate_right,
           ),
           _buildAppBarAction(
             tooltip: 'Zoom out',
@@ -105,6 +114,16 @@ class ImgViewerView extends GetView<ImgViewerController> {
             return KeyEventResult.handled;
           }
 
+          if (event.logicalKey == LogicalKeyboardKey.keyR) {
+            controller.rotateClockwise();
+            return KeyEventResult.handled;
+          }
+
+          if (event.logicalKey == LogicalKeyboardKey.keyL) {
+            controller.rotateCounterClockwise();
+            return KeyEventResult.handled;
+          }
+
           if (event.logicalKey == LogicalKeyboardKey.keyQ) {
             Get.back();
             return KeyEventResult.handled;
@@ -121,16 +140,21 @@ class ImgViewerView extends GetView<ImgViewerController> {
                 child: Stack(
                   children: [
                     Positioned.fill(
-                      child: InteractiveViewer(
-                        transformationController: controller.transformationController,
-                        minScale: 0.6,
-                        maxScale: 5,
-                        child: Center(
-                          child: _image(
-                            controller.currentImage,
-                            width: Get.width,
-                            height: Get.height,
-                            fit: BoxFit.contain,
+                      child: Obx(
+                        () => InteractiveViewer(
+                          transformationController: controller.transformationController,
+                          minScale: 0.6,
+                          maxScale: 5,
+                          child: Center(
+                            child: RotatedBox(
+                              quarterTurns: controller.getCurrentQuarterTurns(),
+                              child: _image(
+                                controller.currentImage,
+                                width: Get.width,
+                                height: Get.height,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -235,7 +259,7 @@ class ImgViewerView extends GetView<ImgViewerController> {
                   image,
                   width: 116,
                   height: 68,
-                  fit: BoxFit.cover,
+                  fit: BoxFit.contain,
                 ),
               ),
             );

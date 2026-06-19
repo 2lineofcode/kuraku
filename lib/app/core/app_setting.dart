@@ -104,7 +104,7 @@ class AppSettingService extends GetxService {
 
   //
   Future<void> exposeExternalFiles() async {
-    final assetFiles = ['r18_to_javit.py', 'javit_dl'];
+    final assetFiles = ['r18_to_javit.py', 'semantic_worker.py', 'javit_dl'];
 
     for (final fileName in assetFiles) {
       final filePath = '$appPath/$fileName';

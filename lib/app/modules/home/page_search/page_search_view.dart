@@ -39,13 +39,33 @@ class PageSearchView extends GetView<PageSearchController> {
             controller: controller.tecSearch,
             focusNode: controller.fnSearch,
             clearButtonMode: OverlayVisibilityMode.editing,
-            placeholder: '${controller.phSearch}',
+            placeholder: '${controller.phSearch.value}',
             style: TextStyle(color: Vx.white, fontSize: 14),
             prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
             suffix: 
             0.heightBox,
             onSubmitted: (value) => controller.onSearch(),
           ).expand(),
+
+          Obx(
+            () => IconButton(
+              tooltip: controller.isSemanticMode.value ? 'AI Search On' : 'AI Search Off',
+              onPressed: controller.toggleSemanticMode,
+              icon: controller.isSemanticBusy.value
+                  ? SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 1.6),
+                    )
+                  : Icon(
+                      controller.isSemanticMode.value
+                          ? UIconsPro.boldRounded.sparkles
+                          : UIconsPro.regularRounded.sparkles,
+                      size: controller.isSemanticMode.value ? 16 : 14,
+                      color: controller.isSemanticMode.value ? Vx.amber300 : null,
+                    ),
+            ).pOnly(left: 4),
+          ),
 
           // filter
           Obx(
@@ -107,7 +127,7 @@ class PageSearchView extends GetView<PageSearchController> {
         Obx(() => controller.isSearchMode.isTrue
             ? HStack(
                 [
-                  'Result: ${controller.videos.length} Videos'.text.size(12).make(),
+                  '${controller.semanticResultLabel.value.isEmpty ? 'Result' : controller.semanticResultLabel.value}: ${controller.videos.length} Videos'.text.size(12).make(),
                   Spacer(),
                   if (controller.videos.isNotEmpty) ...[
                     'PLAY ALL'.text.underline.size(12).make().pOnly(right: 16).onInkTap(() {
@@ -235,6 +255,15 @@ class PageSearchView extends GetView<PageSearchController> {
             ).cornerRadius(4).tooltip(video.filesize?.toFileSizeFormat() != null ? '${video.filesize?.toFileSizeFormat()}' : '').positioned(bottom: 24, left: 4)
           ],
 
+          if (controller.semanticScoreByVideoId[(video.id ?? '').trim()] != null) ...[
+            Container(
+              color: Vx.amber700.withAlpha(220),
+              child: HStack([
+                'AI ${(controller.semanticScoreByVideoId[(video.id ?? '').trim()]! * 100).toStringAsFixed(0)}%'.text.black.bold.size(10).minFontSize(10).make(),
+              ]).pSymmetric(h: 4, v: 2),
+            ).cornerRadius(4).positioned(bottom: 24, right: 4),
+          ],
+
           // View count
           if (showViewCount) ...[
             Container(
@@ -243,7 +272,7 @@ class PageSearchView extends GetView<PageSearchController> {
                 Icon(UIconsPro.solidRounded.eye, size: 10).pOnly(right: 5, top: 2),
                 '${video.viewCount ?? 0}'.text.size(10).minFontSize(10).make(),
               ]).pSymmetric(h: 4, v: 2),
-            ).cornerRadius(4).tooltip(video.viewCount != null ? 'View: ${video.viewCount}' : '').positioned(bottom: 24, right: 4),
+            ).cornerRadius(4).tooltip(video.viewCount != null ? 'View: ${video.viewCount}' : '').positioned(bottom: 46, right: 4),
           ],
 
            // Video title

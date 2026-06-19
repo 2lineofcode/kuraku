@@ -9,7 +9,9 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:path/path.dart';
+import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:uicons_pro/uicons_pro.dart';
+import 'package:uuid/v4.dart';
 
 import '../../../env.g.dart';
 import '../../core/app_color.dart';
@@ -46,6 +48,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   final videoFit = BoxFit.contain.obs;
   final isMiniMode = false.obs;
   final isPlayerVisible = false.obs;
+  final isDropHovering = false.obs;
 
   final position = Duration.zero.obs;
   final duration = Duration.zero.obs;
@@ -101,6 +104,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   }
 
   List<Videos>? _externalPlaylist;
+  static const _supportedDropVideoExtensions = {'mp4', 'mkv', 'avi', 'mov'};
 
   @override
   Future<void> onInit() async {
@@ -213,6 +217,65 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     change(currentVideo.value, status: RxStatus.loading());
   }
 
+  void onDropEnter(DropEvent event) => isDropHovering.value = true;
+  void onDropLeave(DropEvent event) => isDropHovering.value = false;
+  void onDropEnded(DropEvent event) => isDropHovering.value = false;
+
+  Future<void> onDropEvent(PerformDropEvent event) async {
+    isDropHovering.value = false;
+    final droppedPaths = <String>[];
+    final readTasks = <Future<void>>[];
+
+    for (final item in event.session.items) {
+      final reader = item.dataReader;
+      if (reader == null) continue;
+
+      final completer = Completer<void>();
+      readTasks.add(completer.future);
+
+      reader.getValue<Uri>(Formats.fileUri, (data) {
+        if (data != null) {
+          droppedPaths.add(_normalizeDropPath(data));
+        }
+        completer.complete();
+      });
+    }
+
+    await Future.wait(readTasks);
+    if (droppedPaths.isEmpty) return;
+
+    final videoPaths = <String>[];
+    var hasUnsupportedFile = false;
+
+    for (final path in droppedPaths) {
+      final isFile = await FileSystemEntity.isFile(path);
+      if (!isFile) {
+        hasUnsupportedFile = true;
+        continue;
+      }
+
+      if (_isVideoPath(path)) {
+        videoPaths.add(path);
+      } else {
+        hasUnsupportedFile = true;
+      }
+    }
+
+    if (videoPaths.isEmpty) {
+      if (hasUnsupportedFile) {
+        await HelperToast.warn('File not supported');
+      }
+      return;
+    }
+
+    if (videoPaths.length == 1) {
+      await _openDroppedVideo(videoPaths.first);
+      return;
+    }
+
+    await _openDroppedVideos(videoPaths);
+  }
+
   void enterMiniMode() {
     if (isPlayerVisible.isFalse) return;
     isMiniMode.value = true;
@@ -220,6 +283,84 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
   void exitMiniMode() {
     isMiniMode.value = false;
+  }
+
+  bool _isVideoPath(String path) {
+    if (!path.contains('.')) return false;
+
+    final ext = path.toLowerCase().split('.').last;
+    return _supportedDropVideoExtensions.contains(ext);
+  }
+
+  String _normalizeDropPath(Uri uri) {
+    try {
+      return uri.toFilePath();
+    } catch (_) {
+      return Uri.decodeFull(uri.path);
+    }
+  }
+
+  String _normalizeRawDropPath(String rawPath) {
+    final value = rawPath.trim();
+    final uri = Uri.tryParse(value);
+    if (uri == null) return value;
+
+    if (uri.scheme == 'file') {
+      try {
+        return Uri(
+          scheme: uri.scheme,
+          host: uri.host,
+          path: uri.path,
+        ).toFilePath();
+      } catch (_) {
+        return Uri.decodeFull(uri.path);
+      }
+    }
+
+    return value;
+  }
+
+  Future<void> _openDroppedVideo(String path) async {
+    final video = await _createDroppedVideo(path);
+    if (video == null) return;
+
+    await HelperOpener.openVideoFile(video);
+  }
+
+  Future<void> _openDroppedVideos(List<String> paths) async {
+    final videos = <Videos>[];
+    for (final path in paths) {
+      final video = await _createDroppedVideo(path);
+      if (video != null) {
+        videos.add(video);
+      }
+    }
+
+    if (videos.isEmpty) return;
+    await HelperOpener.openVideoFile(videos.first, playlist: videos);
+  }
+
+  Future<Videos?> _createDroppedVideo(String path) async {
+    final decodedPath = _normalizeRawDropPath(path);
+    final file = File(decodedPath);
+    if (!file.existsSync()) {
+      await HelperToast.warn('File not found');
+      return null;
+    }
+
+    final fileName = decodedPath.getLastPath();
+    final cleanTitle = fileName.contains('.') ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
+
+    return Videos(
+      id: UuidV4().generate(),
+      videoPath: decodedPath,
+      videoCode: decodedPath.getVideoCode(),
+      title: cleanTitle,
+      viewCount: 0,
+      filesize: await file.length(),
+      createdAt: DateTime.now().toStringEx(),
+      updatedAt: DateTime.now().toStringEx(),
+    );
   }
 
   void _bindPlayerStreams() {

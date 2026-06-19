@@ -12,6 +12,7 @@ import '../../core/app_setting.dart';
 import 'db_activity.dart';
 import 'db_collection.dart';
 import 'db_library.dart';
+import 'db_video_embedding.dart';
 import 'db_videos.dart';
 
 class DBService extends GetxService {
@@ -40,7 +41,7 @@ class DBService extends GetxService {
     await Directory(appPath).create(recursive: true);
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       singleInstance: true,
       onConfigure: _onConfigure,
       onCreate: _onCreate,
@@ -218,6 +219,10 @@ class DBService extends GetxService {
     if (oldVersion < 4) {
       await _dropRemovedFeatureTables(db);
     }
+
+    if (oldVersion < 5) {
+      await _createFeatureTables(db);
+    }
   }
 
   Future<void> _createFeatureTables(Database db) async {
@@ -247,6 +252,18 @@ class DBService extends GetxService {
     ''');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_achievement_unlock_key ON achievement_unlock(achievement_key);');
 
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS video_embeddings (
+        video_id                     TEXT PRIMARY KEY,
+        source_text                  TEXT,
+        embedding                    TEXT,
+        model                        TEXT,
+        created_at                   TEXT,
+        updated_at                   TEXT
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_video_embeddings_updated_at ON video_embeddings(updated_at);');
+
   }
 
   Future<void> _dropRemovedFeatureTables(Database db) async {
@@ -261,6 +278,7 @@ class DBService extends GetxService {
   Future<void> deleteAllData() async {
     await DBLibrary.deleteAll();
     await DBVideos.deleteAll();
+    await DBVideoEmbeddings.deleteAll();
     await DBActivity.deleteAll();
     await DBCollection.deleteAll();
     await dbMain.delete('watch_session');

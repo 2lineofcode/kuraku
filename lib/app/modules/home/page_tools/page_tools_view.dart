@@ -223,91 +223,124 @@ class PageToolsView extends GetView<PageToolsController> {
   }
  
   Widget uiDuplicateVideo() {
-    if (controller.duplicateVideoList.isEmpty) {
-      return ExUiErrorOrEmpty(
-        illustration: Icon(UIconsPro.regularRounded.flame, size: 128),
-        title: '~ No Data Duplicate Found 🔥 ~',
-      );
-    }
-
     return VStack(
       [
         HStack([
-          Obx(() => 'Total Duplicate: ${(controller.duplicateVideoList.length / 2).toInt()}'.text.make()),
+          Obx(() => 'Duplicate Groups: ${controller.duplicateGroupCount.value} | Matched Videos: ${controller.duplicateVideoList.length}'.text.make()),
           Spacer(),
+          Obx(
+            () => HStack(
+              controller.duplicateModes.map((mode) {
+                final isSelected = controller.duplicateMode.value == mode;
+                return ExButtonOutline(
+                  label: mode == 'exact' ? 'Exact' : 'Probable',
+                  labelSize: 11,
+                  labelColor: isSelected ? Vx.white : Vx.neutral500,
+                  borderColor: isSelected ? AppColor.selected : AppColor.container,
+                  backgroundColor: isSelected ? AppColor.selected : AppColor.container,
+                  onPressed: () => controller.setDuplicateMode(mode),
+                ).pOnly(left: 8);
+              }).toList(),
+            ),
+          ),
         ]).pOnly(bottom: 12),
+        Obx(
+          () => (
+            controller.duplicateMode.value == 'exact'
+                ? 'Exact = same code, atau non-JAV dengan filesize + normalized filename yang sama'
+                : 'Probable = same normalized filename/title, cocok buat re-download beda resolusi'
+          ).text.size(11).neutral400.make().pOnly(bottom: 12),
+        ),
         Expanded(
           child: Obx(
-            () => Table(
-              columnWidths: const {
-                0: FlexColumnWidth(1),
-                1: FlexColumnWidth(4),
-              },
-              border: TableBorder.all(width: 0.5, color: Vx.neutral700),
-              children: [
-                TableRow(
-                  decoration: BoxDecoration(color: AppColor.container),
-                  children: [
-                    'Code'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                    'Path'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                    'Size'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                  ],
-                ),
-                ...List.generate(
-                  controller.duplicateVideoList.length,
-                  (index) {
-                    final item = controller.duplicateVideoList[index];
-                    final rowColor = controller.duplicateHoveredIndex.value == index ? Vx.neutral800.withValues(alpha: .6) : Colors.transparent;
-                    return TableRow(
-                      children: [
-                        MouseRegion(
-                          onEnter: (_) => controller.onDuplicateHover(index, true),
-                          onExit: (_) => controller.onDuplicateHover(index, false),
-                          child: AnimatedContainer(
-                            duration: 120.milliseconds,
-                            color: rowColor,
-                            child: '${item.videoCode}'.text.ellipsis.size(12).make().p12().onInkTap(() {
-                              HomePanelVideoInfo.open(item);
-                            }),
+            () {
+              if (controller.duplicateVideoList.isEmpty) {
+                return ExUiErrorOrEmpty(
+                  illustration: Icon(UIconsPro.regularRounded.flame, size: 128),
+                  title: controller.duplicateMode.value == 'exact'
+                      ? '~ No Exact Duplicate Found 🔥 ~'
+                      : '~ No Probable Duplicate Found 🔥 ~',
+                );
+              }
+
+              return Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(1),
+                  1: FlexColumnWidth(4),
+                },
+                border: TableBorder.all(width: 0.5, color: Vx.neutral700),
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(color: AppColor.container),
+                    children: [
+                      'Code'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                      'Path'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                      'Size'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                    ],
+                  ),
+                  ...List.generate(
+                    controller.duplicateVideoList.length,
+                    (index) {
+                      final item = controller.duplicateVideoList[index];
+                      final rowColor = controller.duplicateHoveredIndex.value == index ? Vx.neutral800.withValues(alpha: .6) : Colors.transparent;
+                      return TableRow(
+                        children: [
+                          MouseRegion(
+                            onEnter: (_) => controller.onDuplicateHover(index, true),
+                            onExit: (_) => controller.onDuplicateHover(index, false),
+                            child: AnimatedContainer(
+                              duration: 120.milliseconds,
+                              color: rowColor,
+                              child: '${item.videoCode.isNotEmptyAndNotNull ? item.videoCode : item.title.isNotEmptyAndNotNull ? item.title : 'NON-JAV'}'
+                                  .text
+                                  .color(item.videoCode.isNotEmptyAndNotNull ? null : Vx.red300)
+                                  .ellipsis
+                                  .size(12)
+                                  .make()
+                                  .p12()
+                                  .onInkTap(() {
+                                HomePanelVideoInfo.open(item);
+                              }),
+                            ),
                           ),
-                        ),
-                        MouseRegion(
-                          onEnter: (_) => controller.onDuplicateHover(index, true),
-                          onExit: (_) => controller.onDuplicateHover(index, false),
-                          child: AnimatedContainer(
-                            duration: 120.milliseconds,
-                            color: rowColor,
-                            child: (HelperMisc.isExternalDrive(item.videoPath)
-                                    ? 'External → ${item.videoPath!.getLastSegments(segment: 1)}'
-                                    : 'Local → ${item.videoPath!.getLastPath()}')
-                                .text
-                                .ellipsis
-                                .size(12)
-                                .neutral400
-                                .make()
-                                .p12()
-                                .onInkTap(() async {
-                              await HomePanelVideoInfo.open(item);
-                            }),
+                          MouseRegion(
+                            onEnter: (_) => controller.onDuplicateHover(index, true),
+                            onExit: (_) => controller.onDuplicateHover(index, false),
+                            child: AnimatedContainer(
+                              duration: 120.milliseconds,
+                              color: rowColor,
+                              child: (HelperMisc.isExternalDrive(item.videoPath)
+                                      ? 'External → ${item.videoPath!.getLastSegments(segment: 1)}'
+                                      : 'Local → ${item.videoPath!.getLastPath()}')
+                                  .text
+                                  .ellipsis
+                                  .size(12)
+                                  .neutral400
+                                  .make()
+                                  .p12()
+                                  .onInkTap(() async {
+                                await HomePanelVideoInfo.open(item);
+                              }),
+                            ),
                           ),
-                        ),
-                        MouseRegion(
-                          onEnter: (_) => controller.onDuplicateHover(index, true),
-                          onExit: (_) => controller.onDuplicateHover(index, false),
-                          child: AnimatedContainer(
-                            duration: 120.milliseconds,
-                            color: rowColor,
-                            child: '${item.filesize?.toFileSizeFormat()}'.text.ellipsis.size(12).make().p12().onInkTap(() async {
-                              await HomePanelVideoInfo.open(item);
-                            }),
+                          MouseRegion(
+                            onEnter: (_) => controller.onDuplicateHover(index, true),
+                            onExit: (_) => controller.onDuplicateHover(index, false),
+                            child: AnimatedContainer(
+                              duration: 120.milliseconds,
+                              color: rowColor,
+                              child: '${item.filesize?.toFileSizeFormat()}'.text.ellipsis.size(12).make().p12().onInkTap(() async {
+                                await HomePanelVideoInfo.open(item);
+                              }),
+                            ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ).scrollVertical(),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ).scrollVertical();
+            },
           ),
         ),
       ],

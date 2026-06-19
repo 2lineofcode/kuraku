@@ -40,6 +40,12 @@ mixin AppPref {
   static String getDefaultSearchEngine() => _pref.read(_kDefaultSearchEngine) ?? 'NJAV';
   static void setDefaultSearchEngine(String value) => _pref.write(_kDefaultSearchEngine, value);
 
+  static String getGeminiApiKey() => _pref.read(_kGeminiApiKey) ?? '';
+  static void setGeminiApiKey(String value) => _pref.write(_kGeminiApiKey, value.trim());
+
+  static String getSemanticSearchModel() => _pref.read(_kSemanticSearchModel) ?? 'local-hash-v2';
+  static void setSemanticSearchModel(String value) => _pref.write(_kSemanticSearchModel, value);
+
 
 
   // ** [download]
@@ -158,6 +164,8 @@ const _kAppMaxColi = '_kAppMaxColi';
 const _kAppCart = '_kAppCart';
 const _kFavoriteCoverURL = '_kFavoriteCoverURL';
 const _kDefaultSearchEngine = '_kDefaultSearchEngine';
+const _kGeminiApiKey = '_kGeminiApiKey';
+const _kSemanticSearchModel = '_kSemanticSearchModel';
 
 
 const _kDownloadPath = '_kDownloadPath';

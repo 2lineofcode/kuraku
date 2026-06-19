@@ -11,6 +11,7 @@ import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
 import '../../../utils/helper.dart';
+import '../../../utils/semantic_search_service.dart';
 import '../home_controller.dart';
 import 'page_settings_controller.dart';
 
@@ -332,6 +333,63 @@ class PageSettingsView extends GetView<PageSettingsController> {
                       ],
                     ).p12(),
                   ).expand()
+                ],
+              ),
+            ],
+          ).p12(),
+        ),
+
+        16.heightBox,
+
+        Container(
+          decoration: ExDecorator.box(borderColor: AppColor.border),
+          width: double.infinity,
+          child: VStack(
+            [
+              'AI Search (Local)'.text.bold.make().pOnly(bottom: 12),
+              Obx(
+                () => HStack(
+                  [
+                    'Model'.text.size(12).neutral400.make().w(110),
+                    '${SemanticSearchService.modelName}'.text.size(12).bold.make().expand(),
+                    if (controller.semanticBusy.value)
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 1.6),
+                      ),
+                  ],
+                ).pOnly(bottom: 8),
+              ),
+              Obx(
+                () => HStack(
+                  [
+                    'Indexed'.text.size(12).neutral400.make().w(110),
+                    '${controller.semanticEmbeddingCount.value}'.text.size(12).bold.make().expand(),
+                    'Missing'.text.size(12).neutral400.make().pOnly(right: 8),
+                    '${controller.semanticMissingCount.value}'.text.size(12).bold.make(),
+                  ],
+                ).pOnly(bottom: 8),
+              ),
+              Obx(
+                () => controller.semanticStatus.value.isEmpty
+                    ? 0.heightBox
+                    : controller.semanticStatus.value.text.size(11).neutral400.make().pOnly(bottom: 12),
+              ),
+              HStack(
+                [
+                  ExButtonText(
+                    label: 'Generate Missing Embeddings',
+                    labelSize: 12,
+                    height: 32,
+                    onPressed: controller.generateMissingEmbeddings,
+                  ).pOnly(right: 8),
+                  ExButtonText(
+                    label: 'Reindex All',
+                    labelSize: 12,
+                    height: 32,
+                    onPressed: controller.reindexAllEmbeddings,
+                  ),
                 ],
               ),
             ],

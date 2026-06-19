@@ -13,12 +13,17 @@ import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_loading.dart';
 import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
+import '../../../utils/semantic_search_service.dart';
 
 class PageSearchController extends GetxController {
   final tecSearch = TextEditingController();
   final isSearchMode = false.obs;
+  final isSemanticMode = false.obs;
+  final isSemanticBusy = false.obs;
   final fnSearch = FocusNode();
   final phSearch = ''.obs;
+  final semanticResultLabel = ''.obs;
+  final semanticScoreByVideoId = <String, double>{}.obs;
 
   final scrollGridController = ScrollController();
 
@@ -43,7 +48,7 @@ class PageSearchController extends GetxController {
     final sw = Stopwatch()..start();
 
     isFresh.value = await DBVideos.getCount() == 0;
-    phSearch.value = 'Video Code or Title or Path...';
+    _updatePlaceholder();
     await onReset();
 
     AppLog.logI('page search ==> onInit called: ${sw.elapsedMilliseconds} ms');
@@ -131,19 +136,61 @@ class PageSearchController extends GetxController {
       return;
     }
 
+    if (isSemanticMode.isTrue) {
+      await onSemanticSearch();
+      return;
+    }
+
+    semanticResultLabel.value = '';
+    semanticScoreByVideoId.clear();
     videos.value = await DBVideos.search(tecSearch.text);
     fnSearch.requestFocus();
     isSearchMode.value = true;
   }
 
+  Future<void> onSemanticSearch() async {
+    isSemanticBusy.value = true;
+    try {
+      final hits = await SemanticSearchService.search(tecSearch.text);
+      semanticScoreByVideoId.clear();
+      for (final hit in hits) {
+        final videoId = (hit.video.id ?? '').trim();
+        if (videoId.isNotEmpty) {
+          semanticScoreByVideoId[videoId] = hit.score;
+        }
+      }
+
+      videos.value = hits.map((item) => item.video).toList();
+      semanticResultLabel.value = 'AI Search';
+      fnSearch.requestFocus();
+      isSearchMode.value = true;
+    } catch (e) {
+      await HelperToast.error(e.toString());
+    } finally {
+      isSemanticBusy.value = false;
+    }
+  }
+
   Future<void> onReset() async {
     tecSearch.text = '';
     sortBy.value = 'Random';
+    semanticResultLabel.value = '';
+    semanticScoreByVideoId.clear();
     videos.value = await DBVideos.getAll();
     allVideos.value = videos.value;
     videos.shuffle();
     fnSearch.requestFocus();
     isSearchMode.value = false;
+  }
+
+  Future<void> toggleSemanticMode() async {
+    isSemanticMode.toggle();
+    _updatePlaceholder();
+    if (tecSearch.text.trim().isNotEmpty) {
+      await onSearch();
+    } else {
+      await onReset();
+    }
   }
 
 
@@ -193,6 +240,12 @@ class PageSearchController extends GetxController {
       videos: videos,
       adapter: _filterAdapter,
     );
+  }
+
+  void _updatePlaceholder() {
+    phSearch.value = isSemanticMode.isTrue
+        ? 'Local AI Search... ex: subtitle indo outdoor'
+        : 'Video Code or Title or Path...';
   }
 
 }

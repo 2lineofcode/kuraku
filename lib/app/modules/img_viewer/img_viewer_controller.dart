@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:path/path.dart' as p;
 
 class ImgViewerController extends GetxController {
   final images = <String>[].obs;
   final selectedIndex = 0.obs;
   final title = ''.obs;
   final videoPath = ''.obs;
+  final imageQuarterTurns = <String, int>{}.obs;
   final transformationController = TransformationController();
   final thumbnailScrollController = ScrollController();
   final focusNode = FocusNode();
@@ -63,6 +65,15 @@ class ImgViewerController extends GetxController {
   }
 
   String get currentImage => images.isEmpty ? '' : images[selectedIndex.value];
+  String get currentTitle {
+    final current = currentImage.trim();
+    if (current.isEmpty) return title.value.isEmpty ? 'Image Viewer' : title.value;
+
+    final uri = Uri.tryParse(current);
+    final path = uri != null && uri.path.isNotEmpty ? uri.path : current;
+    final filename = p.basename(path);
+    return filename.isEmpty ? (title.value.isEmpty ? 'Image Viewer' : title.value) : filename;
+  }
   bool get canGoPrevious => selectedIndex.value > 0;
   bool get canGoNext => selectedIndex.value < images.length - 1;
 
@@ -103,6 +114,25 @@ class ImgViewerController extends GetxController {
 
   void resetZoom() {
     transformationController.value = Matrix4.identity();
+  }
+
+  void rotateClockwise() {
+    if (currentImage.isEmpty) return;
+    final key = currentImage;
+    final currentTurn = imageQuarterTurns[key] ?? 0;
+    imageQuarterTurns[key] = (currentTurn + 1) % 4;
+  }
+
+  void rotateCounterClockwise() {
+    if (currentImage.isEmpty) return;
+    final key = currentImage;
+    final currentTurn = imageQuarterTurns[key] ?? 0;
+    imageQuarterTurns[key] = (currentTurn + 3) % 4;
+  }
+
+  int getCurrentQuarterTurns() {
+    if (currentImage.isEmpty) return 0;
+    return imageQuarterTurns[currentImage] ?? 0;
   }
 
   void _setZoom(double factor) {

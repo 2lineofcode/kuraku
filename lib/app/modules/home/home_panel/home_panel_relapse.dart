@@ -16,6 +16,31 @@ import '../page_settings/page_settings_controller.dart';
 
 /// A mixin for managing relapse-related functionalities.
 mixin HomePanelRelapse {
+  static String _formatRelapseTime(Activity item) {
+    final rawDate = item.content ?? '';
+    if (rawDate.isEmpty) return 'Invalid Date';
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    try {
+      final date = rawDate.toDateEx(format: kYMd);
+      final relapseDay = DateTime(date.year, date.month, date.day);
+
+      if (relapseDay == today) {
+        final createdAt = DateTime.tryParse(item.createdAt ?? '');
+        if (createdAt == null) return 'Today';
+
+        final diff = now.difference(createdAt);
+        if (diff.inMinutes <= 0) return 'Just now';
+        if (diff.inMinutes < 60) return '${diff.inMinutes} minutes ago';
+        return '${diff.inHours} hours ago';
+      }
+    } catch (_) {}
+
+    return HelperMisc.timeAgo(kYMd, rawDate);
+  }
+
   /// Displays the relapse timeline as an overlay panel.
   /// This panel shows a list of relapse dates and the total count.
   static Future<void> open() async {
@@ -129,7 +154,7 @@ mixin HomePanelRelapse {
                             [
                               VStack(
                                 [
-                                  HelperMisc.timeAgo(kYMd, item.content ?? '').text.size(11).color(Colors.white).make(),
+                                  _formatRelapseTime(item).text.size(11).color(Colors.white).make(),
                                   'Masturbate'.text.size(10).neutral300.minFontSize(10).make(),
                                 ],
                                 crossAlignment: CrossAxisAlignment.start,

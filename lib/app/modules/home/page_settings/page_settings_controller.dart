@@ -17,9 +17,11 @@ import '../../../data/database/_init_db.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/database/db_library.dart';
 import '../../../data/database/db_r18.dart';
+import '../../../data/database/db_video_embedding.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../utils/helper.dart';
 import '../../../utils/helper_toast.dart';
+import '../../../utils/semantic_search_service.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_log.dart';
 
@@ -40,6 +42,10 @@ class PageSettingsController extends GetxController {
   final tecPlayerSeekShort = TextEditingController(text: AppPref.getPlayerSeekShort().toString());
   final tecPlayerSeekMid = TextEditingController(text: AppPref.getPlayerSeekMid().toString());
   final tecPlayerSeekLong = TextEditingController(text: AppPref.getPlayerSeekLong().toString());
+  final semanticEmbeddingCount = 0.obs;
+  final semanticMissingCount = 0.obs;
+  final semanticBusy = false.obs;
+  final semanticStatus = ''.obs;
 
   // **
   final appMiniMode = false.obs;
@@ -69,6 +75,8 @@ class PageSettingsController extends GetxController {
     totalLibrary.value = await DBLibrary.getCount();
     totalVideos.value = await DBVideos.getCount();
     totalFilesize.value = await DBVideos.getTotalFileSizeAllVideo() ?? 0;
+    semanticEmbeddingCount.value = await DBVideoEmbeddings.getCount();
+    semanticMissingCount.value = await SemanticSearchService.getMissingEmbeddingCount();
     r18TotalVideo.value = await DBR18.getCountAllVideos();
 
     final current = Get.find<HomeController>().sideMenuWidth.value;
@@ -113,6 +121,47 @@ class PageSettingsController extends GetxController {
       await HelperToast.error('Failed to read storage: $e');
     } finally {
       isLoadingStorage.value = false;
+    }
+  }
+
+  Future<void> generateMissingEmbeddings() async {
+    await _runSemanticIndex(
+      label: 'Indexing missing embeddings...',
+      runner: () => SemanticSearchService.reindexMissing(
+        onProgress: (current, total, video) async {
+          semanticStatus.value = 'Indexing missing $current/$total | ${(video.videoCode ?? video.title ?? '').trim()}';
+        },
+      ),
+    );
+  }
+
+  Future<void> reindexAllEmbeddings() async {
+    await _runSemanticIndex(
+      label: 'Reindexing all embeddings...',
+      runner: () => SemanticSearchService.reindexAll(
+        onProgress: (current, total, video) async {
+          semanticStatus.value = 'Reindex all $current/$total | ${(video.videoCode ?? video.title ?? '').trim()}';
+        },
+      ),
+    );
+  }
+
+  Future<void> _runSemanticIndex({
+    required String label,
+    required Future<int> Function() runner,
+  }) async {
+    semanticBusy.value = true;
+    semanticStatus.value = label;
+    try {
+      final processed = await runner();
+      semanticStatus.value = 'Done. Indexed $processed embeddings';
+      await HelperToast.success('Indexed $processed embeddings');
+      await onRefresh();
+    } catch (e) {
+      semanticStatus.value = 'Index failed';
+      await HelperToast.error(e.toString());
+    } finally {
+      semanticBusy.value = false;
     }
   }
 

@@ -27,7 +27,10 @@ class PageToolsController extends GetxController with StateMixin {
   final topLargeHoveredIndex = (-1).obs;
 
   // ** part: duplicate video
+  final duplicateModes = ['exact', 'probable'].obs;
+  final duplicateMode = 'exact'.obs;
   final duplicateVideoList = <Videos>[].obs;
+  final duplicateGroupCount = 0.obs;
   final duplicateHoveredIndex = (-1).obs;
 
   // ** part: todo
@@ -95,6 +98,8 @@ class PageToolsController extends GetxController with StateMixin {
     tecFilterSearchLeft.text = '';
     topLargeFilterMode.value = 'all';
     topLargeHoveredIndex.value = -1;
+    duplicateMode.value = 'exact';
+    duplicateGroupCount.value = 0;
     duplicateHoveredIndex.value = -1;
     todoHoveredIndex.value = -1;
     todoPosterByCode.clear();
@@ -213,9 +218,17 @@ class PageToolsController extends GetxController with StateMixin {
   // ────────────────────────────────────────────────────────────────
   // ** part: kFindDuplicate
   // ────────────────────────────────────────────────────────────────
+  Future<void> setDuplicateMode(String mode) async {
+    if (duplicateMode.value == mode) return;
+    duplicateMode.value = mode;
+    await getDuplicateVideos();
+  }
+
   Future<void> getDuplicateVideos() async {
     duplicateHoveredIndex.value = -1;
-    duplicateVideoList.value = await DBVideos.getListDuplicateVideos();
+    final groups = await DBVideos.getDuplicateVideoGroups(mode: duplicateMode.value);
+    duplicateGroupCount.value = groups.length;
+    duplicateVideoList.value = groups.expand((items) => items).toList();
   }
 
   void onDuplicateHover(int index, bool isHover) {
