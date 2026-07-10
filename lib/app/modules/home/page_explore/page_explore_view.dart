@@ -491,6 +491,11 @@ class PageExploreView extends GetView<PageExploreController> {
             height: height,
             prefix: 2.3,
             fitUrl: BoxFit.fitWidth,
+            quickPreview: true,
+            previewTitle: video.videoCode?.isNotEmpty == true ? video.videoCode : video.title,
+            previewSubtitle: (video.actress ?? []).map((item) => item.nameRomaji ?? '').where((item) => item.isNotEmpty).join(', '),
+            previewScreenshots: video.screenshot,
+            previewDurationSeconds: (video.duration ?? 0).toInt() * 60,
           ),
 
           // sub id?

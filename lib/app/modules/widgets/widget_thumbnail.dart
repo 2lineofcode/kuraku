@@ -329,6 +329,11 @@ class ExThumbnail extends StatefulWidget {
   final double? prefix;
   final Color? backdropColor;
   final int? position;
+  final bool quickPreview;
+  final String? previewTitle;
+  final String? previewSubtitle;
+  final List<String>? previewScreenshots;
+  final int? previewDurationSeconds;
 
   const ExThumbnail({
     super.key,
@@ -344,6 +349,11 @@ class ExThumbnail extends StatefulWidget {
     this.prefix = 1,
     this.backdropColor,
     this.position,
+    this.quickPreview = false,
+    this.previewTitle,
+    this.previewSubtitle,
+    this.previewScreenshots,
+    this.previewDurationSeconds,
   });
 
   @override
@@ -352,6 +362,33 @@ class ExThumbnail extends StatefulWidget {
 
 class _ExThumbnailState extends State<ExThumbnail> {
   late final _ExThumbnailC controller;
+  Timer? _previewDelay;
+  Timer? _previewTimer;
+  var _isPreviewActive = false;
+  var _previewIndex = 0;
+  var _isHovering = false;
+
+  List<String> get _previewScreenshots => (widget.previewScreenshots ?? [])
+      .where((item) => item.trim().isNotEmpty)
+      .toList();
+
+  bool get _canPreviewFromDisk {
+    final path = (widget.videoPath ?? '').trim();
+    return path.isNotEmpty && File(path).existsSync();
+  }
+
+  List<int> get _previewPositions {
+    final duration = widget.previewDurationSeconds ?? 0;
+    if (duration <= 0) return [10, 30, 60];
+
+    final maxPosition = duration > 5 ? duration - 1 : duration;
+    return [0.12, 0.42, 0.72]
+        .map((factor) => (duration * factor).round().clamp(1, maxPosition).toInt())
+        .toSet()
+        .toList();
+  }
+
+  int get _previewCount => _previewScreenshots.isNotEmpty ? _previewScreenshots.length : _previewPositions.length;
 
   @override
   void initState() {
@@ -359,6 +396,50 @@ class _ExThumbnailState extends State<ExThumbnail> {
     controller = Get.isRegistered<_ExThumbnailC>()
         ? Get.find<_ExThumbnailC>()
         : Get.put(_ExThumbnailC(), permanent: true);
+  }
+
+  @override
+  void dispose() {
+    _previewDelay?.cancel();
+    _previewTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startQuickPreview() {
+    _isHovering = true;
+    if (widget.quickPreview == false || (_previewScreenshots.isEmpty && _canPreviewFromDisk == false)) return;
+
+    _previewDelay?.cancel();
+    _previewDelay = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted || _isHovering == false) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _isHovering == false) return;
+        setState(() {
+          _isPreviewActive = true;
+          _previewIndex = 0;
+        });
+      });
+
+      if (_previewCount < 2) return;
+      _previewTimer?.cancel();
+      _previewTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
+        if (!mounted) return;
+        setState(() => _previewIndex = (_previewIndex + 1) % _previewCount);
+      });
+    });
+  }
+
+  void _stopQuickPreview() {
+    _isHovering = false;
+    _previewDelay?.cancel();
+    _previewTimer?.cancel();
+    _previewTimer = null;
+    if (_isPreviewActive && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _isHovering) return;
+        setState(() => _isPreviewActive = false);
+      });
+    }
   }
 
   String _deriveVideoCode() {
@@ -641,10 +722,106 @@ class _ExThumbnailState extends State<ExThumbnail> {
       ).color(widget.backdropColor ?? AppColor.container).wh(widget.width, widget.height);
     }
 
-    return GestureDetector(
+    if (_isPreviewActive) {
+      final screenshots = _previewScreenshots;
+      final hasScreenshots = screenshots.isNotEmpty;
+      final screenshot = hasScreenshots ? screenshots[_previewIndex % screenshots.length] : '';
+      final position = hasScreenshots ? 0 : _previewPositions[_previewIndex % _previewPositions.length];
+      child = SizedBox(
+        width: widget.width,
+        height: widget.height,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            child,
+            ClipRect(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 360),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (item, animation) => FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 1.06, end: 1).animate(animation),
+                    child: item,
+                  ),
+                ),
+                child: hasScreenshots
+                    ? ExThumbnail(
+                        key: ValueKey(screenshot),
+                        imageUrl: screenshot,
+                        width: widget.width,
+                        height: widget.height,
+                        fitUrl: BoxFit.cover,
+                        fitMemory: BoxFit.cover,
+                      )
+                    : FutureBuilder<Uint8List?>(
+                        key: ValueKey('frame:$position'),
+                        future: controller.getThumbnail(widget.videoPath ?? '', position: position),
+                        builder: (context, snap) {
+                          if (snap.hasData == false || snap.data == null) return const SizedBox.expand();
+                          return Image.memory(snap.data!, fit: BoxFit.cover);
+                        },
+                      ),
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Colors.black.withAlpha(190), Colors.transparent],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 7,
+              right: 7,
+              bottom: 7,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if ((widget.previewTitle ?? '').trim().isNotEmpty)
+                    Text(
+                      widget.previewTitle!.trim(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  if ((widget.previewSubtitle ?? '').trim().isNotEmpty)
+                    Text(
+                      widget.previewSubtitle!.trim(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.white.withAlpha(210), fontSize: 9),
+                    ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: 7,
+              left: 7,
+              child: Container(
+                color: Colors.black.withAlpha(150),
+                child: const Text('PREVIEW', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)).paddingSymmetric(horizontal: 5, vertical: 3),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final content = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onSecondaryTapDown: _showContextMenu,
       child: child,
+    );
+
+    if (widget.quickPreview == false) return content;
+    return MouseRegion(
+      onEnter: (_) => _startQuickPreview(),
+      onExit: (_) => _stopQuickPreview(),
+      child: content,
     );
   }
 }

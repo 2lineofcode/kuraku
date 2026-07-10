@@ -1,50 +1,92 @@
-# JavIt - Desktop 🇯🇵
+# JavIt Desktop 🇯🇵
 
-(NSFW) Powerful Organize your local Japanese Adult Video (JAV)  wherever it without internet (offline)
+> **NSFW** — A macOS desktop app for organizing and playing a local Japanese Adult Video (JAV) collection.
 
-Auto manage your local JAV like a boss 😎, search, explore, track, etc **just by drag drop your JAV folder into app**, see video how it work 😎😎
+JavIt turns video folders on your Mac or external drives into a searchable personal library. Add a folder, let the app scan its videos, enrich recognized video codes with metadata, then browse, search, play, and manage the collection from one place.
 
-## Video Demo
-![alt text](.screenshot/demo.gif)
+![JavIt demo](.screenshot/demo.gif)
+
+## What It Does
+
+- Add a library by selecting or drag-and-dropping a video folder.
+- Scan supported local video files and keep registered libraries in sync.
+- Detect JAV video codes from filenames and look up matching metadata from the local R18 database.
+- Browse recent releases, recently added videos, favorites, most watched videos, unwatched videos, and random picks.
+- Search the local collection by video code, title, path, actress, category, and other filters.
+- Play local files with playlist support, mini player, fullscreen, playback speed, volume persistence, and watch tracking.
+- Explore metadata by actress, series, category, and year.
+- Find large files and possible duplicates, scan video quality, and manage simple todos.
+- Search and download supported releases from the Download page.
+
+## How It Works
+
+```text
+Local video folders
+        |
+        v
+Scan files and detect video codes
+        |
+        +--> R18 database lookup for metadata
+        |
+        v
+javit.db personal library
+        |
+        v
+Home, Search, Explore, Tools, and Player
+```
+
+JavIt uses two SQLite databases:
+
+- **`javit.db`** stores your libraries, local video records, favorites, collections, watch sessions, achievements, activities, and search indexes.
+- **`r18_YYYYMMDD.db`** is the external metadata catalog used to enrich recognized JAV files with titles, actresses, categories, studios, artwork, trailers, and more.
+
+Files without a recognized code are still added to the library as local videos using their filename as the title.
+
+## Search Modes
+
+The Search page has two modes:
+
+- **Regular search** searches the local video records directly.
+- **AI Search** is a fully local, heuristic ranking system. It combines token matching, trigrams, synonyms, metadata fields, and simple thumbnail-derived tags such as `outdoor`, `bright`, or `portrait`.
+
+AI Search is useful for broad metadata-oriented queries such as `subtitle indo outdoor`. It is not yet a full vision-language search system, so it should not be expected to reliably answer detailed visual queries such as “pink shirt”. Use **Settings → Generate Missing Embeddings** or **Reindex All** after adding or changing videos when using this mode.
 
 ## Screenshots
 
 | Home | Search |
 |---|---|
-| ![](.screenshot/ss_home.png) | ![](.screenshot/ss_search.png) |
+| ![Home](.screenshot/ss_home.png) | ![Search](.screenshot/ss_search.png) |
 
 | Explore | Download |
 |---|---|
-| ![](.screenshot/ss_explore.png) | ![](.screenshot/ss_download.png) |
-
-
+| ![Explore](.screenshot/ss_explore.png) | ![Download](.screenshot/ss_download.png) |
 
 ## Tech Stack
-- **Framework**: [Flutter](https://flutter.dev/)
-- **State Management**: [GetX](https://pub.dev/packages/get)
-- **Database**: [SQFlite](https://pub.dev/packages/sqflite)
-- **Video Player**: [Chewie](https://pub.dev/packages/chewie) & [video_player](https://pub.dev/packages/video_player)
-- **Networking**: [Dio](https://pub.dev/packages/dio)
 
-## Prerequisites
+- [Flutter](https://flutter.dev/) desktop
+- [GetX](https://pub.dev/packages/get) for state management and dependency injection
+- [SQFlite](https://pub.dev/packages/sqflite) for local SQLite storage
+- [media_kit](https://pub.dev/packages/media_kit) and libmpv for playback
+- [Dio](https://pub.dev/packages/dio) for networking and downloads
 
-This project is currently developed and tested on macOS.
+## Requirements
 
-Install these first:
+JavIt is currently developed and tested on macOS. Install the following first:
 
-- macOS with Xcode + Command Line Tools
+- macOS with Xcode and Command Line Tools
 - Flutter SDK with Dart SDK `^3.5.3`
 - CocoaPods
 - Homebrew
 - Python 3
-- `gunzip` (usually already available on macOS)
-- Homebrew native video dependencies:
+- `gunzip` (usually available on macOS)
+
+Install the native dependencies:
 
 ```bash
 brew install cocoapods python libiconv ffmpeg
 ```
 
-Make sure Flutter desktop support is enabled:
+Enable Flutter desktop support and verify the environment:
 
 ```bash
 flutter config --enable-macos-desktop
@@ -53,7 +95,7 @@ flutter doctor
 
 ## Local Setup
 
-Create local env file and generate `lib/env.g.dart`:
+Create the local environment file, fetch packages, and generate `lib/env.g.dart`:
 
 ```bash
 cp .env.sample .env
@@ -61,23 +103,27 @@ flutter pub get
 dart run enven
 ```
 
-Run the app:
+Run the macOS app:
 
 ```bash
 flutter run -d macos
 ```
 
-On first run, JavIt will check for an `r18*.db` file in the app data directory. If it does not exist, the app will ask to download the R18 dump and convert it to SQLite using `python3` and `gunzip`.
+## First Run and R18 Database Setup
+
+On launch, JavIt looks for an `r18*.db` file in its app data directory. If one is missing, the app shows a **Download & Install** prompt.
+
+The setup process downloads the R18 dump, extracts it with `gunzip`, then runs `r18_to_javit.py` with Python to create the SQLite database. The import can take several minutes; keep the application open until it finishes, then restart the app.
 
 ## Troubleshooting
 
-If macOS launch fails with:
+If the macOS app fails to launch with the following error:
 
 ```text
 Library not loaded: /opt/homebrew/opt/libiconv/lib/libiconv.2.dylib
 ```
 
-Reinstall the Homebrew native dependency and rebuild:
+Reinstall the native dependencies and rebuild:
 
 ```bash
 brew reinstall libiconv ffmpeg
@@ -88,7 +134,6 @@ dart run enven
 flutter run -d macos
 ```
 
----
+## Contributing
 
-## 🤗 Contributors
-i create this project just for hobbies while im free with flutter, and i just have a macbook, so i build for macos only, but feel free to open PR if you want to build to other platform :))
+JavIt started as a hobby project and currently targets macOS. Contributions and pull requests, including work toward other desktop platforms, are welcome.

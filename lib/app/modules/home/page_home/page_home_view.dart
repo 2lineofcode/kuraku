@@ -60,6 +60,22 @@ class PageHomeView extends GetView<PageHomeController> {
                   index: index,
                 ),
               );
+            case AppPref.homeSecRecommendation:
+              return Obx(
+                key: ValueKey(AppPref.homeSecRecommendation),
+                () => _buildVideoSection(
+                  title: 'Recommended for You',
+                  // subtitle: controller.recommendationSubtitle.value,
+                  icon: Icon(UIconsPro.solidRounded.sparkles, size: 12, color: Vx.amber300),
+                  list: controller.listRecommendation,
+                  prefKey: AppPref.homeSecRecommendation,
+                  refreshAction: controller.getListRecommendation,
+                  layoutBuilder: (video) => buildLayoutPoster(video),
+                  emptyLayoutBuilder: buildLayoutEmptyPoster,
+                  showDirectToExplore: false,
+                  index: index,
+                ),
+              );
             case AppPref.homeSecRandom:
               return Obx(
                 key: ValueKey(AppPref.homeSecRandom),
@@ -158,6 +174,7 @@ class PageHomeView extends GetView<PageHomeController> {
     Key? key,
     required int index,
     required String title,
+    String? subtitle,
     required Widget icon,
     required RxList<Videos> list,
     required String prefKey,
@@ -183,6 +200,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 ),
               ),
               title.text.size(12).make(),
+              if (subtitle != null && subtitle.isNotEmpty) subtitle.text.size(9).color(Vx.neutral400).maxLines(1).ellipsis.make().pOnly(left: 8),
             ]).pSymmetric(h: 12, v: 4).onInkTap(() {
               final isVisible = !AppPref.getBool(prefKey);
               AppPref.setBool(prefKey, isVisible);
@@ -314,6 +332,11 @@ class PageHomeView extends GetView<PageHomeController> {
             height: height,
             prefix: 2.3,
             fitUrl: BoxFit.fitWidth,
+            quickPreview: true,
+            previewTitle: video.videoCode?.isNotEmpty == true ? video.videoCode : video.title,
+            previewSubtitle: (video.actress ?? []).map((item) => item.nameRomaji ?? '').where((item) => item.isNotEmpty).join(', '),
+            previewScreenshots: video.screenshot,
+            previewDurationSeconds: (video.duration ?? 0).toInt() * 60,
           ),
 
           // sub id?

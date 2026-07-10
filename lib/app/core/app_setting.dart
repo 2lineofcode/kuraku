@@ -62,6 +62,7 @@ class AppSettingService extends GetxService {
     // home_sec
     await pref.writeIfNull('_kHomeOrderList', <String>[
       AppPref.homeSecNewRelease,
+      AppPref.homeSecRecommendation,
       AppPref.homeSecRandom,
       AppPref.homeSecMostWatch,
       AppPref.homeSecFavorite,
@@ -70,12 +71,20 @@ class AppSettingService extends GetxService {
       AppPref.homeSecOldest,
     ]);
     await pref.writeIfNull(AppPref.homeSecNewRelease, true);
+    await pref.writeIfNull(AppPref.homeSecRecommendation, true);
     await pref.writeIfNull(AppPref.homeSecRandom, true);
     await pref.writeIfNull(AppPref.homeSecMostWatch, true);
     await pref.writeIfNull(AppPref.homeSecFavorite, true);
     await pref.writeIfNull(AppPref.homeSecNewAdd, true);
     await pref.writeIfNull(AppPref.homeSecNeverWatch, true);
     await pref.writeIfNull(AppPref.homeSecOldest, true);
+
+    final storedHomeOrder = pref.read<List>('_kHomeOrderList');
+    final homeOrder = storedHomeOrder == null ? <String>[] : List<String>.from(storedHomeOrder);
+    if (homeOrder.contains(AppPref.homeSecRecommendation) == false) {
+      homeOrder.insert(1, AppPref.homeSecRecommendation);
+      await pref.write('_kHomeOrderList', homeOrder);
+    }
   }
 
   // ────────────────────────────────────────────────────────────────

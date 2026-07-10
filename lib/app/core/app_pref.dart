@@ -74,6 +74,10 @@ mixin AppPref {
   static void setHomeSecNewRelease(bool value) => _pref.write(_kHomeSecNewRelease, value);
   static const String homeSecNewRelease = _kHomeSecNewRelease;
 
+  static bool getHomeSecRecommendation() => _pref.read(_kHomeSecRecommendation) ?? true;
+  static void setHomeSecRecommendation(bool value) => _pref.write(_kHomeSecRecommendation, value);
+  static const String homeSecRecommendation = _kHomeSecRecommendation;
+
   static bool getHomeSecFavorite() => _pref.read(_kHomeSecFavorite) ?? true;
   static void setHomeSecFavorite(bool value) => _pref.write(_kHomeSecFavorite, value);
   static const String homeSecFavorite= _kHomeSecFavorite;
@@ -176,6 +180,7 @@ const _kDownloadWorker = '_kDownloadChunk';
 
 const _kHomeOrderList = '_kHomeOrderList';
 const _kHomeSecNewRelease = '_kHomeSecNewRelease';
+const _kHomeSecRecommendation = '_kHomeSecRecommendation';
 const _kHomeSecFavorite = '_kHomeSecFavorite';
 const _kHomeSecNewAdd = '_kHomeSecNewAdd';
 const _kHomeSecMostWatch = '_kHomeSecMostWatch';
