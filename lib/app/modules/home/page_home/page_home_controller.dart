@@ -30,27 +30,33 @@ class PageHomeController extends GetxController {
     final sw = Stopwatch()..start();
 
     homeSectionOrder.value = AppPref.getHomeOrderList();
-    await getListNewRelease();
-    await getListRecommendation();
-    await getListMostWatch();
-    await getListFavorite();
-    await getListNewAdded();
-    await getListRandom();
-    await getListNeverWatch();
-    await getListOldest();
-    totalVideo.value = await DBVideos.getCount();
+    final count = DBVideos.getCount();
+    await Future.wait([
+      getListNewRelease(),
+      getListRecommendation(),
+      getListMostWatch(),
+      getListFavorite(),
+      getListNewAdded(),
+      getListRandom(),
+      getListNeverWatch(),
+      getListOldest(),
+    ]);
+    totalVideo.value = await count;
 
     AppLog.logI('page home ==> onInit called: ${sw.elapsedMilliseconds} ms');
   }
 
   Future<void> getListNewRelease() async {
-    listNewRelease.clear();
     listNewRelease.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date DESC, updated_at DESC', limit: 50);
   }
 
   Future<void> getListRecommendation() async {
-    final watched = await DBVideos.getAll(where: 'view_count > 0', orderBy: 'view_count DESC, updated_at DESC', limit: 100);
-    final candidates = await DBVideos.getAll(where: 'view_count = 0', orderBy: 'created_at DESC', limit: 300);
+    final results = await Future.wait([
+      DBVideos.getAll(where: 'view_count > 0', orderBy: 'view_count DESC, updated_at DESC', limit: 100),
+      DBVideos.getAll(where: 'view_count = 0', orderBy: 'created_at DESC', limit: 300),
+    ]);
+    final watched = results[0];
+    final candidates = results[1];
 
     if (candidates.isEmpty) {
       listRecommendation.clear();
@@ -111,32 +117,26 @@ class PageHomeController extends GetxController {
   }
 
   Future<void> getListMostWatch() async {
-    listTop10Watch.clear();
     listTop10Watch.value = await DBVideos.getAll(where: 'view_count >= 3', orderBy: 'view_count DESC, updated_at DESC', limit: 50);
   }
 
   Future<void> getListFavorite() async {
-    listFavorite.clear();
     listFavorite.value = await DBVideos.getAll(where: 'is_favorite = 1', orderBy: 'updated_at DESC');
   }
 
   Future<void> getListNewAdded() async {
-    listNewAdded.clear();
     listNewAdded.value = await DBVideos.getAll(orderBy: 'created_at DESC', limit: 50);
   }
 
   Future<void> getListRandom() async {
-    listRandom.clear();
     listRandom.value = await DBVideos.getAll(limit: 20, orderBy: 'RANDOM()');
   }
 
   Future<void> getListNeverWatch() async {
-    listNeverWatch.clear();
     listNeverWatch.value = await DBVideos.getAll(where: 'view_count = 0', limit: 50, orderBy: 'RANDOM()');
   }
 
   Future<void> getListOldest() async {
-    listOldest.clear();
     listOldest.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date ASC, updated_at ASC', limit: 50);
   }
 

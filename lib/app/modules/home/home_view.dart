@@ -265,37 +265,18 @@ class HomeView extends GetView<HomeController> {
   }
 
   Widget bodyContent() {
-    final List<Widget> pages = [
-      PageHomeView(),
-      PageSearchView(),
-      PageExploreView(),
-      PageDownloadView(),
-      PageToolsView(),
-      PageSettingsView(),
-    ];
-
-    int getPageIndex(String menuName) {
-      switch (menuName) {
-        case kMenuHome: return 0;
-        case kMenuSearch: return 1;
-        case kMenuExplore: return 2;
-        case kMenuDownload: return 3;
-        case kMenuTools: return 4;
-        case kMenuSetting: return 5;
-        default: return 0;
-      }
-    }
-
     return Obx(
       () {
-        final index = getPageIndex(controller.currentMenuSelected.value);
-
-        if (controller.currentMenuSelected.value == kMenuSearch) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Get.find<PageSearchController>().fnSearch.requestFocus();
-          });
+        switch (controller.currentMenuSelected.value) {
+          case kMenuSearch:
+            WidgetsBinding.instance.addPostFrameCallback((_) => Get.find<PageSearchController>().fnSearch.requestFocus());
+            return const PageSearchView();
+          case kMenuExplore: return const PageExploreView();
+          case kMenuDownload: return const PageDownloadView();
+          case kMenuTools: return const PageToolsView();
+          case kMenuSetting: return const PageSettingsView();
+          default: return const PageHomeView();
         }
-        return IndexedStack(index: index, children: pages);
       },
     );
   }

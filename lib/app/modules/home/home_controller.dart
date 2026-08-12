@@ -125,9 +125,6 @@ class HomeController extends GetxController with StateMixin {
     deduplicateCart();
     ever<List<Videos>>(cart, (value) => AppPref.setAppCart(value));
 
-    profile.value = await DBProfile.getProfile() ?? Profile();
-
-    totalVideo.value = await DBVideos.getCount();
     await _syncGamification();
     profile.value = await DBProfile.getProfile() ?? Profile();
 
@@ -135,8 +132,8 @@ class HomeController extends GetxController with StateMixin {
 
     sideMenuWidth.value = AppPref.getAppHideSideMenu() ? 65 : 180;
 
-    await DBActivity.getCountRelapseToday();
-    isDangerMode.value = await DBActivity.getCountRelapseToday() >= AppPref.getAppMaxColi();
+    final relapseToday = await DBActivity.getCountRelapseToday();
+    isDangerMode.value = relapseToday >= AppPref.getAppMaxColi();
 
     await getAllPlaylist();
     await HomePanelLibrary.startAutoRescanWatcher();
@@ -171,10 +168,9 @@ class HomeController extends GetxController with StateMixin {
         await Get.find<PageHomeController>().onRefresh();
       }
 
-      await DBActivity.getCountRelapseToday();
-      isDangerMode.value = await DBActivity.getCountRelapseToday() >= AppPref.getAppMaxColi();
+      final relapseToday = await DBActivity.getCountRelapseToday();
+      isDangerMode.value = relapseToday >= AppPref.getAppMaxColi();
 
-      totalVideo.value = await DBVideos.getCount();
       await _syncGamification();
       profile.value = await DBProfile.getProfile() ?? Profile();
       await updateFooterSummary();

@@ -11,38 +11,8 @@ mixin HelperFilePicker {
     String? selectedDirectory = await FilePicker.getDirectoryPath();
 
     if (selectedDirectory != null) {
-      final directory = Directory(selectedDirectory);
-
-      List<FileSystemEntity> files = directory.listSync(recursive: true);
-
-      // Filter semua subfolder
-      List<Directory> subfolders = files
-          .where((file) {
-            if (file is Directory) return true;
-            return false;
-          })
-          .map((e) => e as Directory)
-          .toList();
-
-      // Filter video files
-      final videoFiles = files.where((file) {
-        if (file is File) {
-          // filter minimum filesize > 10MB
-          if (file.lengthSync() < 10 * 1024 * 1024) return false;
-          String extension = file.path.split('.').last.toLowerCase();
-          return ['mp4', 'mkv', 'avi', 'mov'].contains(extension);
-        }
-        return false;
-      }).toList();
-
-      final item = Library(
-        totalVideo: videoFiles.length,
-        alias: selectedDirectory.getLastPath(),
-        rootFolder: selectedDirectory,
-        subFolder: subfolders.map((e) => e.path).toList(),
-        videos: videoFiles.map((e) => e.path).toList(),
-      );
-
+      final item = await scanFolderAndSubFolder(selectedDirectory);
+      item?.alias = selectedDirectory.getLastPath();
       return item;
     }
 
@@ -52,32 +22,25 @@ mixin HelperFilePicker {
   // ** scanFolderAndSubFolder
   static Future<Library?> scanFolderAndSubFolder(String path) async {
     final directory = Directory(path);
-    List<FileSystemEntity> files = directory.listSync(recursive: true);
+    final subfolders = <String>[];
+    final videoFiles = <String>[];
 
-    // Filter semua subfolder
-    List<Directory> subfolders = files
-        .where((file) {
-          if (file is Directory) return true;
-          return false;
-        })
-        .map((e) => e as Directory)
-        .toList();
-
-    // Filter video files
-    List<FileSystemEntity> videoFiles = files.where((file) {
-      if (file is File) {
-        if (file.lengthSync() < 10 * 1024 * 1024) return false;
-        String extension = file.path.split('.').last.toLowerCase();
-        return ['mp4', 'mkv', 'avi', 'mov'].contains(extension);
+    await for (final file in directory.list(recursive: true)) {
+      if (file is Directory) {
+        subfolders.add(file.path);
+        continue;
       }
-      return false;
-    }).toList();
+
+      if (file is! File || await file.length() < 10 * 1024 * 1024) continue;
+      final extension = file.path.split('.').last.toLowerCase();
+      if (['mp4', 'mkv', 'avi', 'mov'].contains(extension)) videoFiles.add(file.path);
+    }
 
     final item = Library(
       totalVideo: videoFiles.length,
       rootFolder: path,
-      subFolder: subfolders.map((e) => e.path).toList(),
-      videos: videoFiles.map((e) => e.path).toList(),
+      subFolder: subfolders,
+      videos: videoFiles,
     );
     return item;
   }

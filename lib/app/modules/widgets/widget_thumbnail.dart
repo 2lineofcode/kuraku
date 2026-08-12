@@ -198,6 +198,13 @@ class _ExThumbnailC extends GetxController {
     }
   }
 
+  void _setThumbnailCache(String key, Uint8List bytes) {
+    _memCache[key] = bytes;
+    if (_memCache.length > 180) {
+      _memCache.remove(_memCache.keys.first);
+    }
+  }
+
   Future<Uint8List?> _getThumbnailImpl(String videopath, {required int position}) async {
     final isExternal = videopath.startsWith('/Volumes/') || videopath.startsWith('/media/');
     final cacheKey = '$videopath#$position';
@@ -224,7 +231,7 @@ class _ExThumbnailC extends GetxController {
     // Disk cache
     if (await file.exists() && position == 90) {
       final bytes = await file.readAsBytes();
-      _memCache[videopath] = bytes;
+      _setThumbnailCache(videopath, bytes);
       return bytes;
     }
 
@@ -251,7 +258,7 @@ class _ExThumbnailC extends GetxController {
     }
 
     if (bytes != null && bytes.isNotEmpty && position == 90) {
-      _memCache[videopath] = bytes;
+      _setThumbnailCache(videopath, bytes);
       try {
         await file.writeAsBytes(bytes, flush: false);
       } catch (e, stackTrace) {
@@ -658,6 +665,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
 
   @override
   Widget build(BuildContext context) {
+    final cacheWidth = (widget.width * MediaQuery.devicePixelRatioOf(context)).round();
     Widget child;
     if (widget.imageUrl == null || widget.imageUrl == '') {
       child = FutureBuilder<Uint8List?>(
@@ -670,6 +678,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
                 fit: widget.fitMemory,
                 width: widget.width,
                 height: widget.height,
+                cacheWidth: cacheWidth,
               );
             }
             return Icon(UIconsPro.regularRounded.loading, size: 32).wh(widget.width, widget.height).centered().color(AppColor.selected);
@@ -680,6 +689,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
                   fit: widget.fitMemory,
                   width: widget.width,
                   height: widget.height,
+                  cacheWidth: cacheWidth,
                 )
               : Icon(Icons.broken_image, size: widget.iconSize).wh(widget.width, widget.height).centered().color(AppColor.selected);
         },
@@ -701,6 +711,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
           fit: widget.fitUrl,
           width: fastImageRenderWidth,
           height: widget.height,
+          memCacheWidth: (fastImageRenderWidth * MediaQuery.devicePixelRatioOf(context)).round(),
           fadeInDuration: 300.milliseconds,
           cacheManager: CacheManager(
             Config(
