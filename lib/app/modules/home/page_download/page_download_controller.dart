@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:ex_kit/ex.dart';
@@ -15,572 +16,106 @@ import '../../../core/app_logging.dart';
 import '../../../core/app_notification.dart';
 import '../../../core/app_pref.dart';
 import '../../../core/app_setting.dart';
-import '../../../data/api/api_javmost.dart';
 import '../../../data/database/db_activity.dart';
-import '../../../data/database/db_r18.dart';
-import '../../../data/database/db_videos.dart';
-import '../../../data/models/__javit_search_entity.dart';
-import '../../../data/models/__javmost_new_release.dart';
 import '../../../data/models/activity_entity.dart';
-import '../../../utils/helper_loading.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
 import '../home_controller.dart';
-import 'page_download_helper.dart';
+import 'page_download_search_tab.dart';
 
 class PageDownloadController extends GetxController {
-  final tecSearch = TextEditingController();
-  final fnSearch = FocusNode();
-  final phSearch = ''.obs;
-  final scrollController = ScrollController();
-  final searchCommands = PageDownloadCommandEngine.commands.map((e) => e.value).toList(growable: false);
-  final commandSuggestions = <PageDownloadCommand>[].obs;
-  final isCommandSuggestionVisible = false.obs;
-  final selectedCommandIndex = (-1).obs;
+  final tabs = <PageDownloadSearchTab>[].obs;
+  final activeTabIndex = 0.obs;
+  final tabScrollController = ScrollController();
+  int _nextTabId = 0;
+  PageDownloadSearchTab get activeTab => tabs[activeTabIndex.value];
 
-  final response = JavitSearch().obs;
-  final hasNextPage = false.obs;
-  final currentPage = 0.obs;
-  final videos = <JavitSearchResult>[].obs;
-  final allVideos = <JavitSearchResult>[].obs;
-  final havingVideos = 0.obs;
-  final totalResults = 0.obs;
-  final isLoading = false.obs;
-  final isLoadingMore = false.obs;
-
-  // downloader
   final downloadStdout = ''.obs;
   final currentProcessDownload = Rx<Process?>(null);
   final retryCount = 0.obs;
-
-  // filters
-  final filter = VideoFilterState();
-
-  // app setting
   final appSetting = Get.find<AppSettingService>();
-  final _perPage = 200;
-  String _lastQuery = '';
-  Set<String> _existingVideoCodes = {};
-  static const _defaultYearStart = 2000;
 
   @override
-  Future<void> onInit() async {
+  void onInit() {
     super.onInit();
-    await onRefresh();
+    final saved = AppPref.getDownloadTabs();
+    final entries = saved['tabs'];
+    if (entries is List) {
+      for (final entry in entries.whereType<Map<String, dynamic>>()) {
+        final tab = createTab(_nextTabId++);
+        tab.restorePreferences(entry);
+        tab.watchPreferences(_saveTabs);
+        tabs.add(tab);
+        unawaited(tab.restoreSearch());
+      }
+    }
+    if (tabs.isEmpty) {
+      addTab();
+    } else {
+      final active = saved['activeTab'];
+      selectTab(active is int ? active.clamp(0, tabs.length - 1) : 0);
+    }
+  }
+
+  void _saveTabs() {
+    unawaited(AppPref.setDownloadTabs({
+      'tabs': tabs.map((tab) => tab.toPreferences()).toList(),
+      'activeTab': activeTabIndex.value,
+    }).catchError((Object error) {
+      AppLog.logW('Saving Download tabs failed: $error');
+    }));
+  }
+
+  PageDownloadSearchTab createTab(int id) => PageDownloadSearchTab(id);
+
+  void addTab() {
+    final tab = createTab(_nextTabId++);
+    tab.watchPreferences(_saveTabs);
+    tabs.add(tab);
+    selectTab(tabs.length - 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!isClosed && tabScrollController.hasClients) tabScrollController.jumpTo(tabScrollController.position.maxScrollExtent);
+    });
+  }
+
+  void selectTab(int index) {
+    if (index < 0 || index >= tabs.length) return;
+    activeTabIndex.value = index;
+    _saveTabs();
+    final tab = activeTab;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!isClosed && !tab.isClosed && identical(activeTab, tab)) tab.fnSearch.requestFocus();
+    });
+  }
+
+  void closeTab(int index) {
+    if (index < 0 || index >= tabs.length) return;
+    final tab = tabs.removeAt(index);
+    tab.close();
+    if (tabs.isEmpty) {
+      addTab();
+    } else {
+      final next = index < activeTabIndex.value ? activeTabIndex.value - 1 : activeTabIndex.value;
+      selectTab(next.clamp(0, tabs.length - 1));
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => tab.dispose());
   }
 
   Future<void> onRefresh() async {
-    final sw = Stopwatch()..start();
-
-    phSearch.value = 'Video Code or Title...';
-    scrollController.removeListener(_onScroll);
-    scrollController.addListener(_onScroll);
-    await onReset();
-
-    AppLog.logI('page download ==> onInit called: ${sw.elapsedMilliseconds} ms');
+    for (final tab in tabs.toList()) {
+      await tab.onRefresh();
+    }
   }
 
   @override
   void onClose() {
-    scrollController.removeListener(_onScroll);
-    scrollController.dispose();
-    tecSearch.dispose();
-    fnSearch.dispose();
+    _saveTabs();
+    tabScrollController.dispose();
+    for (final tab in tabs) {
+      tab.dispose();
+    }
     super.onClose();
-  }
-
-  Future<void> onSearch(String s) async {
-    _hideCommandSuggestions();
-    final hasAnyFilter = _hasAnyFilter();
-
-    if (s.isEmpty && hasAnyFilter == false) {
-      await onReset();
-      return;
-    }
-
-    // ** db mode
-    else {
-      try {
-        _lastQuery = s;
-        isLoading.value = true;
-        HelperLoading.show();
-
-        await _refreshSearchWithFilters();
-
-        if (scrollController.hasClients) {
-          await scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
-        }
-      } catch (e) {
-        AppLog.logE('onSearch dbMode e -> $e');
-      } finally {
-        isLoading.value = false;
-        HelperLoading.dismiss();
-      }
-    }
-  }
-
-  Future<void> onReset() async {
-    response.value = JavitSearch();
-    currentPage.value = 0;
-    retryCount.value = 0;
-    hasNextPage.value = false;
-    videos.value = [];
-    allVideos.value = [];
-    havingVideos.value = 0;
-    totalResults.value = 0;
-    tecSearch.text = '';
-    fnSearch.requestFocus();
-    filter.isFiltered.value = false;
-    _lastQuery = '';
-    _existingVideoCodes = {};
-    isLoading.value = false;
-    isLoadingMore.value = false;
-    _hideCommandSuggestions();
-  }
-
-  void onSearchTextChanged(String s) {
-    final value = s.trim();
-    if (value.startsWith('/')) {
-      commandSuggestions.value = PageDownloadCommandEngine.byPrefix(value);
-      isCommandSuggestionVisible.value = commandSuggestions.isNotEmpty;
-      selectedCommandIndex.value = commandSuggestions.isEmpty ? -1 : 0;
-      return;
-    }
-
-    _hideCommandSuggestions();
-  }
-
-  Future<void> onPickSearchCommand(String command) async {
-    if (command == '/online') {
-      tecSearch.text = '/online ';
-      tecSearch.selection = TextSelection.fromPosition(TextPosition(offset: tecSearch.text.length));
-      _hideCommandSuggestions();
-      return;
-    }
-
-    tecSearch.text = command;
-    tecSearch.selection = TextSelection.fromPosition(TextPosition(offset: command.length));
-    currentPage.value = 1;
-    await onSearch(command);
-  }
-
-  void _hideCommandSuggestions() {
-    isCommandSuggestionVisible.value = false;
-    selectedCommandIndex.value = -1;
-    commandSuggestions.clear();
-  }
-
-  void onCommandArrowDown() {
-    if (isCommandSuggestionVisible.isFalse || commandSuggestions.isEmpty) return;
-    selectedCommandIndex.value = (selectedCommandIndex.value + 1) % commandSuggestions.length;
-  }
-
-  void onCommandArrowUp() {
-    if (isCommandSuggestionVisible.isFalse || commandSuggestions.isEmpty) return;
-    selectedCommandIndex.value = (selectedCommandIndex.value - 1 + commandSuggestions.length) % commandSuggestions.length;
-  }
-
-  Future<void> onCommandEnterOrSearch(String input) async {
-    final idx = selectedCommandIndex.value;
-    if (isCommandSuggestionVisible.isTrue && idx >= 0 && idx < commandSuggestions.length) {
-      await onPickSearchCommand(commandSuggestions[idx].value);
-      return;
-    }
-    currentPage.value = 1;
-    await onSearch(input.trim());
-  }
-
-  bool get _hasCustomYearRange {
-    final startYear = filter.currentRange.value.start.toInt();
-    final endYear = filter.currentRange.value.end.toInt();
-    final currentYear = DateTime.now().year;
-    return startYear > _defaultYearStart || endYear < currentYear;
-  }
-
-  String? _filterVideoCode() {
-    final value = filter.tecVideoCode.text.trim();
-    return value.isEmpty ? null : value;
-  }
-
-  String? _filterActressName() {
-    final value = filter.tecActressName.text.trim();
-    return value.isEmpty ? null : value;
-  }
-
-  List<String>? _filterCategories() {
-    return filter.categoriesSelected.isEmpty ? null : filter.categoriesSelected.toList();
-  }
-
-  int? _filterYearStart() {
-    if (_hasCustomYearRange == false) return null;
-    return filter.currentRange.value.start.toInt();
-  }
-
-  int? _filterYearEnd() {
-    if (_hasCustomYearRange == false) return null;
-    return filter.currentRange.value.end.toInt();
-  }
-
-  Future<void> _refreshSearchWithFilters({bool showLoading = false}) async {
-    final route = PageDownloadQueryPlanner.decide(
-      query: _lastQuery,
-      hasFilter: _hasAnyFilter(),
-      isApiCommand: _isJavMostCommand(_lastQuery),
-    );
-    if (route == PageDownloadQueryRoute.none) return;
-
-    if (showLoading) {
-      isLoading.value = true;
-      HelperLoading.show();
-    }
-
-    currentPage.value = 1;
-    hasNextPage.value = true;
-    allVideos.clear();
-    videos.clear();
-    havingVideos.value = 0;
-
-    final videoCode = _filterVideoCode();
-    final actressName = _filterActressName();
-    final categories = _filterCategories();
-    final yearStart = _filterYearStart();
-    final yearEnd = _filterYearEnd();
-
-    switch (route) {
-      case PageDownloadQueryRoute.apiCommand:
-        totalResults.value = 0;
-        break;
-      case PageDownloadQueryRoute.dbFilterOnly:
-        totalResults.value = await DBR18.getByFilterCount(
-          videoCode: videoCode,
-          actressName: actressName,
-          categories: categories,
-          yearStart: yearStart,
-          yearEnd: yearEnd,
-        );
-        break;
-      case PageDownloadQueryRoute.dbSearch:
-        totalResults.value = await DBR18.getSearchCount(
-          _lastQuery,
-          videoCode: videoCode,
-          actressName: actressName,
-          categories: categories,
-          yearStart: yearStart,
-          yearEnd: yearEnd,
-        );
-        break;
-      case PageDownloadQueryRoute.none:
-        break;
-    }
-
-    await _loadPage(isLoadMore: false);
-
-    if (showLoading) {
-      isLoading.value = false;
-      HelperLoading.dismiss();
-    }
-  }
-
-  // ~ Filters ────────────────────────────────────────────────────────────────
-  final _filterAdapter = VideoFilterAdapter<JavitSearchResult>(
-    videoCode: (video) => video.videoCode ?? '',
-    actresses: (video) => video.actresses ?? <String>[],
-    categories: (video) => video.categories ?? <String>[],
-    releaseDate: (video) => video.releaseDate,
-    categoryMatch: (videoCategories, selected) => videoCategories.toSet().containsAll(selected),
-  );
-
-  void _syncHavingVideos(List<JavitSearchResult> list) {
-    havingVideos.value = 0;
-    for (var video in list) {
-      if (video.match == true) havingVideos.value++;
-    }
-  }
-
-  Future<void> _loadPage({required bool isLoadMore}) async {
-    final route = PageDownloadQueryPlanner.decide(
-      query: _lastQuery,
-      hasFilter: _hasAnyFilter(),
-      isApiCommand: _isJavMostCommand(_lastQuery),
-    );
-    if (route == PageDownloadQueryRoute.none) return;
-    if (isLoadMore && hasNextPage.isFalse) return;
-    if (isLoadMore) isLoadingMore.value = true;
-
-    try {
-      final sw = Stopwatch()..start();
-      final videoCode = _filterVideoCode();
-      final actressName = _filterActressName();
-      final categories = _filterCategories();
-      final yearStart = _filterYearStart();
-      final yearEnd = _filterYearEnd();
-
-      final List<Map<String, dynamic>> r18videos;
-      final isJavMostApi = route == PageDownloadQueryRoute.apiCommand;
-      var apiTotal = 0;
-
-      switch (route) {
-        case PageDownloadQueryRoute.apiCommand:
-          final apiData = await _fetchJavMostByCommand(_lastQuery, currentPage.value);
-          apiTotal = apiData.total ?? 0;
-          r18videos = _mapJavMostNewReleaseToRows(
-            apiData.result ?? [],
-            videoCode: videoCode,
-            actressName: actressName,
-            categories: categories,
-            yearStart: yearStart,
-            yearEnd: yearEnd,
-          );
-          if (currentPage.value == 1 && r18videos.isEmpty) {
-            await HelperToast.info('No result from command "$_lastQuery"');
-          }
-          break;
-        case PageDownloadQueryRoute.dbFilterOnly:
-          r18videos = await DBR18.getByFilter(
-            page: currentPage.value,
-            perPage: _perPage + 1,
-            videoCode: videoCode,
-            actressName: actressName,
-            categories: categories,
-            yearStart: yearStart,
-            yearEnd: yearEnd,
-          );
-          break;
-        case PageDownloadQueryRoute.dbSearch:
-          r18videos = await DBR18.search(
-            _lastQuery,
-            page: currentPage.value,
-            perPage: _perPage + 1,
-            videoCode: videoCode,
-            actressName: actressName,
-            categories: categories,
-            yearStart: yearStart,
-            yearEnd: yearEnd,
-          );
-          break;
-        case PageDownloadQueryRoute.none:
-          r18videos = [];
-          break;
-      }
-
-      if (_existingVideoCodes.isEmpty) {
-        final existVideos = await DBVideos.getAll();
-        _existingVideoCodes = existVideos.map((e) => e.videoCode ?? '').toSet();
-      }
-
-      final pageItems = isJavMostApi ? r18videos : r18videos.take(_perPage).toList();
-      if (isJavMostApi) {
-        totalResults.value = apiTotal;
-        final currentLoaded = isLoadMore ? allVideos.length : 0;
-        hasNextPage.value = apiTotal > currentLoaded + pageItems.length;
-      } else {
-        hasNextPage.value = r18videos.length > _perPage;
-      }
-
-      final output = <JavitSearchResult>[];
-      for (var i = 0; i < pageItems.length; i++) {
-        final videoCode = pageItems[i]['video_code'].toString();
-        if (videoCode.isValidVideoCode() == false) continue;
-        final hasMatch = _existingVideoCodes.contains(videoCode);
-
-        final actresses = pageItems[i]['actresses'].toString().split(',').map((e) => e.trim()).toList();
-        final categories = pageItems[i]['categories'].toString().split(',').map((e) => e.trim()).toList();
-
-        output.add(
-          JavitSearchResult(
-            videoId: pageItems[i]['id'],
-            videoCode: pageItems[i]['video_code'],
-            duration: pageItems[i]['duration'],
-            durationFormated: '${pageItems[i]['release_date']}',
-            releaseDate: '${pageItems[i]['release_date']}',
-            title: pageItems[i]['title'],
-            fanArt: pageItems[i]['fan_art'].toString().genImageUrl(),
-            poster: pageItems[i]['poster'],
-            trailer: pageItems[i]['trailer'],
-            match: hasMatch,
-            isReleased: DateTime.tryParse(pageItems[i]['release_date'] ?? '')?.isBefore(DateTime.now()),
-            actresses: actresses,
-            categories: categories,
-          ),
-        );
-      }
-
-      if (isLoadMore) {
-        allVideos.addAll(output);
-      } else {
-        allVideos.value = output;
-      }
-
-      videos.value = allVideos.toList();
-      _syncHavingVideos(videos.toList());
-      _scheduleLoadMoreIfNeeded();
-      sw.stop();
-      AppLog.logD('download_query route=$route page=${currentPage.value} items=${pageItems.length} in ${sw.elapsedMilliseconds} ms');
-    } catch (e) {
-      AppLog.logE('_loadPage e -> $e');
-    } finally {
-      if (isLoadMore) isLoadingMore.value = false;
-    }
-  }
-
-  bool _isJavMostCommand(String query) {
-    final q = query.trim().toLowerCase();
-    return PageDownloadCommandEngine.isCommand(q) || _isOnlineSearchQuery(q);
-  }
-
-  bool _isOnlineSearchQuery(String query) {
-    return query.startsWith('/online ');
-  }
-
-  String _extractOnlineSearchKeyword(String query) {
-    final q = query.trim();
-    if (_isOnlineSearchQuery(q) == false) return '';
-    return q.substring('/online '.length).trim();
-  }
-
-  bool _hasAnyFilter() {
-    return _filterVideoCode() != null ||
-        _filterActressName() != null ||
-        (_filterCategories()?.isNotEmpty ?? false) ||
-        _hasCustomYearRange;
-  }
-
-  Future<JavMostModel> _fetchJavMostByCommand(String command, int page) async {
-    final normalized = command.trim().toLowerCase();
-    if (_isOnlineSearchQuery(normalized)) {
-      final keyword = _extractOnlineSearchKeyword(normalized);
-      if (keyword.isEmpty) return JavMostModel(result: [], success: true, total: 0);
-      return ApiJavMost.search(s: keyword, page: page);
-    }
-
-    switch (normalized) {
-      case '/new-release':
-        return ApiJavMost.getNewRelease(page: page);
-      case '/top-monthly':
-        return ApiJavMost.getTopMonthly(page: page);
-      case '/top-weekly':
-        return ApiJavMost.getTopWeekly(page: page);
-      case '/top-daily':
-        return ApiJavMost.getTopDaily(page: page);
-      case '/best-rated':
-        return ApiJavMost.getBestRating(page: page);
-      case '/online':
-        return JavMostModel(result: [], success: true, total: 0);
-      default:
-        return ApiJavMost.getNewRelease(page: page);
-    }
-  }
-
-  List<Map<String, dynamic>> _mapJavMostNewReleaseToRows(
-    List<dynamic> items, {
-    String? videoCode,
-    String? actressName,
-    List<String>? categories,
-    int? yearStart,
-    int? yearEnd,
-  }) {
-    final output = <Map<String, dynamic>>[];
-
-    final qVideoCode = videoCode?.trim().toLowerCase();
-    final qActress = actressName?.trim().toLowerCase();
-    final qCategories = categories?.map((e) => e.trim().toLowerCase()).where((e) => e.isNotEmpty).toList() ?? const <String>[];
-
-    for (final item in items) {
-      final rawCode = (item.name ?? '').toString().trim();
-      final rawTitle = (item.fullName ?? item.name ?? '').toString();
-      final rawRelease = (item.release ?? '').toString();
-      final rawActresses = (item.star ?? '').toString();
-      final rawCategories = (item.genre ?? '').toString();
-
-      final actresses = rawActresses
-          .split(RegExp(r',|/'))
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-      final categoryList = rawCategories
-          .split(RegExp(r',|/'))
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-
-      if (qVideoCode != null && qVideoCode.isNotEmpty) {
-        if (rawCode.toLowerCase().contains(qVideoCode) == false) continue;
-      }
-
-      if (qActress != null && qActress.isNotEmpty) {
-        final hasActress = actresses.any((e) => e.toLowerCase().contains(qActress));
-        if (hasActress == false) continue;
-      }
-
-      if (qCategories.isNotEmpty) {
-        final lowerCategories = categoryList.map((e) => e.toLowerCase()).toSet();
-        final hasAllCategories = qCategories.every((e) => lowerCategories.contains(e));
-        if (hasAllCategories == false) continue;
-      }
-
-      if (yearStart != null && yearEnd != null) {
-        final date = DateTime.tryParse(rawRelease);
-        final year = date?.year;
-        if (year == null || year < yearStart || year > yearEnd) continue;
-      }
-
-      output.add({
-        'id': item.url ?? rawCode,
-        'video_code': rawCode,
-        'title': rawTitle,
-        'duration': int.tryParse((item.length ?? '').toString().replaceAll(RegExp(r'[^0-9]'), '')),
-        'release_date': rawRelease,
-        'trailer': item.dataPreview ?? '',
-        'fan_art': item.cover ?? '',
-        'poster': item.cover ?? '',
-        'ssfirst': '',
-        'sslast': '',
-        'categories': categoryList.join(', '),
-        'actresses': actresses.join(', '),
-      });
-    }
-
-    return output;
-  }
-
-  void _onScroll() {
-    _triggerLoadMoreIfNeeded();
-  }
-
-  void onViewportMetricsChanged() {
-    _scheduleLoadMoreIfNeeded();
-  }
-
-  void _scheduleLoadMoreIfNeeded() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _triggerLoadMoreIfNeeded();
-    });
-  }
-
-  void _triggerLoadMoreIfNeeded() {
-    if (scrollController.hasClients == false) return;
-    if (hasNextPage.isFalse || isLoadingMore.isTrue || isLoading.isTrue) return;
-
-    final position = scrollController.position;
-    final isNearBottom = position.pixels >= position.maxScrollExtent - 240;
-    final isNotScrollableYet = position.maxScrollExtent <= 0;
-    if (isNearBottom || isNotScrollableYet) {
-      currentPage.value += 1;
-      _loadPage(isLoadMore: true);
-    }
-  }
-
-  Future<void> openDialogFilter() async {
-    await HelperOpener.openFilterDialog<JavitSearchResult>(
-      state: filter,
-      allVideos: allVideos.toList(),
-      videos: videos,
-      adapter: _filterAdapter,
-      applyLocalFilter: false,
-      onApplied: (_) async => _refreshSearchWithFilters(showLoading: true),
-      onReset: () async => _refreshSearchWithFilters(showLoading: true),
-    );
   }
 
   // ~ Download ────────────────────────────────────────────────────────────────
@@ -762,7 +297,7 @@ class PageDownloadController extends GetxController {
     final tecUrl = TextEditingController();
     final tecDir = TextEditingController();
     final fnUrl = FocusNode();
-    final tecFilename = TextEditingController(text: tecSearch.text);
+    final tecFilename = TextEditingController(text: activeTab.tecSearch.text);
 
     tecDir.text = AppPref.getDownloadPath();
     fnUrl.requestFocus();

@@ -106,7 +106,7 @@ mixin DBR18 {
     'TK1', 'TK2', 'TK3', 'EC', '4D', '5D', 'DL',
   ];
 
-  static Map<String, dynamic> _buildFilterClause({ String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, }) {
+  static Map<String, dynamic> _buildFilterClause({ bool matchAllCategories = false, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, }) {
     final clauses = <String>[];
     final args = <Object?>[];
 
@@ -132,12 +132,11 @@ mixin DBR18 {
       clauses.add('v.content_id IN ('
           'SELECT vc2.content_id FROM derived_video_category vc2 '
           'JOIN derived_category dc2 ON dc2.id = vc2.category_id '
-          'WHERE dc2.name_en IN ($placeholders) '
-          'GROUP BY vc2.content_id '
-          'HAVING COUNT(DISTINCT dc2.name_en) = ?'
+          'WHERE dc2.name_en IN ($placeholders)'
+          '${matchAllCategories ? ' GROUP BY vc2.content_id HAVING COUNT(DISTINCT dc2.name_en) = ?' : ''}'
           ')');
       args.addAll(categories);
-      args.add(categories.length);
+      if (matchAllCategories) args.add(categories.toSet().length);
     }
 
     if (yearStart != null && yearEnd != null) {
@@ -241,7 +240,7 @@ mixin DBR18 {
     return result;
   }
 
-  static Future<List<Map<String, dynamic>>> search(String query, { int? page = 1, int? perPage = 100, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd}) async {
+  static Future<List<Map<String, dynamic>>> search(String query, { bool matchAllCategories = false, int? page = 1, int? perPage = 100, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd}) async {
     if (!_isReady()) return [];
 
     final searchString = '%$query%';
@@ -259,7 +258,7 @@ mixin DBR18 {
     )
   ''';
 
-    final filter = _buildFilterClause(videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd);
+    final filter = _buildFilterClause(matchAllCategories: matchAllCategories,videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd);
     final blacklist = _buildBlacklistClause();
 
     final maps = await _rawQuery('''
@@ -295,7 +294,7 @@ mixin DBR18 {
     return maps;
   }
 
-  static Future<int> getSearchCount(String query, {String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd}) async {
+  static Future<int> getSearchCount(String query, {bool matchAllCategories = false,String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd}) async {
     if (!_isReady()) return 0;
 
     final searchString = '%$query%';
@@ -310,7 +309,7 @@ mixin DBR18 {
     )
   ''';
 
-    final filter = _buildFilterClause(videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd);
+    final filter = _buildFilterClause(matchAllCategories: matchAllCategories,videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd);
     final blacklist = _buildBlacklistClause();
 
     final maps = await _rawQuery('''
@@ -328,6 +327,7 @@ mixin DBR18 {
   }
 
   static Future<List<Map<String, dynamic>>> getByFilter({
+    bool matchAllCategories = false,
     int? page = 1,
     int? perPage = 100,
     String? videoCode,
@@ -341,6 +341,7 @@ mixin DBR18 {
     final limit = perPage ?? 100;
     final offset = ((page ?? 1) - 1) * limit;
     final filter = _buildFilterClause(
+      matchAllCategories: matchAllCategories,
       videoCode: videoCode,
       actressName: actressName,
       categories: categories,
@@ -383,6 +384,7 @@ mixin DBR18 {
   }
 
   static Future<int> getByFilterCount({
+    bool matchAllCategories = false,
     String? videoCode,
     String? actressName,
     List<String>? categories,
@@ -392,6 +394,7 @@ mixin DBR18 {
     if (!_isReady()) return 0;
 
     final filter = _buildFilterClause(
+      matchAllCategories: matchAllCategories,
       videoCode: videoCode,
       actressName: actressName,
       categories: categories,

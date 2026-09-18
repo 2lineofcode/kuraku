@@ -12,6 +12,7 @@ import '../../../core/app_color.dart';
 import '../../../core/const.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
+import '../../widgets/widget_search_tab_bar.dart';
 import '../../widgets/widgets.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_video_info.dart';
@@ -22,8 +23,32 @@ class PageExploreView extends GetView<PageExploreController> {
 
   @override
   Widget build(BuildContext context) {
+    return Column(children: [
+      Obx(() => SearchTabBar(
+        tabs: controller.tabs.map((tab) => (title: tab.title, isLoading: tab.isLoading.value || tab.isLoadingSelection.value || tab.isLoadingR18.value)).toList(),
+        activeIndex: controller.activeTabIndex.value,
+        scrollController: controller.tabScrollController,
+        onSelect: controller.selectTab,
+        onClose: controller.closeTab,
+        onAdd: controller.addTab,
+        addTooltip: 'New Explore tab',
+      )).pOnly(bottom: 8),
+      Expanded(child: Obx(() {
+        final tab = controller.activeTab;
+        return PageExploreTabView(key: ValueKey(tab.id), controller: tab);
+      })),
+    ]);
+  }
+}
+
+class PageExploreTabView extends StatelessWidget {
+  const PageExploreTabView({super.key, required this.controller});
+  final PageExploreTab controller;
+
+  @override
+  Widget build(BuildContext context) {
     return Obx(
-      () => controller.isFresh.isFalse
+      () => controller.isFresh.isFalse || controller.isLoading.value || controller.error.value.isNotEmpty
           ? buildPage()
           : ExUiErrorOrEmpty(
               illustration: Icon(UIconsPro.regularRounded.square_dashed_circle_plus, size: 128),
@@ -37,6 +62,7 @@ class PageExploreView extends GetView<PageExploreController> {
     return VStack(
       [
         _buildFilterMenu().pOnly(bottom: 24),
+        Obx(() => controller.error.value.isEmpty ? const SizedBox.shrink() : Text(controller.error.value).pOnly(bottom: 8)),
         HStack([
           _buildLeftPart(),
           Container(height: double.infinity, color: AppColor.container).w(1).pSymmetric(h: 8),
@@ -49,8 +75,10 @@ class PageExploreView extends GetView<PageExploreController> {
   Widget _buildFilterMenu() {
     return VStack(
       [
-        'Filter By'.text.size(12).make().pOnly(bottom: 16),
+        // 'Filter By'.text.size(12).make().pOnly(bottom: 16),
+        8.heightBox,
         ListView.builder(
+          key: PageStorageKey('explore-menus-${controller.id}'),
           scrollDirection: Axis.horizontal,
           itemCount: controller.menus.length,
           itemBuilder: (context, index) {
@@ -135,6 +163,7 @@ class PageExploreView extends GetView<PageExploreController> {
                         }
                       },
                       child: ListView.separated(
+                        key: PageStorageKey('explore-left-${controller.id}-${controller.currentMenuSelected.value}'),
                         itemCount: controller.leftListFiltered.length,
                         separatorBuilder: (context, index) => Divider(color: AppColor.border),
                         itemBuilder: (context, index) {
@@ -143,6 +172,7 @@ class PageExploreView extends GetView<PageExploreController> {
                             () {
                               final isSelected = item == controller.leftListSelected.value;
                               final isHovered = index == controller.leftListHoveredIndex.value;
+                              final isPinned = controller.isLeftPinned(item);
 
                               return MouseRegion(
                                 onEnter: (_) => controller.leftListHoveredIndex.value = index,
@@ -180,6 +210,14 @@ class PageExploreView extends GetView<PageExploreController> {
                                     else ...[
                                       '${item.name} ${item.count != 0 ? '(${item.count})' : ''}'.text.size(12).maxLines(3).ellipsis.make().p8().expand()
                                     ],
+                                    IconButton(
+                                      tooltip: isPinned ? 'Unpin' : 'Pin to top',
+                                      icon: Icon(isPinned ? Icons.push_pin : Icons.push_pin_outlined, size: 16),
+                                      color: isPinned ? Colors.amber : Vx.neutral500,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(minWidth: 32, minHeight: 48),
+                                      onPressed: controller.isSavingPin.value ? null : () => controller.toggleLeftPin(item),
+                                    ),
                                   ])
                                       .color(isSelected ? AppColor.selected : isHovered ? AppColor.border : Colors.transparent)
                                       .cornerRadius(8),
@@ -204,7 +242,9 @@ class PageExploreView extends GetView<PageExploreController> {
       child: VStack([
         Obx(() => _buildSectionHeader()),
         Obx(
-          () => controller.rightListLocal.isEmpty
+          () => controller.isLoadingSelection.value
+              ? const Center(child: CupertinoActivityIndicator()).expand()
+              : controller.rightListLocal.isEmpty
               ? ExUiErrorOrEmpty(
                   illustration: Icon(CupertinoIcons.chevron_left_2, size: 64).pOnly(bottom: 12),
                   message: 'Please select left area first',
@@ -294,6 +334,17 @@ class PageExploreView extends GetView<PageExploreController> {
                     .onInkTap(() async => await controller.onSectionR18Tap())
                     .pOnly(right: 12)
                     .hide(isVisible: controller.rightListR18TotalVideo.value != 0),
+                controller.rightListLocalTotalSize.toFileSizeFormat()
+                    .text
+                    .size(10)
+                    .minFontSize(10)
+                    .maxLines(1)
+                    .ellipsis
+                    .align(TextAlign.right)
+                    .make()
+                    .tooltip('Total filesize')
+                    .pOnly(right: 12)
+                    .expand(),
               ]),
             ),
           ]).expand(),
@@ -308,6 +359,7 @@ class PageExploreView extends GetView<PageExploreController> {
     final double height = 230;
 
     return GridView.builder(
+      key: PageStorageKey(['explore-local', controller.id, controller.currentMenuSelected.value, controller.currentMenuSelected.value == kActress ? controller.leftListSelected.value.id : null, controller.leftListSelected.value.name].join(':')),
       padding: EdgeInsets.all(8),
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: width,
@@ -380,6 +432,7 @@ class PageExploreView extends GetView<PageExploreController> {
 
         // list
         GridView.builder(
+          key: PageStorageKey(['explore-r18', controller.id, controller.currentMenuSelected.value, controller.currentMenuSelected.value == kActress ? controller.leftListSelected.value.id : null, controller.leftListSelected.value.name].join(':')),
           controller: controller.r18ScrollController,
           gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: 300,

@@ -1,6 +1,7 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_popup/flutter_popup.dart';
 import 'package:get/get.dart';
 import 'package:uicons_pro/uicons_pro.dart';
@@ -9,17 +10,44 @@ import '../../../core/app_color.dart';
 import '../../../core/const.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
+import '../../widgets/widget_search_history.dart';
+import '../../widgets/widget_search_tab_bar.dart';
 import '../../widgets/widgets.dart';
+import '../home_controller.dart';
 import '../home_panel/home_panel_video_info.dart';
 import 'page_search_controller.dart';
+import 'page_search_tab.dart';
 
 class PageSearchView extends GetView<PageSearchController> {
   const PageSearchView({super.key});
 
   @override
   Widget build(BuildContext context) {
+    return Column(children: [
+      Obx(() => SearchTabBar(
+        tabs: controller.tabs.map((tab) => (title: tab.title.value, isLoading: tab.isLoading.value)).toList(),
+        activeIndex: controller.activeTabIndex.value,
+        scrollController: controller.tabScrollController,
+        onSelect: controller.selectTab,
+        onClose: controller.closeTab,
+        onAdd: controller.addTab,
+      )).pOnly(bottom: 8),
+      Expanded(child: Obx(() {
+        final tab = controller.activeTab;
+        return PageSearchTabView(key: ValueKey(tab.id), controller: tab);
+      })),
+    ]);
+  }
+}
+
+class PageSearchTabView extends StatelessWidget {
+  const PageSearchTabView({super.key, required this.controller});
+  final PageSearchTab controller;
+
+  @override
+  Widget build(BuildContext context) {
     return Obx(
-      () => controller.isFresh.isFalse
+      () => controller.isFresh.isFalse || controller.isLoading.value || controller.error.value.isNotEmpty
           ? buildPage()
           : ExUiErrorOrEmpty(
               illustration: Icon(UIconsPro.regularRounded.square_dashed_circle_plus, size: 128),
@@ -35,17 +63,40 @@ class PageSearchView extends GetView<PageSearchController> {
         HStack([
 
           // search
-          CupertinoTextField(
-            controller: controller.tecSearch,
-            focusNode: controller.fnSearch,
-            clearButtonMode: OverlayVisibilityMode.editing,
-            placeholder: '${controller.phSearch.value}',
-            style: TextStyle(color: Vx.white, fontSize: 14),
-            prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
-            suffix: 
-            0.heightBox,
-            onSubmitted: (value) => controller.onSearch(),
-          ).expand(),
+          TextFieldTapRegion(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            CallbackShortcuts(
+              bindings: {
+                SingleActivator(LogicalKeyboardKey.arrowDown): controller.onHistoryArrowDown,
+                SingleActivator(LogicalKeyboardKey.arrowUp): controller.onHistoryArrowUp,
+                SingleActivator(LogicalKeyboardKey.escape): controller.hideSuggestions,
+              },
+              child: CupertinoTextField(
+                controller: controller.tecSearch,
+                focusNode: controller.fnSearch,
+                selectAllOnFocus: false,
+                clearButtonMode: OverlayVisibilityMode.editing,
+                placeholder: '${controller.phSearch.value}',
+                style: TextStyle(color: Vx.white, fontSize: 14),
+                prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+                onTap: controller.showHistory,
+                onChanged: controller.onSearchTextChanged,
+                onSubmitted: (_) => controller.submitSearch(),
+              ),
+            ),
+            Obx(() => SearchHistoryDropdown(
+              suggestions: controller.historySuggestions.toList(),
+              selectedIndex: controller.selectedHistoryIndex.value,
+              onPick: controller.onPickHistory,
+              onDelete: controller.onDeleteHistory,
+              onClear: controller.onClearHistory,
+            )),
+          ])).expand(),
+
+          Obx(() => IconButton(
+            tooltip: controller.isListView.value ? 'Switch to grid view' : 'Switch to list view',
+            onPressed: controller.toggleViewMode,
+            icon: Icon(controller.isListView.value ? Icons.grid_view_rounded : Icons.view_list_rounded, size: 18),
+          ).pOnly(left: 4)),
 
           Obx(
             () => IconButton(
@@ -75,7 +126,7 @@ class PageSearchView extends GetView<PageSearchController> {
                   controller.filter.isFiltered.isTrue ? UIconsPro.boldRounded.filter_list : UIconsPro.regularRounded.filter_list,
                   size: controller.filter.isFiltered.isTrue ? 16 : 14,
                 ),
-                onPressed: () => controller.openDialogFilter(),
+                onPressed: controller.isLoading.value ? null : () => controller.openDialogFilter(isAvailable: () => identical(Get.find<PageSearchController>().activeTab, controller)),
               ).pOnly(left: 8),
               controller.filter.isFiltered.isTrue ? Container(height: 6, width: 6, color: Vx.red500).cornerRadius(90).positioned(right: 8, top: 8) : 0.heightBox,
             ]),
@@ -121,7 +172,7 @@ class PageSearchView extends GetView<PageSearchController> {
           ).pOnly(left: 8,right: 12),
 
           
-        ]).pOnly(bottom: 24),
+        ], crossAlignment: CrossAxisAlignment.start).pOnly(bottom: 24),
 
 
         Obx(() => controller.isSearchMode.isTrue
@@ -139,13 +190,17 @@ class PageSearchView extends GetView<PageSearchController> {
             : 0.heightBox),
         
         Obx(
-          () => controller.videos.isEmpty
+          () => controller.isLoading.value
+              ? const Center(child: CircularProgressIndicator()).expand()
+              : controller.error.value.isNotEmpty
+              ? Center(child: Text(controller.error.value)).expand()
+              : controller.videos.isEmpty
               ? ExUiErrorOrEmpty(
                   illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
                   title: 'No Data Found',
                   message: 'No Result Found, as you searched for "${controller.tecSearch.text}"\nor Add some video to your library first.',
                 ).expand()
-              : modeGridView().expand(),
+              : (controller.isListView.value ? modeListView() : modeGridView()).expand(),
         ),
       ],
     );
@@ -154,11 +209,63 @@ class PageSearchView extends GetView<PageSearchController> {
   // ────────────────────────────────────────────────────────────────
   // ⵌ REUSABLE WIDGETS
   // ────────────────────────────────────────────────────────────────
+  Widget modeListView() {
+    return ListView.separated(
+      key: PageStorageKey('search-list-${controller.id}-${controller.searchRevision}'),
+      controller: controller.scrollGridController,
+      padding: EdgeInsets.all(8),
+      itemCount: controller.videos.length,
+      separatorBuilder: (context, index) => SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final video = controller.videos[index];
+        final actresses = (video.actress ?? []).map((item) => item.nameRomaji ?? '').where((name) => name.isNotEmpty).join(', ');
+        final details = [
+          if (video.quality.isNotEmptyAndNotNull) HelperMisc.formatVideoQuality(video.quality ?? ''),
+          if (video.filesize != null) video.filesize!.toFileSizeFormat(),
+          '${video.viewCount ?? 0} views',
+        ].join(' · ');
+        return DoubleTap(
+          onSingleTap: () async => await HomePanelVideoInfo.open(video),
+          onDoubleTap: () async => await HelperOpener.openVideoFile(video),
+          child: Container(
+            padding: EdgeInsets.all(8),
+            decoration: ExDecorator.box(fillColor: AppColor.container, borderColor: Colors.transparent, borderRadius: 8),
+            child: Row(
+              children: [
+                SizedBox(width: 260, height: 170, child: buildLayoutPoster(video, 260, 170, isFanArt: true)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (video.videoCode.isNotEmptyAndNotNull) ...[
+                        Text(video.videoCode!, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        SizedBox(height: 6),
+                      ],
+                      Text(video.title ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12)).tooltip(video.videoPath ?? ''),
+                      if (actresses.isNotEmpty) ...[
+                        SizedBox(height: 8),
+                        Text(actresses, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Vx.neutral400)),
+                      ],
+                      SizedBox(height: 8),
+                      Text(details, style: TextStyle(fontSize: 11, color: Vx.neutral400)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget modeGridView() {
     double width = 150;
     double height = 230;
 
     return GridView.builder(
+      key: PageStorageKey('search-results-${controller.id}-${controller.searchRevision}'),
       controller: controller.scrollGridController,
       padding: EdgeInsets.all(8),
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
@@ -183,6 +290,7 @@ class PageSearchView extends GetView<PageSearchController> {
     Videos video,
     double width,
     double height, {
+    bool isFanArt = false,
     showReleaseDate = true,
     showViewCount = true,
     showQuality = true,
@@ -198,13 +306,29 @@ class PageSearchView extends GetView<PageSearchController> {
             videoPath: video.videoPath,
             width: width,
             height: height,
-            prefix: 2.3,
-            fitUrl: BoxFit.fitWidth,
+            prefix: isFanArt ? 1 : 2.3,
+            fitUrl: isFanArt ? BoxFit.cover : BoxFit.fitWidth,
+            fitMemory: isFanArt ? BoxFit.fitWidth : BoxFit.cover,
             quickPreview: video.videoCode?.trim().isNotEmpty == true,
             previewTitle: video.videoCode?.isNotEmpty == true ? video.videoCode : video.title,
             previewSubtitle: (video.actress ?? []).map((item) => item.nameRomaji ?? '').where((item) => item.isNotEmpty).join(', '),
             previewScreenshots: video.screenshot,
             previewDurationSeconds: (video.duration ?? 0).toInt() * 60,
+          ),
+
+          Positioned.fill(
+            child: Obx(() => Get.find<HomeController>().isInCart(video)
+                ? IgnorePointer(
+                    child: Semantics(
+                      label: 'In panel cart',
+                      child: Container(
+                        color: Colors.blue.withAlpha(85),
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.shopping_bag, color: Colors.white, size: 24),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink()),
           ),
 
           // sub id?

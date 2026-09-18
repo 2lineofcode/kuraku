@@ -145,7 +145,24 @@ class AppSettingService extends GetxService {
   // ────────────────────────────────────────────────────────────────
   // ⵌ hotkey
   // ────────────────────────────────────────────────────────────────
+  bool _handleSearchShortcut(KeyEvent event) {
+    if (event is! KeyDownEvent || !const SingleActivator(LogicalKeyboardKey.slash).accepts(event, HardwareKeyboard.instance)) return false;
+    final context = FocusManager.instance.primaryFocus?.context;
+    if (context?.widget is EditableText || context?.findAncestorWidgetOfExactType<EditableText>() != null) return false;
+    if (!Get.isRegistered<HomeController>()) return false;
+    Get.find<HomeController>().focusTopNavSearch();
+    return true;
+  }
+
+  @override
+  void onClose() {
+    HardwareKeyboard.instance.removeHandler(_handleSearchShortcut);
+    super.onClose();
+  }
+
   Future<void> setupHotkey() async {
+    HardwareKeyboard.instance.removeHandler(_handleSearchShortcut);
+    HardwareKeyboard.instance.addHandler(_handleSearchShortcut);
     void _logHotkeyError(String action, Object e, StackTrace stackTrace) {
       AppLog.logE('Hotkey action failed [$action]: $e');
       AppLog.logE('$stackTrace');
@@ -157,7 +174,6 @@ class AppSettingService extends GetxService {
     HotKey _hotKeyL = HotKey(key: PhysicalKeyboardKey.keyL, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyR = HotKey(key: PhysicalKeyboardKey.keyR, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyD = HotKey(key: PhysicalKeyboardKey.keyD, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
-    HotKey _hotKeyF = HotKey(key: PhysicalKeyboardKey.keyF, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyT = HotKey(key: PhysicalKeyboardKey.keyT, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyB = HotKey(key: PhysicalKeyboardKey.keyB, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyDot = HotKey(key: PhysicalKeyboardKey.period, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
@@ -220,14 +236,6 @@ class AppSettingService extends GetxService {
       try { Get.find<PageDownloadController>().openDialogDownload(); } 
       catch (e, stackTrace) {
         _logHotkeyError('meta+d', e, stackTrace);
-      }
-    });
-
-    await hotKeyManager.register(_hotKeyF, keyUpHandler: (hotKey) {
-      // AppLog.logD('hotKeyF Pressed');
-      try { Get.find<HomeController>().focusTopNavSearch(); }
-      catch (e, stackTrace) {
-        _logHotkeyError('meta+f', e, stackTrace);
       }
     });
 

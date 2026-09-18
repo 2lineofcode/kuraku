@@ -33,6 +33,7 @@ class PageHomeView extends GetView<PageHomeController> {
   Widget buildPage() {
     return Obx(
       () => ReorderableListView.builder(
+        key: const PageStorageKey('home-sections'),
         buildDefaultDragHandles: false,
         onReorderItem: (int oldIndex, int newIndex) {
           if (newIndex > oldIndex) newIndex -= 1;
@@ -220,10 +221,7 @@ class PageHomeView extends GetView<PageHomeController> {
               onPressed: () async {
                 await Get.find<HomeController>().onMenuChange(kMenuExplore);
                 final exploreC = Get.find<PageExploreController>();
-                await exploreC.onMenuChange(kCustom);
-                exploreC.tecSearchLeft.text = title;
-                exploreC.onLeftListDoSearch(title);
-                await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
+                await exploreC.openSelection(kCustom, title);
               },
             ),
           ],
@@ -253,6 +251,7 @@ class PageHomeView extends GetView<PageHomeController> {
               () => list.isEmpty
                   ? emptyLayoutBuilder()
                   : ListView.builder(
+                      key: PageStorageKey('home-videos-$prefKey'),
                       itemCount: list.length,
                       scrollDirection: Axis.horizontal,
                       itemBuilder: (context, index) {

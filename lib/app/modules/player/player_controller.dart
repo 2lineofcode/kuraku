@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
@@ -44,6 +45,9 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   final isFullScreen = false.obs;
   final infoOverlayText = ''.obs;
   final videoFit = BoxFit.contain.obs;
+  final videoZoom = 1.0.obs;
+  Future<void> _zoomUpdate = Future<void>.value();
+  double _appliedVideoZoom = 1;
   final isMiniMode = false.obs;
   final isPlayerVisible = false.obs;
   final isDropHovering = false.obs;
@@ -466,6 +470,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       _hasSyncedPreferences = false;
       position.value = Duration.zero;
       duration.value = Duration.zero;
+      await setVideoZoom(1);
 
       await player.open(
         Media(Uri.file(path).toString()),
@@ -484,6 +489,25 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       isInitialized.value = false;
       await HelperToast.error('Failed to load video: $e');
     }
+  }
+
+  Future<void> setVideoZoom(double scale) {
+    if (!scale.isFinite || scale <= 0) return Future<void>.value();
+    final platform = player.platform;
+    if (platform is! NativePlayer) return Future<void>.value();
+    final target = scale.clamp(1.0, 4.0);
+    videoZoom.value = target;
+    _zoomUpdate = _zoomUpdate.then((_) async {
+      if (videoZoom.value != target) return;
+      try {
+        await platform.setProperty('video-zoom', (math.log(target) / math.ln2).toString());
+        _appliedVideoZoom = target;
+      } catch (e) {
+        if (videoZoom.value == target) videoZoom.value = _appliedVideoZoom;
+        AppLog.logW('Video zoom failed: $e');
+      }
+    });
+    return _zoomUpdate;
   }
 
   Future<void> setVolumeNormalized(double value) async {
@@ -614,6 +638,18 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     }
     currentIndexPlaying.value = playlist.indexWhere((element) => element.id == currentVideo.value.id);
   }
+
+  Future<void> addToCart() async {
+    final homeController = Get.find<HomeController>();
+    final isAdded = homeController.addToCart(currentVideo.value);
+    if (!isAdded) {
+      await HelperToast.info('Already in panel cart');
+    } else {
+      await HelperToast.success('Added in panel cart');
+    }
+    await Overlayment.dismissLast();
+  }
+
 
   Future<void> openInfo() async {
     if (Overlayment.count > 0) {
@@ -904,6 +940,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       for (final subscription in _subscriptions) {
         await subscription.cancel();
       }
+      await _zoomUpdate;
       await player.dispose();
     }
     infoAnimationController.dispose();

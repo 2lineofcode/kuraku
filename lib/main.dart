@@ -93,7 +93,9 @@ class _JavItState extends State<JavIt> with WindowListener {
         enableLog: Env.logLvl == 'debug' ? true : false,
         title: Env.appName,
         initialRoute: AppPages.INITIAL,
-        theme: ThemeData.dark(useMaterial3: true),
+        theme: ThemeData.dark(useMaterial3: true).copyWith(
+          textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: Vx.blue300)),
+        ),
         getPages: AppPages.routes,
         defaultTransition: Transition.fadeIn,
         debugShowCheckedModeBanner: false,

@@ -8,28 +8,62 @@ import 'package:uicons_pro/uicons_pro.dart';
 import '../../../core/app_color.dart';
 import '../../../core/const.dart';
 import '../../../utils/helper.dart';
+import '../../widgets/widget_search_history.dart';
+import '../../widgets/widget_search_tab_bar.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
 import 'page_download_controller.dart';
+import 'page_download_search_tab.dart';
 
 class PageDownloadView extends GetView<PageDownloadController> {
   const PageDownloadView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      Obx(() => SearchTabBar(
+        tabs: controller.tabs.map((tab) => (title: tab.title.value, isLoading: tab.isLoading.value)).toList(),
+        activeIndex: controller.activeTabIndex.value,
+        scrollController: controller.tabScrollController,
+        onSelect: controller.selectTab,
+        onClose: controller.closeTab,
+        onAdd: controller.addTab,
+      )).pOnly(bottom: 8),
+      Expanded(child: Obx(() {
+        final tab = controller.activeTab;
+        return PageDownloadSearchView(key: ValueKey(tab.id), controller: tab);
+      })),
+      Obx(() => controller.downloadStdout.value.isNotEmpty
+          ? HStack([
+              '${controller.downloadStdout}'.text.size(11).minFontSize(11).maxLines(1).make().expand(),
+              ExButtonText(label: 'Cancel / Close', labelSize: 12, onPressed: controller.killProcessDownload),
+            ]).pOnly(top: 12)
+          : 0.heightBox),
+    ]);
+  }
+}
+
+class PageDownloadSearchView extends StatelessWidget {
+  const PageDownloadSearchView({super.key, required this.controller});
+  final PageDownloadSearchTab controller;
   @override
   Widget build(BuildContext context) {
     return VStack(
       [
         HStack([
           Obx(
-            () => VStack(
+            () => TextFieldTapRegion(child: VStack(
               [
                 CallbackShortcuts(
                   bindings: {
                     SingleActivator(LogicalKeyboardKey.arrowDown): () => controller.onCommandArrowDown(),
                     SingleActivator(LogicalKeyboardKey.arrowUp): () => controller.onCommandArrowUp(),
+                    SingleActivator(LogicalKeyboardKey.escape): controller.hideSuggestions,
                   },
                   child: CupertinoTextField(
                     controller: controller.tecSearch,
                     focusNode: controller.fnSearch,
+                    selectAllOnFocus: false,
                     clearButtonMode: OverlayVisibilityMode.editing,
                     placeholder: '${controller.phSearch}',
                     style: TextStyle(color: Vx.white, fontSize: 14),
@@ -39,10 +73,18 @@ class PageDownloadView extends GetView<PageDownloadController> {
                         // ** TODO
                       ],
                     ),
+                    onTap: controller.showHistory,
                     onChanged: (s) => controller.onSearchTextChanged(s),
                     onSubmitted: (s) => controller.onCommandEnterOrSearch(s),
                   ),
                 ),
+                Obx(() => SearchHistoryDropdown(
+                  suggestions: controller.historySuggestions.toList(),
+                  selectedIndex: controller.selectedHistoryIndex.value,
+                  onPick: controller.onPickHistory,
+                  onDelete: controller.onDeleteHistory,
+                  onClear: controller.onClearHistory,
+                )),
                 Obx(
                   () => controller.isCommandSuggestionVisible.isTrue
                       ? Container(
@@ -74,7 +116,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
                       : 0.heightBox,
                 ),
               ],
-            ).expand(),
+            )).expand(),
           ),
           Obx(
             () => ZStack([
@@ -83,7 +125,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
                   controller.filter.isFiltered.isTrue ? UIconsPro.boldRounded.filter_list : UIconsPro.regularRounded.filter_list,
                   size: controller.filter.isFiltered.isTrue ? 16: 14,
                 ),
-                onPressed: () => controller.openDialogFilter(),
+                onPressed: () => controller.openDialogFilter(isAvailable: () => identical(Get.find<PageDownloadController>().activeTab, controller)),
               ).pOnly(left: 8),
 
               controller.filter.isFiltered.isTrue ? Container(height: 6, width: 6, color: Vx.red500).cornerRadius(90).positioned(right: 8, top: 8) : 0.heightBox, 
@@ -91,16 +133,43 @@ class PageDownloadView extends GetView<PageDownloadController> {
           ),
           IconButton(
             icon: Icon(UIconsPro.regularRounded.arrow_small_down, size: 18),
-            onPressed: () => controller.openDownloadLog(),
+            onPressed: () => Get.find<PageDownloadController>().openDownloadLog(),
           ).pOnly(left: 0),
           
-        ]).pOnly(bottom: 12),
+        ], crossAlignment: CrossAxisAlignment.start).pOnly(bottom: 12),
+
+        Obx(() => controller.isLoading.value
+            ? const LinearProgressIndicator(minHeight: 2).pOnly(bottom: 12)
+            : 0.heightBox),
+        Obx(() => controller.error.value.isNotEmpty
+            ? Text(controller.error.value, style: const TextStyle(color: Colors.redAccent, fontSize: 12)).pOnly(bottom: 12)
+            : 0.heightBox),
 
         // header
         HStack([
-          Obx(() => 'Result : ${controller.totalResults}'.text.size(10).minFontSize(10).bold.make().pOnly(bottom: 12).hide(isVisible: controller.videos.isNotEmpty)),
+          Obx(() => TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Vx.white,
+              backgroundColor: controller.havingOnly.isFalse ? AppColor.selected : Colors.transparent,
+              minimumSize: Size(0, 32),
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              textStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+            onPressed: () => controller.showHavingOnly(false),
+            child: Text('Result : ${controller.totalResults}'),
+          ).pOnly(bottom: 12).hide(isVisible: controller.allVideos.isNotEmpty)),
           12.widthBox,
-          Obx(() => 'Having: ${controller.havingVideos}'.text.size(10).minFontSize(10).bold.green400.make().pOnly(bottom: 12).hide(isVisible: controller.videos.isNotEmpty)),
+          Obx(() => TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Vx.green400,
+              backgroundColor: controller.havingOnly.isTrue ? AppColor.selected : Colors.transparent,
+              minimumSize: Size(0, 32),
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              textStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+            onPressed: () => controller.showHavingOnly(true),
+            child: Text('Having: ${controller.havingVideos}'),
+          ).pOnly(bottom: 12).hide(isVisible: controller.allVideos.isNotEmpty)),
 
           Spacer(),
           Obx(() => 'Page: ${controller.currentPage}'.text.size(10).minFontSize(10).bold.make().pOnly(bottom: 12).hide(isVisible: controller.videos.isNotEmpty)),
@@ -114,25 +183,15 @@ class PageDownloadView extends GetView<PageDownloadController> {
 
         // list
         Obx(
-          () => controller.videos.isEmpty
+          () => controller.isLoading.value
+              ? const Center(child: CircularProgressIndicator()).expand()
+              : controller.videos.isEmpty
               ? ExUiErrorOrEmpty(
                   illustration: Icon(UIconsPro.regularRounded.search, size: 128),
-                  title: controller.currentPage.value == 0 ? '~ Type Something ~' : 'No Data Found',
-                  message: controller.currentPage.value == 0 ? 'you can type "Video Code" or "Title" to search' : 'No Result Found, as you searched for "${controller.tecSearch.text}"',
+                  title: controller.havingOnly.isTrue ? 'No Owned Videos' : controller.currentPage.value == 0 ? '~ Type Something ~' : 'No Data Found',
+                  message: controller.havingOnly.isTrue ? 'No owned videos in the loaded results. Click Result to show all.' : controller.currentPage.value == 0 ? 'you can type "Video Code" or "Title" to search' : 'No Result Found, as you searched for "${controller.tecSearch.text}"',
                 ).expand()
               : modeWrapView().expand(),
-        ),
-        Obx(
-          () => controller.downloadStdout.value.isNotEmpty
-              ? HStack([
-                  '${controller.downloadStdout}'.text.size(11).minFontSize(11).maxLines(1).make().expand(),
-                  ExButtonText(
-                    label: 'Cancel / Close',
-                    labelSize: 12,
-                    onPressed: () => controller.killProcessDownload(),
-                  ),
-                ]).pOnly(top: 12)
-              : 0.heightBox,
         ),
       ],
     );
@@ -145,6 +204,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
         return false;
       },
       child: GridView.builder(
+        key: PageStorageKey('download-results-${controller.id}-${controller.searchRevision}'),
         controller: controller.scrollController,
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 300,

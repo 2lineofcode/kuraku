@@ -12,12 +12,13 @@ import 'page_tools/page_tools_controller.dart';
 class HomeBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut<PageSettingsController>(() => PageSettingsController());
-    Get.lazyPut<PageToolsController>(() => PageToolsController());
-    Get.lazyPut<PageDownloadController>(() => PageDownloadController());
-    Get.lazyPut<PageExploreController>(() => PageExploreController());
-    Get.lazyPut<PageSearchController>(() => PageSearchController());
-    Get.lazyPut<PageHomeController>(() => PageHomeController());
+    // Home pages share the app lifetime, even when first accessed from a dialog.
+    GetInstance().lazyPut<PageSettingsController>(() => PageSettingsController(), permanent: true);
+    GetInstance().lazyPut<PageToolsController>(() => PageToolsController(), permanent: true);
+    GetInstance().lazyPut<PageDownloadController>(() => PageDownloadController(), permanent: true);
+    GetInstance().lazyPut<PageExploreController>(() => PageExploreController(), permanent: true);
+    GetInstance().lazyPut<PageSearchController>(() => PageSearchController(), permanent: true);
+    GetInstance().lazyPut<PageHomeController>(() => PageHomeController(), permanent: true);
 
     if (!Get.isRegistered<PlayerController>()) {
       Get.put<PlayerController>(PlayerController(), permanent: true);

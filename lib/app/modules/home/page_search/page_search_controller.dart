@@ -6,59 +6,102 @@ import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
 
 import '../../../core/app_logging.dart';
+import '../../../core/app_pref.dart';
 import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_loading.dart';
 import '../../../utils/helper_misc.dart';
-import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
-import '../../../utils/semantic_search_service.dart';
+import 'page_search_tab.dart';
 
 class PageSearchController extends GetxController {
-  final tecSearch = TextEditingController();
-  final isSearchMode = false.obs;
-  final isSemanticMode = false.obs;
-  final isSemanticBusy = false.obs;
-  final fnSearch = FocusNode();
-  final phSearch = ''.obs;
-  final semanticResultLabel = ''.obs;
-  final semanticScoreByVideoId = <String, double>{}.obs;
-
-  final scrollGridController = ScrollController();
-
-  // sort by
-  final sortBy = 'random'.obs; // [random, release_date, view_count, filesize, has sub]
-  
-  // filter
-  final filter = VideoFilterState();
-  
-
-  final videos = <Videos>[].obs;
-  final allVideos = <Videos>[].obs;
-  final isFresh = true.obs;
+  final tabs = <PageSearchTab>[].obs;
+  final activeTabIndex = 0.obs;
+  final tabScrollController = ScrollController();
+  int _nextTabId = 0;
+  PageSearchTab get activeTab => tabs[activeTabIndex.value];
 
   @override
-  Future<void> onInit() async {
+  void onInit() {
     super.onInit();
-    await onRefresh();
+    final saved = AppPref.getSearchTabs();
+    final entries = saved['tabs'];
+    if (entries is List) {
+      for (final entry in entries.whereType<Map<String, dynamic>>()) {
+        final tab = createTab(_nextTabId++);
+        tab.restorePreferences(entry);
+        tab.watchPreferences(_saveTabs);
+        tabs.add(tab);
+        unawaited(tab.onSearch());
+      }
+    }
+    if (tabs.isEmpty) {
+      addTab();
+    } else {
+      final active = saved['activeTab'];
+      selectTab(active is int ? active.clamp(0, tabs.length - 1) : 0);
+    }
+  }
+
+  void _saveTabs() {
+    unawaited(AppPref.setSearchTabs({
+      'tabs': tabs.map((tab) => tab.toPreferences()).toList(),
+      'activeTab': activeTabIndex.value,
+    }).catchError((Object error) {
+      AppLog.logW('Saving Search tabs failed: $error');
+    }));
+  }
+
+  PageSearchTab createTab(int id) => PageSearchTab(id);
+
+  void addTab() {
+    final tab = createTab(_nextTabId++);
+    tab.watchPreferences(_saveTabs);
+    tabs.add(tab);
+    unawaited(tab.onRefresh());
+    selectTab(tabs.length - 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!isClosed && tabScrollController.hasClients) tabScrollController.jumpTo(tabScrollController.position.maxScrollExtent);
+    });
+  }
+
+  void selectTab(int index) {
+    if (index < 0 || index >= tabs.length) return;
+    activeTabIndex.value = index;
+    _saveTabs();
+    final tab = activeTab;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!isClosed && !tab.isClosed && identical(activeTab, tab)) tab.fnSearch.requestFocus();
+    });
+  }
+
+  void closeTab(int index) {
+    if (index < 0 || index >= tabs.length) return;
+    final tab = tabs.removeAt(index);
+    tab.close();
+    if (tabs.isEmpty) {
+      addTab();
+    } else {
+      final next = index < activeTabIndex.value ? activeTabIndex.value - 1 : activeTabIndex.value;
+      selectTab(next.clamp(0, tabs.length - 1));
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => tab.dispose());
   }
 
   Future<void> onRefresh() async {
-    final sw = Stopwatch()..start();
-
-    isFresh.value = await DBVideos.getCount() == 0;
-    _updatePlaceholder();
-    await onReset();
-
-    AppLog.logI('page search ==> onInit called: ${sw.elapsedMilliseconds} ms');
+    for (final tab in tabs.toList()) {
+      await tab.onRefresh();
+    }
   }
 
   @override
   void onClose() {
-    tecSearch.dispose();
-    fnSearch.dispose();
-    scrollGridController.dispose();
+    _saveTabs();
+    tabScrollController.dispose();
+    for (final tab in tabs) {
+      tab.dispose();
+    }
     super.onClose();
   }
 
@@ -130,124 +173,6 @@ class PageSearchController extends GetxController {
       HelperToast.error(e.toString());
       logE('renewMetadata error: $e');
     });
-  }
-
-  Future<void> onSearch() async {
-    if (tecSearch.text.isEmpty) {
-      await onReset();
-      return;
-    }
-
-    if (isSemanticMode.isTrue) {
-      await onSemanticSearch();
-      return;
-    }
-
-    semanticResultLabel.value = '';
-    semanticScoreByVideoId.clear();
-    videos.value = await DBVideos.search(tecSearch.text);
-    fnSearch.requestFocus();
-    isSearchMode.value = true;
-  }
-
-  Future<void> onSemanticSearch() async {
-    isSemanticBusy.value = true;
-    try {
-      final hits = await SemanticSearchService.search(tecSearch.text);
-      semanticScoreByVideoId.clear();
-      for (final hit in hits) {
-        final videoId = (hit.video.id ?? '').trim();
-        if (videoId.isNotEmpty) {
-          semanticScoreByVideoId[videoId] = hit.score;
-        }
-      }
-
-      videos.value = hits.map((item) => item.video).toList();
-      semanticResultLabel.value = 'AI Search';
-      fnSearch.requestFocus();
-      isSearchMode.value = true;
-    } catch (e) {
-      await HelperToast.error(e.toString());
-    } finally {
-      isSemanticBusy.value = false;
-    }
-  }
-
-  Future<void> onReset() async {
-    tecSearch.text = '';
-    sortBy.value = 'Random';
-    semanticResultLabel.value = '';
-    semanticScoreByVideoId.clear();
-    videos.value = await DBVideos.getAll();
-    allVideos.value = videos.value;
-    videos.shuffle();
-    fnSearch.requestFocus();
-    isSearchMode.value = false;
-  }
-
-  Future<void> toggleSemanticMode() async {
-    isSemanticMode.toggle();
-    _updatePlaceholder();
-    if (tecSearch.text.trim().isNotEmpty) {
-      await onSearch();
-    } else {
-      await onReset();
-    }
-  }
-
-
-  Future<void> onSortByChange(String s) async {
-    sortBy.value = s;
-    final current = videos.toList();
-    List<Videos> next = current;
-
-    switch (s.toLowerCase()) {
-      case 'random':
-        current.shuffle();
-        next = current;
-        break;
-      case 'release date':
-        current.sort((a, b) => (b.releaseDate ?? '').compareTo(a.releaseDate ?? ''));
-        next = current.where((v) => (v.videoCode ?? '').isNotEmpty).toList();
-        break;
-      case 'view count':
-        current.sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
-        next = current;
-        break;
-      case 'file size':
-        current.sort((a, b) => (b.filesize ?? 0).compareTo(a.filesize ?? 0));
-        next = current;
-        break;
-      default:
-    }
-
-    videos.value = next;
-    
-    fnSearch.requestFocus();
-  }
-
-
-  // filter
-  final _filterAdapter = VideoFilterAdapter<Videos>(
-    videoCode: (video) => video.videoCode ?? '',
-    actresses: (video) => (video.actress ?? []).map((actress) => actress.nameRomaji ?? ''),
-    categories: (video) => (video.category ?? []).map((category) => category.category ?? ''),
-    releaseDate: (video) => video.releaseDate,
-  );
-
-  Future<void> openDialogFilter() async {
-    await HelperOpener.openFilterDialog<Videos>(
-      state: filter,
-      allVideos: allVideos.toList(),
-      videos: videos,
-      adapter: _filterAdapter,
-    );
-  }
-
-  void _updatePlaceholder() {
-    phSearch.value = isSemanticMode.isTrue
-        ? 'Local AI Search... ex: subtitle indo outdoor'
-        : 'Video Code or Title or Path...';
   }
 
 }

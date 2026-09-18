@@ -125,7 +125,7 @@ class HomeView extends GetView<HomeController> {
               return IconButton(
                 icon: Icon(UIconsPro.regularRounded.search, size: 14),
                 onPressed: controller.focusTopNavSearch,
-                tooltip: 'Search: [⌘ + F]',
+                tooltip: 'Search: [/]',
               ).pOnly(right: 8);
             }
 
@@ -269,7 +269,7 @@ class HomeView extends GetView<HomeController> {
       () {
         switch (controller.currentMenuSelected.value) {
           case kMenuSearch:
-            WidgetsBinding.instance.addPostFrameCallback((_) => Get.find<PageSearchController>().fnSearch.requestFocus());
+            WidgetsBinding.instance.addPostFrameCallback((_) => Get.find<PageSearchController>().activeTab.fnSearch.requestFocus());
             return const PageSearchView();
           case kMenuExplore: return const PageExploreView();
           case kMenuDownload: return const PageDownloadView();

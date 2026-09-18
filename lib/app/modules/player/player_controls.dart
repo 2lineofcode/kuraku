@@ -13,8 +13,8 @@ import 'package:uicons_pro/uicons_pro.dart';
 import '../../core/app_color.dart';
 import '../../core/app_pref.dart';
 import '../../utils/helper.dart';
-import '../widgets/widget_thumbnail.dart';
 import 'player_controller.dart';
+import 'player_seek_preview.dart';
 
 class PlayerControls extends StatefulWidget {
   const PlayerControls({
@@ -45,6 +45,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   String _infoText = '';
 
   double? _scrubValue;
+  double _pinchStartZoom = 1;
   double? _preMuteVolume;
   DateTime? _lastEqualPress;
   bool _isVolumePointerInside = false;
@@ -52,7 +53,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   bool _isSeekPreviewVisible = false;
   double _seekPreviewDx = 0;
   int _seekPreviewSecond = 0;
-  int _lastSeekHoverUpdateMs = 0;
+  final _seekPreview = PlayerSeekPreview();
+  late final StreamSubscription _videoSubscription;
 
   late final StreamSubscription<bool> _playingSubscription;
   late final StreamSubscription<int> _focusSubscription;
@@ -99,6 +101,15 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       _restoreFocus();
     });
 
+    _videoSubscription = widget.controller.currentVideo.listen((_) {
+      _seekPreview.clear();
+      if (!mounted) return;
+      setState(() {
+        _isSeekPreviewVisible = false;
+        _scrubValue = null;
+      });
+    });
+
     _restoreFocus();
   }
 
@@ -135,6 +146,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     }
     _hideTimer?.cancel();
     _infoTimer?.cancel();
+    _seekPreview.dispose();
+    _videoSubscription.cancel();
     _playingSubscription.cancel();
     _focusSubscription.cancel();
     _infoAnimationController.dispose();
@@ -176,6 +189,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       LogicalKeySet(LogicalKeyboardKey.keyQ): BackIntent(),
       LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowUp): OpenScreenshotIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyI): OpenInfoIntent(),
+      LogicalKeySet(LogicalKeyboardKey.keyC): AddToCartIntent(),
       LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.greater): NextVideoIntent(),
       LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.less): PrevVideoIntent(),
     };
@@ -201,6 +215,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       BackIntent: CallbackAction<BackIntent>(onInvoke: (intent) { widget.controller.stopPlayback(); Get.back(); return null; }),
       OpenScreenshotIntent: CallbackAction<OpenScreenshotIntent>( onInvoke: (intent) { widget.controller.openSS(); return null; } ),
       OpenInfoIntent: CallbackAction<OpenInfoIntent>( onInvoke: (intent) { widget.controller.openInfo(); return null; }, ),
+      AddToCartIntent: CallbackAction<AddToCartIntent>( onInvoke: (intent) { widget.controller.addToCart(); return null; }, ),
       NextVideoIntent: CallbackAction<NextVideoIntent>( onInvoke: (intent) { widget.controller.nextVideo(); return null; }, ),
       PrevVideoIntent: CallbackAction<PrevVideoIntent>( onInvoke: (intent) { widget.controller.prevVideo(); return null; }, ),
     };
@@ -220,9 +235,25 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTap: _onUserInteraction,
+                onScaleStart: (_) => _pinchStartZoom = widget.controller.videoZoom.value,
+                onScaleUpdate: (details) {
+                  if (details.pointerCount < 2) return;
+                  unawaited(widget.controller.setVideoZoom(_pinchStartZoom * details.scale));
+                },
                 child: Stack(
                   children: [
                     _buildCenterOverlay(),
+                    Positioned(
+                      top: 78,
+                      left: 12,
+                      child: Obx(() => widget.controller.videoZoom.value > 1
+                          ? TextButton(
+                              style: TextButton.styleFrom(foregroundColor: Colors.white, backgroundColor: Colors.black54),
+                              onPressed: () => widget.controller.setVideoZoom(1),
+                              child: Text('Zoom ${(widget.controller.videoZoom.value * 100).round()}% · Reset'),
+                            )
+                          : SizedBox.shrink()),
+                    ),
                     
                     // ** Top Bar
                     _buildTopBar(),
@@ -337,6 +368,14 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               ),
 
               Spacer(),
+
+
+              Container(
+                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
+                child: Icon(UIconsPro.regularRounded.plus, size: 14).p8(),
+              ).tooltip('Add To Cart (C)').onInkTap(() => widget.controller.addToCart()),
+
+              8.widthBox,
 
               Container(
                 decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
@@ -485,6 +524,11 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
   Widget _buildProgressBar(Duration pos, Duration dur, double bufferPercent) {
     final maxPosition = math.max(dur.inMilliseconds, 1);
+    void requestPreview(double value) {
+      final second = (value.clamp(0, math.max(dur.inMilliseconds - 1, 0)) / 1000).floor();
+      _seekPreviewSecond = second;
+      if (dur > Duration.zero) _seekPreview.request(widget.controller.currentVideo.value.videoPath ?? '', second);
+    }
     final sliderValue = (_scrubValue ?? pos.inMilliseconds.toDouble()).clamp(0.0, maxPosition.toDouble());
     final playedFraction = sliderValue / maxPosition;
     final bufferedFraction = bufferPercent.isNaN ? 0.0 : bufferPercent.clamp(0.0, 100.0) / 100.0;
@@ -492,7 +536,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     return LayoutBuilder(
       builder: (context, constraints) {
         final seekWidth = constraints.maxWidth <= 0 ? 1.0 : constraints.maxWidth;
-        final hasVideoPath = (widget.controller.currentVideo.value.videoPath ?? '').isNotEmpty;
+        final hasVideoPath = (widget.controller.currentVideo.value.videoPath ?? '').isNotEmpty && dur > Duration.zero;
 
         double calcValueFromDx(double dx) {
           final ratio = (dx / seekWidth).clamp(0.0, 1.0);
@@ -500,21 +544,14 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
         }
 
         void onSeekHover(Offset localPosition) {
-          final nowMs = DateTime.now().millisecondsSinceEpoch;
           final value = calcValueFromDx(localPosition.dx);
-          final hoverSecondRaw = (value / 1000).floor();
-          final hoverSecond = (hoverSecondRaw ~/ 10) * 10;
           final dx = localPosition.dx.clamp(0.0, seekWidth);
-
-          final isThrottled = nowMs - _lastSeekHoverUpdateMs < 200;
-          final isSameFrame = hoverSecond == _seekPreviewSecond && (dx - _seekPreviewDx).abs() < 8;
-          if (isThrottled && isSameFrame) return;
-
-          _lastSeekHoverUpdateMs = nowMs;
+          _cancelHideTimer();
+          if (_isSeekPreviewVisible && (dx - _seekPreviewDx).abs() < 1) return;
           setState(() {
             _isSeekPreviewVisible = true;
             _seekPreviewDx = dx;
-            _seekPreviewSecond = hoverSecond;
+            requestPreview(value);
           });
         }
 
@@ -526,9 +563,11 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
           onEnter: (event) => onSeekHover(event.localPosition),
           onHover: (event) => onSeekHover(event.localPosition),
           onExit: (_) {
+            _seekPreview.clear();
             if (_isSeekPreviewVisible) {
               setState(() => _isSeekPreviewVisible = false);
             }
+            if (widget.controller.isPlaying.value) _startHideTimer();
           },
           child: SizedBox(
             height: 32,
@@ -552,13 +591,24 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                         [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(6),
-                            child: ExThumbnail(
-                              imageUrl: '',
-                              videoPath: widget.controller.currentVideo.value.videoPath,
-                              width: previewWidth - 12,
-                              height: 72,
-                              position: _seekPreviewSecond,
-                              fitMemory: BoxFit.cover,
+                            child: ListenableBuilder(
+                              listenable: _seekPreview,
+                              builder: (context, _) {
+                                final bytes = _seekPreview.bytes;
+                                return SizedBox(
+                                  width: previewWidth - 12,
+                                  height: 72,
+                                  child: _seekPreview.isLoading
+                                      ? Center(child: SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70, semanticsLabel: 'Loading preview'),
+                                        ))
+                                      : bytes == null
+                                      ? Icon(Icons.broken_image_outlined, color: Colors.white54, size: 24)
+                                      : Image.memory(bytes, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image_outlined, color: Colors.white54)),
+                                );
+                              },
                             ),
                           ),
                           previewTimestamp.text.white.size(11).makeCentered().pOnly(top: 4),
@@ -612,19 +662,26 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                       _cancelHideTimer();
                       setState(() {
                         _isSeekPreviewVisible = true;
-                        _seekPreviewSecond = ((value / 1000).floor() ~/ 10) * 10;
+                        _seekPreviewDx = (value / maxPosition) * seekWidth;
+                        requestPreview(value);
                       });
                     },
                     onChanged: (value) {
                       setState(() {
                         _scrubValue = value;
                         _isSeekPreviewVisible = true;
-                        _seekPreviewSecond = ((value / 1000).floor() ~/ 10) * 10;
+                        _seekPreviewDx = (value / maxPosition) * seekWidth;
+                        requestPreview(value);
                       });
                     },
                     onChangeEnd: (value) async {
-                      _scrubValue = null;
+                      _seekPreview.clear();
+                      setState(() {
+                        _scrubValue = null;
+                        _isSeekPreviewVisible = false;
+                      });
                       await widget.controller.seek(Duration(milliseconds: value.round()));
+                      if (!mounted) return;
                       if (widget.controller.isPlaying.value) {
                         _startHideTimer();
                       }
@@ -1310,9 +1367,14 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
   void _startHideTimer() {
     _hideTimer?.cancel();
+    if (_isSeekPreviewVisible) return;
     _hideTimer = Timer(_autoHideDuration, () {
       if (!mounted) return;
-      setState(() => _controlsVisible = false);
+      _seekPreview.clear();
+      setState(() {
+        _controlsVisible = false;
+        _isSeekPreviewVisible = false;
+      });
     });
   }
 
@@ -1437,6 +1499,7 @@ class OpenListIntent extends Intent { const OpenListIntent(); }
 class BackIntent extends Intent { const BackIntent(); }
 class OpenScreenshotIntent extends Intent { const OpenScreenshotIntent(); }
 class OpenInfoIntent extends Intent { const OpenInfoIntent(); }
+class AddToCartIntent extends Intent { const AddToCartIntent(); }
 class NextVideoIntent extends Intent { const NextVideoIntent(); }
 class PrevVideoIntent extends Intent { const PrevVideoIntent(); }
 class MiniPlayerIntent extends Intent { const MiniPlayerIntent(); }

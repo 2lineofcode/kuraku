@@ -14,6 +14,7 @@ class ExAutoComplate extends StatelessWidget {
     this.maxWidth,
     this.onSelected,
     this.fontSize,
+    this.fieldBuilder,
   });
 
   final List<String> items;
@@ -24,6 +25,7 @@ class ExAutoComplate extends StatelessWidget {
   final double? maxWidth;
   final Function(String)? onSelected;
   final double? fontSize;
+  final Widget Function(BuildContext, TextEditingController, FocusNode)? fieldBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +36,7 @@ class ExAutoComplate extends StatelessWidget {
           return kategori.toLowerCase().contains(search.toLowerCase());
         }).toList();
       },
-      builder: (context, controller, focusNode) {
+      builder: fieldBuilder ?? (context, controller, focusNode) {
         return CupertinoTextField(
           controller: controller,
           focusNode: focusNode,

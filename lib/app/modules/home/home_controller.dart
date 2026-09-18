@@ -92,10 +92,13 @@ class HomeController extends GetxController with StateMixin {
     }
   }
 
-  bool addToCart(Videos video) {
+  bool isInCart(Videos video) {
     final key = _cartIdentity(video);
-    final isAlreadyExists = cart.any((item) => _cartIdentity(item) == key);
-    if (isAlreadyExists) return false;
+    return cart.any((item) => _cartIdentity(item) == key);
+  }
+
+  bool addToCart(Videos video) {
+    if (isInCart(video)) return false;
 
     cart.add(video);
     return true;
@@ -276,16 +279,12 @@ class HomeController extends GetxController with StateMixin {
     try {
       final localVideos = await DBVideos.search(query);
       if (localVideos.isNotEmpty) {
-        final search = Get.find<PageSearchController>();
-        search.tecSearch.text = query;
-        search.filter.reset();
-        search.videos.value = localVideos;
-        search.allVideos.value = localVideos;
-        search.isFresh.value = false;
-        search.isSearchMode.value = true;
+        final search = Get.find<PageSearchController>().activeTab;
+        search.showResults(query, localVideos);
         currentMenuSelected.value = kMenuSearch;
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (search.isClosed || !identical(Get.find<PageSearchController>().activeTab, search)) return;
           if (search.scrollGridController.hasClients) {
             search.scrollGridController.jumpTo(0);
           }
@@ -294,7 +293,7 @@ class HomeController extends GetxController with StateMixin {
         return;
       }
 
-      final download = Get.find<PageDownloadController>();
+      final download = Get.find<PageDownloadController>().activeTab;
       download.filter.reset();
       download.tecSearch.text = query;
       download.currentPage.value = 1;
@@ -302,6 +301,7 @@ class HomeController extends GetxController with StateMixin {
       await download.onSearch(query);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (download.isClosed || !identical(Get.find<PageDownloadController>().activeTab, download)) return;
         if (download.scrollController.hasClients) {
           download.scrollController.jumpTo(0);
         }
@@ -425,10 +425,8 @@ class HomeController extends GetxController with StateMixin {
 
     if (imagePaths.isNotEmpty && folderPaths.isEmpty && videoPaths.isEmpty && !hasUnsupportedFile) {
       unawaited(_openDroppedImages(imagePaths));
-    } else if (videoPaths.length > 1) {
+    } else if (videoPaths.isNotEmpty) {
       unawaited(_openDroppedVideos(videoPaths));
-    } else if (videoPaths.length == 1) {
-      unawaited(_openDroppedVideo(videoPaths.first));
     } else if (folderPaths.isEmpty && (hasUnsupportedFile || imagePaths.isNotEmpty)) {
       unawaited(HelperToast.warn('File not supported'));
     }
@@ -535,13 +533,6 @@ class HomeController extends GetxController with StateMixin {
     }
   }
 
-  Future<void> _openDroppedVideo(String path) async {
-    final video = await _createDroppedVideo(path);
-    if (video == null) return;
-
-    await HelperOpener.openVideoFile(video);
-  }
-
   Future<void> _openDroppedVideos(List<String> paths) async {
     final videos = <Videos>[];
     for (final path in paths) {
@@ -557,7 +548,45 @@ class HomeController extends GetxController with StateMixin {
       return;
     }
 
-    await Get.to(() => const PlayerMultiView(), arguments: videos);
+    ExAlert.adaptive(
+      isDismissible: false,
+      title: Text('Open Videos'),
+      content: Text('Choose how to play your videos.'),
+      actions: [
+        CupertinoDialogAction(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Single Player', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              SizedBox(height: 4),
+              Text('Play one at a time in a playlist.', style: TextStyle(fontSize: 11, color: Vx.gray300), textAlign: TextAlign.center),
+            ],
+          ),
+          onPressed: () async {
+            Get.back();
+            await HelperOpener.openVideoFile(videos.first, playlist: videos);
+          },
+        ),
+        CupertinoDialogAction(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Multi Player', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              SizedBox(height: 4),
+              Text('Play videos side by side at the same time.', style: TextStyle(fontSize: 11, color: Vx.gray300), textAlign: TextAlign.center),
+            ],
+          ),
+          onPressed: () async {
+            Get.back();
+            await Get.to(() => const PlayerMultiView(), arguments: videos);
+          },
+        ),
+        CupertinoDialogAction(
+          child: Text('Cancel', style: TextStyle(fontSize: 13)),
+          onPressed: () => Get.back(),
+        ),
+      ],
+    );
   }
 
   Future<Videos?> _createDroppedVideo(String path) async {

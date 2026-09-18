@@ -202,7 +202,7 @@ mixin HelperOpener {
                 VStack(
                   [
                     '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
-                      HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
+                      HelperMisc.copyToClipboard(video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title, showToast: true);
                     }).pSymmetric(v: 8),
                     Obx(
                       () => _translatedTitle.value.text.align(TextAlign.center).size(10).minFontSize(10).makeCentered().onInkTap(
@@ -319,6 +319,7 @@ mixin HelperOpener {
                                     .make()
                                     .onInkTap(() async {
                                       // ** on actress clicked
+                                      final newTab = PageExploreController.isNewTabModifierPressed;
                                       try {
                                         final name = '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}';
                                         final isRomaji = RegExp(r"^[A-Za-z0-9 .,'-]+$").hasMatch(name) && RegExp(r'[A-Za-z]').hasMatch(name);
@@ -334,10 +335,7 @@ mixin HelperOpener {
                                           final check = await DBVideos.getByActress(video.actress?[i].nameRomaji ?? '');
                                           if (check.isNotEmpty) {
                                             await _home.onMenuChange(kMenuExplore);
-                                            await _explore.onMenuChange(kActress);
-                                            _explore.tecSearchLeft.text = name;
-                                            _explore.onLeftListDoSearch(name);
-                                            await _explore.onLeftListTap(_explore.leftListFiltered[0]);
+                                            await _explore.openSelection(kActress, name, newTab: newTab);
                                           } else {
                                             await _home.onMenuChange(kMenuTools);
                                             await _tool.onMenuChange(kAdvanceSearch);
@@ -362,14 +360,12 @@ mixin HelperOpener {
                               for (int i = 0; i < video.category!.length; i++) ...[
                                 '${HelperDecensor.decensor(video.category?[i].category)}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(right: 8).onInkTap(() async {
                                   // ** on category clicked
+                                  final newTab = PageExploreController.isNewTabModifierPressed;
                                   final name = '${HelperDecensor.decensor(video.category?[i].category)}';
 
                                   try {
                                     await _home.onMenuChange(kMenuExplore);
-                                    await _explore.onMenuChange(kCategory);
-                                    _explore.tecSearchLeft.text = name;
-                                    _explore.onLeftListDoSearch(name);
-                                    await _explore.onLeftListTap(_explore.leftListFiltered[0]);
+                                    await _explore.openSelection(kCategory, name, newTab: newTab);
                                   } catch (_) {}
                                 }),
                               ],
@@ -381,6 +377,7 @@ mixin HelperOpener {
                             'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${HelperDecensor.decensor(video.series)}'.text.underline.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() async {
                               // ** on series clicked
+                              final newTab = PageExploreController.isNewTabModifierPressed;
                               try {
                                 await Overlayment.dismissLast();
                                 final check = await DBVideos.getBySeries(video.series ?? '');
@@ -388,10 +385,7 @@ mixin HelperOpener {
 
                                 if (check.isNotEmpty) {
                                   await _home.onMenuChange(kMenuExplore);
-                                  await _explore.onMenuChange(kSeries);
-                                  _explore.tecSearchLeft.text = name;
-                                  _explore.onLeftListDoSearch(name);
-                                  await _explore.onLeftListTap(_explore.leftListFiltered[0]);
+                                  await _explore.openSelection(kSeries, name, newTab: newTab);
                                 } else {
                                   await _home.onMenuChange(kMenuTools);
                                   await _tool.onMenuChange(kAdvanceSearch);
@@ -848,174 +842,47 @@ mixin HelperOpener {
     bool? showCategories = true,
     bool? showYears = true,
     bool applyLocalFilter = true,
+    bool matchAllCategories = false,
+    bool Function()? isAvailable,
   }) async {
-    await state.ensureOptionsLoaded();
-    await Future<void>.delayed(Duration.zero);
-    await WidgetsBinding.instance.endOfFrame;
+    try {
+      await state.ensureOptionsLoaded(
+        loadActresses: showActressName ?? true,
+        loadCategories: showCategories ?? true,
+      );
+    } catch (e) {
+      AppLog.logE('Failed to load filter options: $e');
+      await HelperToast.error('Unable to load filter options. Please try again.');
+      return;
+    }
+    if (Get.context == null || (isAvailable != null && !isAvailable())) return;
 
-    if (Get.context == null) return;
-    final visibleSectionCount = [
-      showVideoCode ?? true,
-      showActressName ?? true,
-      showCategories ?? true,
-      showYears ?? true,
-    ].where((v) => v).length;
-    final panelHeight = 180 + (visibleSectionCount * 45);
-
-    await Overlayment.show(
+    final values = await showDialog<_VideoFilterValues>(
       context: Get.context!,
-      OverPanel(
-        alignment: Alignment.center,
-        width: 500,
-        height: panelHeight.toDouble().clamp(220, 340),
-        backgroundSettings: BackgroundSettings(blur: 5, color: Colors.transparent),
-        animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: Colors.black.withAlpha(230),
-        child: VStack(
-          [
-            'Filter'.text.bold.make().pOnly(bottom: 16),
-            Container(
-              decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 12, fillColor: Colors.black),
-              child: VStack(
-                [
-                  HStack(
-                    [
-                      if (showVideoCode ?? true) ...[
-                        CupertinoTextField(
-                          controller: state.tecVideoCode,
-                          clearButtonMode: OverlayVisibilityMode.editing,
-                          placeholder: 'Video Code..',
-                          style: TextStyle(color: Vx.white, fontSize: 12),
-                        ).expand(),
-                        12.widthBox,
-                      ],
-                      if (showActressName ?? true) ...[
-                        ExAutoComplate(
-                          controller: state.tecActressName,
-                          items: state.actresses,
-                          fontSize: 12,
-                          placeHolder: 'Actress Name (${state.actresses.length})',
-                          onSelected: (s) => state.tecActressName.text = s,
-                        ).expand(),
-                      ],
-                    ],
-                  ).pOnly(bottom: 16),
-                  if (showCategories ?? true) ...[
-                    Obx(
-                      () => Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: state.categoriesSelected.map((tag) {
-                          return Chip(
-                            label: Text(tag, style: TextStyle(fontSize: 9)),
-                            deleteIcon: Icon(Icons.close, size: 12),
-                            labelPadding: EdgeInsets.all(2),
-                            side: BorderSide(color: AppColor.container),
-                            backgroundColor: AppColor.selected,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(1)),
-                            onDeleted: () => {
-                              state.categoriesSelected.remove(tag),
-                            },
-                          );
-                        }).toList(),
-                      ).pOnly(bottom: 12),
-                    ),
-                    ExAutoComplate(
-                      controller: state.tecCategory,
-                      items: state.categories,
-                      fontSize: 12,
-                      placeHolder: 'Add Category (${state.categories.length})',
-                      emptyText: 'No Category with `${state.tecCategory.text}` Found ',
-                      onSelected: (s) {
-                        state.tecCategory.clear();
-                        if (state.categoriesSelected.contains(s)) return;
-                        state.categoriesSelected.add(s);
-                      },
-                    ).pOnly(bottom: 12),
-                  ],
-                  if (showYears ?? true) ...[
-                    HStack(
-                      [
-                        'Year:'.text.size(11).make().pOnly(right: 24),
-                        Obx(
-                          () => SliderTheme(
-                            data: SliderTheme.of(Get.context!).copyWith(
-                              trackHeight: 4,
-                              overlayShape: SliderComponentShape.noOverlay,
-                              activeTrackColor: AppColor.selected,
-                              inactiveTrackColor: AppColor.container,
-                              rangeTrackShape: RectangularRangeSliderTrackShape(),
-                              valueIndicatorTextStyle: const TextStyle(fontSize: 10, color: Colors.white),
-                              valueIndicatorColor: AppColor.container,
-                              rangeThumbShape: RoundRangeSliderThumbShape(
-                                enabledThumbRadius: 6,
-                                disabledThumbRadius: 0,
-                              ),
-                            ),
-                            child: RangeSlider(
-                              values: state.currentRange.value,
-                              min: 2000,
-                              max: DateTime.now().year.toDouble(),
-                              divisions: (DateTime.now().year.toDouble() - 2000).toInt(),
-                              labels: RangeLabels(
-                                state.currentRange.value.start.toInt().toString(),
-                                state.currentRange.value.end.toInt().toString(),
-                              ),
-                              onChanged: (RangeValues values) {
-                                state.currentRange.value = values;
-                              },
-                            ),
-                          ).expand(),
-                        ),
-                        Obx(() => '${state.currentRange.value.start.toInt()} - ${state.currentRange.value.end.toInt()}'.text.size(11).make().pOnly(left: 24)),
-                      ],
-                    ),
-                  ],
-                ],
-              ).p12(),
-            ),
-            HStack(
-              [
-                Spacer(),
-                ExButtonElevated(
-                  height: 38,
-                  label: 'Reset',
-                  backgroundColor: Vx.red500.withAlpha(100),
-                  labelColor: Vx.white,
-                  labelSize: 12,
-                  onPressed: () async {
-                    state.reset();
-                    if (applyLocalFilter) {
-                      videos.value = allVideos;
-                    }
-                    if (onReset != null) await onReset();
-                    await Overlayment.dismissLast();
-                  },
-                ).pOnly(right: 8),
-                ExButtonElevated(
-                  height: 38,
-                  label: 'Apply',
-                  labelSize: 12,
-                  backgroundColor: AppColor.selected,
-                  labelColor: Vx.white,
-                  onPressed: () async {
-                    if (applyLocalFilter) {
-                      final filtered = state.apply(allVideos, adapter);
-                      videos.value = filtered;
-                      if (onApplied != null) await onApplied(filtered);
-                    } else {
-                      state.isFiltered.value = true;
-                      if (onApplied != null) await onApplied(const []);
-                    }
-                    await Overlayment.dismissLast();
-                  },
-                ),
-              ],
-            ).pOnly(top: 24, bottom: 16),
-          ],
-        ).p16(),
+      builder: (context) => _VideoFilterDialog(
+        state: state,
+        widthFactor: widthFactor,
+        showVideoCode: showVideoCode ?? true,
+        showActressName: showActressName ?? true,
+        showCategories: showCategories ?? true,
+        showYears: showYears ?? true,
+        matchAllCategories: matchAllCategories,
       ),
     );
+    if (values == null || (isAvailable != null && !isAvailable())) return;
+
+    state.tecVideoCode.text = values.videoCode;
+    state.tecActressName.text = values.actress;
+    state.tecCategory.clear();
+    state.categoriesSelected.assignAll(values.categories);
+    state.currentRange.value = values.years;
+    state.isFiltered.value = state.hasFilters;
+    if (applyLocalFilter) videos.assignAll(state.apply(allVideos, adapter));
+    if (!state.hasFilters) {
+      if (onReset != null) await onReset();
+    } else if (onApplied != null) {
+      await onApplied(applyLocalFilter ? videos.toList() : <T>[]);
+    }
   }
 }
 
@@ -1025,14 +892,12 @@ class VideoFilterAdapter<T> {
     required this.actresses,
     required this.categories,
     required this.releaseDate,
-    this.categoryMatch,
   });
 
   final String Function(T video) videoCode;
   final Iterable<String> Function(T video) actresses;
   final Iterable<String> Function(T video) categories;
   final String? Function(T video) releaseDate;
-  final bool Function(Iterable<String> videoCategories, Set<String> selected)? categoryMatch;
 }
 
 class VideoFilterState {
@@ -1047,8 +912,8 @@ class VideoFilterState {
   final categoriesSelected = <String>[].obs;
   final currentRange = RangeValues(2000, DateTime.now().year.toDouble()).obs;
 
-  Future<void> ensureOptionsLoaded() async {
-    if (actresses.isEmpty) {
+  Future<void> ensureOptionsLoaded({bool loadActresses = true, bool loadCategories = true}) async {
+    if (loadActresses && actresses.isEmpty) {
       await DBR18.getAllActress().then((actress) {
         for (var i = 0; i < actress.length; i++) {
           actresses.add('${actress[i]['name_romaji']}');
@@ -1057,7 +922,7 @@ class VideoFilterState {
       });
     }
 
-    if (categories.isEmpty) {
+    if (loadCategories && categories.isEmpty) {
       await DBR18.getAllCategories().then((cat) {
         for (var i = 0; i < cat.length; i++) {
           categories.add('${cat[i]['name_en']}');
@@ -1071,23 +936,25 @@ class VideoFilterState {
     tecVideoCode.text = '';
     tecActressName.text = '';
     tecCategory.text = '';
-    actresses.clear();
-    categories.clear();
     categoriesSelected.clear();
     currentRange.value = RangeValues(2000, DateTime.now().year.toDouble());
     isFiltered.value = false;
   }
 
+  bool get hasYearFilter => currentRange.value.start > 2000 || currentRange.value.end < DateTime.now().year;
+
+  bool get hasFilters => tecVideoCode.text.trim().isNotEmpty || tecActressName.text.trim().isNotEmpty || categoriesSelected.isNotEmpty || hasYearFilter;
+
   List<T> apply<T>(List<T> allVideos, VideoFilterAdapter<T> adapter) {
     var filteredVideos = allVideos.toList();
 
     if (tecVideoCode.text.isNotBlank) {
-      final query = tecVideoCode.text.toLowerCase();
+      final query = tecVideoCode.text.trim().toLowerCase();
       filteredVideos = filteredVideos.where((video) => adapter.videoCode(video).toLowerCase().contains(query)).toList();
     }
 
     if (tecActressName.text.isNotBlank) {
-      final query = tecActressName.text.toLowerCase();
+      final query = tecActressName.text.trim().toLowerCase();
       filteredVideos = filteredVideos.where((video) {
         return adapter.actresses(video).any((name) => name.toLowerCase().contains(query));
       }).toList();
@@ -1095,18 +962,12 @@ class VideoFilterState {
 
     if (categoriesSelected.isNotEmpty) {
       final selected = categoriesSelected.toSet();
-      if (adapter.categoryMatch != null) {
-        filteredVideos = filteredVideos.where((video) {
-          return adapter.categoryMatch!(adapter.categories(video), selected);
-        }).toList();
-      } else {
-        filteredVideos = filteredVideos.where((video) {
-          return adapter.categories(video).any((category) => category.isNotEmpty && selected.contains(category));
-        }).toList();
-      }
+      filteredVideos = filteredVideos.where((video) {
+        return adapter.categories(video).any((category) => category.isNotEmpty && selected.contains(category));
+      }).toList();
     }
 
-    if (currentRange.value.start.toInt() > 0 || currentRange.value.end.toInt() > 0) {
+    if (hasYearFilter) {
       filteredVideos = filteredVideos.where((video) {
         final releaseDate = adapter.releaseDate(video);
         if (releaseDate.isEmptyOrNull) return false;
@@ -1123,7 +984,272 @@ class VideoFilterState {
       }).toList();
     }
 
-    isFiltered.value = true;
+    isFiltered.value = hasFilters;
     return filteredVideos;
+  }
+}
+
+typedef _VideoFilterValues = ({String videoCode, String actress, List<String> categories, RangeValues years});
+
+class _VideoFilterDialog extends StatefulWidget {
+  const _VideoFilterDialog({required this.state, required this.widthFactor, required this.showVideoCode, required this.showActressName, required this.showCategories, required this.showYears, required this.matchAllCategories});
+
+  final VideoFilterState state;
+  final double widthFactor;
+  final bool showVideoCode;
+  final bool showActressName;
+  final bool showCategories;
+  final bool showYears;
+  final bool matchAllCategories;
+
+  @override
+  State<_VideoFilterDialog> createState() => _VideoFilterDialogState();
+}
+
+class _VideoFilterDialogState extends State<_VideoFilterDialog> {
+  late final _code = TextEditingController(text: widget.state.tecVideoCode.text);
+  late final _actress = TextEditingController(text: widget.state.tecActressName.text);
+  final _category = TextEditingController();
+  late final _categories = widget.state.categoriesSelected.toList();
+  late RangeValues _years = widget.state.currentRange.value;
+
+  @override
+  void dispose() {
+    _code.dispose();
+    _actress.dispose();
+    _category.dispose();
+    super.dispose();
+  }
+
+  void _reset() {
+    setState(() {
+      _code.clear();
+      _actress.clear();
+      _category.clear();
+      _categories.clear();
+      _years = RangeValues(2000, DateTime.now().year.toDouble());
+    });
+  }
+
+  void _apply() {
+    Navigator.of(context).pop<_VideoFilterValues>((
+      videoCode: widget.showVideoCode ? _code.text.trim() : '',
+      actress: widget.showActressName ? _actress.text.trim() : '',
+      categories: widget.showCategories ? List<String>.from(_categories) : <String>[],
+      years: widget.showYears ? _years : RangeValues(2000, DateTime.now().year.toDouble()),
+    ));
+  }
+
+  static const _accent = Color(0xFFC9B5F5);
+  static const _muted = Color(0xFF97919F);
+
+  Widget _label(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFCDC7D5))),
+  );
+
+  Widget _field(TextEditingController controller, String placeholder, {FocusNode? focusNode, bool submit = false}) => CupertinoTextField(
+    controller: controller,
+    focusNode: focusNode,
+    placeholder: placeholder,
+    clearButtonMode: OverlayVisibilityMode.editing,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+    decoration: BoxDecoration(
+      color: const Color(0xFF141219),
+      border: Border.all(color: const Color(0xFF36313F)),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    style: const TextStyle(color: Color(0xFFEDE8F3), fontSize: 12),
+    placeholderStyle: const TextStyle(color: Color(0xFF77717F), fontSize: 12),
+    onSubmitted: submit ? (_) => _apply() : null,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final year = DateTime.now().year.toDouble();
+    final codeField = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _label('Video code'),
+      _field(_code, 'Contains video code...', submit: true),
+    ]);
+    final actressField = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _label('Actress'),
+      ExAutoComplate(
+        controller: _actress,
+        items: widget.state.actresses,
+        maxHeight: 160,
+        emptyText: 'No suggestions. You can still filter by this name.',
+        fieldBuilder: (_, controller, focus) => _field(controller, 'Search actress name...', focusNode: focus),
+        onSelected: (name) => _actress.text = name,
+      ),
+    ]);
+    return Dialog(
+      backgroundColor: const Color(0xFF1C1822),
+      surfaceTintColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFF39313F))),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: (MediaQuery.sizeOf(context).width * widget.widthFactor).clamp(440, 520),
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 12, 16),
+              child: Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(color: const Color(0xFF33283F), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.tune_rounded, size: 19, color: _accent),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Filter', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Color(0xFFF1EBF7))),
+                  SizedBox(height: 3),
+                  Text('Find exactly what you’re looking for', style: TextStyle(fontSize: 11, color: _muted)),
+                ])),
+                IconButton(tooltip: 'Cancel', onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, size: 17, color: _muted)),
+              ]),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (widget.showVideoCode || widget.showActressName) ...[
+                      LayoutBuilder(builder: (context, constraints) {
+                        if (widget.showVideoCode && widget.showActressName && constraints.maxWidth >= 380) {
+                          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Expanded(child: codeField),
+                            const SizedBox(width: 12),
+                            Expanded(child: actressField),
+                          ]);
+                        }
+                        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                          if (widget.showVideoCode) codeField,
+                          if (widget.showVideoCode && widget.showActressName) const SizedBox(height: 14),
+                          if (widget.showActressName) actressField,
+                        ]);
+                      }),
+                      const SizedBox(height: 20),
+                    ],
+                    if (widget.showCategories) ...[
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(color: const Color(0xFF231E2B), borderRadius: BorderRadius.circular(10)),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                          Row(children: [
+                            const Expanded(child: Text('Categories', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFEDE8F3)))),
+                            Tooltip(
+                              message: widget.matchAllCategories ? 'Videos must match all selected categories' : 'Videos can match any selected category',
+                              child: Text(widget.matchAllCategories ? 'Match all' : 'Match any', style: const TextStyle(fontSize: 10, color: _accent)),
+                            ),
+                          ]),
+                          const SizedBox(height: 10),
+                          ExAutoComplate(
+                            controller: _category,
+                            items: widget.state.categories.where((category) => !_categories.contains(category)).toList(),
+                            maxHeight: 160,
+                            emptyText: 'No more matching categories.',
+                            fieldBuilder: (_, controller, focus) => _field(controller, 'Search and add categories...', focusNode: focus),
+                            onSelected: (category) {
+                              setState(() {
+                                if (!_categories.contains(category)) _categories.add(category);
+                                _category.clear();
+                              });
+                            },
+                          ),
+                          if (_categories.isNotEmpty) Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: _categories.map((category) => InputChip(
+                                label: Text(category, style: const TextStyle(fontSize: 11, color: _accent)),
+                                backgroundColor: const Color(0xFF3A2D4B),
+                                side: BorderSide.none,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                visualDensity: VisualDensity.compact,
+                                deleteIcon: const Icon(Icons.close, size: 13, color: _accent),
+                                onDeleted: () => setState(() => _categories.remove(category)),
+                              )).toList(),
+                            ),
+                          ),
+                        ]),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                    if (widget.showYears) ...[
+                      Row(children: [
+                        const Expanded(child: Text('Release year', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFCDC7D5)))),
+                        Text(_years.start == 2000 && _years.end == year ? 'Any year' : '${_years.start.toInt()} – ${_years.end.toInt()}', style: const TextStyle(fontSize: 11, color: _accent)),
+                      ]),
+                      const SizedBox(height: 4),
+                      SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 3,
+                          activeTrackColor: _accent,
+                          inactiveTrackColor: const Color(0xFF3C3348),
+                          thumbColor: _accent,
+                          activeTickMarkColor: Colors.transparent,
+                          inactiveTickMarkColor: Colors.transparent,
+                          overlayColor: _accent.withAlpha(24),
+                          rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 6),
+                        ),
+                        child: RangeSlider(
+                          values: _years,
+                          min: 2000,
+                          max: year,
+                          divisions: (year - 2000).toInt(),
+                          labels: RangeLabels('${_years.start.toInt()}', '${_years.end.toInt()}'),
+                          onChanged: (values) => setState(() => _years = values),
+                        ),
+                      ),
+                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                        const Text('2000', style: TextStyle(fontSize: 10, color: _muted)),
+                        Text('${year.toInt()}', style: const TextStyle(fontSize: 10, color: _muted)),
+                      ]),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: const BoxDecoration(color: Color(0xFF18151E), border: Border(top: BorderSide(color: Color(0xFF302937)))),
+              child: Row(children: [
+                TextButton(
+                  style: TextButton.styleFrom(foregroundColor: _muted, textStyle: const TextStyle(fontSize: 12)),
+                  onPressed: _reset,
+                  child: const Text('Reset'),
+                ),
+                const Spacer(),
+                TextButton(
+                  style: TextButton.styleFrom(foregroundColor: const Color(0xFFCDC7D5), textStyle: const TextStyle(fontSize: 12)),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _accent,
+                    foregroundColor: const Color(0xFF291C3E),
+                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: _apply,
+                  child: const Text('Apply'),
+                ),
+              ]),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

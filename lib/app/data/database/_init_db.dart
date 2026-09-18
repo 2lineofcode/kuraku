@@ -11,6 +11,7 @@ import '../../core/app_logging.dart';
 import '../../core/app_setting.dart';
 import 'db_activity.dart';
 import 'db_collection.dart';
+import 'db_historical.dart';
 import 'db_library.dart';
 import 'db_video_embedding.dart';
 import 'db_videos.dart';
@@ -41,7 +42,7 @@ class DBService extends GetxService {
     await Directory(appPath).create(recursive: true);
     return await openDatabase(
       path,
-      version: 5,
+      version: 7,
       singleInstance: true,
       onConfigure: _onConfigure,
       onCreate: _onCreate,
@@ -197,11 +198,14 @@ class DBService extends GetxService {
         name                        TEXT,
         cover                       TEXT,
         video_id                    TEXT,
+        playlist_id                 TEXT REFERENCES collection(id) ON DELETE CASCADE,
         created_at                  TEXT,
         updated_at                  TEXT
       )
     ''');
 
+    await db.execute('CREATE INDEX idx_collection_playlist_id ON collection(playlist_id)');
+    await DBHistorical.createTable(db);
     await _createFeatureTables(db);
   }
 
@@ -223,6 +227,40 @@ class DBService extends GetxService {
     if (oldVersion < 5) {
       await _createFeatureTables(db);
     }
+
+    if (oldVersion < 6) {
+      await migratePlaylistIds(db);
+    }
+    if (oldVersion < 7) {
+      await DBHistorical.createTable(db);
+    }
+  }
+
+  static Future<void> migratePlaylistIds(Database db) async {
+    await db.execute('ALTER TABLE collection ADD COLUMN playlist_id TEXT REFERENCES collection(id) ON DELETE CASCADE');
+    // Recover legacy groups that have video rows but no playlist header.
+    await db.execute('''
+      INSERT INTO collection (id, type, name, cover, created_at, updated_at)
+      SELECT lower(hex(randomblob(16))), 'playlist', items.name, MAX(items.cover),
+             MIN(items.created_at), MAX(items.updated_at)
+      FROM collection AS items
+      WHERE items.type = 'playlist' AND items.video_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM collection AS header
+          WHERE header.type = 'playlist' AND header.video_id IS NULL AND header.name IS items.name
+        )
+      GROUP BY items.name
+    ''');
+    await db.execute('''
+      UPDATE collection AS items
+      SET playlist_id = (
+        SELECT header.id FROM collection AS header
+        WHERE header.type = 'playlist' AND header.video_id IS NULL AND header.name IS items.name
+        ORDER BY header.id LIMIT 1
+      )
+      WHERE items.type = 'playlist' AND items.video_id IS NOT NULL
+    ''');
+    await db.execute('CREATE INDEX idx_collection_playlist_id ON collection(playlist_id)');
   }
 
   Future<void> _createFeatureTables(Database db) async {
@@ -283,6 +321,7 @@ class DBService extends GetxService {
     await DBCollection.deleteAll();
     await dbMain.delete('watch_session');
     await dbMain.delete('achievement_unlock');
+    await dbMain.delete('historical');
     await vacumDB();
   }
 

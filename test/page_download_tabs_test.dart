@@ -1,0 +1,508 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
+import 'package:get_secure_storage/get_secure_storage.dart';
+import 'package:javit/app/core/app_pref.dart';
+import 'package:javit/app/core/app_setting.dart';
+import 'package:javit/app/data/models/__javit_search_entity.dart';
+import 'package:javit/app/data/models/__javmost_new_release.dart';
+import 'package:javit/app/modules/home/page_download/page_download_controller.dart';
+import 'package:javit/app/modules/home/page_download/page_download_search_tab.dart';
+import 'package:javit/app/modules/home/page_download/page_download_view.dart';
+import 'package:javit/app/utils/helper_opener.dart';
+
+class _Preferences implements GetSecureStorage {
+  final values = <String, dynamic>{};
+  @override
+  T? read<T>(String key) => values[key] as T?;
+  @override
+  Future<void> write(String key, dynamic value) async { values[key] = value; }
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Controller extends PageDownloadController {
+  @override
+  PageDownloadSearchTab createTab(int id) => _SearchTab(id);
+}
+
+class _SearchTab extends PageDownloadSearchTab {
+  _SearchTab(super.id);
+  final pending = <Completer<JavMostModel>>[];
+  final pages = <int>[];
+
+  @override
+  Future<List<String>> loadHistory(String query) async => [];
+  @override
+  Future<void> saveHistory(String query) async {}
+
+  @override
+  Future<JavMostModel> fetchJavMostByCommand(String command, int page) {
+    pages.add(page);
+    final result = Completer<JavMostModel>();
+    pending.add(result);
+    return result.future;
+  }
+
+  @override
+  Future<Set<String>> loadExistingVideoCodes() async => {'SSIS-001'};
+}
+
+class _HistoryTab extends _SearchTab {
+  _HistoryTab(super.id);
+  final history = ['/top-weekly', '/top-monthly'];
+  final saved = <String>[];
+  Completer<List<String>>? pendingHistory;
+  @override
+  Future<List<String>> loadHistory(String query) async => pendingHistory?.future ?? history.where((item) => item.contains(query.trim())).toList();
+  @override
+  Future<void> saveHistory(String query) async { saved.add(query); }
+  @override
+  Future<void> deleteHistory(String query) async { history.remove(query); }
+  @override
+  Future<void> clearHistory() async { history.clear(); }
+}
+
+class _SearchView extends PageDownloadSearchView {
+  const _SearchView({super.key, required super.controller});
+
+  @override
+  Widget modeWrapView() {
+    final listener = super.modeWrapView() as NotificationListener<ScrollMetricsNotification>;
+    final grid = listener.child as GridView;
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: listener.onNotification,
+      child: GridView.builder(
+        key: grid.key,
+        controller: grid.controller,
+        gridDelegate: grid.gridDelegate,
+        itemCount: controller.videos.length,
+        itemBuilder: (context, index) => Text(controller.videos[index].videoCode ?? ''),
+      ),
+    );
+  }
+}
+
+JavMostModel result(String code, {int total = 1}) => JavMostModel(
+  success: true, total: total,
+  result: [Result(name: code, fullName: code, release: '2024-01-01', cover: '', genre: 'Drama')],
+);
+
+void main() {
+  final preferences = _Preferences();
+  setUp(() {
+    preferences.values.clear();
+    Get.put(AppSettingService()..pref = preferences);
+  });
+  tearDown(Get.reset);
+
+  testWidgets('picking online by click or Enter keeps the search field ready for typing', (tester) async {
+    final tab = _SearchTab(1);
+    addTearDown(tab.dispose);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: PageDownloadSearchView(controller: tab))));
+    for (final useKeyboard in [false, true]) {
+      await tester.enterText(find.byType(CupertinoTextField), '/on');
+      await tester.pumpAndSettle();
+      if (useKeyboard) {
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+      } else {
+        await tester.tap(find.text('/online'));
+      }
+      await tester.pumpAndSettle();
+      expect(tab.fnSearch.hasFocus, isTrue);
+      expect(tab.tecSearch.text, '/online ');
+      expect(tab.tecSearch.selection, TextSelection.collapsed(offset: 8));
+      expect(tab.isCommandSuggestionVisible.value, isFalse);
+      expect(tab.pending, isEmpty);
+      tester.testTextInput.updateEditingValue(TextEditingValue(
+        text: '/online keyword', selection: TextSelection.collapsed(offset: 15),
+      ));
+      await tester.pump();
+      expect(tab.tecSearch.text, '/online keyword');
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant({TargetPlatform.macOS, TargetPlatform.windows, TargetPlatform.linux}));
+
+  testWidgets('Download history supports filtering, keyboard selection, removal and stale-result guards', (tester) async {
+    final tab = _HistoryTab(1);
+    addTearDown(tab.dispose);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: _SearchView(controller: tab))));
+    await tester.tap(find.byType(CupertinoTextField));
+    await tester.pumpAndSettle();
+    expect(tab.historySuggestions, isEmpty);
+    await tester.enterText(find.byType(CupertinoTextField), '   ');
+    await tester.pumpAndSettle();
+    expect(tab.historySuggestions, isEmpty);
+    await tester.enterText(find.byType(CupertinoTextField), 't');
+    await tester.pumpAndSettle();
+    expect(tab.historySuggestions, ['/top-weekly', '/top-monthly']);
+    await tester.tap(find.byTooltip('Remove from history').last);
+    await tester.pumpAndSettle();
+    expect(tab.historySuggestions, ['/top-weekly']);
+    expect(tab.fnSearch.hasFocus, isTrue);
+    await tester.enterText(find.byType(CupertinoTextField), 'weekly');
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(tab.historySuggestions, ['/top-weekly']);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(tab.tecSearch.text, '/top-weekly');
+    expect(tab.saved, ['/top-weekly']);
+    expect(tab.pending.length, 1);
+    expect(tab.historySuggestions, isEmpty);
+    tab.pending.single.complete(result('SSIS-001'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(CupertinoTextField), '');
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(tab.historySuggestions, isEmpty);
+    await tester.enterText(find.byType(CupertinoTextField), 'w');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(tab.historySuggestions, isEmpty);
+    await tester.tap(find.byType(CupertinoTextField));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('/top-weekly'));
+    await tester.pump();
+    expect(tab.saved.length, 2);
+    tab.pending.last.complete(result('SSIS-001'));
+    await tester.pumpAndSettle();
+
+    tab.pendingHistory = Completer<List<String>>();
+    await tester.enterText(find.byType(CupertinoTextField), 'old');
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.enterText(find.byType(CupertinoTextField), '/on');
+    tab.pendingHistory!.complete(['stale']);
+    await tester.pump();
+    expect(tab.historySuggestions, isEmpty);
+    expect(tab.isCommandSuggestionVisible.value, isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Clear all requires Yes and preserves history when choosing No', (tester) async {
+    final tab = _HistoryTab(1);
+    addTearDown(tab.dispose);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: _SearchView(controller: tab))));
+    await tester.enterText(find.byType(CupertinoTextField), 'weekly');
+    await tester.pumpAndSettle();
+    expect(tab.historySuggestions, ['/top-weekly']);
+    await tester.tap(find.text('Clear all'));
+    await tester.pumpAndSettle();
+    expect(tab.history, ['/top-weekly', '/top-monthly']);
+    await tester.tap(find.text('No'));
+    await tester.pumpAndSettle();
+    expect(tab.history, ['/top-weekly', '/top-monthly']);
+    await tester.tap(find.byType(CupertinoTextField));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Clear all'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Yes'));
+    await tester.pumpAndSettle();
+    expect(tab.history, isEmpty);
+    expect(tab.historySuggestions, isEmpty);
+    expect(tab.tecSearch.text, 'weekly');
+    expect(tab.fnSearch.hasFocus, isTrue);
+    expect(find.text('Clear all'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Download restores tab preferences and Having without restarting downloads', (tester) async {
+    await AppPref.setSearchTabs({'tabs': [{'query': 'Local query'}]});
+    final controller = Get.put<PageDownloadController>(_Controller());
+    final first = controller.activeTab;
+    first.tecSearch.text = '/new-release';
+    first.filter.tecVideoCode.text = 'SSIS';
+    first.filter.tecActressName.text = 'Alice';
+    first.filter.tecCategory.text = 'Draft category';
+    first.filter.categoriesSelected.assignAll(['Drama']);
+    first.filter.currentRange.value = RangeValues(2022, 2025);
+    first.filter.isFiltered.value = true;
+    first.havingOnly.value = true;
+    controller.addTab();
+    controller.activeTab.tecSearch.text = '/online unsubmitted draft';
+    controller.addTab();
+    controller.activeTab.filter.tecCategory.text = 'Unselected category';
+    controller.selectTab(1);
+    controller.downloadStdout.value = 'Download running';
+    final expected = first.toPreferences();
+    final saved = jsonDecode(jsonEncode(AppPref.getDownloadTabs())) as Map<String, dynamic>;
+    await Get.delete<PageDownloadController>();
+    await AppPref.setDownloadTabs(saved);
+    final restored = Get.put<PageDownloadController>(_Controller());
+    expect(restored.tabs.length, 3);
+    expect(restored.activeTabIndex.value, 1);
+    expect(restored.activeTab.tecSearch.text, '/online unsubmitted draft');
+    expect(restored.tabs.first.toPreferences(), expected);
+    expect(restored.tabs.last.filter.tecCategory.text, 'Unselected category');
+    expect(restored.downloadStdout.value, '');
+    expect(restored.currentProcessDownload.value, isNull);
+    (restored.tabs.first as _SearchTab).pending.single.complete(JavMostModel(success: true, total: 2, result: [
+      Result(name: 'SSIS-001', genre: 'Drama', star: 'Alice', release: '2024-01-01'),
+      Result(name: 'SSIS-002', genre: 'Drama', star: 'Alice', release: '2024-01-01'),
+    ]));
+    (restored.tabs[1] as _SearchTab).pending.single.complete(result('SSIS-002'));
+    await tester.pump();
+    expect(restored.tabs.first.havingOnly.value, isTrue);
+    expect(restored.tabs.first.videos.single.videoCode, 'SSIS-001');
+    restored.tabs[1].tecSearch.text = '/online changed draft';
+    final beforeRefresh = jsonDecode(jsonEncode(AppPref.getDownloadTabs()));
+    final refresh = restored.onRefresh();
+    (restored.tabs.first as _SearchTab).pending.last.complete(JavMostModel(success: true, total: 1, result: [
+      Result(name: 'SSIS-001', genre: 'Drama', star: 'Alice', release: '2024-01-01'),
+    ]));
+    await tester.pump();
+    (restored.tabs[1] as _SearchTab).pending.last.complete(result('SSIS-002'));
+    await refresh;
+    expect(AppPref.getDownloadTabs(), beforeRefresh);
+    expect(restored.tabs.first.title.value, '/new-release');
+    expect(restored.tabs.first.videos.single.videoCode, 'SSIS-001');
+    expect(restored.tabs.first.havingOnly.value, isTrue);
+    expect(restored.activeTabIndex.value, 1);
+    expect(restored.tabs.last.filter.tecCategory.text, 'Unselected category');
+    restored.closeTab(1);
+    await tester.pump();
+    expect((AppPref.getDownloadTabs()['tabs'] as List).length, 2);
+    expect((AppPref.getSearchTabs()['tabs'] as List).single['query'], 'Local query');
+    await Get.delete<PageDownloadController>();
+
+    await AppPref.setDownloadTabs({'tabs': [null, {'query': 12, 'yearStart': 3000, 'yearEnd': 1000}], 'activeTab': 99});
+    final invalid = Get.put<PageDownloadController>(_Controller());
+    expect(invalid.tabs.length, 1);
+    expect(invalid.activeTabIndex.value, 0);
+    expect(invalid.activeTab.tecSearch.text, '');
+    expect(invalid.activeTab.filter.currentRange.value.start, 2000);
+    invalid.closeTab(0);
+    await tester.pump();
+    expect((AppPref.getDownloadTabs()['tabs'] as List).length, 1);
+    await Get.delete<PageDownloadController>();
+    await tester.pump();
+  });
+
+  testWidgets('Download matches all categories while shared local filtering matches any', (tester) async {
+    final tab = _SearchTab(1);
+    addTearDown(tab.dispose);
+    final rows = [
+      Result(name: 'SSIS-001', genre: 'Drama', star: 'Alice', release: '2024-01-01'),
+      Result(name: 'SSIS-002', genre: 'Romance', star: 'Alice', release: '2024-01-01'),
+      Result(name: 'SSIS-003', genre: 'Drama, Romance', star: 'Alice', release: '2024-01-01'),
+      Result(name: 'SSIS-004', genre: 'Other', star: 'Alice', release: '2024-01-01'),
+      Result(name: 'SSIS-005', genre: '', star: 'Alice', release: '2024-01-01'),
+      Result(name: 'SSIS-006', genre: 'Drama', star: 'Alice', release: '2020-01-01'),
+      Result(name: 'SSIS-007', genre: 'Drama', star: 'Bob', release: '2024-01-01'),
+      Result(name: 'ABP-001', genre: 'Drama', star: 'Alice', release: '2024-01-01'),
+    ];
+    tab.filter.categoriesSelected.assignAll(['Drama', 'Romance']);
+    tab.filter.tecVideoCode.text = 'SSIS';
+    tab.filter.tecActressName.text = 'Alice';
+    tab.filter.currentRange.value = RangeValues(2023, 2025);
+    final search = tab.onSearch('/new-release');
+    tab.pending.single.complete(JavMostModel(success: true, total: rows.length, result: rows));
+    await search;
+    expect(tab.videos.map((video) => video.videoCode), ['SSIS-003']);
+
+    final adapter = VideoFilterAdapter<Result>(
+      videoCode: (video) => video.name ?? '',
+      actresses: (video) => [video.star ?? ''],
+      categories: (video) => (video.genre ?? '').split(',').map((value) => value.trim()),
+      releaseDate: (video) => video.release,
+    );
+    expect(tab.filter.apply(rows, adapter).map((video) => video.name), ['SSIS-001', 'SSIS-002', 'SSIS-003']);
+    tab.filter.categoriesSelected.clear();
+    expect(tab.filter.apply(rows, adapter).length, 5);
+    await tester.pump();
+  });
+
+  testWidgets('Result and Having filter loaded videos and recover from empty matches', (tester) async {
+    final tab = _SearchTab(1);
+    final other = _SearchTab(2);
+    addTearDown(tab.dispose);
+    addTearDown(other.dispose);
+    final search = tab.onSearch('/new-release');
+    tab.pending.single.complete(JavMostModel(success: true, total: 2, result: [
+      Result(name: 'SSIS-001', release: '2024-01-01'),
+      Result(name: 'SSIS-002', release: '2024-01-01'),
+    ]));
+    await search;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: _SearchView(controller: tab))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Having: 1'));
+    await tester.pumpAndSettle();
+    expect(tab.videos.map((video) => video.videoCode), ['SSIS-001']);
+    expect(tab.allVideos.length, 2);
+    expect(tab.totalResults.value, 2);
+    expect(other.havingOnly.value, isFalse);
+    await tester.tap(find.text('Result : 2'));
+    await tester.pumpAndSettle();
+    expect(tab.videos.length, 2);
+
+    tab.allVideos.first.match = false;
+    await tester.tap(find.text('Having: 1'));
+    await tester.pumpAndSettle();
+    expect(tab.videos, isEmpty);
+    expect(find.text('No Owned Videos'), findsOneWidget);
+    await tester.tap(find.text('Result : 2'));
+    await tester.pumpAndSettle();
+    expect(tab.videos.length, 2);
+
+    tab.showHavingOnly(true);
+    final next = tab.onSearch('/top-weekly');
+    expect(tab.havingOnly.value, isFalse);
+    tab.pending.last.complete(result('SSIS-002'));
+    await next;
+    expect(tab.videos.single.videoCode, 'SSIS-002');
+    tab.showHavingOnly(true);
+    await tab.onReset();
+    expect(tab.havingOnly.value, isFalse);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Download searches stay independent and ignore stale or closed requests', (tester) async {
+    final first = _SearchTab(1);
+    final second = _SearchTab(2);
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    final a = first.onSearch('/new-release');
+    final b = second.onSearch('/top-weekly');
+    second.pending[0].complete(result('SSIS-002'));
+    await b;
+    expect(first.isLoading.value, isTrue);
+    expect(first.videos, isEmpty);
+    expect(second.videos.single.videoCode, 'SSIS-002');
+    first.pending[0].complete(result('SSIS-001'));
+    await a;
+    expect(first.videos.single.videoCode, 'SSIS-001');
+    expect(first.havingVideos.value, 1);
+
+    final older = first.onSearch('/top-daily');
+    final newer = first.onSearch('/top-monthly');
+    first.pending[2].complete(result('SSIS-003'));
+    await newer;
+    first.pending[1].complete(result('SSIS-004'));
+    await older;
+    expect(first.videos.single.videoCode, 'SSIS-003');
+    expect(first.title.value, '/top-monthly');
+    expect(first.isLoading.value, isFalse);
+
+    final failing = second.onSearch('/best-rated');
+    second.pending[1].completeError(StateError('Offline'));
+    await failing;
+    expect(second.error.value, isNotEmpty);
+    expect(second.isLoading.value, isFalse);
+    expect(first.error.value, isEmpty);
+
+    final closing = first.onSearch('/top-daily');
+    first.close();
+    first.pending[3].complete(result('SSIS-005'));
+    await closing;
+    expect(first.videos, isEmpty);
+    await tester.pump();
+  });
+
+  testWidgets('Download tab controls preserve drafts and keep one tab without touching download state', (tester) async {
+    tester.view.physicalSize = const Size(700, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    Get.put(AppSettingService());
+    final controller = Get.put(PageDownloadController());
+    addTearDown(Get.reset);
+    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: PageDownloadView())));
+    await tester.pumpAndSettle();
+    final first = controller.activeTab;
+    await tester.enterText(find.byType(CupertinoTextField), 'First draft');
+    first.filter.tecActressName.text = 'First actress';
+    controller.downloadStdout.value = 'Download running';
+    await tester.tap(find.byTooltip('New search tab'));
+    await tester.pumpAndSettle();
+    expect(controller.tabs.length, 2);
+    final addButton = find.widgetWithIcon(IconButton, Icons.add);
+    final lastClose = find.widgetWithIcon(IconButton, Icons.close).last;
+    expect(tester.getTopLeft(addButton).dx - tester.getTopRight(lastClose).dx, closeTo(4, 1));
+    final second = controller.activeTab;
+    expect(second.tecSearch.text, '');
+    expect(second.filter.tecActressName.text, '');
+    await tester.enterText(find.byType(CupertinoTextField), 'Second draft');
+    controller.selectTab(0);
+    await tester.pumpAndSettle();
+    expect(find.text('First draft'), findsOneWidget);
+    expect(first.filter.tecActressName.text, 'First actress');
+    controller.closeTab(0);
+    await tester.pumpAndSettle();
+    expect(first.isClosed, isTrue);
+    expect(controller.activeTab, same(second));
+    expect(find.text('Second draft'), findsOneWidget);
+    await tester.tap(find.byTooltip('Close tab'));
+    await tester.pumpAndSettle();
+    expect(controller.tabs.length, 1);
+    expect(controller.activeTab.tecSearch.text, '');
+    expect(controller.downloadStdout.value, 'Download running');
+    for (var i = 0; i < 6; i++) {
+      controller.addTab();
+    }
+    await tester.pumpAndSettle();
+    expect(controller.tabScrollController.offset, greaterThan(0));
+    expect(addButton.hitTestable(), findsOneWidget);
+    final selected = controller.activeTab;
+    controller.closeTab(1);
+    await tester.pumpAndSettle();
+    expect(controller.activeTab, same(selected));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Download tabs retain independent scroll and pagination uses submitted filters', (tester) async {
+    final first = _SearchTab(1);
+    final second = _SearchTab(2);
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    final active = ValueNotifier<PageDownloadSearchTab>(first);
+    addTearDown(active.dispose);
+    for (final tab in [first, second]) {
+      tab.videos.assignAll(List.generate(100, (i) => JavitSearchResult(videoCode: 'SSIS-$i')));
+    }
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: ValueListenableBuilder<PageDownloadSearchTab>(
+      valueListenable: active,
+      builder: (context, tab, child) => _SearchView(key: ValueKey(tab.id), controller: tab),
+    ))));
+    await tester.pumpAndSettle();
+    first.scrollController.jumpTo(800);
+    await tester.pumpAndSettle();
+    active.value = second;
+    await tester.pumpAndSettle();
+    expect(second.scrollController.offset, 0);
+    second.scrollController.jumpTo(400);
+    await tester.pumpAndSettle();
+    active.value = first;
+    await tester.pumpAndSettle();
+    expect(first.scrollController.offset, 800);
+
+    first.filter.categoriesSelected.assignAll(['Drama']);
+    final search = first.onSearch('/new-release');
+    await tester.pump();
+    first.pending[0].complete(result('SSIS-001', total: 2));
+    await search;
+    first.filter.categoriesSelected.assignAll(['Unsubmitted category']);
+    await tester.pumpAndSettle();
+    expect(first.pages, [1, 2]);
+    first.showHavingOnly(true);
+    first.pending[1].complete(result('SSIS-002', total: 2));
+    await tester.pumpAndSettle();
+    expect(first.videos.map((item) => item.videoCode), ['SSIS-001']);
+    expect(first.havingVideos.value, 1);
+    first.showHavingOnly(false);
+    await tester.pumpAndSettle();
+    expect(first.videos.map((item) => item.videoCode), ['SSIS-001', 'SSIS-002']);
+    expect(first.currentPage.value, 2);
+    expect(first.scrollController.offset, 0);
+    expect(second.videos.length, 100);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+}

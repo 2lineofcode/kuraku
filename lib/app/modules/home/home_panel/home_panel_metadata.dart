@@ -22,9 +22,13 @@ mixin HomePanelMetadata {
           Expanded(child: Divider(color: AppColor.border.withValues(alpha: .6)).pOnly(left: 12)),
         ]).pOnly(bottom: 8, top: 16);
 
-    Widget inputField({required String label, required TextEditingController controller, String? placeholder, Widget? suffix}) {
+    Widget inputField({required String label, required TextEditingController controller, String? placeholder, Widget? suffix, Widget? labelAction}) {
       return VStack([
-        label.text.size(11).color(Vx.neutral400).make(),
+        HStack([
+          label.text.size(11).color(Vx.neutral400).make(),
+          Spacer(),
+          if (labelAction != null) labelAction,
+        ]),
         6.heightBox,
         DecoratedBox(
           decoration: ExDecorator.box(borderRadius: 8, borderColor: AppColor.border, fillColor: AppColor.container.withValues(alpha: .65)),
@@ -101,7 +105,14 @@ mixin HomePanelMetadata {
                 sectionLabel('Basic Info'),
                 inputField(label: 'Video Code', controller: tecVideoCode, placeholder: 'Leave empty for NON-JAV'),
                 inputField(label: 'Title', controller: tecTitle, placeholder: 'Title'),
-                inputField(label: 'Cover URL', controller: tecFanArt, placeholder: 'Paste image URL here...'),
+                inputField(
+                  label: 'Cover URL',
+                  controller: tecFanArt,
+                  placeholder: 'Paste image URL here...',
+                  labelAction: 'Get From JavMost'.text.size(11).minFontSize(10).underline.blue300.make().onInkTap(() {
+                    tecFanArt.text = 'https://img3.javmost.ws/images/480/${HelperMisc.resolveVideoCode(videoPath: video.videoPath)}.webp';
+                  }),
+                ),
 
                 // cast & tags
                 sectionLabel('Cast & Tags'),

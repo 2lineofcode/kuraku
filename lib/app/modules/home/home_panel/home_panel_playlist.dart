@@ -112,7 +112,7 @@ mixin HomePanelPlaylist {
   }
 
   static Future<void> showDialogAddOrEditPlaylist({Collection? playlist}) async {
-    await Overlayment.dismissLast();
+    if (Overlayment.count > 0) await Overlayment.dismissLast();
     final tecName = TextEditingController();
     final fnName = FocusNode();
     final tecCover = TextEditingController();
@@ -122,6 +122,7 @@ mixin HomePanelPlaylist {
       tecCover.text = playlist.cover ?? '';
     }
 
+    final isFavorite = playlist != null && playlist.id == null && playlist.name == 'Favorite';
     fnName.requestFocus();
 
     ExAlert.adaptive(
@@ -133,8 +134,8 @@ mixin HomePanelPlaylist {
           placeholder: 'Name',
           prefix: Icon(CupertinoIcons.tag, size: 16).pOnly(left: 8),
           style: TextStyle(color: Vx.white, fontSize: 12),
-          readOnly: playlist != null,
-        ).disabled(playlist != null).pOnly(bottom: 8),
+          readOnly: isFavorite,
+        ).disabled(isFavorite).pOnly(bottom: 8),
         CupertinoTextField(
           controller: tecCover,
           placeholder: 'Paste image URL here...',
@@ -143,7 +144,7 @@ mixin HomePanelPlaylist {
         ),
       ]),
       actions: [
-        if (playlist != null && playlist.name != 'Favorite') ...[
+        if (playlist != null && !isFavorite) ...[
           CupertinoDialogAction(
             child: Text('Delete', style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () async {
@@ -172,29 +173,30 @@ mixin HomePanelPlaylist {
         CupertinoDialogAction(
           child: Text('Submit', style: TextStyle(fontSize: 13)),
           onPressed: () async {
-            Get.back();
-
-            // Favorite Mode
-            if (playlist?.name == 'Favorite') {
-              AppLog.logD('message: favorite playlist can\'t be edited');
+            if (isFavorite) {
               AppPref.setFavoriteCoverURL(tecCover.text);
+              Get.back();
               return;
             }
 
-            if (playlist == null) {
-              final newPL = Collection(
-                name: tecName.text,
-                cover: tecCover.text,
-                type: kCollectionTypePlaylist,
-              );
-              await DBCollection.addPlaylist(newPL);
-            } else {
-              playlist
-                ..name = tecName.text
-                ..cover = tecCover.text;
-              await DBCollection.updatePlaylist(playlist);
+            final name = tecName.text.trim();
+            if (name.isEmpty || name.toLowerCase() == 'favorite') {
+              await HelperToast.warn(name.isEmpty ? 'Playlist name cannot be empty.' : 'Favorite is reserved for the built-in playlist.');
+              return;
             }
-            await _controller.getAllPlaylist();
+            try {
+              final edited = Collection(id: playlist?.id, name: name, cover: tecCover.text, type: kCollectionTypePlaylist);
+              final saved = playlist == null ? await DBCollection.addPlaylist(edited) : await DBCollection.updatePlaylist(edited);
+              if (!saved) {
+                await HelperToast.warn('Could not save playlist. The name may already be in use or the playlist no longer exists.');
+                return;
+              }
+              Get.back();
+              await _controller.getAllPlaylist();
+            } catch (e) {
+              AppLog.logE('Failed to save playlist: $e');
+              await HelperToast.error('Failed to save playlist. Please try again.');
+            }
           },
         ),
       ],
@@ -208,9 +210,9 @@ mixin HomePanelPlaylist {
       return;
     }
 
-    final playlistNames = allPlaylist.map((e) => e.name ?? '').where((e) => e.isNotEmpty).toList();
-    if (playlistNames.isEmpty) {
-      await HelperToast.warn('Playlist name is empty. Please edit your playlists.');
+    final playlists = allPlaylist.where((e) => e.id?.isNotEmpty == true).toList();
+    if (playlists.isEmpty) {
+      await HelperToast.warn('No valid playlist found. Please create one first.');
       return;
     }
 
@@ -227,18 +229,23 @@ mixin HomePanelPlaylist {
         child: VStack([
           'Select playlist'.text.bold.make().pOnly(bottom: 16),
           ListView.separated(
-            itemCount: playlistNames.length,
+            itemCount: playlists.length,
             separatorBuilder: (context, index) => 12.heightBox,
             itemBuilder: (context, index) {
               return Container(
                 decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                 child: HStack([
-                  '${playlistNames[index]}'.text.make(),
+                  '${playlists[index].name ?? ''}'.text.make(),
                 ]).p12(),
               ).onInkTap(() async {
                 await Overlayment.dismissLast();
-                await DBCollection.addPlaylistItemBulk(playlistNames[index], videos);
-                await HelperToast.success('Added ${videos.length} video(s) to ${playlistNames[index]}');
+                try {
+                  await DBCollection.addPlaylistItemBulk(playlists[index].id!, videos);
+                  await HelperToast.success('Added ${videos.length} video(s) to ${playlists[index].name}');
+                } catch (e) {
+                  AppLog.logE('Failed to add playlist items: $e');
+                  await HelperToast.error('Failed to add videos. Please reopen the playlist and try again.');
+                }
               });
             },
           ).expand(),
@@ -414,7 +421,7 @@ mixin HomePanelPlaylist {
                             await Get.find<PageHomeController>().getListFavorite();
                             _controller.update();
                           } else {
-                            await DBCollection.deletePlaylistItems(_playlistSelected.value.name ?? '', videoId!);
+                            await DBCollection.deletePlaylistItems(_playlistSelected.value.id ?? '', videoId!);
                             _controller.playlist.value = await DBCollection.getAllPlaylist();
                             _refreshDetail();
                           }
@@ -436,7 +443,7 @@ mixin HomePanelPlaylist {
     if (_isFavoriteMode.isTrue) return _buildFavoriteFuture();
 
     _listVideos.clear();
-    final items = await DBCollection.getPlaylist(_playlistSelected.value.name ?? '');
+    final items = await DBCollection.getPlaylist(_playlistSelected.value.id ?? '');
 
     final videos = await Future.wait(
       items.map((e) async {

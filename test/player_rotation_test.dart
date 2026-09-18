@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +31,7 @@ class _NativePlayer implements NativePlayer {
   final commands = <List<String>>[];
   final properties = <String, String>{};
   bool failRotation = false;
+  bool failZoom = false;
 
   @override
   Future<void> command(List<String> command, {bool waitForInitialization = true}) async {
@@ -39,6 +41,7 @@ class _NativePlayer implements NativePlayer {
 
   @override
   Future<void> setProperty(String property, String value, {bool waitForInitialization = true}) async {
+    if (property == 'video-zoom' && failZoom) throw StateError('Zoom failed');
     properties[property] = value;
   }
 
@@ -57,6 +60,46 @@ class _Player implements Player {
 }
 
 void main() {
+  testWidgets('trackpad pinch zooms video, clamps scale and resets without changing playback', (tester) async {
+    Get.put(AppSettingService()..pref = _Preferences());
+    addTearDown(Get.reset);
+    final native = _NativePlayer();
+    final controller = PlayerController()..player = _Player(native);
+    controller.currentVideo.value = Videos(videoCode: '', title: 'Test', videoPath: '');
+    controller.infoAnimationController = AnimationController(vsync: tester);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: PlayerControls(controller: controller, videoState: VideoState()))));
+    await tester.pumpAndSettle();
+    final pointer = TestPointer(1, PointerDeviceKind.trackpad);
+    const center = Offset(400, 250);
+    await tester.sendEventToBinding(pointer.panZoomStart(center));
+    await tester.sendEventToBinding(pointer.panZoomUpdate(center, scale: 1.1));
+    await tester.sendEventToBinding(pointer.panZoomUpdate(center, scale: 2));
+    await tester.sendEventToBinding(pointer.panZoomEnd());
+    await tester.pumpAndSettle();
+    expect(controller.videoZoom.value, 2);
+    expect(double.parse(native.properties['video-zoom']!), closeTo(1, 0.0001));
+    expect(controller.isPlaying.value, isFalse);
+    await tester.tap(find.text('Zoom 200% · Reset'));
+    await tester.pumpAndSettle();
+    expect(controller.videoZoom.value, 1);
+    expect(native.properties['video-zoom'], '0.0');
+
+    await controller.setVideoZoom(20);
+    expect(controller.videoZoom.value, 4);
+    await controller.setVideoZoom(double.nan);
+    expect(controller.videoZoom.value, 4);
+    native.failZoom = true;
+    await controller.setVideoZoom(2);
+    expect(controller.videoZoom.value, 4);
+    native.failZoom = false;
+    await Future.wait([controller.setVideoZoom(3), controller.setVideoZoom(0.5)]);
+    expect(controller.videoZoom.value, 1);
+    expect(native.properties['video-zoom'], '0.0');
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.infoAnimationController.dispose();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('player shortcuts recover from empty scopes and respect active overlays and routes', (tester) async {
     tester.view.physicalSize = const Size(1400, 1200);
     tester.view.devicePixelRatio = 1;

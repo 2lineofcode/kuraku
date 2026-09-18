@@ -40,6 +40,24 @@ mixin AppPref {
   static String getDefaultSearchEngine() => _pref.read(_kDefaultSearchEngine) ?? 'NJAV';
   static void setDefaultSearchEngine(String value) => _pref.write(_kDefaultSearchEngine, value);
 
+  static Map<String, dynamic> getSearchTabs() {
+    final value = _pref.read(_kSearchTabs);
+    return value is Map<String, dynamic> ? value : {};
+  }
+  static Future<void> setSearchTabs(Map<String, dynamic> value) => _pref.write(_kSearchTabs, value);
+
+  static Map<String, dynamic> getExploreTabs() {
+    final value = _pref.read(_kExploreTabs);
+    return value is Map<String, dynamic> ? value : {};
+  }
+  static Future<void> setExploreTabs(Map<String, dynamic> value) => _pref.write(_kExploreTabs, value);
+
+  static Map<String, dynamic> getDownloadTabs() {
+    final value = _pref.read(_kDownloadTabs);
+    return value is Map<String, dynamic> ? value : {};
+  }
+  static Future<void> setDownloadTabs(Map<String, dynamic> value) => _pref.write(_kDownloadTabs, value);
+
   static String getGeminiApiKey() => _pref.read(_kGeminiApiKey) ?? '';
   static void setGeminiApiKey(String value) => _pref.write(_kGeminiApiKey, value.trim());
 
@@ -68,6 +86,17 @@ mixin AppPref {
     return list != null ? List<String>.from(list) : <String>[];
   }
   static void setHomeOrderList(List<String> value) => _pref.write(_kHomeOrderList, value);
+
+  static List<String> getExplorePins() => List<String>.from(_pref.read<List>(_kExplorePins) ?? []);
+  static Future<void> setExplorePins(List<String> value) async {
+    final previous = getExplorePins();
+    try {
+      await _pref.write(_kExplorePins, value);
+    } catch (_) {
+      _pref.writeInMemory(_kExplorePins, previous);
+      rethrow;
+    }
+  }
 
 
   static bool getHomeSecNewRelease() => _pref.read(_kHomeSecNewRelease) ?? true;
@@ -168,6 +197,9 @@ const _kAppMaxColi = '_kAppMaxColi';
 const _kAppCart = '_kAppCart';
 const _kFavoriteCoverURL = '_kFavoriteCoverURL';
 const _kDefaultSearchEngine = '_kDefaultSearchEngine';
+const _kSearchTabs = '_kSearchTabs';
+const _kExploreTabs = '_kExploreTabs';
+const _kDownloadTabs = '_kDownloadTabs';
 const _kGeminiApiKey = '_kGeminiApiKey';
 const _kSemanticSearchModel = '_kSemanticSearchModel';
 
@@ -179,6 +211,7 @@ const _kDownloadWorker = '_kDownloadChunk';
 
 
 const _kHomeOrderList = '_kHomeOrderList';
+const _kExplorePins = '_kExplorePins';
 const _kHomeSecNewRelease = '_kHomeSecNewRelease';
 const _kHomeSecRecommendation = '_kHomeSecRecommendation';
 const _kHomeSecFavorite = '_kHomeSecFavorite';

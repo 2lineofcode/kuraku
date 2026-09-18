@@ -442,7 +442,6 @@ class PageToolsController extends GetxController with StateMixin {
     actresses: (video) => video['actresses'] ?? <String>[],
     categories: (video) => video['categories'] ?? <String>[],
     releaseDate: (video) => video['release_date'] ?? '',
-    categoryMatch: (videoCategories, selected) => videoCategories.toSet().containsAll(selected),
   );
 
   Future<void> _applyFilter() async {

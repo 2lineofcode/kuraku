@@ -574,79 +574,65 @@ mixin HomePanelVideoInfo {
   }
 
   static Future<void> _onItemActressClick(Videos video, int index) async {
+    final newTab = PageExploreController.isNewTabModifierPressed;
     final name = '${video.actress?[index].nameRomaji == '' ? '${video.actress?[index].nameKana}' : '${video.actress?[index].nameRomaji}'}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
-    await exploreC.onMenuChange(kActress);
-    exploreC.tecSearchLeft.text = name;
-    exploreC.onLeftListDoSearch(name);
-    await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
+    await exploreC.openSelection(kActress, name, newTab: newTab);
     await Overlayment.dismissLast();
   }
 
   static Future<void> _onItemCategoryClick(Videos video, int index) async {
+    final newTab = PageExploreController.isNewTabModifierPressed;
     final name = '${video.category?[index].category}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
-    await exploreC.onMenuChange(kCategory);
-    exploreC.tecSearchLeft.text = name;
-    exploreC.onLeftListDoSearch(name);
-    await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
+    await exploreC.openSelection(kCategory, name, newTab: newTab);
     await Overlayment.dismissLast();
   }
 
   static Future<void> _onItemSeriesClick(Videos video) async {
+    final newTab = PageExploreController.isNewTabModifierPressed;
     final name = '${video.series}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
-    await exploreC.onMenuChange(kSeries);
-    exploreC.tecSearchLeft.text = name;
-    exploreC.onLeftListDoSearch(name);
-    await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
+    await exploreC.openSelection(kSeries, name, newTab: newTab);
     await Overlayment.dismissLast();
   }
 
   static Future<void> _onItemLabelClick(Videos video) async {
+    final newTab = PageExploreController.isNewTabModifierPressed;
     final name = '${video.label}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
-    await exploreC.onMenuChange(kLabel);
-    exploreC.tecSearchLeft.text = name;
-    exploreC.onLeftListDoSearch(name);
-    await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
+    await exploreC.openSelection(kLabel, name, newTab: newTab);
     await Overlayment.dismissLast();
   }
 
   static Future<void> _onItemStudioClick(Videos video) async {
+    final newTab = PageExploreController.isNewTabModifierPressed;
     final name = '${video.studio}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
-    await exploreC.onMenuChange(kStudio);
-    exploreC.tecSearchLeft.text = name;
-    exploreC.onLeftListDoSearch(name);
-    await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
+    await exploreC.openSelection(kStudio, name, newTab: newTab);
     await Overlayment.dismissLast();
   }
 
   static Future<void> _onItemDirectorClick(Videos video) async {
+    final newTab = PageExploreController.isNewTabModifierPressed;
     final name = '${video.director}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
-    await exploreC.onMenuChange(kDirector);
-    exploreC.tecSearchLeft.text = name;
-    exploreC.onLeftListDoSearch(name);
-    await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
+    await exploreC.openSelection(kDirector, name, newTab: newTab);
     await Overlayment.dismissLast();
   }
 
   static Future<void> _onItemVideoPathClick(Videos video) async {
+    final newTab = PageExploreController.isNewTabModifierPressed;
     final directory = p.dirname(video.videoPath ?? '');
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
-    await exploreC.onMenuChange(kPath);
-    exploreC.tecSearchLeft.text = directory;
-    exploreC.onLeftListDoSearch(directory);
-    await exploreC.onLeftListTap(exploreC.leftListFiltered[0]);
+    await exploreC.openSelection(kPath, directory, newTab: newTab);
     await Overlayment.dismissLast();
   }
 
