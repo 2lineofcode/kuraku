@@ -179,7 +179,8 @@ class PageToolsView extends GetView<PageToolsController> {
                                 _buildDataCell(
                                   _buildMediaThumbnail(
                                     poster: item.poster ?? '',
-                                    preferVideoPath: true,
+                                    videoPath: videoPath,
+                                    preferVideoPath: false,
                                   ),
                                   flex: 1,
                                 ),
@@ -708,6 +709,7 @@ class PageToolsView extends GetView<PageToolsController> {
           [
             ExThumbnail(
               imageUrl: item['fan_art'] ?? '',
+              videoCode: item['video_code'],
               width: 300,
               height: 200,
             ).wh(300, 200).cornerRadius(8),

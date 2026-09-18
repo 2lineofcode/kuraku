@@ -153,15 +153,16 @@ mixin HomePanelVideoInfo {
                         ),
 
                         // renew metadata
-                        video.videoCode?.isNotBlank ?? false
-                            ? Container(
+                        // video.videoCode?.isNotBlank ?? false
+                        //     ? 
+                            Container(
                                 decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                                 child: IconButton(
                                   icon: Icon(UIconsPro.regularRounded.refresh, size: 14),
                                   onPressed: () => _controller.renewMetadata(video),
                                 ),
-                              ).pOnly(right: 8).tooltip('Renew Metadata')
-                            : 0.heightBox,
+                              ).pOnly(right: 8).tooltip('Renew Metadata'),
+                            // : 0.heightBox,
 
                         Container(
                           decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),

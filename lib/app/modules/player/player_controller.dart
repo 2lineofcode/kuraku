@@ -31,9 +31,7 @@ import '../widgets/widget_thumbnail.dart';
 
 class PlayerController extends GetxController with StateMixin<Videos>, GetSingleTickerProviderStateMixin {
   final count = 0.obs;
-  final fnMain = FocusNode();
   final focusSignal = 0.obs;
-  final videoKey = GlobalKey<VideoState>();
 
   late final Player player;
   late final VideoController videoController;
@@ -105,11 +103,17 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
   List<Videos>? _externalPlaylist;
   static const _supportedDropVideoExtensions = {'mp4', 'mkv', 'avi', 'mov'};
+  Future<void>? _playerInitialization;
 
   @override
-  Future<void> onInit() async {
+  void onInit() {
     super.onInit();
 
+    infoAnimationController = AnimationController(vsync: this, duration: 1.seconds, reverseDuration: 200.milliseconds);
+    change(currentVideo.value, status: RxStatus.loading());
+  }
+
+  Future<void> _initializePlayer() async {
     player = Player(
       configuration: PlayerConfiguration(
         vo: 'libmpv',
@@ -152,11 +156,9 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
         hwdec: 'auto-safe',
       ),
     );
-    infoAnimationController = AnimationController(vsync: this, duration: 1.seconds, reverseDuration: 200.milliseconds);
 
     _bindPlayerStreams();
     await applyAudioNormalization(enabled: isAudioNormalizationEnabled.value, persist: false);
-    change(currentVideo.value, status: RxStatus.loading());
   }
 
   Future<bool> startPlayback(Videos video, {List<Videos>? playlist}) async {
@@ -184,6 +186,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       return false;
     }
 
+    await (_playerInitialization ??= _initializePlayer());
     _externalPlaylist = playlist;
     currentVideo.value = video;
     _sessionWatchDuration = Duration.zero;
@@ -354,7 +357,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     return Videos(
       id: UuidV4().generate(),
       videoPath: decodedPath,
-      videoCode: decodedPath.getVideoCode(),
+      videoCode: decodedPath.getFileName().getVideoCode(),
       title: cleanTitle,
       viewCount: 0,
       filesize: await file.length(),
@@ -625,6 +628,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   Future<void> openList() async {
     if (Overlayment.count > 0) {
       await Overlayment.dismissLast();
+      requestFocusOnPlayer();
       return;
     }
 
@@ -860,13 +864,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     await changeVideo(playlist[currentIndexPlaying.value]);
   }
 
-  Future<void> toggleFullscreen() async {
-    final state = videoKey.currentState;
-    if (state == null) {
-      AppLog.logD('toggleFullscreen: videoKey.currentState is null');
-      return;
-    }
-
+  Future<void> toggleFullscreen(VideoState state) async {
     final isCurrentlyFullScreen = state.isFullscreen();
     AppLog.logD('toggleFullscreen: currently fullscreen = $isCurrentlyFullScreen');
 
@@ -883,35 +881,36 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
       // Force app update for fullscreen transition per GetX requirements
       await Get.forceAppUpdate();
-
-      // Wait for widget tree rebuild and focus restoration
-      // The fullscreenSubscription in media_kit_controls will handle focus
-      await Future.delayed(10.milliseconds);
     } catch (e) {
       AppLog.logD('toggleFullscreen error: $e');
+    } finally {
+      requestFocusOnPlayer();
     }
   }
 
   Future<void> openSS() async {
-    await HelperOpener.openScreenshot(currentVideo.value);
+    try {
+      await HelperOpener.openScreenshot(currentVideo.value);
+    } finally {
+      requestFocusOnPlayer();
+    }
   }
 
   @override
   Future<void> onClose() async {
     await _persistWatchDuration();
-    for (final subscription in _subscriptions) {
-      await subscription.cancel();
+    if (_playerInitialization != null) {
+      await _playerInitialization;
+      for (final subscription in _subscriptions) {
+        await subscription.cancel();
+      }
+      await player.dispose();
     }
-    await player.dispose();
     infoAnimationController.dispose();
-    fnMain.dispose();
     super.onClose();
   }
 
   void requestFocusOnPlayer() {
     focusSignal.value++;
-    if (!fnMain.hasFocus) {
-      fnMain.requestFocus();
-    }
   }
 }

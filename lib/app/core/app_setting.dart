@@ -28,19 +28,18 @@ class AppSettingService extends GetxService {
   late String appPath;
   late GetSecureStorage pref;
 
-  @override
-  Future<void> onReady() async {
-    super.onReady();
-    await getApplicationDocumentsDirectory().then((s) {
-      appPath = join(s.path, Env.appName);
-      pref = GetSecureStorage(container: Env.appName.toLowerCase(), password: Env.appName, path: appPath);
-    });
+  Future<AppSettingService> init() async {
+    final directory = await getApplicationDocumentsDirectory();
+    appPath = join(directory.path, Env.appName);
+    pref = GetSecureStorage(container: Env.appName.toLowerCase(), password: Env.appName, path: appPath);
+    await pref.initStorage;
 
 
     await setupDesktop();
     await exposeExternalFiles();
     await setupAppPref();
     await setupHotkey();
+    return this;
   }
 
   // ────────────────────────────────────────────────────────────────

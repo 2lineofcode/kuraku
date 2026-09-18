@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
 
-import '../../../../env.g.dart';
 import '../../../core/app_logging.dart';
 import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_loading.dart';
+import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
 import '../../../utils/semantic_search_service.dart';
@@ -65,9 +65,13 @@ class PageSearchController extends GetxController {
   Future<void> renewMetadata(Videos videos) async {
     await Overlayment.dismissLast();
     HelperLoading.show();
-    await ApiJavit.getMetadata(code: videos.videoCode ?? '').then((resp) {
+
+    final vidCode = HelperMisc.resolveVideoCode(videoCode: videos.videoCode, videoPath: videos.videoPath, title: videos.title);
+
+    await ApiJavit.getMetadata(code: vidCode).then((resp) async {
       HelperLoading.dismiss();
       final newVideos = videos;
+      newVideos.videoCode = HelperMisc.resolveVideoCode(videoCode: resp.videoCode, title: vidCode);
       newVideos.title = resp.title;
       newVideos.titleJa = resp.titleJa;
 
@@ -76,9 +80,6 @@ class PageSearchController extends GetxController {
       newVideos.poster = resp.poster?.replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '') ?? '';
       newVideos.trailer = resp.trailer;
       newVideos.site = 'R18';
-
-      // fix fantart
-      newVideos.fanArt = '${Env.apiUrl}/api?image=https://img3.javmost.com/images/480/${videos.videoCode}.webp';
 
       // ** only apply if actress is null
       if (videos.actress.isEmptyOrNull) {
@@ -122,11 +123,12 @@ class PageSearchController extends GetxController {
         }
       }
 
-      DBVideos.update(newVideos);
-      HelperToast.success('${newVideos.videoCode} metadata updated');
+      await DBVideos.update(newVideos);
+      await HelperToast.success('${newVideos.videoCode} metadata updated');
     }).catchError((e) {
       HelperLoading.dismiss();
       HelperToast.error(e.toString());
+      logE('renewMetadata error: $e');
     });
   }
 

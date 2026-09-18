@@ -27,7 +27,7 @@ mixin AppNotification {
     );
 
     await _plugin.initialize(
-      initializationSettings,
+      settings: initializationSettings,
       onDidReceiveNotificationResponse: (response) => _onNotificationTap?.call(response.payload),
     );
   }
@@ -52,10 +52,10 @@ mixin AppNotification {
     );
 
     await _plugin.show(
-      ExRandom.between(100000, 10000000),
-      model.title,
-      model.body,
-      notificationDetails,
+      id: ExRandom.between(100000, 10000000),
+      title: model.title,
+      body: model.body,
+      notificationDetails: notificationDetails,
       payload: model.payload,
     );
   }

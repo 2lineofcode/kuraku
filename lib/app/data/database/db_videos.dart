@@ -93,6 +93,21 @@ mixin DBVideos {
     await _db.update(_tableName, videos.toJson(), where: 'id = ?', whereArgs: [videos.id]);
   }
 
+  static Future<int> recoverMissingVideoCodes(String rootPath) async {
+    if (rootPath.isEmpty) return 0;
+    return _db.transaction((txn) async {
+      const missingCode = "(video_code IS NULL OR TRIM(video_code) = '')";
+      final rows = await txn.query(_tableName, columns: ['id', 'video_path'], where: 'root_path = ? AND $missingCode', whereArgs: [rootPath]);
+      var recovered = 0;
+      for (final row in rows) {
+        final code = (row['video_path'] as String? ?? '').getFileName().getVideoCode();
+        if (!code.isValidVideoCode()) continue;
+        recovered += await txn.update(_tableName, {'video_code': code}, where: 'id = ? AND $missingCode', whereArgs: [row['id']]);
+      }
+      return recovered;
+    });
+  }
+
   static Future<void> delete(Videos videos) async {
     await _db.delete(_tableName, where: 'id = ?', whereArgs: [videos.id]);
   }

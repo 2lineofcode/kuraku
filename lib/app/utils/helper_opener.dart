@@ -101,7 +101,7 @@ mixin HelperOpener {
 
     String _getRawCode(dynamic source) {
       if (source is JavitSearchResult) return source.videoCode ?? '';
-      if (source is Videos) return source.videoCode ?? '';
+      if (source is Videos) return HelperMisc.resolveVideoCode(videoCode: source.videoCode, videoPath: source.videoPath, title: source.title);
       if (source is Map<String, dynamic>) return source['video_code']?.toString() ?? '';
       return '';
     }
@@ -458,7 +458,7 @@ mixin HelperOpener {
 
     // ** -> from library
     else if (item is Videos) {
-      final fixCode = item.videoCode?.getVideoCode() ?? '';
+      final fixCode = HelperMisc.resolveVideoCode(videoCode: item.videoCode, videoPath: item.videoPath, title: item.title);
       dataVideo = await DBR18.getVideo(fixCode);
     }
 
@@ -625,7 +625,7 @@ mixin HelperOpener {
 
     // ** -> from library
     else if (item is Videos) {
-      final fixCode = item.videoCode?.getVideoCode() ?? '';
+      final fixCode = HelperMisc.resolveVideoCode(videoCode: item.videoCode, videoPath: item.videoPath, title: item.title);
       dataVideo = await DBR18.getVideo(fixCode);
     }
 

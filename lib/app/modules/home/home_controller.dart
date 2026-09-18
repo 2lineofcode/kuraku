@@ -574,7 +574,7 @@ class HomeController extends GetxController with StateMixin {
     return Videos(
       id: UuidV4().generate(),
       videoPath: decodedPath,
-      videoCode: decodedPath.getVideoCode(),
+      videoCode: decodedPath.getFileName().getVideoCode(),
       title: cleanTitle,
       viewCount: 0,
       filesize: await file.length(),

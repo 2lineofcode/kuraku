@@ -52,11 +52,7 @@ Future<void> main() async {
   await hotKeyManager.unregisterAll();
 
   /// makesure `AppSettingService` already initialized
-  await Get.putAsync(() async {
-    final service = AppSettingService();
-    await service.onReady();
-    return service;
-  }, permanent: true);
+  await Get.putAsync(() => AppSettingService().init(), permanent: true);
 
   // makesure `DBService` already initialized
   await Get.putAsync(() async {

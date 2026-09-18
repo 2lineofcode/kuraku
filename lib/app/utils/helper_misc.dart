@@ -13,6 +13,14 @@ import 'helper_toast.dart';
 
 mixin HelperMisc {
 
+  static String resolveVideoCode({String? videoCode, String? videoPath, String? title}) {
+    for (final source in [videoCode ?? '', (videoPath ?? '').getFileName(), title ?? '']) {
+      final code = source.getVideoCode();
+      if (code.isValidVideoCode()) return code;
+    }
+    return '';
+  }
+
   static String durationFormatDB(num durationInMinutes) {
     if (durationInMinutes < 0) {
       return 'Invalid duration';
@@ -204,26 +212,16 @@ mixin HelperMisc {
 // ⵌ private class
 // ────────────────────────────────────────────────────────────────
 mixin _JavitExtension {
+  static const _videoCodePattern = r'([A-Za-z]{2,})-([A-Za-z]*[0-9]{2,5})(?![0-9])';
+  static final _videoCodeExpression = RegExp(_videoCodePattern);
+  static final _validVideoCodeExpression = RegExp('^$_videoCodePattern' r'(?:-[A-Za-z0-9]+)?$');
+
   static String __getVideoCode(String fileName) {
-    final List<RegExp> expressions = [
-      RegExp(r'([A-Za-z]{2,})-([0-9]{2,})(?:-[A-Za-z0-9]+)?'),
-    ];
-    final matches = expressions.map((exp) => exp.firstMatch(fileName)).toList();
-    final match = matches.firstWhere((m) => m != null, orElse: () => null);
-    return match != null ? '${match.group(1)?.toUpperCase()}-${match.group(2)}' : '';
+    final match = _videoCodeExpression.firstMatch(fileName);
+    return match?.group(0)?.toUpperCase() ?? '';
   }
 
-  static bool __isValidVideoCode(String code) {
-    if (code.trim().isEmpty) return false;
-
-    final match = RegExp(r'^([A-Za-z]{2,})-([0-9]{2,})(?:-[A-Za-z0-9]+)?$').firstMatch(code);
-    if (match == null) return false;
-
-    final number = match.group(2)!;
-    if (number.length > 5) return false;
-
-    return true;
-  }
+  static bool __isValidVideoCode(String code) => _validVideoCodeExpression.hasMatch(code);
 
   static String __getLastSegments(String path, {int n = 4}) {
     if (path.isEmpty) return '';
@@ -234,7 +232,7 @@ mixin _JavitExtension {
   }
 
   static bool __isHasEnSub(String filepath) {
-    final filename = filepath.toLowerCase();
+    final filename = filepath.getFileName().toLowerCase();
     if (filename.getVideoCode() == '') return false;
 
     final detect = ['-en', '-sub'];
@@ -243,7 +241,7 @@ mixin _JavitExtension {
   }
 
   static bool __isHasIdSub(String filepath) {
-    final filename = filepath.toLowerCase();
+    final filename = filepath.getFileName().toLowerCase();
     if (filename.getVideoCode() == '') return false;
 
     final detect = ['-id', 'indo'];
@@ -252,7 +250,7 @@ mixin _JavitExtension {
   }
 
   static bool __isHasUncensored(String filepath) {
-    final filename = filepath.toLowerCase();
+    final filename = filepath.getFileName().toLowerCase();
     if (filename.getVideoCode() == '') return false;
 
     final detect = ['-un', '-rm', 'reducing mosaic'];
@@ -274,10 +272,13 @@ extension JavitExtString on String {
 
   // ---
   String genImageUrl() {
-    if (startsWith('http')) return this;
+    var output = trim();
+    if (output.isEmpty) return '';
+    final uri = Uri.tryParse(output);
+    if (uri?.scheme == 'http' || uri?.scheme == 'https') return output;
 
-    var output = this;
-    if (endsWith('ps')) output = replaceFirst('ps', 'pl');
+    if (output.endsWith('.jpg')) output = output.substring(0, output.length - 4);
+    if (output.endsWith('ps')) output = '${output.substring(0, output.length - 2)}pl';
     return '${Env.imgUrl}https://pics.dmm.co.jp/$output.jpg';
   }
 

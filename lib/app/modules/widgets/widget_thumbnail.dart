@@ -450,8 +450,8 @@ class _ExThumbnailState extends State<ExThumbnail> {
   }
 
   String _deriveVideoCode() {
-    final fromWidget = (widget.videoCode ?? '').trim();
-    if (fromWidget.isNotEmpty) return fromWidget.getVideoCode();
+    final fromWidget = HelperMisc.resolveVideoCode(videoCode: widget.videoCode, videoPath: widget.videoPath);
+    if (fromWidget.isNotEmpty) return fromWidget;
 
     final fromImage = (widget.imageUrl ?? '').trim();
     if (fromImage.isEmpty) return '';
@@ -470,7 +470,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
   }
 
   Future<void> _refreshMetadata(Videos video) async {
-    final code = (video.videoCode ?? '').trim();
+    final code = HelperMisc.resolveVideoCode(videoCode: video.videoCode, videoPath: video.videoPath, title: video.title);
     if (!code.isValidVideoCode()) {
       await HelperToast.warn('Video code not valid');
       return;
@@ -480,6 +480,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
     try {
       final resp = await ApiJavit.getMetadata(code: code);
       final newVideo = video;
+      newVideo.videoCode = HelperMisc.resolveVideoCode(videoCode: resp.videoCode, title: code);
 
       newVideo.title = resp.title;
       newVideo.titleJa = resp.titleJa;
@@ -488,7 +489,6 @@ class _ExThumbnailState extends State<ExThumbnail> {
       newVideo.poster = resp.poster?.replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '') ?? '';
       newVideo.trailer = resp.trailer;
       newVideo.site = 'R18';
-      newVideo.fanArt = '${Env.apiUrl}/api?image=https://img3.javmost.com/images/480/$code.webp';
 
       if (video.actress.isEmptyOrNull && !resp.actress.isEmptyOrNull) {
         newVideo.actress = <VideoActress>[];
@@ -667,7 +667,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
   Widget build(BuildContext context) {
     final cacheWidth = (widget.width * MediaQuery.devicePixelRatioOf(context)).round();
     Widget child;
-    if (widget.imageUrl == null || widget.imageUrl == '') {
+    if ((widget.imageUrl ?? '').trim().isEmpty) {
       child = FutureBuilder<Uint8List?>(
         future: controller.getThumbnail(widget.videoPath ?? '', position: widget.position),
         builder: (context, snap) {
@@ -695,10 +695,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
         },
       );
     } else {
-      var fixImageUrl = widget.imageUrl!;
-      if (widget.imageUrl!.endsWith('ps.jpg')) {
-        fixImageUrl = widget.imageUrl!.replaceAll('ps.jpg', 'pl.jpg');
-      }
+      final fixImageUrl = widget.imageUrl!.trim();
 
       final double fastImageRenderWidth = widget.width * (widget.prefix ?? 1);
       child = OverflowBox(
@@ -830,8 +827,8 @@ class _ExThumbnailState extends State<ExThumbnail> {
 
     if (widget.quickPreview == false) return content;
     return MouseRegion(
-      onEnter: (_) => _startQuickPreview(),
-      onExit: (_) => _stopQuickPreview(),
+      // onEnter: (_) => _startQuickPreview(),
+      // onExit: (_) => _stopQuickPreview(),
       child: content,
     );
   }

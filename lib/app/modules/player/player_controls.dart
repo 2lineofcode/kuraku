@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
+import 'package:overlayment/overlayment.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../core/app_color.dart';
@@ -18,18 +20,21 @@ class PlayerControls extends StatefulWidget {
   const PlayerControls({
     super.key,
     required this.controller,
+    required this.videoState,
     this.showTitle = true,
   });
 
   final PlayerController controller;
+  final VideoState videoState;
   final bool showTitle;
 
   @override
   State<PlayerControls> createState() => _PlayerControlsState();
 }
 
-class _PlayerControlsState extends State<PlayerControls> with SingleTickerProviderStateMixin {
+class _PlayerControlsState extends State<PlayerControls> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final FocusNode _focusNode = FocusNode();
+  bool _focusRestorePending = false;
   final Duration _autoHideDuration = 2.seconds;
 
   Timer? _hideTimer;
@@ -51,9 +56,9 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
   late final StreamSubscription<bool> _playingSubscription;
   late final StreamSubscription<int> _focusSubscription;
-  StreamSubscription<bool>? _fullscreenSubscription;
 
-  bool _showVideoAdjustments = false;
+  OverPanel? _adjustmentsPanel;
+  StateSetter? _rebuildAdjustments;
   double _brightness = 0;
   double _contrast = 0;
   double _saturation = 0;
@@ -76,6 +81,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    FocusManager.instance.addListener(_onFocusChanged);
     _infoAnimationController = AnimationController(
       vsync: this,
       duration: 200.milliseconds,
@@ -89,48 +96,47 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       }
     });
     _focusSubscription = widget.controller.focusSignal.listen((_) {
-      if (mounted) {
-        _focusNode.requestFocus();
-      }
+      _restoreFocus();
     });
-    
-    // Listen to fullscreen changes and restore focus
-    _fullscreenSubscription = widget.controller.isFullScreen.listen((isFullscreen) {
-      // Multiple attempts to ensure focus is restored
-      Future.delayed(100.milliseconds, () {
-        if (mounted) {
-          _focusNode.requestFocus();
-          _showControls(permanent: true);
-        }
-      });
-      
-      Future.delayed(250.milliseconds, () {
-        if (mounted) {
-          _focusNode.requestFocus();
-        }
-      });
-      
-      Future.delayed(400.milliseconds, () {
-        if (mounted && !_focusNode.hasFocus) {
-          _focusNode.requestFocus();
-        }
-      });
-    });
-    
+
+    _restoreFocus();
+  }
+
+  void _restoreFocus({bool onlyIfScope = false}) {
+    if (!mounted || _focusRestorePending) return;
+    _focusRestorePending = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _focusNode.requestFocus();
-      }
+      _focusRestorePending = false;
+      if (!mounted || Overlayment.count > 0 || ModalRoute.of(context)?.isCurrent == false) return;
+      if (onlyIfScope && FocusManager.instance.primaryFocus is! FocusScopeNode) return;
+      if (!_focusNode.hasFocus) _focusNode.requestFocus();
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  void _onFocusChanged() {
+    // Recover an empty scope without stealing focus from inputs or dialogs.
+    if (FocusManager.instance.primaryFocus is FocusScopeNode) _restoreFocus(onlyIfScope: true);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _onFocusChanged();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    FocusManager.instance.removeListener(_onFocusChanged);
+    final panel = _adjustmentsPanel;
+    _rebuildAdjustments = null;
+    if (panel != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => Overlayment.dismiss(panel));
+    }
     _hideTimer?.cancel();
     _infoTimer?.cancel();
     _playingSubscription.cancel();
     _focusSubscription.cancel();
-    _fullscreenSubscription?.cancel();
     _infoAnimationController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -160,10 +166,10 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       
       // Other
       LogicalKeySet(LogicalKeyboardKey.keyM): MuteIntent(),
-      LogicalKeySet(LogicalKeyboardKey.keyF): ToggleFullscreenIntent(),
       LogicalKeySet(LogicalKeyboardKey.equal): EqualTapIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyA): ToggleVideoFitIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyP): MiniPlayerIntent(),
+      LogicalKeySet(LogicalKeyboardKey.comma): ToggleVideoAdjustmentsIntent(),
       
       // Navigation shortcuts from player_view
       LogicalKeySet(LogicalKeyboardKey.keyL): OpenListIntent(),
@@ -187,9 +193,9 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       SpeedUpIntent: CallbackAction<SpeedUpIntent>( onInvoke: (intent) { _changeSpeed(0.1); return null; }, ),
       SpeedDownIntent: CallbackAction<SpeedDownIntent>( onInvoke: (intent) { _changeSpeed(-0.1); return null; }, ),
       MuteIntent: CallbackAction<MuteIntent>( onInvoke: (intent) { _toggleMute(); return null; }, ),
-      ToggleFullscreenIntent: CallbackAction<ToggleFullscreenIntent>( onInvoke: (intent) { _toggleFullscreen(); return null; }, ),
       EqualTapIntent: CallbackAction<EqualTapIntent>( onInvoke: (intent) { _handleEqualPress(); return null; }, ),
       ToggleVideoFitIntent: CallbackAction<ToggleVideoFitIntent>( onInvoke: (intent) => widget.controller.toggleVideoFit() ),
+      ToggleVideoAdjustmentsIntent: CallbackAction<ToggleVideoAdjustmentsIntent>( onInvoke: (intent) { _toggleVideoAdjustments(); return null; }, ),
       OpenListIntent: CallbackAction<OpenListIntent>( onInvoke: (intent) { widget.controller.openList(); return null; }, ),
       MiniPlayerIntent: CallbackAction<MiniPlayerIntent>( onInvoke: (intent) { widget.controller.enterMiniMode(); Get.back(); return null; }, ),
       BackIntent: CallbackAction<BackIntent>(onInvoke: (intent) { widget.controller.stopPlayback(); Get.back(); return null; }),
@@ -214,15 +220,12 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTap: _onUserInteraction,
-                onDoubleTap: () async => await _toggleFullscreen(),
                 child: Stack(
                   children: [
                     _buildCenterOverlay(),
                     
                     // ** Top Bar
                     _buildTopBar(),
-
-                    if (_showVideoAdjustments) _buildVideoAdjustmentsPopup(),
 
                     // ** Bottom Bar
                     Positioned(
@@ -270,22 +273,6 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     return Obx(() {
       if (widget.controller.isBuffering.value && widget.controller.isInitialized.value) {
         return Center(child: CircularProgressIndicator.adaptive());
-      }
-
-      if (!widget.controller.isPlaying.value) {
-        return Center(
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.black54,
-              borderRadius: BorderRadius.circular(48),
-            ),
-            child: IconButton(
-              iconSize: 56,
-              icon: Icon(Icons.play_arrow, color: Colors.white),
-              onPressed: _togglePlayPause,
-            ),
-          ),
-        );
       }
 
       return SizedBox.shrink();
@@ -844,29 +831,75 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     );
   }
 
+  Future<void> _toggleVideoAdjustments() async {
+    final panel = _adjustmentsPanel;
+    if (panel != null) {
+      await Overlayment.dismiss(panel);
+      return;
+    }
+    if (Overlayment.count > 0) {
+      await Overlayment.dismissLast();
+      return;
+    }
+    final panelFocus = FocusNode();
+    _adjustmentsPanel = OverPanel(
+      alignment: Alignment.centerRight,
+      width: 300,
+      color: Colors.black12,
+      animation: OverSlideAnimation(
+        beginAlignment: Alignment.centerRight,
+        reverseDurationMilliseconds: 100,
+        durationMilliseconds: 400,
+      ),
+      actions: OverlayActions(
+        onReady: () async {
+          if (mounted) panelFocus.requestFocus();
+        },
+        onClose: (_) async {
+          _adjustmentsPanel = null;
+          _rebuildAdjustments = null;
+          _restoreFocus();
+        },
+      ),
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.comma): _toggleVideoAdjustments,
+          const SingleActivator(LogicalKeyboardKey.escape): _toggleVideoAdjustments,
+        },
+        child: Focus(
+          focusNode: panelFocus,
+          autofocus: true,
+          child: StatefulBuilder(builder: (context, update) {
+            _rebuildAdjustments = update;
+            return _buildVideoAdjustmentsPopup();
+          }),
+        ),
+      ),
+    );
+    WidgetsBinding.instance.scheduleFrame();
+    await Overlayment.show(_adjustmentsPanel!, context: context);
+    panelFocus.dispose();
+  }
+
+  void _setAdjustmentState(VoidCallback update) {
+    if (!mounted) return;
+    update();
+    _rebuildAdjustments?.call(() {});
+  }
+
   Widget _buildSettingsButton() {
     return IconButton(
-      tooltip: 'Video Adjustments',
+      tooltip: 'Video Adjustments (,)',
       splashRadius: 24,
       icon: Icon(Icons.settings, color: Colors.white),
-      onPressed: () {
-        setState(() => _showVideoAdjustments = !_showVideoAdjustments);
-      },
+      onPressed: _toggleVideoAdjustments,
     );
   }
 
   Widget _buildVideoAdjustmentsPopup() {
-    return Positioned(
-      right: 16,
-      top: 80,
-      child: Container(
-        width: 260,
+    return SingleChildScrollView(
+      child: Padding(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.black.withAlpha(125),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white24, width: 1),
-        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -890,7 +923,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white, size: 18),
                   tooltip: 'Close',
-                  onPressed: () => setState(() => _showVideoAdjustments = false),
+                  onPressed: _toggleVideoAdjustments,
                 ),
 
               ],
@@ -913,7 +946,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
             ),
             const SizedBox(height: 16),
             _buildAdjustmentSlider('Brightness', _brightness, -100, 100, (v) async {
-              setState(() {
+              _setAdjustmentState(() {
                 _brightness = v;
                 _activeAdjustmentPreset = 'Custom';
               });
@@ -921,7 +954,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               if (p is NativePlayer) await p.setProperty('brightness', v.toStringAsFixed(0));
             }),
             _buildAdjustmentSlider('Contrast', _contrast, -100, 100, (v) async {
-              setState(() {
+              _setAdjustmentState(() {
                 _contrast = v;
                 _activeAdjustmentPreset = 'Custom';
               });
@@ -929,7 +962,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               if (p is NativePlayer) await p.setProperty('contrast', v.toStringAsFixed(0));
             }),
             _buildAdjustmentSlider('Saturation', _saturation, -100, 100, (v) async {
-              setState(() {
+              _setAdjustmentState(() {
                 _saturation = v;
                 _activeAdjustmentPreset = 'Custom';
               });
@@ -937,7 +970,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               if (p is NativePlayer) await p.setProperty('saturation', v.toStringAsFixed(0));
             }),
             _buildAdjustmentSlider('Hue', _hue, -180, 180, (v) async {
-              setState(() {
+              _setAdjustmentState(() {
                 _hue = v;
                 _activeAdjustmentPreset = 'Custom';
               });
@@ -945,7 +978,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               if (p is NativePlayer) await p.setProperty('hue', v.toStringAsFixed(0));
             }),
             _buildAdjustmentSlider('Gamma', _gamma, -100, 100, (v) async {
-              setState(() {
+              _setAdjustmentState(() {
                 _gamma = v;
                 _activeAdjustmentPreset = 'Custom';
               });
@@ -972,8 +1005,23 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                   },
                 ),
               ),
-              'Audio Normalization'.text.white.size(12).make().pOnly(left: 8),
+              'Audio Normalization'.text.white.size(12).make().pOnly(left: 8).expand(),
             ]),
+            Row(
+              children: [
+                const Text('Rotation', style: TextStyle(color: Colors.white, fontSize: 12)).expand(),
+                IconButton(
+                  tooltip: 'Rotate left 90°',
+                  icon: const Icon(Icons.rotate_left, color: Colors.white, size: 18),
+                  onPressed: () => _rotateVideo(clockwise: false),
+                ),
+                IconButton(
+                  tooltip: 'Rotate right 90°',
+                  icon: const Icon(Icons.rotate_right, color: Colors.white, size: 18),
+                  onPressed: () => _rotateVideo(clockwise: true),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -1034,7 +1082,23 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     );
   }
 
+  Future<void> _rotateVideo({required bool clockwise}) async {
+    final p = widget.controller.player.platform;
+    if (p is! NativePlayer) {
+      _showInfo('Video rotation unsupported');
+      return;
+    }
+    try {
+      await p.command(['cycle-values', 'video-rotate', ...(clockwise ? ['0', '90', '180', '270'] : ['0', '270', '180', '90'])]);
+    } catch (_) {
+      if (mounted) _showInfo('Failed to rotate video');
+    }
+  }
+
   Future<void> _resetVideoAdjustments() async {
+    final p = widget.controller.player.platform;
+    if (p is NativePlayer) await p.setProperty('video-rotate', '0');
+    if (!mounted) return;
     await _applyVideoAdjustments(
       brightness: 0,
       contrast: 0,
@@ -1055,7 +1119,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       'gamma': _gamma,
     });
     if (!_hasSavedCustomPreset) {
-      setState(() => _hasSavedCustomPreset = true);
+      _setAdjustmentState(() => _hasSavedCustomPreset = true);
     }
     _showInfo('Custom preset saved');
   }
@@ -1199,7 +1263,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     required double gamma,
     required String presetName,
   }) async {
-    setState(() {
+    _setAdjustmentState(() {
       _brightness = brightness;
       _contrast = contrast;
       _saturation = saturation;
@@ -1230,7 +1294,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       ),
       onPressed: () async {
         _cancelHideTimer();
-        await widget.controller.toggleFullscreen();
+        await widget.controller.toggleFullscreen(widget.videoState);
         _startHideTimer();
       },
     );
@@ -1238,12 +1302,6 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
   void _onUserInteraction() {
     _showControls();
-    // Ensure focus stays on controls for shortcuts to work
-    if (mounted && !_focusNode.hasFocus) {
-      _focusNode.requestFocus();
-    }
-
-    setState(() => _showVideoAdjustments = false);
   }
 
   void _onPointerActivity() {
@@ -1263,6 +1321,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   }
 
   void _showControls({bool permanent = false}) {
+    if (!mounted) return;
     if (!_controlsVisible) {
       setState(() => _controlsVisible = true);
     }
@@ -1270,10 +1329,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     if (!permanent && widget.controller.isPlaying.value) {
       _startHideTimer();
     }
-    // Ensure focus is on controls when showing
-    if (mounted && !_focusNode.hasFocus) {
-      _focusNode.requestFocus();
-    }
+    _restoreFocus();
   }
 
   Future<void> _togglePlayPause() async {
@@ -1334,12 +1390,13 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     try {
       _cancelHideTimer();
       final willBeFullscreen = !widget.controller.isFullScreen.value;
-      await widget.controller.toggleFullscreen();
+      await widget.controller.toggleFullscreen(widget.videoState);
       _showInfo(willBeFullscreen ? 'Fullscreen' : 'Windowed');
     } catch (_) {}
   }
 
   void _showInfo(String text) {
+    if (!mounted) return;
     _infoTimer?.cancel();
     setState(() => _infoText = text);
     _infoAnimationController.forward(from: 0);
@@ -1373,9 +1430,9 @@ class VolumeDownIntent extends Intent { const VolumeDownIntent(); }
 class SpeedUpIntent extends Intent { const SpeedUpIntent(); }
 class SpeedDownIntent extends Intent { const SpeedDownIntent(); }
 class MuteIntent extends Intent { const MuteIntent(); }
-class ToggleFullscreenIntent extends Intent { const ToggleFullscreenIntent(); }
 class EqualTapIntent extends Intent { const EqualTapIntent(); }
 class ToggleVideoFitIntent extends Intent { const ToggleVideoFitIntent(); }
+class ToggleVideoAdjustmentsIntent extends Intent { const ToggleVideoAdjustmentsIntent(); }
 class OpenListIntent extends Intent { const OpenListIntent(); }
 class BackIntent extends Intent { const BackIntent(); }
 class OpenScreenshotIntent extends Intent { const OpenScreenshotIntent(); }

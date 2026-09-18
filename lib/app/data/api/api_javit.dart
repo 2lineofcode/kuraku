@@ -11,9 +11,11 @@ const kProviderNJav = 'njav';
 mixin ApiJavit {
   
   static Future<JavitMetadata> getMetadata({required String code}) async {
+    code = code.trim().toUpperCase();
     if (code.isValidVideoCode() == false) {
       throw Exception('Invalid video code for $code');
     }
+    code = code.getVideoCode();
 
     try {
       final res = await Api.get('/api/$kProviderR18/bycode?code=$code');

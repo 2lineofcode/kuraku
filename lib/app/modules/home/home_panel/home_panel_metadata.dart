@@ -42,6 +42,7 @@ mixin HomePanelMetadata {
       ]).pOnly(bottom: 12);
     }
 
+    final tecVideoCode = TextEditingController(text: video.videoCode ?? '');
     final tecTitle = TextEditingController(text: video.title ?? '');
     final tecFanArt = TextEditingController(text: video.fanArt ?? '');
     final tecReleaseDate = TextEditingController(text: video.releaseDate ?? '');
@@ -98,6 +99,7 @@ mixin HomePanelMetadata {
 
                 // basic info
                 sectionLabel('Basic Info'),
+                inputField(label: 'Video Code', controller: tecVideoCode, placeholder: 'Leave empty for NON-JAV'),
                 inputField(label: 'Title', controller: tecTitle, placeholder: 'Title'),
                 inputField(label: 'Cover URL', controller: tecFanArt, placeholder: 'Paste image URL here...'),
 
@@ -237,9 +239,15 @@ mixin HomePanelMetadata {
                       label: 'Submit',
                       color: Get.context!.accentColor,
                       onTap: () {
+                        final videoCode = tecVideoCode.text.trim().toUpperCase();
+                        if (videoCode.isNotEmpty && !videoCode.isValidVideoCode()) {
+                          HelperToast.warn('Video code not valid');
+                          return;
+                        }
                         final edited = video;
+                        edited.videoCode = videoCode.getVideoCode();
                         edited.title = tecTitle.text;
-                        edited.fanArt = tecFanArt.text;
+                        edited.fanArt = tecFanArt.text.trim();
                         edited.releaseDate = tecReleaseDate.text;
                         edited.duration = tecDuration.text.toNum();
                         edited.studio = tecStudio.text;
@@ -264,6 +272,7 @@ mixin HomePanelMetadata {
   static Future<void> _submit(Videos video) async {
     await DBVideos.update(video);
     await Overlayment.dismissLast();
+    await Get.forceAppUpdate();
   }
 
   static Future<void> _remove(Videos video) async {

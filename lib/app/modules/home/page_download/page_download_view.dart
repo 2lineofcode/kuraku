@@ -169,6 +169,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
             child: ZStack([
               ExThumbnail(
                 imageUrl: item.fanArt ?? '',
+                videoCode: item.videoCode,
                 width: 300,
                 height: 200,
                 fitUrl: BoxFit.cover,

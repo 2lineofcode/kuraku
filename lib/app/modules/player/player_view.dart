@@ -51,11 +51,10 @@ class PlayerView extends GetView<PlayerController> {
                     }
                     return Obx(
                       () => Video(
-                        key: controller.videoKey,
                         controller: controller.videoController,
                         fit: controller.videoFit.value,
                         fill: Colors.black,
-                        controls: (videoState) => PlayerControls(controller: controller),
+                        controls: (videoState) => PlayerControls(controller: controller, videoState: videoState),
                       ),
                     );
                   },

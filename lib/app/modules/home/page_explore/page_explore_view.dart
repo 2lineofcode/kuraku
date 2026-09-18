@@ -403,6 +403,7 @@ class PageExploreView extends GetView<PageExploreController> {
               [
                 ExThumbnail(
                   imageUrl: item['fan_art'] ?? '',
+                  videoCode: item['video_code'],
                   width: 300,
                   height: 200,
                 ).wh(300, 200).cornerRadius(8),
@@ -491,7 +492,7 @@ class PageExploreView extends GetView<PageExploreController> {
             height: height,
             prefix: 2.3,
             fitUrl: BoxFit.fitWidth,
-            quickPreview: true,
+            quickPreview: video.videoCode?.trim().isNotEmpty == true,
             previewTitle: video.videoCode?.isNotEmpty == true ? video.videoCode : video.title,
             previewSubtitle: (video.actress ?? []).map((item) => item.nameRomaji ?? '').where((item) => item.isNotEmpty).join(', '),
             previewScreenshots: video.screenshot,

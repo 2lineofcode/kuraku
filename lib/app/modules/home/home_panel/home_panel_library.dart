@@ -174,7 +174,7 @@ mixin HomePanelLibrary {
                 tooltip: 'Rescan All Folders',
                 onPressed: () {
                   Overlayment.dismissLast();
-                  doRescanAllVideoFromLibrary(library);
+                  doRescanAllVideoFromLibrary(library, recoverVideoCodes: true);
                 },
               ),
               IconButton(
@@ -221,7 +221,7 @@ mixin HomePanelLibrary {
                         tooltip: 'Rescan Folder `${item.alias}`',
                         onPressed: () async => {
                           await Overlayment.dismissLast(),
-                          _doRescanVideoFromLibrary(item),
+                          _doRescanVideoFromLibrary(item, fromAutoWatcher: false),
                         },
                       ),
                     ]).onInkTap(() async {
@@ -428,7 +428,7 @@ mixin HomePanelLibrary {
         cursor++;
 
         final videoPath = videos[currentIndex];
-        final processedVideo = await _processVideo(videoPath, library.rootFolder);
+        final processedVideo = await processVideo(videoPath, library.rootFolder);
         if (processedVideo != null) {
           videosToAdd.add(processedVideo);
         }
@@ -460,7 +460,8 @@ mixin HomePanelLibrary {
   }
 
   // ** PROCESS VIDEO
-  static Future<Videos?> _processVideo(String videoPath, String? rootFolder) async {
+  @visibleForTesting
+  static Future<Videos?> processVideo(String videoPath, String? rootFolder) async {
     final videoCode = videoPath.getFileName().getVideoCode();
 
     // case: detect as JAV
@@ -480,6 +481,7 @@ mixin HomePanelLibrary {
       // case: detect as JAV but no data in R18
       if (dataVideo == null) {
         final newVideo = Videos();
+        newVideo.videoCode = videoCode;
         newVideo.rootPath = rootFolder ?? '';
         newVideo.videoPath = videoPath;
         newVideo.title = videoPath.getFileName().noExt();
@@ -625,7 +627,9 @@ mixin HomePanelLibrary {
         await HelperToast.warn('${library.alias} | Deleted ${remainingDeletes.length} videos');
       }
 
-      if (moves.isNotEmpty || remainingAdds.isNotEmpty || remainingDeletes.isNotEmpty) {
+      final recovered = fromAutoWatcher ? 0 : await DBVideos.recoverMissingVideoCodes(oldData.rootFolder ?? '');
+      if (recovered > 0) await HelperToast.info('$recovered video codes recovered');
+      if (moves.isNotEmpty || remainingAdds.isNotEmpty || remainingDeletes.isNotEmpty || recovered > 0) {
         await _controller.onRefreshAllContent(preserveInputState: fromAutoWatcher);
       }
     } catch (e) {
@@ -640,6 +644,7 @@ mixin HomePanelLibrary {
     List<Library> libraries, {
     bool showSummaryToast = true,
     bool preserveInputState = true,
+    bool recoverVideoCodes = false,
   }) async {
     try {
       if (libraries.isEmpty) return;
@@ -765,12 +770,14 @@ mixin HomePanelLibrary {
       );
       await DBVideos.deleteByVideoPaths(delPaths);
 
+      var recovered = 0;
       // 8) Update each library metadata in DB to reflect scanned state
       for (final lib in scannedLibraries) {
         final root = lib.rootFolder ?? '';
         lib.totalVideo = newTotal[root] ?? lib.totalVideo;
         lib.videos = newMap[root] ?? [];
         await DBLibrary.update(lib);
+        if (recoverVideoCodes) recovered += await DBVideos.recoverMissingVideoCodes(root);
       }
 
       // 9) Summary log
@@ -781,9 +788,9 @@ mixin HomePanelLibrary {
 
       await _controller.updateFooterSummary();
 
-      if (remainingAdds.isNotEmpty || delCandidates.isNotEmpty || moves.isNotEmpty) {
+      if (remainingAdds.isNotEmpty || delCandidates.isNotEmpty || moves.isNotEmpty || recovered > 0) {
         if (showSummaryToast) {
-          await HelperToast.info('Finish • ${remainingAdds.length} added • ${delCandidates.length} deleted • ${moves.length} moved');
+          await HelperToast.info('Finish • ${remainingAdds.length} added • ${delCandidates.length} deleted • ${moves.length} moved • $recovered codes recovered');
         }
         await _controller.onRefreshAllContent(preserveInputState: preserveInputState);
       }
