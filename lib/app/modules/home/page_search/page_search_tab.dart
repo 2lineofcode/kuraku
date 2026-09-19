@@ -8,7 +8,11 @@ import '../../../data/database/db_historical.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_opener.dart';
+import '../../../utils/helper_toast.dart';
 import '../../../utils/semantic_search_service.dart';
+import '../../player/player_multi_view.dart';
+import '../home_controller.dart';
+import '../home_panel/home_panel_playlist.dart';
 
 class PageSearchTab {
   PageSearchTab(this.id) {
@@ -35,6 +39,7 @@ class PageSearchTab {
   final sortBy = 'Random'.obs;
   final filter = VideoFilterState();
   final videos = <Videos>[].obs;
+  final selectedVideos = <Videos>{}.obs;
   final allVideos = <Videos>[].obs;
   final isFresh = true.obs;
   int _request = 0;
@@ -43,6 +48,35 @@ class PageSearchTab {
   Worker? _preferenceWorker;
   int get searchRevision => _request;
   bool get isClosed => _closed;
+
+  void toggleSelection(Videos video) {
+    if (_closed || !videos.contains(video)) return;
+    if (!selectedVideos.remove(video)) selectedVideos.add(video);
+  }
+
+  Future<void> performSelectionAction(String action, List<Videos> selected) async {
+    if (_closed || selected.isEmpty) return;
+    switch (action) {
+      case 'play':
+        await HelperOpener.openVideoFile(selected.first, playlist: selected);
+        break;
+      case 'playMulti':
+        await Get.to(() => const PlayerMultiView(), arguments: selected);
+        break;
+      case 'cart':
+        final home = Get.find<HomeController>();
+        for (final video in selected) { home.addToCart(video); }
+        await HelperToast.success('Selected videos are in cart');
+        break;
+      case 'playlist':
+        await HomePanelPlaylist.showDialogAddToPlaylistItem(selected);
+        break;
+      case 'favorite':
+        for (final video in selected) { await DBVideos.addToFavorite(video); }
+        await HelperToast.success('Added ${selected.length} video(s) to favorite');
+        break;
+    }
+  }
 
   Map<String, dynamic> toPreferences() => {
     'query': tecSearch.text,
@@ -89,6 +123,7 @@ class PageSearchTab {
   }
 
   void close() {
+    selectedVideos.clear();
     _closed = true;
     _historyRequest++;
     _request++;
@@ -237,6 +272,7 @@ class PageSearchTab {
     semanticResultLabel.value = '';
     semanticScoreByVideoId.clear();
     isSearchMode.value = query.isNotEmpty;
+    selectedVideos.clear();
     videos.clear();
     allVideos.clear();
 
@@ -274,6 +310,7 @@ class PageSearchTab {
 
   void showResults(String query, List<Videos> result) {
     if (_closed) return;
+    selectedVideos.clear();
     hideSuggestions();
     _request++;
     tecSearch.text = query;
@@ -320,6 +357,7 @@ class PageSearchTab {
         case 'file size': next.sort((a, b) => (b.filesize ?? 0).compareTo(a.filesize ?? 0)); break;
       }
     }
+    selectedVideos.retainAll(next.toSet());
     videos.assignAll(next);
   }
 

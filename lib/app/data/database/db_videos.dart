@@ -112,10 +112,6 @@ mixin DBVideos {
     await _db.delete(_tableName, where: 'id = ?', whereArgs: [videos.id]);
   }
 
-  static Future<void> deleteByVideoPath(String videoPath) async {
-    await _db.delete(_tableName, where: 'video_path = ?', whereArgs: [videoPath]);
-  }
-
   static Future<void> deleteByVideoPaths(List<String> videoPaths) async {
     if (videoPaths.isEmpty) return;
     final unique = videoPaths.where((p) => p.trim().isNotEmpty).toSet().toList();
@@ -276,17 +272,6 @@ mixin DBVideos {
   // ────────────────────────────────────────────────────────────────
   // ⵌ helper
   static Future<void> deleteAll() async => await _db.delete(_tableName);
-  static Future<void> vacuum() async {
-    await _db.rawQuery('VACUUM');
-    AppLog.logD('VACUUM Done.');
-  }
-
-  static Future<String> getRandomVideoCode() async {
-    final maps = await _db.query(_tableName, orderBy: 'RANDOM()', limit: 1, where: 'video_code IS NOT NULL AND video_code != ""');
-    if (maps.isEmpty) return 'Search by Code or Title...';
-    return maps.first['video_code'] as String;
-  }
-
   // Category ────────────────────────────────────────────────────────────────
   static Future<List<Map<String, dynamic>>> getAllCategoryWithCount() async {
     final categoryIdToCount = {};

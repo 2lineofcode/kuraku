@@ -264,11 +264,9 @@ extension JavitExtString on String {
   String getVideoCode() => _JavitExtension.__getVideoCode(this);
   bool isValidVideoCode() => _JavitExtension.__isValidVideoCode(this);
   String noExt() => replaceAll('.mp4', '').replaceAll('mp4', '');
-  String getExt() => split('.').last;
   String getFileName() => split('/').last.split('\\').last;
   String getLastPath() => split('/').last.split('\\').last;
   String getLastSegments({int segment = 4}) => _JavitExtension.__getLastSegments(this, n: segment);
-  String getFilePath() => split('/').sublist(0, split('/').length - 1).join('/');
 
   // ---
   String genImageUrl() {

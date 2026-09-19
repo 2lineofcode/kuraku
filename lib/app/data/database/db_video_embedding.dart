@@ -97,7 +97,4 @@ mixin DBVideoEmbeddings {
     await _db.delete(_tableName);
   }
 
-  static Future<void> deleteByVideoId(String videoId) async {
-    await _db.delete(_tableName, where: 'video_id = ?', whereArgs: [videoId]);
-  }
 }

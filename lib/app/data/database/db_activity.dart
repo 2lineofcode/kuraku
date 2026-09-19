@@ -103,8 +103,6 @@ mixin DBActivity {
   // ────────────────────────────────────────────────────────────────
   // ⵌ PART: TODO
   // ────────────────────────────────────────────────────────────────
-  static Future<Activity?> getTodo(String id) => _queryOne(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeTodo]);
-
   static Future<List<Activity>> getTodos({String? orderBy}) => _query(where: 'type = ?', whereArgs: [kActivityTypeTodo], orderBy: orderBy ?? 'updated_at DESC');
 
   static Future<Activity?> addTodo(String content) async {
@@ -113,17 +111,7 @@ mixin DBActivity {
     return ok ? todo : null;
   }
 
-  static Future<Activity?> updateTodo({required String id, required String content}) async {
-    final current = await getTodo(id);
-    if (current == null) return null;
-    current.content = content.trim();
-    await _update(current);
-    return current;
-  }
-
   static Future<void> deleteTodo(String id) => _delete(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeTodo]);
-
-  static Future<int> countTodo() => _count(where: 'type = ?', whereArgs: [kActivityTypeTodo]);
 
   // ────────────────────────────────────────────────────────────────
   // ⵌ PART: DOWNLOAD LOG
@@ -156,20 +144,14 @@ mixin DBActivity {
     return current;
   }
 
-  static Future<void> deleteDownloadLog(String id) => _delete(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeDownload]);
-
   static Future<void> deleteDownloadLogByFilename(String filename) => _delete(
         where: 'type = ? AND json_extract(content, "\$.filename") LIKE ?',
         whereArgs: [kActivityTypeDownload, filename],
       );
 
-  static Future<int> countDownloadLog() => _count(where: 'type = ?', whereArgs: [kActivityTypeDownload]);
-
   // ────────────────────────────────────────────────────────────────
   // ⵌ PART: RELAPSE / ACTIVITY
   // ────────────────────────────────────────────────────────────────
-  static Future<Activity?> getRelapse(String id) => _queryOne(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeRelapse]);
-
   static Future<Activity?> getLatestRelapseTransaction() async {
     final maps = await _db.query(
       _tableName,
@@ -207,16 +189,6 @@ mixin DBActivity {
     final ok = await _insert(relapse);
     return ok ? relapse : null;
   }
-
-  static Future<Activity?> updateRelapse({required String id, required DateTime date}) async {
-    final current = await getRelapse(id);
-    if (current == null) return null;
-    current.content = date.toStringEx(format: kYMd);
-    await _update(current);
-    return current;
-  }
-
-  static Future<void> deleteRelapse(String id) => _delete(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeRelapse]);
 
   static Future<void> deleteRelapseByDateLimitOne(String date) =>
       _db.rawDelete('DELETE FROM $_tableName WHERE type = ? AND content = ? ORDER BY content DESC, id DESC LIMIT 1', [kActivityTypeRelapse, date]);

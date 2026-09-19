@@ -48,10 +48,6 @@ mixin SemanticSearchService {
 
   static String get modelName => _modelName;
 
-  static String buildDocumentText(Videos video) {
-    return buildDocumentTextWithVisual(video, '');
-  }
-
   static String buildDocumentTextWithVisual(Videos video, String visualTags) {
     final actresses = (video.actress ?? [])
         .map((item) => (item.nameRomaji ?? '').trim())

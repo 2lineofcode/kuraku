@@ -91,7 +91,7 @@ class _SearchView extends PageSearchTabView {
 
   @override
   Widget buildLayoutPoster(Videos video, double width, double height, {
-    bool isFanArt = false,
+    bool isFanArt = false, bool interactive = true,
     showReleaseDate = true, showViewCount = true, showQuality = true,
   }) => Text(video.title ?? 'Video');
 }

@@ -11,7 +11,6 @@ import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
-import '../home_panel/home_panel_video_info.dart';
 
 class PageExploreTab {
   PageExploreTab(this.id, {RxSet<String>? pins, RxBool? savingPin})
@@ -447,10 +446,6 @@ class PageExploreTab {
     }
 
     if (filter.isFiltered.isTrue) await _applyFilter();
-  }
-
-  Future<void> onRightListTap(Videos item) async {
-    await HomePanelVideoInfo.open(item);
   }
 
   // ~ Filters ────────────────────────────────────────────────────────────────

@@ -204,7 +204,7 @@ class DBService extends GetxService {
       )
     ''');
 
-    await db.execute('CREATE INDEX idx_collection_playlist_id ON collection(playlist_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_collection_playlist_id ON collection(playlist_id)');
     await DBHistorical.createTable(db);
     await _createFeatureTables(db);
   }
@@ -237,14 +237,17 @@ class DBService extends GetxService {
   }
 
   static Future<void> migratePlaylistIds(Database db) async {
-    await db.execute('ALTER TABLE collection ADD COLUMN playlist_id TEXT REFERENCES collection(id) ON DELETE CASCADE');
+    final columns = await db.rawQuery('PRAGMA table_info(collection)');
+    if (!columns.any((column) => column['name'] == 'playlist_id')) {
+      await db.execute('ALTER TABLE collection ADD COLUMN playlist_id TEXT REFERENCES collection(id) ON DELETE CASCADE');
+    }
     // Recover legacy groups that have video rows but no playlist header.
     await db.execute('''
       INSERT INTO collection (id, type, name, cover, created_at, updated_at)
       SELECT lower(hex(randomblob(16))), 'playlist', items.name, MAX(items.cover),
              MIN(items.created_at), MAX(items.updated_at)
       FROM collection AS items
-      WHERE items.type = 'playlist' AND items.video_id IS NOT NULL
+      WHERE items.type = 'playlist' AND items.video_id IS NOT NULL AND items.playlist_id IS NULL
         AND NOT EXISTS (
           SELECT 1 FROM collection AS header
           WHERE header.type = 'playlist' AND header.video_id IS NULL AND header.name IS items.name
@@ -258,9 +261,9 @@ class DBService extends GetxService {
         WHERE header.type = 'playlist' AND header.video_id IS NULL AND header.name IS items.name
         ORDER BY header.id LIMIT 1
       )
-      WHERE items.type = 'playlist' AND items.video_id IS NOT NULL
+      WHERE items.type = 'playlist' AND items.video_id IS NOT NULL AND items.playlist_id IS NULL
     ''');
-    await db.execute('CREATE INDEX idx_collection_playlist_id ON collection(playlist_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_collection_playlist_id ON collection(playlist_id)');
   }
 
   Future<void> _createFeatureTables(Database db) async {

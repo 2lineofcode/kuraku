@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
+import 'package:super_context_menu/super_context_menu.dart' as scm;
 import 'package:uicons_pro/uicons_pro.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:video_compress/video_compress.dart';
@@ -25,6 +26,8 @@ import '../../data/api/api_javit.dart';
 import '../../data/database/db_videos.dart';
 import '../../data/models/videos_entity.dart';
 import '../../modules/home/home_controller.dart';
+import '../../modules/home/home_panel/home_panel_metadata.dart';
+import '../../modules/home/home_panel/home_panel_playlist.dart';
 import '../../utils/helper.dart';
 
 class _ExThumbnailC extends GetxController {
@@ -40,7 +43,7 @@ class _ExThumbnailC extends GetxController {
 
   // ---- timeouts
   static const _vcTimeout = Duration(seconds: 45); // matiin job video_compress yg ngegantung
-  static const _vcPreviewTimeout = Duration(seconds: 8); // short timeout for hover-preview
+  static const _vcPreviewTimeout = Duration(seconds: 8); // short timeout for screenshot previews
   static const _ffTimeout = Duration(seconds: 15); // cancel ffmpeg kalau kelamaan
 
   Future<String> _thumbDir() async {
@@ -54,9 +57,6 @@ class _ExThumbnailC extends GetxController {
 
   // ---- detect codec via ffmpeg (process)
   Future<String?> _detectCodec(String videopath) async {
-    // final isExternal = videopath.startsWith('/Volumes/') || videopath.startsWith('/media/');
-    // if (isExternal) return '';
-
     if (_codecCache.containsKey(videopath)) return _codecCache[videopath];
     try {
       final result = await Process.run(
@@ -209,7 +209,7 @@ class _ExThumbnailC extends GetxController {
     final isExternal = videopath.startsWith('/Volumes/') || videopath.startsWith('/media/');
     final cacheKey = '$videopath#$position';
 
-    // Fast-path for seek-hover preview: use video_compress only, skip ffmpeg fallback.
+    // Screenshot previews use video_compress only, without ffmpeg fallback.
     if (position != 90) {
       final bytes = await _safeVideoCompress(videopath, position, timeout: _vcPreviewTimeout);
       if (bytes != null && bytes.isNotEmpty && bytes.length > 1000) {
@@ -244,10 +244,6 @@ class _ExThumbnailC extends GetxController {
     } else {
       if (isExternal) {
         bytes = await _safeVideoCompress(videopath, position);
-        if (bytes == null || bytes.isEmpty || bytes.length < 1000) {
-          // AppLog.logW('[thumb] ⚠️ VC miss/timeout → ffmpeg (HDD)');
-          // bytes = await _thumbWithFfmpeg(videopath, filePath, seconds: position);
-        }
       } else {
         bytes = await _safeVideoCompress(videopath, position);
         if (bytes == null || bytes.isEmpty || bytes.length < 1000) {
@@ -268,32 +264,6 @@ class _ExThumbnailC extends GetxController {
     }
 
     return bytes;
-  }
-
-  Future<void> clearDiskThumbnailCache() async {
-    _memCache.clear();
-    _previewMemCache.clear();
-    final dir = await _thumbDir();
-    final d = Directory(dir);
-    if (await d.exists()) {
-      await d.delete(recursive: true);
-    }
-  }
-
-  Future<void> invalidateThumbnail(String videoPath) async {
-    final path = videoPath.trim();
-    if (path.isEmpty) return;
-
-    _memCache.remove(path);
-    _codecCache.remove(path);
-    _inflight.removeWhere((k, _) => k.startsWith('$path#'));
-    _previewMemCache.removeWhere((k, _) => k.startsWith('$path#'));
-
-    final dir = await _thumbDir();
-    final file = File(p.join(dir, _thumbName(path)));
-    if (await file.exists()) {
-      await file.delete();
-    }
   }
 }
 
@@ -336,11 +306,7 @@ class ExThumbnail extends StatefulWidget {
   final double? prefix;
   final Color? backdropColor;
   final int? position;
-  final bool quickPreview;
-  final String? previewTitle;
-  final String? previewSubtitle;
-  final List<String>? previewScreenshots;
-  final int? previewDurationSeconds;
+  final scm.ContextMenuIsAllowed? contextMenuIsAllowed;
 
   const ExThumbnail({
     super.key,
@@ -356,11 +322,7 @@ class ExThumbnail extends StatefulWidget {
     this.prefix = 1,
     this.backdropColor,
     this.position,
-    this.quickPreview = false,
-    this.previewTitle,
-    this.previewSubtitle,
-    this.previewScreenshots,
-    this.previewDurationSeconds,
+    this.contextMenuIsAllowed,
   });
 
   @override
@@ -369,33 +331,6 @@ class ExThumbnail extends StatefulWidget {
 
 class _ExThumbnailState extends State<ExThumbnail> {
   late final _ExThumbnailC controller;
-  Timer? _previewDelay;
-  Timer? _previewTimer;
-  var _isPreviewActive = false;
-  var _previewIndex = 0;
-  var _isHovering = false;
-
-  List<String> get _previewScreenshots => (widget.previewScreenshots ?? [])
-      .where((item) => item.trim().isNotEmpty)
-      .toList();
-
-  bool get _canPreviewFromDisk {
-    final path = (widget.videoPath ?? '').trim();
-    return path.isNotEmpty && File(path).existsSync();
-  }
-
-  List<int> get _previewPositions {
-    final duration = widget.previewDurationSeconds ?? 0;
-    if (duration <= 0) return [10, 30, 60];
-
-    final maxPosition = duration > 5 ? duration - 1 : duration;
-    return [0.12, 0.42, 0.72]
-        .map((factor) => (duration * factor).round().clamp(1, maxPosition).toInt())
-        .toSet()
-        .toList();
-  }
-
-  int get _previewCount => _previewScreenshots.isNotEmpty ? _previewScreenshots.length : _previewPositions.length;
 
   @override
   void initState() {
@@ -403,50 +338,6 @@ class _ExThumbnailState extends State<ExThumbnail> {
     controller = Get.isRegistered<_ExThumbnailC>()
         ? Get.find<_ExThumbnailC>()
         : Get.put(_ExThumbnailC(), permanent: true);
-  }
-
-  @override
-  void dispose() {
-    _previewDelay?.cancel();
-    _previewTimer?.cancel();
-    super.dispose();
-  }
-
-  void _startQuickPreview() {
-    _isHovering = true;
-    if (widget.quickPreview == false || (_previewScreenshots.isEmpty && _canPreviewFromDisk == false)) return;
-
-    _previewDelay?.cancel();
-    _previewDelay = Timer(const Duration(milliseconds: 350), () {
-      if (!mounted || _isHovering == false) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _isHovering == false) return;
-        setState(() {
-          _isPreviewActive = true;
-          _previewIndex = 0;
-        });
-      });
-
-      if (_previewCount < 2) return;
-      _previewTimer?.cancel();
-      _previewTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
-        if (!mounted) return;
-        setState(() => _previewIndex = (_previewIndex + 1) % _previewCount);
-      });
-    });
-  }
-
-  void _stopQuickPreview() {
-    _isHovering = false;
-    _previewDelay?.cancel();
-    _previewTimer?.cancel();
-    _previewTimer = null;
-    if (_isPreviewActive && mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _isHovering) return;
-        setState(() => _isPreviewActive = false);
-      });
-    }
   }
 
   String _deriveVideoCode() {
@@ -570,37 +461,46 @@ class _ExThumbnailState extends State<ExThumbnail> {
     }
   }
 
-  Future<void> _showContextMenu(TapDownDetails details) async {
+  Future<scm.Menu?> _buildContextMenu() async {
     final path = (widget.videoPath ?? '').trim();
+    final videoCode = _deriveVideoCode();
     final hasVideoPath = path.isNotEmpty;
     final dbVideo = hasVideoPath ? await _findVideoByPath() : null;
-    final isFavorite = (dbVideo?.isFavorite ?? 0) == 1;
-    final videoCode = _deriveVideoCode();
-    if (!mounted) return;
+    if (!mounted) return null;
 
-    final selected = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        details.globalPosition.dx,
-        details.globalPosition.dy,
-        details.globalPosition.dx,
-        details.globalPosition.dy,
-      ),
-      items: hasVideoPath
-          ? [
-              PopupMenuItem<String>(value: 'play', child: Text('Play', style: TextStyle(fontSize: 12))),
-              PopupMenuItem<String>(value: 'favorite', child: Text(isFavorite ? 'Remove From Favorite' : 'Add To Favorite', style: TextStyle(fontSize: 12))),
-              PopupMenuItem<String>(value: 'refresh_metadata', child: Text('Refresh Metadata', style: TextStyle(fontSize: 12))),
-              PopupMenuItem<String>(value: 'open_file_path', child: Text('Open File Path', style: TextStyle(fontSize: 12))),
-              PopupMenuItem<String>(value: 'add_panel_cart', child: Text('Add to Panel Cart', style: TextStyle(fontSize: 12))),
-            ]
-          : [
-              PopupMenuItem<String>(value: 'download', child: Text('Download', style: TextStyle(fontSize: 12))),
-              PopupMenuItem<String>(value: 'open_screenshot', child: Text('Open Screenshot', style: TextStyle(fontSize: 12))),
-              PopupMenuItem<String>(value: 'open_trailer', child: Text('Open Trailer', style: TextStyle(fontSize: 12))),
-            ],
+    scm.MenuAction action(String title, String value) => scm.MenuAction(
+      title: title,
+      callback: () async {
+        if (!mounted) return;
+        try {
+          await _handleContextMenuAction(value, path, dbVideo, videoCode);
+        } catch (e) {
+          await HelperToast.error(e.toString());
+        }
+      },
     );
 
+    return scm.Menu(children: hasVideoPath
+        ? [
+            action('Play', 'play'),
+            action('Add to Panel Cart', 'add_panel_cart'),
+            scm.MenuSeparator(),
+            action((dbVideo?.isFavorite ?? 0) == 1 ? 'Remove From Favorite' : 'Add To Favorite', 'favorite'),
+            action('Add to Playlist', 'add_playlist'),
+            scm.MenuSeparator(),
+            action('Edit Metadata', 'edit_metadata'),
+            action('Refresh Metadata', 'refresh_metadata'),
+            action('Open File Path', 'open_file_path'),
+          ]
+        : [
+            action('Download', 'download'),
+            action('Open Screenshot', 'open_screenshot'),
+            action('Open Trailer', 'open_trailer'),
+          ],
+    );
+  }
+
+  Future<void> _handleContextMenuAction(String selected, String path, Videos? dbVideo, String videoCode) async {
     switch (selected) {
       case 'play':
         if (dbVideo != null) {
@@ -624,6 +524,18 @@ class _ExThumbnailState extends State<ExThumbnail> {
         } else {
           await DBVideos.addToFavorite(dbVideo);
           await HelperToast.success('Added to favorite');
+        }
+        break;
+      case 'add_playlist':
+      case 'edit_metadata':
+        if (dbVideo == null) {
+          await HelperToast.warn('Video not found in database');
+          break;
+        }
+        if (selected == 'add_playlist') {
+          await HomePanelPlaylist.showDialogAddToPlaylistItem([dbVideo]);
+        } else {
+          await HomePanelMetadata.open(dbVideo);
         }
         break;
       case 'refresh_metadata':
@@ -730,106 +642,11 @@ class _ExThumbnailState extends State<ExThumbnail> {
       ).color(widget.backdropColor ?? AppColor.container).wh(widget.width, widget.height);
     }
 
-    if (_isPreviewActive) {
-      final screenshots = _previewScreenshots;
-      final hasScreenshots = screenshots.isNotEmpty;
-      final screenshot = hasScreenshots ? screenshots[_previewIndex % screenshots.length] : '';
-      final position = hasScreenshots ? 0 : _previewPositions[_previewIndex % _previewPositions.length];
-      child = SizedBox(
-        width: widget.width,
-        height: widget.height,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            child,
-            ClipRect(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 360),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                transitionBuilder: (item, animation) => FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(
-                    scale: Tween<double>(begin: 1.06, end: 1).animate(animation),
-                    child: item,
-                  ),
-                ),
-                child: hasScreenshots
-                    ? ExThumbnail(
-                        key: ValueKey(screenshot),
-                        imageUrl: screenshot,
-                        width: widget.width,
-                        height: widget.height,
-                        fitUrl: BoxFit.cover,
-                        fitMemory: BoxFit.cover,
-                      )
-                    : FutureBuilder<Uint8List?>(
-                        key: ValueKey('frame:$position'),
-                        future: controller.getThumbnail(widget.videoPath ?? '', position: position),
-                        builder: (context, snap) {
-                          if (snap.hasData == false || snap.data == null) return const SizedBox.expand();
-                          return Image.memory(snap.data!, fit: BoxFit.cover);
-                        },
-                      ),
-              ),
-            ),
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [Colors.black.withAlpha(190), Colors.transparent],
-                ),
-              ),
-            ),
-            Positioned(
-              left: 7,
-              right: 7,
-              bottom: 7,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if ((widget.previewTitle ?? '').trim().isNotEmpty)
-                    Text(
-                      widget.previewTitle!.trim(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                    ),
-                  if ((widget.previewSubtitle ?? '').trim().isNotEmpty)
-                    Text(
-                      widget.previewSubtitle!.trim(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.white.withAlpha(210), fontSize: 9),
-                    ),
-                ],
-              ),
-            ),
-            Positioned(
-              top: 7,
-              left: 7,
-              child: Container(
-                color: Colors.black.withAlpha(150),
-                child: const Text('PREVIEW', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)).paddingSymmetric(horizontal: 5, vertical: 3),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final content = GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onSecondaryTapDown: _showContextMenu,
+    return scm.ContextMenuWidget(
+      hitTestBehavior: HitTestBehavior.opaque,
+      menuProvider: (_) => _buildContextMenu(),
+      contextMenuIsAllowed: widget.contextMenuIsAllowed ?? (_) => true,
       child: child,
-    );
-
-    if (widget.quickPreview == false) return content;
-    return MouseRegion(
-      // onEnter: (_) => _startQuickPreview(),
-      // onExit: (_) => _stopQuickPreview(),
-      child: content,
     );
   }
 }

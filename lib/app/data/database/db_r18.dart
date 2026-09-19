@@ -8,15 +8,13 @@ import '_init_db.dart';
 mixin DBR18 {
   static Database? get _db => Get.find<DBService>().dbR18;
 
-  static Future<T> _logQueryTime<T>(String sql, List<Object?> args, Future<T> Function() run) async {
+  static Future<T> _logQueryTime<T>(Future<T> Function() run) async {
     final stopwatch = Stopwatch()..start();
     try {
       return await run();
     } finally {
       stopwatch.stop();
       final funcName = _resolveCaller();
-      // final renderedSql = _formatSqlWithArgs(sql, args);
-      // AppLog.logD('EXEC: $funcName | $renderedSql | ${stopwatch.elapsedMilliseconds} ms');
       AppLog.logD('EXEC: $funcName | ${stopwatch.elapsedMilliseconds} ms');
     }
   }
@@ -47,8 +45,6 @@ mixin DBR18 {
     if (db == null) return [];
     final boundArgs = args ?? const [];
     return _logQueryTime<List<Map<String, dynamic>>>(
-      sql,
-      boundArgs,
       () => db.rawQuery(sql, boundArgs),
     );
   }
@@ -67,19 +63,8 @@ mixin DBR18 {
   }) async {
     final db = _db;
     if (db == null) return [];
-    final selectCols = columns?.join(', ') ?? '*';
-    var sql = 'SELECT $selectCols FROM $table';
-    if (where != null) sql += ' WHERE $where';
-    if (groupBy != null) sql += ' GROUP BY $groupBy';
-    if (having != null) sql += ' HAVING $having';
-    if (orderBy != null) sql += ' ORDER BY $orderBy';
-    if (limit != null) sql += ' LIMIT $limit';
-    if (offset != null) sql += ' OFFSET $offset';
-
     final boundArgs = whereArgs ?? const [];
     return _logQueryTime<List<Map<String, dynamic>>>(
-      sql,
-      boundArgs,
       () => db.query(
         table,
         distinct: distinct,
@@ -1074,48 +1059,5 @@ mixin DBR18 {
   ''', ['$yM-01', '$yM-$dd', ...filter['args'], ...blacklist['args'], limit, offset]);
 
     return maps;
-  }
-
-  static Future<int> getNewReleaseCount({
-    String? videoCode,
-    String? actressName,
-    List<String>? categories,
-    int? yearStart,
-    int? yearEnd,
-  }) async {
-    if (!_isReady()) return 0;
-
-    final yM = DateTime.now().toStringEx(format: 'yyyy-MM');
-    final dd = DateTime.now().toStringEx(format: 'dd');
-
-    final filter = _buildFilterClause(
-      videoCode: videoCode,
-      actressName: actressName,
-      categories: categories,
-      yearStart: yearStart,
-      yearEnd: yearEnd,
-    );
-    final blacklist = _buildBlacklistClause();
-
-    final maps = await _rawQuery('''
-    SELECT
-      COUNT(DISTINCT v.dvd_id) AS total
-    FROM derived_video v
-    WHERE
-      v.dvd_id IS NOT NULL 
-      AND v.release_date IS NOT NULL
-      AND v.runtime_mins IS NOT NULL
-      AND v.label_id IS NOT NULL
-      AND v.dvd_id IN (
-        SELECT v2.dvd_id FROM derived_video v2 
-        WHERE 1=1
-          AND dvd_id IS NOT NULL
-          AND release_date >= ? AND release_date <= ?
-      )
-      ${filter['sql']}
-      ${blacklist['sql']}
-  ''', ['$yM-01', '$yM-$dd', ...filter['args'], ...blacklist['args']]);
-
-    return maps[0]['total'] as int;
   }
 }

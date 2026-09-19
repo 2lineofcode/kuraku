@@ -1,23 +1,12 @@
 import 'package:get/get.dart';
 
 import '../data/models/videos_entity.dart';
-import 'app_logging.dart';
 import 'app_setting.dart';
 
 mixin AppPref {
   static final _pref = Get.find<AppSettingService>().pref;
 
   // ** [app]
-  static bool getAppIsDarkMode() => _pref.read(_kAppIsDarkMode) ?? true;
-  static void setAppIsDarkMode(bool value) => _pref.write(_kAppIsDarkMode, value);
-
-  static String getAppLanguage() => _pref.read(_kAppLanguage) ?? 'en';
-  static void setAppLanguage(String value) => _pref.write(_kAppLanguage, value);
-
-  static String getAppFirstOpen() => _pref.read(_kAppFirstOpen) ?? '';
-  static void setAppFirstOpen(String value) => _pref.write(_kAppFirstOpen, value);
-
-  static String getAppLastOpen() => _pref.read(_kAppLastOpen) ?? '';
   static void setAppLastOpen(String value) => _pref.write(_kAppLastOpen, value);
 
   static bool getAppHideSideMenu() => _pref.read(_kAppHideSideMenu) ?? false;
@@ -32,7 +21,6 @@ mixin AppPref {
     return list.map((e) => Videos.fromJson(Map<String, dynamic>.from(e))).toList();
   }
   static void setAppCart(List<Videos> value) => _pref.write(_kAppCart, value.map((e) => e.toJson()).toList());
-
 
   static String getFavoriteCoverURL() => _pref.read(_kFavoriteCoverURL) ?? 'https://www.zenra.net/imgcache/max-content-width/blog/10/best-debuts-and-honorable-mentions-xx-677ad45348fe4.png';
   static void setFavoriteCoverURL(String value) => _pref.write(_kFavoriteCoverURL, value);
@@ -58,27 +46,14 @@ mixin AppPref {
   }
   static Future<void> setDownloadTabs(Map<String, dynamic> value) => _pref.write(_kDownloadTabs, value);
 
-  static String getGeminiApiKey() => _pref.read(_kGeminiApiKey) ?? '';
-  static void setGeminiApiKey(String value) => _pref.write(_kGeminiApiKey, value.trim());
-
   static String getSemanticSearchModel() => _pref.read(_kSemanticSearchModel) ?? 'local-hash-v2';
-  static void setSemanticSearchModel(String value) => _pref.write(_kSemanticSearchModel, value);
-
-
 
   // ** [download]
   static String getDownloadPath() => _pref.read(_kDownloadPath) ?? '';
   static void setDownloadPath(String value) => _pref.write(_kDownloadPath, value);
 
-  static String getDownloadLang() => _pref.read(_kDownloadLang) ?? 'en';
-  static void setDownloadLang(String value) => _pref.write(_kDownloadLang, value);
-
-  static String getDownloadMode() => _pref.read(_kDownloadMode) ?? 'net';
-  static void setDownloadMode(String value) => _pref.write(_kDownloadMode, value);
-
   static int getDownloadWorker() => _pref.read(_kDownloadWorker) ?? 2;
   static void setDownloadWorker(int value) => _pref.write(_kDownloadWorker, value);
-
 
   // ** [home segment]
   static List<String> getHomeOrderList() {
@@ -98,39 +73,21 @@ mixin AppPref {
     }
   }
 
-
-  static bool getHomeSecNewRelease() => _pref.read(_kHomeSecNewRelease) ?? true;
-  static void setHomeSecNewRelease(bool value) => _pref.write(_kHomeSecNewRelease, value);
   static const String homeSecNewRelease = _kHomeSecNewRelease;
 
-  static bool getHomeSecRecommendation() => _pref.read(_kHomeSecRecommendation) ?? true;
-  static void setHomeSecRecommendation(bool value) => _pref.write(_kHomeSecRecommendation, value);
   static const String homeSecRecommendation = _kHomeSecRecommendation;
 
-  static bool getHomeSecFavorite() => _pref.read(_kHomeSecFavorite) ?? true;
-  static void setHomeSecFavorite(bool value) => _pref.write(_kHomeSecFavorite, value);
   static const String homeSecFavorite= _kHomeSecFavorite;
 
-  static bool getHomeSecNewAdd() => _pref.read(_kHomeSecNewAdd) ?? true;
-  static void setHomeSecNewAdd(bool value) => _pref.write(_kHomeSecNewAdd, value);
   static const String homeSecNewAdd = _kHomeSecNewAdd;
 
-  static bool getHomeSecMostWatch() => _pref.read(_kHomeSecMostWatch) ?? true;
-  static void setHomeSecMostWatch(bool value) => _pref.write(_kHomeSecMostWatch, value);
   static const String homeSecMostWatch = _kHomeSecMostWatch;
 
-  static bool getHomeSecNeverWatch() => _pref.read(_kHomeSecNeverWatch) ?? true;
-  static void setHomeSecNeverWatch(bool value) => _pref.write(_kHomeSecNeverWatch, value);
   static const String homeSecNeverWatch = _kHomeSecNeverWatch;
 
-  static bool getHomeSecRandom() => _pref.read(_kHomeSecRandom) ?? true;
-  static void setHomeSecRandom(bool value) => _pref.write(_kHomeSecRandom, value);
   static const String homeSecRandom = _kHomeSecRandom;
 
-  static bool getHomeSecOldest() => _pref.read(_kHomeSecOldest) ?? true;
-  static void setHomeSecOldest(bool value) => _pref.write(_kHomeSecOldest, value);
   static const String homeSecOldest = _kHomeSecOldest;
-
 
   // ** player
   static String getDefaultPlayer() => _pref.read(_kDefaultPlayer) ?? 'In App'; // In App | Default System
@@ -179,18 +136,8 @@ mixin AppPref {
   // helper
   static bool getBool(String key) => _pref.read(key) ?? false;
   static void setBool(String key, bool value) => _pref.write(key, value);
-
-  static Future<void> printAllPref() async {
-    AppLog.logS('### AppPref ===');
-    _pref.getKeys().forEach((key) => AppLog.logS('${key.replaceAll('_k', ' ')} = ${_pref.read(key)}'));
-    await 200.milliseconds.delay();
-    AppLog.logS('### --------------------');
-  }
 }
 
-const _kAppIsDarkMode = '_kAppIsDarkMode';
-const _kAppLanguage = '_kAppLanguage';
-const _kAppFirstOpen = '_kAppFirstOpen';
 const _kAppLastOpen = '_kAppLastOpen';
 const _kAppHideSideMenu = '_kAppHideSideMenu';
 const _kAppMaxColi = '_kAppMaxColi';
@@ -200,15 +147,10 @@ const _kDefaultSearchEngine = '_kDefaultSearchEngine';
 const _kSearchTabs = '_kSearchTabs';
 const _kExploreTabs = '_kExploreTabs';
 const _kDownloadTabs = '_kDownloadTabs';
-const _kGeminiApiKey = '_kGeminiApiKey';
 const _kSemanticSearchModel = '_kSemanticSearchModel';
 
-
 const _kDownloadPath = '_kDownloadPath';
-const _kDownloadLang = '_kDownloadLang';
-const _kDownloadMode = '_kDownloadMode';
 const _kDownloadWorker = '_kDownloadChunk';
-
 
 const _kHomeOrderList = '_kHomeOrderList';
 const _kExplorePins = '_kExplorePins';

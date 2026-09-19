@@ -117,8 +117,6 @@ mixin DBCollection {
     await _delete(where: 'type = ? AND id = ? AND video_id IS NULL', whereArgs: [kCollectionTypePlaylist, playlist.id]);
   }
 
-  static Future<void> addPlaylistItems(String playlistId, String videoId) => addPlaylistItemBulk(playlistId, [Videos(id: videoId)]);
-
   static Future<void> addPlaylistItemBulk(String playlistId, List<Videos> videos) async {
     if (videos.isEmpty || playlistId.isEmpty) return;
 

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_popup/flutter_popup.dart';
 import 'package:get/get.dart';
+import 'package:super_context_menu/super_context_menu.dart' as scm;
 import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
@@ -175,11 +176,16 @@ class PageSearchTabView extends StatelessWidget {
         ], crossAlignment: CrossAxisAlignment.start).pOnly(bottom: 24),
 
 
-        Obx(() => controller.isSearchMode.isTrue
+        Obx(() => controller.isSearchMode.isTrue || controller.selectedVideos.isNotEmpty
             ? HStack(
                 [
                   '${controller.semanticResultLabel.value.isEmpty ? 'Result' : controller.semanticResultLabel.value}: ${controller.videos.length} Videos'.text.size(12).make(),
                   Spacer(),
+                  if (controller.selectedVideos.isNotEmpty)
+                    TextButton(
+                      onPressed: controller.selectedVideos.clear,
+                      child: Text('${controller.selectedVideos.length} selected · Clear'),
+                    ),
                   if (controller.videos.isNotEmpty) ...[
                     'PLAY ALL'.text.underline.size(12).make().pOnly(right: 16).onInkTap(() {
                       HelperOpener.openVideoFile(controller.videos.first, playlist: controller.videos);
@@ -209,6 +215,59 @@ class PageSearchTabView extends StatelessWidget {
   // ────────────────────────────────────────────────────────────────
   // ⵌ REUSABLE WIDGETS
   // ────────────────────────────────────────────────────────────────
+  Widget _buildSelectableItem(Videos video, Widget child) {
+    return scm.ContextMenuWidget(
+      contextMenuIsAllowed: (_) => controller.selectedVideos.isNotEmpty,
+      menuProvider: (_) {
+        if (controller.isClosed || controller.selectedVideos.isEmpty) return null;
+        if (!controller.selectedVideos.contains(video)) controller.selectedVideos.assignAll([video]);
+        final selected = controller.videos.where(controller.selectedVideos.contains).toList();
+        final revision = controller.searchRevision;
+        scm.MenuAction action(String title, String value) => scm.MenuAction(title: title, callback: () async {
+          if (controller.isClosed || revision != controller.searchRevision) return;
+          try {
+            await controller.performSelectionAction(value, selected);
+          } catch (e) {
+            await HelperToast.error(e.toString());
+          }
+        });
+        return scm.Menu(children: [
+          action('Play as Playlist', 'play'),
+          action('Play in Grid Player', 'playMulti'),
+          scm.MenuSeparator(),
+          action('Add to cart', 'cart'),
+          action('Add to Playlist', 'playlist'),
+          action('Add to favorite', 'favorite'),
+        ]);
+      },
+      child: DoubleTap(
+        onCommandTap: () => controller.toggleSelection(video),
+        onSingleTap: () async {
+          controller.selectedVideos.clear();
+          await HomePanelVideoInfo.open(video);
+        },
+        onDoubleTap: () async {
+          controller.selectedVideos.clear();
+          await HelperOpener.openVideoFile(video);
+        },
+        child: Obx(() => Semantics(
+          selected: controller.selectedVideos.contains(video),
+          child: Stack(children: [
+            child,
+            if (controller.selectedVideos.contains(video))
+              Positioned.fill(child: IgnorePointer(child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.blue.withAlpha(55),
+                  border: Border.all(color: Colors.lightBlueAccent, width: 2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ))),
+          ]),
+        )),
+      ),
+    );
+  }
+
   Widget modeListView() {
     return ListView.separated(
       key: PageStorageKey('search-list-${controller.id}-${controller.searchRevision}'),
@@ -224,15 +283,12 @@ class PageSearchTabView extends StatelessWidget {
           if (video.filesize != null) video.filesize!.toFileSizeFormat(),
           '${video.viewCount ?? 0} views',
         ].join(' · ');
-        return DoubleTap(
-          onSingleTap: () async => await HomePanelVideoInfo.open(video),
-          onDoubleTap: () async => await HelperOpener.openVideoFile(video),
-          child: Container(
+        return _buildSelectableItem(video, Container(
             padding: EdgeInsets.all(8),
             decoration: ExDecorator.box(fillColor: AppColor.container, borderColor: Colors.transparent, borderRadius: 8),
             child: Row(
               children: [
-                SizedBox(width: 260, height: 170, child: buildLayoutPoster(video, 260, 170, isFanArt: true)),
+                SizedBox(width: 260, height: 170, child: buildLayoutPoster(video, 260, 170, isFanArt: true, interactive: false)),
                 SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -291,14 +347,12 @@ class PageSearchTabView extends StatelessWidget {
     double width,
     double height, {
     bool isFanArt = false,
+    bool interactive = true,
     showReleaseDate = true,
     showViewCount = true,
     showQuality = true,
   }) {
-    return DoubleTap(
-      onSingleTap: () async => await HomePanelVideoInfo.open(video),
-      onDoubleTap: () async => await HelperOpener.openVideoFile(video),
-      child: Container(
+    final child = Container(
         color: AppColor.container,
         child: ZStack([
           ExThumbnail(
@@ -309,11 +363,7 @@ class PageSearchTabView extends StatelessWidget {
             prefix: isFanArt ? 1 : 2.3,
             fitUrl: isFanArt ? BoxFit.cover : BoxFit.fitWidth,
             fitMemory: isFanArt ? BoxFit.fitWidth : BoxFit.cover,
-            quickPreview: video.videoCode?.trim().isNotEmpty == true,
-            previewTitle: video.videoCode?.isNotEmpty == true ? video.videoCode : video.title,
-            previewSubtitle: (video.actress ?? []).map((item) => item.nameRomaji ?? '').where((item) => item.isNotEmpty).join(', '),
-            previewScreenshots: video.screenshot,
-            previewDurationSeconds: (video.duration ?? 0).toInt() * 60,
+            contextMenuIsAllowed: (_) => controller.selectedVideos.isEmpty,
           ),
 
           Positioned.fill(
@@ -412,8 +462,8 @@ class PageSearchTabView extends StatelessWidget {
             child: '${video.videoCode == '' ? video.title?.maxChars(10) : video.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
           ).positioned(bottom: 0, left: 0, right: 0),
         ]),
-      ).cornerRadius(8).pOnly(right: 8),
-    );
+      ).cornerRadius(8).pOnly(right: 8);
+    return interactive ? _buildSelectableItem(video, child) : child;
   }
 
 }

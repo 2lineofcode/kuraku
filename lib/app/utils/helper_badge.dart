@@ -42,23 +42,6 @@ mixin HelperBadge {
     }
   }
 
-  static String getBadgeWatchDurationTooltip(int seconds) {
-    if (seconds <= 0) return '~';
-
-    final hours = seconds ~/ 3600;
-    if (hours <= 10) {
-      return 'You just started. Still in warm-up mode.';
-    } else if (hours <= 50) {
-      return 'Longer sessions are stacking up. Night Owl unlocked.';
-    } else if (hours <= 150) {
-      return 'Watch time is serious now. You are in Screen Warrior territory.';
-    } else if (hours <= 300) {
-      return 'Massive watch-hours logged. Marathoner status.';
-    } else {
-      return 'Insane hours. Time Bender unlocked.';
-    }
-  }
-
   static String getBadgeTotVidText(int count) {
     if (count == 0) return 'Noobless';
     if (count > 0 && count <= 100) {

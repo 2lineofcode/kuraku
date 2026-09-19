@@ -20,6 +20,7 @@ class _Service extends DBService {
 class _Database implements Database, Transaction {
   bool duplicate = false;
   bool missing = false;
+  bool hasPlaylistId = false;
   bool inTransaction = false;
   final statements = <String>[];
   String? playlistQuery;
@@ -46,6 +47,7 @@ class _Database implements Database, Transaction {
 
   @override
   Future<List<Map<String, Object?>>> rawQuery(String sql, [List<Object?>? arguments]) async {
+    if (sql == 'PRAGMA table_info(collection)') return hasPlaylistId ? [{'name': 'playlist_id'}] : [];
     playlistQuery = sql;
     return [];
   }
@@ -149,6 +151,11 @@ void main() {
 
   test('legacy migration preserves rows, recovers orphan groups and cascades by ID in SQLite', () async {
     await DBService.migratePlaylistIds(database);
+    final initialMigration = database.statements.toList();
+    database.statements.clear();
+    database.hasPlaylistId = true;
+    await DBService.migratePlaylistIds(database);
+    expect(database.statements.any((sql) => sql.startsWith('ALTER TABLE')), isFalse);
     await DBCollection.getAllPlaylist();
     final result = await Process.run('python3', ['-c', r'''
 import json, sqlite3, sys
@@ -180,12 +187,16 @@ headers = {row[0]: row for row in conn.execute(sys.argv[2], ('playlist',))}
 assert headers['p1'][-1] == 3 and headers['p1'][3] == 'cover'
 assert headers['p2'][-1] == 1 and len(headers) == 4
 conn.execute('UPDATE collection SET name=? WHERE id=?', ('Renamed', 'p1'))
+before_retry = conn.execute('SELECT * FROM collection ORDER BY id').fetchall()
+for sql in json.loads(sys.argv[3]):
+    conn.execute(sql)
+assert conn.execute('SELECT * FROM collection ORDER BY id').fetchall() == before_retry
 assert conn.execute('SELECT video_id FROM collection WHERE playlist_id="p1" ORDER BY video_id').fetchall() == [('video-1',), ('video-2',)]
 conn.execute('DELETE FROM collection WHERE id="p1"')
 assert conn.execute('SELECT count(*) FROM collection WHERE id IN ("p1","i1","i2")').fetchone()[0] == 0
 assert conn.execute('SELECT count(*) FROM collection WHERE id IN ("p2","orphan","null-name","other")').fetchone()[0] == 4
 assert conn.execute('PRAGMA foreign_key_check').fetchall() == []
-''', jsonEncode(database.statements), database.playlistQuery!]);
+''', jsonEncode(initialMigration), database.playlistQuery!, jsonEncode(database.statements)]);
     expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
   });
 }

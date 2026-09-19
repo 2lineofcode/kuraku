@@ -15,7 +15,6 @@ class PageHomeController extends GetxController {
   final listNeverWatch = <Videos>[].obs;
   final listOldest = <Videos>[].obs;
   final totalVideo = 0.obs;
-  // final recommendationSubtitle = 'Fresh picks from your library'.obs;
 
   final homeSectionOrder = <String>[].obs;
 
@@ -60,14 +59,12 @@ class PageHomeController extends GetxController {
 
     if (candidates.isEmpty) {
       listRecommendation.clear();
-      // recommendationSubtitle.value = 'No unwatched videos available';
       return;
     }
 
     if (watched.isEmpty) {
       candidates.shuffle();
       listRecommendation.value = candidates.take(20).toList();
-      // recommendationSubtitle.value = 'Fresh picks from your library';
       return;
     }
 
@@ -104,16 +101,6 @@ class PageHomeController extends GetxController {
     });
 
     listRecommendation.value = scored.take(20).map((item) => item.video).toList();
-
-    // final topActress = actressWeight.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-    // final topCategory = categoryWeight.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-    // if (topActress.isNotEmpty) {
-    //   recommendationSubtitle.value = 'Because you watched ${topActress.first.key}';
-    // } else if (topCategory.isNotEmpty) {
-    //   recommendationSubtitle.value = 'Based on ${topCategory.first.key}';
-    // } else {
-    //   recommendationSubtitle.value = 'Fresh picks from your library';
-    // }
   }
 
   Future<void> getListMostWatch() async {
