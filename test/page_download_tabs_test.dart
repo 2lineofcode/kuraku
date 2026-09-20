@@ -105,10 +105,14 @@ void main() {
     final tab = _SearchTab(1);
     addTearDown(tab.dispose);
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: PageDownloadSearchView(controller: tab))));
+    final emptyPosition = tester.getTopLeft(find.text('~ Type Something ~'));
     for (final useKeyboard in [false, true]) {
-      await tester.enterText(find.byType(CupertinoTextField), '/on');
+      await tester.enterText(find.byType(CupertinoTextField), '/');
       await tester.pumpAndSettle();
+      expect(find.text('/new-release'), findsOneWidget);
+      expect(tester.getTopLeft(find.text('~ Type Something ~')), emptyPosition);
       if (useKeyboard) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
         await tester.testTextInput.receiveAction(TextInputAction.done);
       } else {
         await tester.tap(find.text('/online'));
@@ -125,6 +129,12 @@ void main() {
       await tester.pump();
       expect(tab.tecSearch.text, '/online keyword');
     }
+    await tester.enterText(find.byType(CupertinoTextField), '/');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('/new-release'), findsNothing);
+    expect(tester.getTopLeft(find.text('~ Type Something ~')), emptyPosition);
     await tester.pumpWidget(const SizedBox.shrink());
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant({TargetPlatform.macOS, TargetPlatform.windows, TargetPlatform.linux}));

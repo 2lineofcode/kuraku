@@ -33,6 +33,8 @@ mixin HomePanelLibrary {
   static final Map<String, Timer> _libraryWatchDebounce = {};
   static final Set<String> _libraryRescanInProgress = {};
   static const Duration _watchDebounce = Duration(seconds: 3);
+  static bool fileDragInProgress = false;
+  static bool get canStartFileDrag => !fileDragInProgress && _libraryRescanInProgress.isEmpty;
 
   static bool _isSupportedVideoPath(String path) {
     final pth = path.toLowerCase();
@@ -129,6 +131,10 @@ mixin HomePanelLibrary {
   }
 
   static Future<void> _runAutoRescanForRoot(String root) async {
+    if (fileDragInProgress) {
+      _libraryWatchDebounce[root] = Timer(_watchDebounce, () => _runAutoRescanForRoot(root));
+      return;
+    }
     if (_libraryRescanInProgress.contains(root)) return;
     _libraryRescanInProgress.add(root);
     try {

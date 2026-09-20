@@ -2,7 +2,6 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_popup/flutter_popup.dart';
 import 'package:get/get.dart';
 import 'package:super_context_menu/super_context_menu.dart' as scm;
 import 'package:uicons_pro/uicons_pro.dart';
@@ -17,6 +16,7 @@ import '../../widgets/widgets.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_video_info.dart';
 import 'page_search_controller.dart';
+import 'page_search_file_drag.dart';
 import 'page_search_tab.dart';
 
 class PageSearchView extends GetView<PageSearchController> {
@@ -133,47 +133,33 @@ class PageSearchTabView extends StatelessWidget {
             ]),
           ),
 
-          // sort by
-          CustomPopup(
-            content: VStack([
-              'Sort By:'.text.bold.black.make(),
-              Divider(),
-              ExButtonText(
-                label: controller.sortBy.value == 'Random' ? '◉ Random' : '◎ Random',
-                labelSize: 13,
-                labelColor: Vx.black,
-                onPressed: () => {controller.onSortByChange('Random'), Get.back()},
-              ).pOnly(right: 6),
-              ExButtonText(
-                label: controller.sortBy.value == 'Release Date' ? '◉ Release Date' : '◎ Release Date',
-                labelSize: 13,
-                labelColor: Vx.black,
-                onPressed: () => {controller.onSortByChange('Release Date'), Get.back()},
+          // sort and quality
+          Obx(() {
+            final quality = controller.qualityFilter.value;
+            return MenuAnchor(
+              menuChildren: _sortMenuItems(),
+              builder: (context, menu, child) => TextButton.icon(
+                style: TextButton.styleFrom(
+                  backgroundColor: AppColor.selected.withAlpha(150),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(0, 32),
+                  visualDensity: VisualDensity.standard,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () {
+                  controller.hideSuggestions();
+                  menu.isOpen ? menu.close() : menu.open();
+                },
+                icon: Icon(UIconsPro.regularRounded.sort, size: 12),
+                label: Text('${controller.sortBy.value}${quality == 'All qualities' ? '' : ' · $quality'}', style: const TextStyle(fontSize: 11)),
               ),
-              ExButtonText(
-                label: controller.sortBy.value == 'View Count' ? '◉ View Count' : '◎ View Count',
-                labelSize: 13,
-                labelColor: Vx.black,
-                onPressed: () => {controller.onSortByChange('View Count'), Get.back()},
-              ),
-              ExButtonText(
-                label: controller.sortBy.value == 'File Size' ? '◉ File Size' : '◎ File Size',
-                labelSize: 13,
-                labelColor: Vx.black,
-                onPressed: () => {controller.onSortByChange('File Size'), Get.back()},
-              ),
-            ]).w(150),
-            child: Container(
-              decoration: ExDecorator.box(fillColor: AppColor.selected.withAlpha(150), borderColor: Colors.transparent, borderRadius: 4),
-              child: HStack([
-                Icon(UIconsPro.regularRounded.sort, size: 12),
-                '${controller.sortBy}'.text.size(11).minFontSize(11).make().pOnly(left: 4),
-              ]).p(7),
-            ),
-          ).pOnly(left: 8,right: 12),
+            );
+          }).pOnly(left: 8, right: 12),
 
           
-        ], crossAlignment: CrossAxisAlignment.start).pOnly(bottom: 24),
+        ], crossAlignment: CrossAxisAlignment.center).pOnly(bottom: 24),
 
 
         Obx(() => controller.isSearchMode.isTrue || controller.selectedVideos.isNotEmpty
@@ -184,7 +170,10 @@ class PageSearchTabView extends StatelessWidget {
                   if (controller.selectedVideos.isNotEmpty)
                     TextButton(
                       onPressed: controller.selectedVideos.clear,
-                      child: Text('${controller.selectedVideos.length} selected · Clear'),
+                      child: Text(
+                        '${controller.selectedVideos.length} selected · Clear',
+                        style: TextStyle(fontSize: 12),
+                      ),
                     ),
                   if (controller.videos.isNotEmpty) ...[
                     'PLAY ALL'.text.underline.size(12).make().pOnly(right: 16).onInkTap(() {
@@ -215,8 +204,25 @@ class PageSearchTabView extends StatelessWidget {
   // ────────────────────────────────────────────────────────────────
   // ⵌ REUSABLE WIDGETS
   // ────────────────────────────────────────────────────────────────
+  List<Widget> _sortMenuItems() => [
+    const Padding(padding: EdgeInsets.fromLTRB(12, 8, 12, 4), child: Text('Sort by', style: TextStyle(fontSize: 11, color: Colors.grey))),
+    for (final sort in ['Random', 'Release Date', 'View Count', 'File Size'])
+      MenuItemButton(
+        onPressed: () => controller.onSortByChange(sort),
+        leadingIcon: Icon(controller.sortBy.value == sort ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 16),
+        child: Text(sort, style: const TextStyle(fontSize: 13)),
+      ),
+    const Padding(padding: EdgeInsets.fromLTRB(12, 8, 12, 4), child: Text('Quality', style: TextStyle(fontSize: 11, color: Colors.grey))),
+    for (final quality in ['All qualities', 'FHD only', 'HD only'])
+      MenuItemButton(
+        onPressed: () => controller.onQualityFilterChange(quality),
+        leadingIcon: Icon(controller.qualityFilter.value == quality ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 16),
+        child: Text(quality, style: const TextStyle(fontSize: 13)),
+      ),
+  ];
+
   Widget _buildSelectableItem(Videos video, Widget child) {
-    return scm.ContextMenuWidget(
+    return SearchFileDrag(controller: controller, video: video, child: scm.ContextMenuWidget(
       contextMenuIsAllowed: (_) => controller.selectedVideos.isNotEmpty,
       menuProvider: (_) {
         if (controller.isClosed || controller.selectedVideos.isEmpty) return null;
@@ -265,7 +271,7 @@ class PageSearchTabView extends StatelessWidget {
           ]),
         )),
       ),
-    );
+    ));
   }
 
   Widget modeListView() {

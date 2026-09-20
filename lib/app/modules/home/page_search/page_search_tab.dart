@@ -2,11 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../core/app_logging.dart';
 import '../../../data/database/db_historical.dart';
+import '../../../data/database/db_library.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
+import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
 import '../../../utils/semantic_search_service.dart';
@@ -37,6 +40,7 @@ class PageSearchTab {
   final semanticResultLabel = ''.obs;
   final semanticScoreByVideoId = <String, double>{}.obs;
   final sortBy = 'Random'.obs;
+  final qualityFilter = 'All qualities'.obs;
   final filter = VideoFilterState();
   final videos = <Videos>[].obs;
   final selectedVideos = <Videos>{}.obs;
@@ -78,11 +82,47 @@ class PageSearchTab {
     }
   }
 
+  Future<void> applyFileMoves(Map<String, Videos> files, Map<String, String> paths, List<String> missing) async {
+    if (paths.isEmpty && missing.isEmpty) return;
+    final libraries = await DBLibrary.getAll();
+    final roots = libraries.map((library) => library.rootFolder ?? '').where((root) => root.isNotEmpty).toList()
+      ..sort((a, b) => b.length.compareTo(a.length));
+    final moves = <Map<String, String>>[];
+    for (final entry in paths.entries) {
+      final existing = await DBVideos.getByVideoPath(entry.value);
+      if (existing != null && existing.id != files[entry.key]?.id) {
+        throw StateError('The destination is already in the library: ${entry.value}');
+      }
+      moves.add({
+        'oldPath': entry.key,
+        'newPath': entry.value,
+        'newRoot': roots.firstWhere((root) => p.isWithin(root, entry.value), orElse: () => p.dirname(entry.value)),
+      });
+    }
+    await DBVideos.moveVideoPaths(moves);
+    for (final move in moves) {
+      final video = files[move['oldPath']]!;
+      video.videoPath = move['newPath'];
+      video.rootPath = move['newRoot'];
+    }
+    for (final library in libraries) {
+      final previous = library.videos ?? <String>[];
+      final next = previous.where((path) => !paths.containsKey(path) && !missing.contains(path)).toSet();
+      next.addAll(moves.where((move) => move['newRoot'] == library.rootFolder).map((move) => move['newPath']!));
+      if (next.length == previous.length && next.containsAll(previous)) continue;
+      library.videos = next.toList();
+      library.totalVideo = next.length;
+      await DBLibrary.update(library);
+    }
+    if (!_closed) videos.refresh();
+  }
+
   Map<String, dynamic> toPreferences() => {
     'query': tecSearch.text,
     'listView': isListView.value,
     'semantic': isSemanticMode.value,
     'sort': sortBy.value,
+    'quality': qualityFilter.value,
     'hasSort': _hasSort.value,
     'filtered': filter.isFiltered.value,
     'videoCode': filter.tecVideoCode.text,
@@ -100,6 +140,7 @@ class PageSearchTab {
     _updatePlaceholder();
     if (['Random', 'Release Date', 'View Count', 'File Size'].contains(value['sort'])) sortBy.value = value['sort'];
     _hasSort.value = value['hasSort'] == true;
+    if (['All qualities', 'FHD only', 'HD only'].contains(value['quality'])) qualityFilter.value = value['quality'];
     filter.isFiltered.value = value['filtered'] == true;
     filter.tecVideoCode.text = value['videoCode'] is String ? value['videoCode'] : '';
     filter.tecActressName.text = value['actress'] is String ? value['actress'] : '';
@@ -118,7 +159,7 @@ class PageSearchTab {
       field.addListener(onChanged);
     }
     _preferenceWorker = everAll([
-      isListView, isSemanticMode, sortBy, _hasSort, filter.isFiltered, filter.categoriesSelected, filter.currentRange,
+      isListView, isSemanticMode, sortBy, qualityFilter, _hasSort, filter.isFiltered, filter.categoriesSelected, filter.currentRange,
     ], (_) => onChanged());
   }
 
@@ -254,6 +295,7 @@ class PageSearchTab {
     if (_closed) return;
     tecSearch.clear();
     sortBy.value = 'Random';
+    qualityFilter.value = 'All qualities';
     _hasSort.value = false;
     filter.reset();
     await onSearch();
@@ -317,6 +359,7 @@ class PageSearchTab {
     title.value = query;
     filter.reset();
     sortBy.value = 'Random';
+    qualityFilter.value = 'All qualities';
     _hasSort.value = false;
     isSemanticMode.value = false;
     _updatePlaceholder();
@@ -338,14 +381,25 @@ class PageSearchTab {
   }
 
   Future<void> onSortByChange(String value) async {
+    if (_closed) return;
     sortBy.value = value;
     _hasSort.value = true;
     _applyView();
     fnSearch.requestFocus();
   }
 
+  void onQualityFilterChange(String value) {
+    if (_closed || !['All qualities', 'FHD only', 'HD only'].contains(value)) return;
+    qualityFilter.value = value;
+    _applyView();
+  }
+
   void _applyView() {
     final next = filter.isFiltered.value ? filter.apply(allVideos.toList(), _filterAdapter) : allVideos.toList();
+    if (qualityFilter.value != 'All qualities') {
+      final prefix = qualityFilter.value == 'FHD only' ? 'FHD' : 'HD';
+      next.removeWhere((video) => !HelperMisc.formatVideoQuality(video.quality ?? '').startsWith(prefix));
+    }
     if (_hasSort.value) {
       switch (sortBy.value.toLowerCase()) {
         case 'random': next.shuffle(); break;

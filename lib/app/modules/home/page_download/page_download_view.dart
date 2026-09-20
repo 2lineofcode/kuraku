@@ -9,6 +9,7 @@ import '../../../core/app_color.dart';
 import '../../../core/const.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_search_history.dart';
+import '../../widgets/widget_search_suggestions_overlay.dart';
 import '../../widgets/widget_search_tab_bar.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
@@ -85,7 +86,7 @@ class PageDownloadSearchView extends StatelessWidget {
                   onDelete: controller.onDeleteHistory,
                   onClear: controller.onClearHistory,
                 )),
-                Obx(
+                SearchSuggestionsOverlay(child: Obx(
                   () => controller.isCommandSuggestionVisible.isTrue
                       ? Container(
                           margin: EdgeInsets.only(top: 4),
@@ -114,7 +115,7 @@ class PageDownloadSearchView extends StatelessWidget {
                           ),
                         )
                       : 0.heightBox,
-                ),
+                )),
               ],
             )).expand(),
           ),

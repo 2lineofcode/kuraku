@@ -3,6 +3,20 @@ import 'package:javit/app/utils/helper_misc.dart';
 import 'package:javit/env.g.dart';
 
 void main() {
+  test('quality labels handle malformed metadata and keep high resolutions out of HD tiers', () {
+    for (final value in ['bad', '1920x', 'ax1080', '0x1080', '-1x720', '1920x1080x720']) {
+      expect(HelperMisc.formatVideoQuality(value), 'Unknown');
+    }
+    expect(HelperMisc.formatVideoQuality(' 1920 × 1080 '), startsWith('FHD'));
+    expect(HelperMisc.formatVideoQuality('1920x800'), startsWith('FHD'));
+    expect(HelperMisc.formatVideoQuality('1080x1920'), startsWith('FHD'));
+    expect(HelperMisc.formatVideoQuality('720x1280'), startsWith('HD'));
+    expect(HelperMisc.formatVideoQuality(' hd '), 'HD');
+    expect(HelperMisc.formatVideoQuality('2160x3840'), '4K');
+    expect(HelperMisc.formatVideoQuality('1440x2560'), startsWith('2K'));
+    expect(HelperMisc.formatVideoQuality('7680x4320'), '8K');
+  });
+
   test('manual cover URLs are preserved while legacy DMM paths still resolve', () {
     const cover = 'https://cdn.javmiku.com/wp-content/uploads/2026/05/mida601pl.jpg';
     expect(cover.genImageUrl(), cover);

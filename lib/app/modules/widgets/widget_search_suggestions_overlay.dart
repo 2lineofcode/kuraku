@@ -1,0 +1,37 @@
+import 'package:flutter/material.dart';
+
+class SearchSuggestionsOverlay extends StatefulWidget {
+  const SearchSuggestionsOverlay({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<SearchSuggestionsOverlay> createState() => _SearchSuggestionsOverlayState();
+}
+
+class _SearchSuggestionsOverlayState extends State<SearchSuggestionsOverlay> {
+  final _overlay = OverlayPortalController();
+
+  @override
+  void initState() {
+    super.initState();
+    _overlay.show();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return OverlayPortal.overlayChildLayoutBuilder(
+      controller: _overlay,
+      overlayChildBuilder: (context, info) {
+        final anchor = MatrixUtils.transformRect(info.childPaintTransform, Offset.zero & info.childSize);
+        return Positioned(
+          left: anchor.left,
+          top: anchor.bottom,
+          width: anchor.width,
+          child: TextFieldTapRegion(child: widget.child),
+        );
+      },
+      child: const SizedBox(width: double.infinity),
+    );
+  }
+}

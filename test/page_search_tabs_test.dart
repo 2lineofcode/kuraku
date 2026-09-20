@@ -205,6 +205,7 @@ void main() {
     first.filter.categoriesSelected.assignAll(['Drama', 'Romance']);
     first.filter.currentRange.value = RangeValues(2022, 2025);
     first.filter.isFiltered.value = true;
+    first.onQualityFilterChange('FHD only');
     await first.onSortByChange('File Size');
     controller.addTab();
     controller.activeTab.tecSearch.text = 'Unsubmitted draft';
@@ -348,6 +349,70 @@ void main() {
     await failing;
     expect(tab.error.value, isNotEmpty);
     expect(tab.isLoading.value, isFalse);
+  });
+
+  testWidgets('Quality filters combine with sorting, preserve sources and stay local to a tab', (tester) async {
+    final tab = _ReadyTab(1);
+    final other = _ReadyTab(2);
+    addTearDown(tab.dispose);
+    addTearDown(other.dispose);
+    final source = [
+      Videos(id: 'fhd', videoCode: 'SSIS-001', quality: '1920x1080', filesize: 100),
+      Videos(id: 'portrait', videoCode: 'SSIS-002', quality: '1080x1920', filesize: 200),
+      Videos(id: 'cinema', videoCode: 'SSIS-003', quality: '1920x800', filesize: 300),
+      Videos(id: 'hd', quality: '1280x720'),
+      Videos(id: 'portrait-hd', quality: '720x1280'),
+      Videos(id: '4k', quality: '3840x2160'),
+      Videos(id: '2k', quality: '2560x1440'),
+      Videos(id: 'qhd', quality: '540x960'),
+      Videos(id: 'missing'),
+      Videos(id: 'invalid', quality: 'unknown'),
+    ];
+    tab.showResults('Results', source);
+    other.showResults('Other', source);
+    await tab.onSortByChange('File Size');
+    tab.onQualityFilterChange('FHD only');
+    expect(tab.videos.map((video) => video.id), ['cinema', 'portrait', 'fhd']);
+    tab.toggleSelection(tab.videos.first);
+    tab.onQualityFilterChange('HD only');
+    expect(tab.videos.map((video) => video.id).toSet(), {'hd', 'portrait-hd'});
+    expect(tab.selectedVideos, isEmpty);
+    expect(other.videos.length, source.length);
+    expect(other.qualityFilter.value, 'All qualities');
+    expect(tab.allVideos.length, source.length);
+    tab.onQualityFilterChange('All qualities');
+    expect(tab.videos.length, source.length);
+    tab.onQualityFilterChange('FHD only');
+    tab.filter.tecVideoCode.text = 'SSIS-001';
+    tab.filter.isFiltered.value = true;
+    await tab.onSortByChange('File Size');
+    expect(tab.videos.single.id, 'fhd');
+    await tab.onReset();
+    expect(tab.qualityFilter.value, 'All qualities');
+  });
+
+  testWidgets('Sort button aligns with the toolbar and exposes quality choices on primary click', (tester) async {
+    final tab = _ReadyTab(1)..isFresh.value = false;
+    addTearDown(tab.dispose);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: _SearchView(controller: tab))));
+    final button = find.ancestor(of: find.text('Random'), matching: find.byType(TextButton));
+    expect(tester.getSize(button).height, 32);
+    expect(tester.getCenter(button).dy, tester.getCenter(find.byType(CupertinoTextField)).dy);
+    expect(tester.getCenter(button).dy, tester.getCenter(find.byTooltip('Switch to list view')).dy);
+    await tester.tap(find.text('Random'));
+    await tester.pumpAndSettle();
+    expect(find.text('All qualities'), findsOneWidget);
+    await tester.tap(find.text('FHD only'));
+    await tester.pumpAndSettle();
+    expect(tab.qualityFilter.value, 'FHD only');
+    expect(find.text('Random · FHD only'), findsOneWidget);
+    await tester.tap(find.text('Random · FHD only'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('HD only'));
+    await tester.pumpAndSettle();
+    expect(tab.qualityFilter.value, 'HD only');
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Search tab controls preserve independent settings and keep the plus beside the last tab', (tester) async {

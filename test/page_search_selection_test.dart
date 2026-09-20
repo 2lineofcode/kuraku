@@ -92,18 +92,20 @@ void main() {
     addTearDown(notifier.dispose);
     final request = scm.MenuRequest(onShowMenu: notifier, onHideMenu: notifier, onPreviewAction: notifier, location: Offset.zero);
     final menus = tester.widgetList<scm.ContextMenuWidget>(find.byType(scm.ContextMenuWidget)).toList();
-    final batch = menus.where((menu) => menu.contextMenuIsAllowed(Offset.zero)).first;
+    final batch = tester.widgetList<scm.ContextMenuWidget>(find.ancestor(
+      of: find.byType(DoubleTap).first, matching: find.byType(scm.ContextMenuWidget),
+    )).firstWhere((menu) => menu.contextMenuIsAllowed(Offset.zero));
     final menu = (await batch.menuProvider(request))!;
-    expect(menu.children.map((item) => item.title), ['Play', 'Play Multi Player', 'Add to cart', 'Add to Playlist', 'Add to favorite']);
+    expect(menu.children.whereType<scm.MenuAction>().map((item) => item.title), ['Play as Playlist', 'Play in Grid Player', 'Add to cart', 'Add to Playlist', 'Add to favorite']);
     expect(menus.where((menu) => !menu.contextMenuIsAllowed(Offset.zero)).length, 3);
     tab.toggleSelection(videos[1]);
-    for (final action in menu.children.cast<scm.MenuAction>()) { action.callback(); }
+    for (final action in menu.children.whereType<scm.MenuAction>()) { action.callback(); }
     expect(tab.actions.map((item) => item.action), ['play', 'playMulti', 'cart', 'playlist', 'favorite']);
     expect(tab.actions.every((item) => item.videos.length == 2 && item.videos[0] == videos[0] && item.videos[1] == videos[1]), isTrue);
 
     tab.showResults('New', videos);
     expect(tab.selectedVideos, isEmpty);
-    menu.children.cast<scm.MenuAction>().first.callback();
+    menu.children.whereType<scm.MenuAction>().first.callback();
     expect(tab.actions.length, 5);
     await tester.pumpWidget(const SizedBox.shrink());
     expect(tester.takeException(), isNull);

@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_color.dart';
+import 'widget_search_suggestions_overlay.dart';
 
 class SearchHistoryDropdown extends StatelessWidget {
   const SearchHistoryDropdown({super.key, required this.suggestions, required this.selectedIndex,
@@ -15,7 +16,10 @@ class SearchHistoryDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (suggestions.isEmpty) return const SizedBox.shrink();
+    return SearchSuggestionsOverlay(child: suggestions.isEmpty ? const SizedBox.shrink() : _buildDropdown(context));
+  }
+
+  Widget _buildDropdown(BuildContext context) {
     return TextFieldTapRegion(child: Container(
       margin: const EdgeInsets.only(top: 4),
       constraints: const BoxConstraints(maxHeight: 140),

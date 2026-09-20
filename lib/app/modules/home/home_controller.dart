@@ -11,13 +11,11 @@ import 'package:uuid/v4.dart';
 import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
 import '../../core/app_setting.dart';
-import '../../core/const.dart';
 import '../../data/database/db_activity.dart';
 import '../../data/database/db_collection.dart';
 import '../../data/database/db_gamification.dart';
 import '../../data/database/db_profile.dart';
 import '../../data/database/db_videos.dart';
-import '../../data/models/activity_entity.dart';
 import '../../data/models/collection_entity.dart';
 import '../../data/models/library_entity.dart';
 import '../../data/models/profile_entity.dart';
@@ -29,6 +27,7 @@ import 'home_panel/home_panel_library.dart';
 import 'page_download/page_download_controller.dart';
 import 'page_explore/page_explore_controller.dart';
 import 'page_home/page_home_controller.dart';
+import 'page_profile/page_profile_controller.dart';
 import 'page_search/page_search_controller.dart';
 import 'page_settings/page_settings_controller.dart';
 import 'page_tools/page_tools_controller.dart';
@@ -354,12 +353,13 @@ class HomeController extends GetxController with StateMixin {
   // ──────────────────────────────────────────────────────────────
   // onDropEvent
   // ──────────────────────────────────────────────────────────────
-  void onDropEnter(DropEvent event) => isDropHovering.value = true;
+  void onDropEnter(DropEvent event) => isDropHovering.value = !HomePanelLibrary.fileDragInProgress;
   void onDropLeave(DropEvent event) => isDropHovering.value = false;
   void onDropEnded(DropEvent event) => isDropHovering.value = false;
 
   Future<void> onDropEvent(PerformDropEvent event) async {
     isDropHovering.value = false;
+    if (HomePanelLibrary.fileDragInProgress) return;
     final droppedPaths = <String>[];
     final readTasks = <Future<void>>[];
 
@@ -615,176 +615,14 @@ class HomeController extends GetxController with StateMixin {
   // ────────────────────────────────────────────────────────────────
   // ⵌ profile
   // ────────────────────────────────────────────────────────────────
-  String _watchTimeFormat(int totalSeconds) {
-    if (totalSeconds <= 0) return '0 seconds';
-
-    final hours = totalSeconds ~/ 3600;
-    final minutes = (totalSeconds % 3600) ~/ 60;
-    // final seconds = totalSeconds % 60;
-
-    if (hours > 0) {
-      return '$hours hours, $minutes minutes';
-    }
-
-    if (minutes > 0) {
-      return '$minutes minutes';
-    }
-
-    return '0 minutes';
-  }
-
   Future<void> onOpenProfile() async {
-    final tfName = TextEditingController(text: profile.value.name);
-    final fnName = FocusNode();
-    
-    // profile 
-    profile.value = await DBProfile.getProfile() ?? Profile();
-    await _syncGamification();
-
-    // relapse
-    final relapse = <Activity>[].obs;
-    final countWeek = 0.obs;
-    final countMonth = 0.obs;
-    final countAll = 0.obs;
-
-    relapse.value = await DBActivity.getAllRelapse();
-
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
-    final startOfMonth = DateTime(today.year, today.month, 1);
-
-    var weekTotal = 0;
-    var monthTotal = 0;
-    var allTotal = 0;
-
-    for (final item in relapse) {
-      final rawDate = item.content;
-      if (rawDate.isNullOrEmpty) continue;
-      final date = rawDate!.toDateEx(format: kYMd);
-      final times = item.times ?? 1;
-
-      allTotal += times;
-      if (!date.isBefore(startOfWeek)) {
-        weekTotal += times;
-      }
-      if (!date.isBefore(startOfMonth)) {
-        monthTotal += times;
-      }
-    }
-
-    countWeek.value = weekTotal;
-    countMonth.value = monthTotal;
-    countAll.value = allTotal;
-
-    var isGamificationExpanded = false;
-
-    ExAlert.adaptive(
-      title: Padding(
-        padding: EdgeInsets.only(bottom: 16),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                'ⵌ Edit Profile',
-                style: TextStyle(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.left,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              minimumSize: Size(24, 24),
-              child: Icon(CupertinoIcons.xmark, size: 14),
-              onPressed: () => Get.back(),
-            ),
-          ],
-        ),
-      ),
-      content: SizedBox(
-        width: 230,
-        child: StatefulBuilder(
-          builder: (context, setState) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsets.only(bottom: 16),
-                  child: CupertinoTextField(
-                    controller: tfName,
-                    focusNode: fnName,
-                    placeholder: 'Your Name',
-                    placeholderStyle: TextStyle(fontSize: 13, color: CupertinoColors.systemGrey),
-                    prefix: Padding(
-                      padding: EdgeInsets.only(left: 8),
-                      child: Icon(UIconsPro.regularRounded.user, size: 14),
-                    ),
-                    style: TextStyle(fontSize: 13, color: CupertinoColors.white),
-                    onSubmitted: (value) async => await _editProfile(value),
-                  ),
-                ),
-
-                _profileLine('First Open App: ${profile.value.createdAt?.reformatDate(from: kFull, to: kMdY)}'),
-                _profileLine('Total Relapse: ${countAll.value} Times'),
-                _profileLine('Watch Time: ${_watchTimeFormat(profile.value.totalWatchDuration ?? 0)}'),
-                _profileAccordionHeader(
-                  isExpanded: isGamificationExpanded,
-                  onTap: () => setState(() => isGamificationExpanded = !isGamificationExpanded),
-                ),
-                if (isGamificationExpanded) ...[
-                  _profileLine('Current Streak: ${streakDays.value} Days'),
-                  _profileLine('Achievements: ${achievementCount.value} Unlocked'),
-                  _profileLine('Collection Badge: ${(profile.value.badgeForCollection ?? '').isEmpty ? '-' : profile.value.badgeForCollection}'),
-                  _profileLine('Watch Badge: ${(profile.value.badgeForWatchDuration ?? '').isEmpty ? '-' : profile.value.badgeForWatchDuration}'),
-                  _profileInfoBlock(
-                    'Latest Achievement',
-                    latestAchievementTitles.isEmpty ? '-' : latestAchievementTitles.join(', '),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(top: 8, bottom: 8),
-                    child: _profileProgressRow(
-                      'Collection',
-                      HelperBadge.getCollectionProgress(totalVideo.value),
-                      unit: ' vids',
-                    ),
-                  ),
-                  _profileProgressRow(
-                    'Watch Time',
-                    HelperBadge.getWatchDurationProgress(profile.value.totalWatchDuration ?? 0),
-                    unit: 'h',
-                  ),
-                ],
-              ],
-            );
-          },
-        ),
-      ),
-      actions: [
-        CupertinoDialogAction(
-          child: Text('Achievements', style: TextStyle(fontSize: 13)),
-          onPressed: () async {
-            Get.back();
-            await onOpenAchievementCenter();
-          },
-        ),
-        CupertinoDialogAction(
-          child: Text('Save', style: TextStyle(fontSize: 13)),
-          onPressed: () async {
-            await _editProfile(tfName.text);
-          },
-        ),
-      ],
-    );
+    currentMenuSelected.value = kMenuProfile;
+    await Get.find<PageProfileController>().onRefresh();
   }
 
-  Future<void> _editProfile(String newName) async {
-    final _newProfile = profile.value;
-    _newProfile.name = newName;
-    await DBProfile.update(_newProfile);
+  Future<void> refreshProfile() async {
+    await _syncGamification();
     profile.value = await DBProfile.getProfile() ?? Profile();
-    await HelperToast.success('Saved');
-    Get.back();
   }
 
   Future<void> _syncGamification() async {
@@ -794,265 +632,6 @@ class HomeController extends GetxController with StateMixin {
     latestAchievementTitles.value = summary.latestAchievements.map((e) => e.title).toList();
     achievementProgress.value = await DBGamification.getAchievementProgress();
   }
-
-  Widget _profileProgressRow(String label, BadgeProgress progress, {String unit = ''}) {
-    final statusText = progress.isMaxLevel
-        ? 'Max Level'
-        : '${progress.currentValue}/${progress.targetValue}$unit to ${progress.nextTitle}';
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: EdgeInsets.only(bottom: 4),
-          child: Row(
-            children: [
-              Text('$label Progress', style: TextStyle(fontSize: 10, color: CupertinoColors.systemGrey)),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  statusText,
-                  style: TextStyle(fontSize: 10),
-                  textAlign: TextAlign.right,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      _simpleProgressBar(
-        progress.percent,
-        color: progress.isMaxLevel ? CupertinoColors.systemGreen : CupertinoColors.systemYellow,
-      ),
-      ],
-    );
-  }
-
-  Widget _profileLine(String text, {int maxLines = 1}) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 4),
-      child: Text(
-        '• $text',
-        maxLines: maxLines,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
-  }
-
-  Widget _profileAccordionHeader({
-    required bool isExpanded,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: EdgeInsets.only(top: 4, bottom: isExpanded ? 8 : 0),
-      child: CupertinoButton(
-        padding: EdgeInsets.zero,
-        minimumSize: Size(0, 28),
-        onPressed: onTap,
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Gamification',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: CupertinoColors.systemPurple),
-              ),
-            ),
-            Text(
-              '${achievementCount.value} unlocked',
-              style: TextStyle(fontSize: 11, color: CupertinoColors.systemGrey),
-            ),
-            SizedBox(width: 6),
-            Icon(
-              isExpanded ? CupertinoIcons.chevron_up : CupertinoIcons.chevron_down,
-              size: 13,
-              color: CupertinoColors.systemGrey,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _profileInfoBlock(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: TextStyle(fontSize: 11, color: CupertinoColors.systemGrey)),
-          SizedBox(height: 2),
-          Text(
-            value,
-            style: TextStyle(fontSize: 12),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _simpleProgressBar(int value, {Color? color, double width = 230, double height = 6}) {
-    final percent = value.clamp(0, 100);
-    final filledWidth = width * percent / 100;
-    final emptyWidth = width - filledWidth;
-
-    return SizedBox(
-      width: width,
-      height: height,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Row(
-          children: [
-            Container(width: filledWidth, height: height, color: color ?? CupertinoColors.systemYellow),
-            Container(width: emptyWidth, height: height, color: CupertinoColors.systemGrey4),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _achievementProgressBar(int value, {Color? color}) {
-    final percent = value.clamp(0, 100);
-    return Row(
-      children: [
-        if (percent > 0) Expanded(flex: percent, child: Container(height: 5, color: color ?? CupertinoColors.systemYellow)),
-        if (percent < 100) Expanded(flex: 100 - percent, child: Container(height: 5, color: CupertinoColors.systemGrey4)),
-      ],
-    );
-  }
-
-  Future<void> onOpenAchievementCenter() async {
-    await _syncGamification();
-
-    ExAlert.adaptive(
-      title: Padding(
-        padding: EdgeInsets.only(bottom: 16),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Achievements',
-                style: TextStyle(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.left,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              minimumSize: Size(24, 24),
-              child: Icon(CupertinoIcons.xmark, size: 14),
-              onPressed: () => Get.back(),
-            ),
-          ],
-        ),
-      ),
-      content: SizedBox(
-        width: 520,
-        height: 420,
-        child: Obx(
-          () => Column(
-            children: [
-              Padding(
-                padding: EdgeInsets.only(bottom: 12),
-                child: Row(
-                  children: [
-                    Text(
-                      '${achievementCount.value}/${achievementProgress.length} Unlocked',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                    Spacer(),
-                    Text(
-                      'Streak: ${streakDays.value} Days',
-                      style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: achievementProgress.length,
-                  separatorBuilder: (context, index) => Container(height: .5, color: CupertinoColors.systemGrey5),
-                  itemBuilder: (context, index) {
-                    final item = achievementProgress[index];
-                    final color = item.isUnlocked ? CupertinoColors.systemGreen : CupertinoColors.systemYellow;
-                    final meta = item.isUnlocked
-                        ? 'Unlocked ${item.unlockedAt.reformatDate(to: 'yy/MM/dd HH:mm')}'
-                        : '${item.currentValue}/${item.targetValue}';
-
-                    return Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.only(right: 12),
-                            child: Icon(
-                              item.isUnlocked ? UIconsPro.solidRounded.badge_check : UIconsPro.regularRounded.lock,
-                              size: 16,
-                              color: color,
-                            ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: EdgeInsets.only(bottom: 4),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          item.title,
-                                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                      Text(item.group, style: TextStyle(fontSize: 10, color: color)),
-                                    ],
-                                  ),
-                                ),
-                                Padding(
-                                  padding: EdgeInsets.only(bottom: 6),
-                                  child: Text(
-                                    item.description,
-                                    style: TextStyle(fontSize: 11, color: CupertinoColors.systemGrey),
-                                  ),
-                                ),
-                                SizedBox(
-                                  height: 5,
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: _achievementProgressBar(item.percent, color: color),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: EdgeInsets.only(top: 4),
-                                  child: Text(meta, style: TextStyle(fontSize: 10, color: CupertinoColors.systemGrey)),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        CupertinoDialogAction(
-          child: Text('Close', style: TextStyle(fontSize: 13)),
-          onPressed: () => Get.back(),
-        ),
-      ],
-    );
-  }
-
-
 
   // ────────────────────────────────────────────────────────────────
   // ⵌ playlist
@@ -1073,3 +652,5 @@ const kMenuExplore = 'Explore';
 const kMenuDownload = 'Download';
 const kMenuTools = 'Tools';
 const kMenuSetting = 'Settings';
+
+const kMenuProfile = 'Profile';

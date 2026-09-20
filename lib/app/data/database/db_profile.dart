@@ -19,6 +19,16 @@ mixin DBProfile {
     await _db.update(_tableName, profile.toJson(), where: 'id = ?', whereArgs: [profile.id]);
   }
 
+  static Future<void> updateName(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) throw ArgumentError('Name cannot be empty');
+    final updated = await _db.update(_tableName, {
+      'name': trimmed,
+      'updated_at': DateTime.now().toStringEx(),
+    }, where: 'id = ?', whereArgs: ['1']);
+    if (updated == 0) throw StateError('Profile not found');
+  }
+
   static Future<void> updateTotalWatchDuration(Duration duration) async {
     final profile = await getProfile();
     if (profile == null) return;

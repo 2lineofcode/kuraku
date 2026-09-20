@@ -1,4 +1,0 @@
-interface:
-  display_name: "Git Commit"
-  short_description: "Commit safely using the repository style"
-  default_prompt: "Use $git-commit to commit my current changes safely."

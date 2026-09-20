@@ -21,6 +21,7 @@ import 'home_panel/home_panel_relapse.dart';
 import 'page_download/page_download_view.dart';
 import 'page_explore/page_explore_view.dart';
 import 'page_home/page_home_view.dart';
+import 'page_profile/page_profile_view.dart';
 import 'page_search/page_search_controller.dart';
 import 'page_search/page_search_view.dart';
 import 'page_settings/page_settings_view.dart';
@@ -37,6 +38,7 @@ class HomeView extends GetView<HomeController> {
       onDropLeave: controller.onDropLeave,
       onDropEnded: controller.onDropEnded,
       onDropOver: (event) {
+        if (HomePanelLibrary.fileDragInProgress) return DropOperation.none;
         if (event.session.allowedOperations.contains(DropOperation.copy)) {
           return DropOperation.copy;
         } else {
@@ -275,6 +277,7 @@ class HomeView extends GetView<HomeController> {
           case kMenuDownload: return const PageDownloadView();
           case kMenuTools: return const PageToolsView();
           case kMenuSetting: return const PageSettingsView();
+          case kMenuProfile: return const PageProfileView();
           default: return const PageHomeView();
         }
       },

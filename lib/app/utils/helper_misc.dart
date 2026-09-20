@@ -117,6 +117,8 @@ mixin HelperMisc {
 
   static String formatVideoQuality(String quality) {
     if (quality.isEmptyOrNull) return '';
+    quality = quality.trim().toLowerCase().replaceAll('×', 'x').replaceAll(RegExp(r'\s+'), '');
+    if (['fhd', 'hd', 'sd', '2k', '4k', '8k'].contains(quality)) return quality.toUpperCase();
 
     const Map<String, String> videoQualities = {
       '3840x2160': '4K',
@@ -153,8 +155,15 @@ mixin HelperMisc {
     }
 
     final parts = quality.split('x');
+    if (parts.length != 2) return 'Unknown';
+    final width = int.tryParse(parts[0]);
     final height = int.tryParse(parts[1]);
-    if (height! >= 1080)  return 'FHD (Potrait)';
+    if (width == null || height == null || width <= 0 || height <= 0) return 'Unknown';
+    final longestSide = width > height ? width : height;
+    if (longestSide >= 7680) return '8K';
+    if (longestSide >= 3840) return '4K';
+    if (longestSide >= 2560) return '2K (QHD)';
+    if (height >= 1080)  return 'FHD (Potrait)';
     else if (height >= 720) return 'HD (Potrait)';
     else if (height >= 480) return 'SD (Potrait)';
     else if (height >= 360) return '360p (Potrait)';
