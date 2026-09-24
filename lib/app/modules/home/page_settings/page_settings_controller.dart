@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_run/process_run.dart' as shell;
@@ -17,13 +18,14 @@ import '../../../data/database/_init_db.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/database/db_library.dart';
 import '../../../data/database/db_r18.dart';
-import '../../../data/database/db_video_embedding.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../utils/helper.dart';
 import '../../../utils/helper_toast.dart';
+import '../../../utils/local_semantic_worker.dart';
 import '../../../utils/semantic_search_service.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_log.dart';
+import '../page_chat/page_chat_controller.dart';
 
 class PageSettingsController extends GetxController {
   final appSetting = Get.find<AppSettingService>();
@@ -46,9 +48,15 @@ class PageSettingsController extends GetxController {
   final semanticMissingCount = 0.obs;
   final semanticBusy = false.obs;
   final semanticStatus = ''.obs;
+  final semanticReady = false.obs;
+  final semanticProgress = (-1.0).obs;
+  final semanticSkipped = 0.obs;
+  final semanticInstalling = false.obs;
+  bool _semanticStopped = false;
 
   // **
   final appMiniMode = false.obs;
+  final appDarkMode = AppPref.getAppDarkMode().obs;
 
 
   // ** storage
@@ -68,6 +76,17 @@ class PageSettingsController extends GetxController {
     await onRefresh();
   }
 
+  Future<void> setDarkMode(bool value) async {
+    try {
+      await AppPref.setAppDarkMode(value);
+      appDarkMode.value = value;
+      Get.changeThemeMode(value ? ThemeMode.dark : ThemeMode.light);
+    } catch (e) {
+      AppLog.logE('Could not save theme: $e');
+      await HelperToast.error('Could not save appearance. Please retry.');
+    }
+  }
+
   Future<void> onRefresh() async {
     final sw = Stopwatch()..start();
     final r18db = Get.find<DBService>().dbR18;
@@ -75,8 +94,7 @@ class PageSettingsController extends GetxController {
     totalLibrary.value = await DBLibrary.getCount();
     totalVideos.value = await DBVideos.getCount();
     totalFilesize.value = await DBVideos.getTotalFileSizeAllVideo() ?? 0;
-    semanticEmbeddingCount.value = await DBVideoEmbeddings.getCount();
-    semanticMissingCount.value = await SemanticSearchService.getMissingEmbeddingCount();
+    await refreshSemanticStatus();
     r18TotalVideo.value = await DBR18.getCountAllVideos();
 
     final current = Get.find<HomeController>().sideMenuWidth.value;
@@ -99,6 +117,8 @@ class PageSettingsController extends GetxController {
 
   @override
   void onClose() {
+    if (SemanticSearchService.indexing) SemanticSearchService.cancelIndex();
+    if (semanticInstalling.value) LocalSemanticWorker.cancelSetup();
     tecAppMaxColi.dispose();
     tecPlayerSeekShort.dispose();
     tecPlayerSeekMid.dispose();
@@ -124,42 +144,108 @@ class PageSettingsController extends GetxController {
     }
   }
 
-  Future<void> generateMissingEmbeddings() async {
-    await _runSemanticIndex(
-      label: 'Indexing missing embeddings...',
-      runner: () => SemanticSearchService.reindexMissing(
-        onProgress: (current, total, video) async {
-          semanticStatus.value = 'Indexing missing $current/$total | ${(video.videoCode ?? video.title ?? '').trim()}';
-        },
-      ),
-    );
-  }
-
-  Future<void> reindexAllEmbeddings() async {
-    await _runSemanticIndex(
-      label: 'Reindexing all embeddings...',
-      runner: () => SemanticSearchService.reindexAll(
-        onProgress: (current, total, video) async {
-          semanticStatus.value = 'Reindex all $current/$total | ${(video.videoCode ?? video.title ?? '').trim()}';
-        },
-      ),
-    );
-  }
-
-  Future<void> _runSemanticIndex({
-    required String label,
-    required Future<int> Function() runner,
-  }) async {
-    semanticBusy.value = true;
-    semanticStatus.value = label;
+  Future<void> refreshSemanticStatus() async {
+    semanticReady.value = await LocalSemanticWorker.isReady();
+    if (!semanticReady.value) {
+      semanticEmbeddingCount.value = 0;
+      semanticMissingCount.value = totalVideos.value;
+      return;
+    }
+    if (SemanticSearchService.playbackActive) return;
     try {
-      final processed = await runner();
-      semanticStatus.value = 'Done. Indexed $processed embeddings';
-      await HelperToast.success('Indexed $processed embeddings');
-      await onRefresh();
+      final status = await SemanticSearchService.indexStatus();
+      semanticEmbeddingCount.value = status['indexed'] as int;
+      semanticMissingCount.value = status['pending'] as int;
     } catch (e) {
-      semanticStatus.value = 'Index failed';
-      await HelperToast.error(e.toString());
+      semanticStatus.value = e.toString();
+    }
+  }
+
+  Future<void> setupSemanticSearch() async {
+    AppLog.logI('Visual Search: setup requested');
+    if (semanticBusy.value) {
+      AppLog.logW('Visual Search: setup ignored because another operation is running');
+      return;
+    }
+    if (SemanticSearchService.playbackActive) {
+      semanticStatus.value = 'Close the player before setup.';
+      AppLog.logW('Visual Search: setup blocked because a player is open');
+      return;
+    }
+    semanticBusy.value = true;
+    semanticInstalling.value = true;
+    semanticStatus.value = 'Preparing Visual Search setup...';
+    semanticProgress.value = -1;
+    try {
+      await LocalSemanticWorker.setup((message) {
+        if (isClosed) return;
+        semanticStatus.value = message;
+        final percent = RegExp(r'(\d+)%').firstMatch(message);
+        semanticProgress.value = percent == null ? -1 : int.parse(percent[1]!) / 100;
+      });
+      if (isClosed) return;
+      semanticStatus.value = 'Ready. Index thumbnails to enable visual matches.';
+      AppLog.logI('Visual Search: setup completed');
+      await refreshSemanticStatus();
+    } catch (e) {
+      semanticStatus.value = e.toString();
+      AppLog.logE('Visual Search: setup failed or stopped: $e');
+    } finally {
+      if (!isClosed) semanticReady.value = await LocalSemanticWorker.isReady();
+      semanticInstalling.value = false;
+      semanticBusy.value = false;
+    }
+  }
+
+  void stopSemanticIndex() {
+    AppLog.logI('Visual Search: stop requested');
+    _semanticStopped = true;
+    semanticStatus.value = 'Stopping… Completed work will be kept.';
+    if (semanticInstalling.value) {
+      LocalSemanticWorker.cancelSetup();
+    } else {
+      SemanticSearchService.cancelIndex();
+    }
+  }
+
+  Future<void> generateMissingEmbeddings() => _runSemanticIndex(false);
+  Future<void> reindexAllEmbeddings() => _runSemanticIndex(true);
+
+  Future<void> _runSemanticIndex(bool force) async {
+    AppLog.logI('Visual Search: indexing requested (rebuild=$force)');
+    if (semanticBusy.value) {
+      AppLog.logW('Visual Search: indexing ignored because another operation is running');
+      return;
+    }
+    if (SemanticSearchService.playbackActive) {
+      semanticStatus.value = 'Close the player to start indexing.';
+      AppLog.logW('Visual Search: indexing blocked because a player is open');
+      return;
+    }
+    semanticBusy.value = true;
+    _semanticStopped = false;
+    semanticStatus.value = 'Checking thumbnails...';
+    semanticProgress.value = -1;
+    semanticSkipped.value = 0;
+    try {
+      Future<void> progress(SemanticIndexProgress value) async {
+        if (isClosed) return;
+        semanticSkipped.value = value.skipped;
+        semanticProgress.value = value.total == 0 ? -1 : value.current / value.total;
+        semanticStatus.value = value.paused
+            ? 'Paused while a player is open. Progress is saved.'
+            : '${value.current} / ${value.total} checked · ${value.indexed} indexed · ${value.skipped} skipped';
+      }
+      final result = force
+          ? await SemanticSearchService.reindexAll(onProgress: progress)
+          : await SemanticSearchService.reindexMissing(onProgress: progress);
+      semanticStatus.value = '${result.cancelled ? 'Stopped' : 'Finished'} · ${result.indexed} indexed · ${result.skipped} skipped.'
+          '${result.skipped > 0 ? ' ${result.message} Retry after unavailable files are restored.' : ''}';
+      AppLog.logI('Visual Search: ${semanticStatus.value}');
+      await refreshSemanticStatus();
+    } catch (e) {
+      AppLog.logE('Visual Search: indexing failed or stopped: $e');
+      semanticStatus.value = _semanticStopped ? 'Stopped. Progress saved.' : 'Index failed: $e';
     } finally {
       semanticBusy.value = false;
     }
@@ -204,7 +290,11 @@ class PageSettingsController extends GetxController {
     await _openDialogConfirm(
       onYes: () async {
         Get.back();
+        final chat = Get.isRegistered<PageChatController>() && !Get.isPrepared<PageChatController>() ? Get.find<PageChatController>() : null;
+        if (chat != null) await chat.stopResponse();
+        if (chat != null && !await chat.flushDraft()) return;
         await Get.find<DBService>().deleteAllData();
+        if (chat != null) await chat.reload();
         await Get.find<HomeController>().onRefreshAllContent();
       },
     );

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:javit/app/data/database/_init_db.dart';
+import 'package:javit/app/data/database/_update_db.dart';
 import 'package:javit/app/data/database/db_historical.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -44,7 +45,7 @@ void main() {
   test('history persists, deduplicates, filters and deletes within its type in SQLite', () async {
     final database = _Database();
     Get.put<DBService>(_Service()..dbMain = database);
-    await DBHistorical.createTable(database);
+    await DBUpdate.onUpgrade(database, 6, 7);
     await DBHistorical.save(kHistoricalTypeDownload, '  Abc  ');
     await DBHistorical.save(kHistoricalTypeDownload, 'ABC');
     await DBHistorical.save('search', 'ABC');

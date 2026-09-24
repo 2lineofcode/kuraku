@@ -197,6 +197,7 @@ void main() {
     final controller = Get.put<PageSearchController>(_Controller());
     final first = controller.activeTab;
     first.tecSearch.text = 'Saved query';
+    first.visualSensitivity.value = 'Strict';
     first.isListView.value = true;
     first.isSemanticMode.value = true;
     first.filter.tecVideoCode.text = 'SSIS';
@@ -222,7 +223,9 @@ void main() {
     expect(restored.activeTab.tecSearch.text, 'Unsubmitted draft');
     final recovered = restored.tabs.first;
     expect(recovered.toPreferences(), first.toPreferences());
-    expect(recovered.phSearch.value, startsWith('Local AI Search'));
+    expect(recovered.visualSensitivity.value, 'Strict');
+    expect(restored.activeTab.visualSensitivity.value, 'Balanced');
+    expect(recovered.phSearch.value, startsWith('Visual Search'));
     final beforeRefresh = jsonDecode(jsonEncode(AppPref.getSearchTabs()));
     await restored.onRefresh();
     expect(AppPref.getSearchTabs(), beforeRefresh);
@@ -272,6 +275,26 @@ void main() {
     expect(first.videos, videos);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Visual search defaults to relevance and filters beyond the old 80-result cutoff', (tester) async {
+    final tab = _DelayedTab(7);
+    addTearDown(tab.dispose);
+    tab.tecSearch.text = 'room';
+    await tab.onSortByChange('Random');
+    final request = tab.toggleSemanticMode();
+    tab.semantic.single.complete(List.generate(100, (i) => SemanticSearchHit(
+      video: Videos(id: '$i', quality: i == 99 ? '1920x1080' : '1280x720'), score: 1 - i / 100,
+    )));
+    await request;
+    expect(tab.sortBy.value, 'Relevance');
+    expect(tab.videos.first.id, '0');
+    tab.onQualityFilterChange('FHD only');
+    expect(tab.videos.single.id, '99');
+    tab.onQualityFilterChange('All qualities');
+    await tab.onSortByChange('Random');
+    await tab.onSortByChange('Relevance');
+    expect(tab.videos.first.id, '0');
   });
 
   testWidgets('Search tabs isolate local and AI results and reject stale or closed requests', (tester) async {
@@ -389,6 +412,35 @@ void main() {
     expect(tab.videos.single.id, 'fhd');
     await tab.onReset();
     expect(tab.qualityFilter.value, 'All qualities');
+  });
+
+  testWidgets('Visual search controls stay readable in both themes', (tester) async {
+    final tab = _ReadyTab(0)..isFresh.value = false;
+    tab.isSemanticMode.value = true;
+    tab.sortBy.value = 'Relevance';
+    addTearDown(tab.dispose);
+    await tester.pumpWidget(GetMaterialApp(
+      theme: ThemeData.light(), darkTheme: ThemeData.dark(), themeMode: ThemeMode.light,
+      home: Scaffold(body: _SearchView(controller: tab)),
+    ));
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      Get.changeThemeMode(mode);
+      await tester.pumpAndSettle();
+      final button = tester.widget<TextButton>(find.ancestor(of: find.text('Relevance'), matching: find.byType(TextButton)));
+      final foreground = button.style!.foregroundColor!.resolve({})!;
+      final background = Color.alphaBlend(button.style!.backgroundColor!.resolve({})!, Get.theme.scaffoldBackgroundColor);
+      final dropdown = tester.widget<DropdownButton<String>>(find.byType(DropdownButton<String>));
+      expect(find.text('Visual matches'), findsNothing);
+      expect(find.text('Search settings'), findsNothing);
+      expect(tester.getCenter(find.text('0 videos')).dy,
+          closeTo(tester.getCenter(find.byType(DropdownButton<String>)).dy, 1));
+      for (final pair in [(foreground, background), (dropdown.style!.color!, dropdown.dropdownColor!)]) {
+        final a = pair.$1.computeLuminance(), b = pair.$2.computeLuminance();
+        expect(a > b ? (a + .05) / (b + .05) : (b + .05) / (a + .05), greaterThanOrEqualTo(4.5));
+      }
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('Sort button aligns with the toolbar and exposes quality choices on primary click', (tester) async {

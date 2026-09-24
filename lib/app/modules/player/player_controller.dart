@@ -25,6 +25,7 @@ import '../../data/database/db_videos.dart';
 import '../../data/database/db_watch_session.dart';
 import '../../data/models/videos_entity.dart';
 import '../../utils/helper.dart';
+import '../../utils/semantic_search_service.dart';
 import '../home/home_controller.dart';
 import '../home/home_panel/home_panel_video_info.dart';
 import '../home/page_home/page_home_controller.dart';
@@ -108,10 +109,21 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   List<Videos>? _externalPlaylist;
   static const _supportedDropVideoExtensions = {'mp4', 'mkv', 'avi', 'mov'};
   Future<void>? _playerInitialization;
+  Worker? _semanticPlaybackWorker;
+  bool _semanticPlaybackActive = false;
 
   @override
   void onInit() {
     super.onInit();
+    _semanticPlaybackWorker = ever(isPlayerVisible, (visible) {
+      if (visible == _semanticPlaybackActive) return;
+      _semanticPlaybackActive = visible;
+      if (visible) {
+        SemanticSearchService.beginPlayback();
+      } else {
+        SemanticSearchService.endPlayback();
+      }
+    });
 
     infoAnimationController = AnimationController(vsync: this, duration: 1.seconds, reverseDuration: 200.milliseconds);
     change(currentVideo.value, status: RxStatus.loading());
@@ -685,7 +697,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       OverPanel(
         alignment: Alignment.centerRight,
         width: 300,
-        color: Colors.black12,
+        color: AppColor.panel,
         animation: OverSlideAnimation(
           beginAlignment: Alignment.centerRight,
           reverseDurationMilliseconds: 100,
@@ -712,7 +724,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
               focusNode: _fnSearch,
               clearButtonMode: OverlayVisibilityMode.editing,
               placeholder: 'Search (${_videos.length})...',
-              style: TextStyle(color: Vx.white, fontSize: 14),
+              style: TextStyle(color: AppColor.text, fontSize: 14),
               prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
               // suffix: IconButton(
               //   icon: Icon(Icons.sort, size: 14, color: Vx.neutral300),
@@ -789,7 +801,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
                           '${__item.title}'.text.minFontSize(12).size(12).maxLines(3).ellipsis.make(),
                           Spacer(),
                           HStack([
-                            '${__item.filesize?.toFileSizeFormat()}'.text.orange300.size(11).minFontSize(11).ellipsis.make().tooltip('${__item.videoPath}').expand(),
+                            '${__item.filesize?.toFileSizeFormat()}'.text.color(Get.isDarkMode ? Colors.orange.shade300 : Colors.orange.shade900).size(11).minFontSize(11).ellipsis.make().tooltip('${__item.videoPath}').expand(),
                             HStack([
                               Icon(
                                 __item.isFavorite == 1 ? UIconsPro.solidRounded.star : UIconsPro.regularRounded.star,
@@ -934,17 +946,24 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
   @override
   Future<void> onClose() async {
-    await _persistWatchDuration();
-    if (_playerInitialization != null) {
-      await _playerInitialization;
-      for (final subscription in _subscriptions) {
-        await subscription.cancel();
+    try {
+      await _persistWatchDuration();
+    } finally {
+      try {
+        if (_playerInitialization != null) {
+          await _playerInitialization;
+          for (final subscription in _subscriptions) { await subscription.cancel(); }
+          await _zoomUpdate;
+          await player.dispose();
+        }
+      } finally {
+        _semanticPlaybackWorker?.dispose();
+        if (_semanticPlaybackActive) SemanticSearchService.endPlayback();
+        _semanticPlaybackActive = false;
+        infoAnimationController.dispose();
+        super.onClose();
       }
-      await _zoomUpdate;
-      await player.dispose();
     }
-    infoAnimationController.dispose();
-    super.onClose();
   }
 
   void requestFocusOnPlayer() {

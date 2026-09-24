@@ -10,7 +10,6 @@ import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:process_run/process_run.dart' as cmd;
-import 'package:translator/translator.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:video_player/video_player.dart';
@@ -35,6 +34,7 @@ import '../modules/home/page_tools/page_tools_controller.dart';
 import '../modules/player/player_controller.dart';
 import '../modules/widgets/widget_auto_complate.dart';
 import '../modules/widgets/widget_chiwie_custom.dart';
+import '../modules/widgets/widget_media_stack.dart';
 import '../modules/widgets/widget_thumbnail.dart';
 import '../routes/app_pages.dart';
 import 'helper.dart';
@@ -172,7 +172,7 @@ mixin HelperOpener {
         width: 300,
         backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
         animation: OverSlideAnimation(beginAlignment: Alignment.centerRight, reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: Colors.black.withAlpha(230),
+        color: AppColor.panel,
         actions: OverlayActions(onReady: () async => _focusNode.requestFocus()),
         child: FocusScope(
           autofocus: true,
@@ -208,11 +208,11 @@ mixin HelperOpener {
                       () => _translatedTitle.value.text.align(TextAlign.center).size(10).minFontSize(10).makeCentered().onInkTap(
                         () async {
                           HelperMisc.copyToClipboard(video.title, showToast: true);
-                          final translator = GoogleTranslator();
-                          final result = await translator.translate(video.title ?? '', from: 'en', to: 'id');
-                          final translated = '${result.text}'.trim();
-                          _translatedTitle.value = HelperDecensor.decensor(translated);
-                          video.title = translated;
+                          // final translator = GoogleTranslator();
+                          // final result = await translator.translate(video.title ?? '', from: 'en', to: 'id');
+                          // final translated = '${result.text}'.trim();
+                          // _translatedTitle.value = HelperDecensor.decensor(translated);
+                          // video.title = translated;
                         },
                       ),
                     ).tooltip(video.videoPath ?? ''),
@@ -312,7 +312,7 @@ mixin HelperOpener {
                               for (int i = 0; i < video.actress!.length; i++) ...[
                                 '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}'
                                     .text
-                                    .neutral300
+                                    .color(AppColor.muted)
                                     .underline
                                     .size(11)
                                     .minFontSize(11)
@@ -358,7 +358,7 @@ mixin HelperOpener {
                             'Category:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             Wrap(children: [
                               for (int i = 0; i < video.category!.length; i++) ...[
-                                '${HelperDecensor.decensor(video.category?[i].category)}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(right: 8).onInkTap(() async {
+                                '${HelperDecensor.decensor(video.category?[i].category)}'.text.color(AppColor.muted).underline.size(11).minFontSize(11).make().pOnly(right: 8).onInkTap(() async {
                                   // ** on category clicked
                                   final newTab = PageExploreController.isNewTabModifierPressed;
                                   final name = '${HelperDecensor.decensor(video.category?[i].category)}';
@@ -375,7 +375,7 @@ mixin HelperOpener {
                           // series
                           if (!video.series.isEmptyOrNull) ...[
                             'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${HelperDecensor.decensor(video.series)}'.text.underline.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() async {
+                            '${HelperDecensor.decensor(video.series)}'.text.underline.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() async {
                               // ** on series clicked
                               final newTab = PageExploreController.isNewTabModifierPressed;
                               try {
@@ -401,31 +401,31 @@ mixin HelperOpener {
                           // release date
                           if (!video.releaseDate.isEmptyOrNull) ...[
                             'Release Date:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.releaseDateFormated}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                            '${video.releaseDateFormated}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
 
                           // duration
                           if (video.duration != 0) ...[
                             'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.durationFormated}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                            '${video.durationFormated}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
 
                           // label
                           if (!video.label.isEmptyOrNull) ...[
                             'Label:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.label}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                            '${video.label}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
 
                           // studio
                           if (!video.studio.isEmptyOrNull) ...[
                             'Studio:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.studio}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                            '${video.studio}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
 
                           // director
                           if (!video.director.isEmptyOrNull) ...[
                             'Director:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.director}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                            '${video.director}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
                         ]).p12(),
                       ),
@@ -495,7 +495,7 @@ mixin HelperOpener {
         height: max(Get.height * 80 / 100, 400),
         backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
         animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: Colors.black.withAlpha(230),
+        color: AppColor.panel,
         actions: OverlayActions(onReady: () async => focusNode.requestFocus()),
         child: FocusScope(
           autofocus: true,
@@ -518,7 +518,7 @@ mixin HelperOpener {
             },
             child: VStack(
               [
-                ZStack(
+                MediaStack(
                   [
                     Obx(
                       () => Zoom(
@@ -577,7 +577,7 @@ mixin HelperOpener {
                   itemCount: video.screenshot!.length,
                   scrollDirection: Axis.horizontal,
                   itemBuilder: (context, index) {
-                    return ZStack(
+                    return MediaStack(
                       [
                         ExThumbnail(
                           imageUrl: '${video.screenshot?[index]}',
@@ -732,7 +732,7 @@ mixin HelperOpener {
             AppLog.logI('trailer close properly');
           },
         ),
-        child: ZStack(
+        child: MediaStack(
           [
             cachePlayer.isInitialized ? Chewie(controller: chewie).centered() : const CircularProgressIndicator.adaptive(),
             // '${video.title}'.text.size(11).maxLines(3).ellipsis.minFontSize(11).make().w(Get.width * 70 / 100),
@@ -782,7 +782,7 @@ mixin HelperOpener {
         height: Get.height,
         backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
         animation: OverSlideAnimation(beginAlignment: Alignment.centerLeft, reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: Colors.black,
+        color: AppColor.panel,
         child: VStack(
           [
             HStack(
@@ -1040,12 +1040,12 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
     ));
   }
 
-  static const _accent = Color(0xFFC9B5F5);
-  static const _muted = Color(0xFF97919F);
+  static Color get _accent => AppColor.accent;
+  static Color get _muted => AppColor.muted;
 
   Widget _label(String text) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
-    child: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFCDC7D5))),
+    child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColor.text)),
   );
 
   Widget _field(TextEditingController controller, String placeholder, {FocusNode? focusNode, bool submit = false}) => CupertinoTextField(
@@ -1055,17 +1055,18 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
     clearButtonMode: OverlayVisibilityMode.editing,
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
     decoration: BoxDecoration(
-      color: const Color(0xFF141219),
-      border: Border.all(color: const Color(0xFF36313F)),
+      color: AppColor.container,
+      border: Border.all(color: AppColor.border),
       borderRadius: BorderRadius.circular(8),
     ),
-    style: const TextStyle(color: Color(0xFFEDE8F3), fontSize: 12),
-    placeholderStyle: const TextStyle(color: Color(0xFF77717F), fontSize: 12),
+    style: TextStyle(color: AppColor.text, fontSize: 12),
+    placeholderStyle: TextStyle(color: AppColor.muted, fontSize: 12),
     onSubmitted: submit ? (_) => _apply() : null,
   );
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     final year = DateTime.now().year.toDouble();
     final codeField = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       _label('Video code'),
@@ -1083,10 +1084,10 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
       ),
     ]);
     return Dialog(
-      backgroundColor: const Color(0xFF1C1822),
+      backgroundColor: AppColor.panel,
       surfaceTintColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFF39313F))),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: AppColor.border)),
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -1102,16 +1103,16 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
               child: Row(children: [
                 Container(
                   padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(color: const Color(0xFF33283F), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.tune_rounded, size: 19, color: _accent),
+                  decoration: BoxDecoration(color: AppColor.selected, borderRadius: BorderRadius.circular(10)),
+                  child: Icon(Icons.tune_rounded, size: 19, color: _accent),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Filter', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Color(0xFFF1EBF7))),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Filter', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColor.text)),
                   SizedBox(height: 3),
                   Text('Find exactly what you’re looking for', style: TextStyle(fontSize: 11, color: _muted)),
                 ])),
-                IconButton(tooltip: 'Cancel', onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, size: 17, color: _muted)),
+                IconButton(tooltip: 'Cancel', onPressed: () => Navigator.pop(context), icon: Icon(Icons.close, size: 17, color: _muted)),
               ]),
             ),
             Flexible(
@@ -1140,13 +1141,13 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                     if (widget.showCategories) ...[
                       Container(
                         padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(color: const Color(0xFF231E2B), borderRadius: BorderRadius.circular(10)),
+                        decoration: BoxDecoration(color: AppColor.container, borderRadius: BorderRadius.circular(10)),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                           Row(children: [
-                            const Expanded(child: Text('Categories', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFEDE8F3)))),
+                            Expanded(child: Text('Categories', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),
                             Tooltip(
                               message: widget.matchAllCategories ? 'Videos must match all selected categories' : 'Videos can match any selected category',
-                              child: Text(widget.matchAllCategories ? 'Match all' : 'Match any', style: const TextStyle(fontSize: 10, color: _accent)),
+                              child: Text(widget.matchAllCategories ? 'Match all' : 'Match any', style: TextStyle(fontSize: 10, color: _accent)),
                             ),
                           ]),
                           const SizedBox(height: 10),
@@ -1169,12 +1170,12 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                               spacing: 6,
                               runSpacing: 4,
                               children: _categories.map((category) => InputChip(
-                                label: Text(category, style: const TextStyle(fontSize: 11, color: _accent)),
-                                backgroundColor: const Color(0xFF3A2D4B),
+                                label: Text(category, style: TextStyle(fontSize: 11, color: _accent)),
+                                backgroundColor: AppColor.selected,
                                 side: BorderSide.none,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                 visualDensity: VisualDensity.compact,
-                                deleteIcon: const Icon(Icons.close, size: 13, color: _accent),
+                                deleteIcon: Icon(Icons.close, size: 13, color: _accent),
                                 onDeleted: () => setState(() => _categories.remove(category)),
                               )).toList(),
                             ),
@@ -1185,15 +1186,15 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                     ],
                     if (widget.showYears) ...[
                       Row(children: [
-                        const Expanded(child: Text('Release year', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFCDC7D5)))),
-                        Text(_years.start == 2000 && _years.end == year ? 'Any year' : '${_years.start.toInt()} – ${_years.end.toInt()}', style: const TextStyle(fontSize: 11, color: _accent)),
+                        Expanded(child: Text('Release year', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),
+                        Text(_years.start == 2000 && _years.end == year ? 'Any year' : '${_years.start.toInt()} – ${_years.end.toInt()}', style: TextStyle(fontSize: 11, color: _accent)),
                       ]),
                       const SizedBox(height: 4),
                       SliderTheme(
                         data: SliderTheme.of(context).copyWith(
                           trackHeight: 3,
                           activeTrackColor: _accent,
-                          inactiveTrackColor: const Color(0xFF3C3348),
+                          inactiveTrackColor: AppColor.border,
                           thumbColor: _accent,
                           activeTickMarkColor: Colors.transparent,
                           inactiveTickMarkColor: Colors.transparent,
@@ -1210,8 +1211,8 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                         ),
                       ),
                       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                        const Text('2000', style: TextStyle(fontSize: 10, color: _muted)),
-                        Text('${year.toInt()}', style: const TextStyle(fontSize: 10, color: _muted)),
+                        Text('2000', style: TextStyle(fontSize: 10, color: _muted)),
+                        Text('${year.toInt()}', style: TextStyle(fontSize: 10, color: _muted)),
                       ]),
                     ],
                   ],
@@ -1220,16 +1221,16 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: const BoxDecoration(color: Color(0xFF18151E), border: Border(top: BorderSide(color: Color(0xFF302937)))),
+              decoration: BoxDecoration(color: AppColor.container, border: Border(top: BorderSide(color: AppColor.border))),
               child: Row(children: [
                 TextButton(
-                  style: TextButton.styleFrom(foregroundColor: _muted, textStyle: const TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(foregroundColor: _muted, textStyle: TextStyle(fontSize: 12)),
                   onPressed: _reset,
                   child: const Text('Reset'),
                 ),
                 const Spacer(),
                 TextButton(
-                  style: TextButton.styleFrom(foregroundColor: const Color(0xFFCDC7D5), textStyle: const TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(foregroundColor: AppColor.text, textStyle: TextStyle(fontSize: 12)),
                   onPressed: () => Navigator.pop(context),
                   child: const Text('Cancel'),
                 ),
@@ -1237,7 +1238,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                 FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: _accent,
-                    foregroundColor: const Color(0xFF291C3E),
+                    foregroundColor: AppColor.onAccent,
                     textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                     padding: const EdgeInsets.symmetric(horizontal: 22),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

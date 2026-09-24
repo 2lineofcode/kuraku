@@ -1,6 +1,6 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
+// import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -11,7 +11,6 @@ import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
 import '../../../utils/helper.dart';
-import '../../../utils/semantic_search_service.dart';
 import '../home_controller.dart';
 import 'page_settings_controller.dart';
 
@@ -20,6 +19,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return Obx(
       () => controller.appLogMode.value == false 
         ? uiMainContent(context).scrollVertical() 
@@ -49,22 +49,22 @@ class PageSettingsView extends GetView<PageSettingsController> {
                     decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 2),
                     child: VStack([
                       HStack([
-                        'Version'.text.size(11).minFontSize(11).neutral400.make(),
+                        'Version'.text.size(11).minFontSize(11).color(AppColor.muted).make(),
                         Spacer(),
                         '${Env.appVer}'.text.size(11).minFontSize(11).bold.make(),
                       ]).pOnly(bottom: 8),
                       HStack([
-                        'Total Library'.text.size(11).minFontSize(11).neutral400.make(),
+                        'Total Library'.text.size(11).minFontSize(11).color(AppColor.muted).make(),
                         Spacer(),
                         '${controller.totalLibrary}'.text.size(11).minFontSize(11).bold.make(),
                       ]).pOnly(bottom: 8),
                       HStack([
-                        'Total Video'.text.size(11).minFontSize(11).neutral400.make(),
+                        'Total Video'.text.size(11).minFontSize(11).color(AppColor.muted).make(),
                         Spacer(),
                         '${controller.totalVideos} (${controller.totalFilesize.value.toFileSizeFormat()})'.text.size(11).minFontSize(11).bold.make(),
                       ]).pOnly(bottom: 8),
                       HStack([
-                        'Last Relapse'.text.size(11).minFontSize(11).neutral400.make(),
+                        'Last Relapse'.text.size(11).minFontSize(11).color(AppColor.muted).make(),
                         Spacer(),
                         Obx(() => '${controller.lastRelapse.value}'.text.size(11).minFontSize(11).bold.make()),
                       ]),
@@ -78,12 +78,12 @@ class PageSettingsView extends GetView<PageSettingsController> {
                     decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 2),
                     child: VStack([
                       HStack([
-                        'R18 Total Video'.text.size(11).minFontSize(11).neutral400.make(),
+                        'R18 Total Video'.text.size(11).minFontSize(11).color(AppColor.muted).make(),
                         Spacer(),
                         '${controller.r18TotalVideo.value.numberFormat()}'.text.size(11).minFontSize(11).bold.make(),
                       ]).pOnly(bottom: 8),
                       HStack([
-                        'R18 Version'.text.size(11).minFontSize(11).neutral400.make(),
+                        'R18 Version'.text.size(11).minFontSize(11).color(AppColor.muted).make(),
                         Spacer(),
                         Obx(() => '${controller.dbR18Version}'.text.size(11).minFontSize(11).bold.make()),
                       ]),
@@ -133,14 +133,14 @@ class PageSettingsView extends GetView<PageSettingsController> {
                         height: 32,
                         onPressed: () => controller.updateR18DB(),
                       ).pOnly(bottom: 8),
-                      if (kDebugMode) ...[
-                        ExButtonText(
-                          label: '🔥 Reset DB',
-                          labelSize: 12,
-                          height: 32,
-                          onPressed: () => controller.onResetAll(),
-                        ).pOnly(bottom: 8),
-                      ]
+                      // if (kDebugMode) ...[
+                      //   ExButtonText(
+                      //     label: '🔥 Reset DB',
+                      //     labelSize: 12,
+                      //     height: 32,
+                      //     onPressed: () => controller.onResetAll(),
+                      //   ).pOnly(bottom: 8),
+                      // ]
                     ],
                   )
                 ],
@@ -189,6 +189,16 @@ class PageSettingsView extends GetView<PageSettingsController> {
                             ).pOnly(right: 12),
                           ],
                         ).pOnly(bottom: 8),
+                        HStack([
+                          'Dark Mode'.text.size(12).make().pOnly(right: 12).w(90),
+                          Obx(() => Transform.scale(
+                            scale: 0.7,
+                            child: Switch.adaptive(
+                              value: controller.appDarkMode.value,
+                              onChanged: controller.setDarkMode,
+                            ),
+                          )).pOnly(right: 12),
+                        ]).pOnly(bottom: 8),
                         HStack(
                           [
                             'Default Player'.text.size(12).make().pOnly(right: 12).w(100),
@@ -209,7 +219,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                                 }
                               },
                               child: Container(
-                                decoration: ExDecorator.box(borderColor: Color(0xFF2B2A2F), fillColor: Colors.black, borderRadius: 6),
+                                decoration: ExDecorator.box(borderColor: AppColor.border, fillColor: AppColor.container, borderRadius: 6),
                                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 child: HStack(
                                   [
@@ -217,7 +227,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                                     Obx(
                                       () => Text(
                                         controller.tecDefaultPlayer.value.isEmpty ? 'Select Player' : controller.tecDefaultPlayer.value,
-                                        style: TextStyle(fontSize: 12, color: Vx.white),
+                                        style: TextStyle(fontSize: 12, color: AppColor.text),
                                       ),
                                     ),
                                   ],
@@ -250,7 +260,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                                 }
                               },
                               child: Container(
-                                decoration: ExDecorator.box(borderColor: Color(0xFF2B2A2F), fillColor: Colors.black, borderRadius: 6),
+                                decoration: ExDecorator.box(borderColor: AppColor.border, fillColor: AppColor.container, borderRadius: 6),
                                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 child: HStack(
                                   [
@@ -258,7 +268,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                                     Obx(
                                       () => Text(
                                         controller.tecDefaultSearchEngine.value.isEmpty ? 'NJAV' : controller.tecDefaultSearchEngine.value.toTitleCase!,
-                                        style: TextStyle(fontSize: 12, color: Vx.white),
+                                        style: TextStyle(fontSize: 12, color: AppColor.text),
                                       ),
                                     ),
                                   ],
@@ -272,7 +282,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                             'Maximum Coli Per-Day'.text.size(12).make().pOnly(right: 12).w(100),
                             CupertinoTextField(
                               controller: controller.tecAppMaxColi,
-                              style: TextStyle(fontSize: 13, color: Vx.white),
+                              style: TextStyle(fontSize: 13, color: AppColor.text),
                               placeholder: AppPref.getAppMaxColi().toString(),
                               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                               onChanged: (s) => AppPref.setAppMaxColi(s.isEmpty ? 0 : int.parse(s)),
@@ -296,7 +306,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                             'Small Seek'.text.size(12).make().w(100),
                             CupertinoTextField(
                               controller: controller.tecPlayerSeekShort,
-                              style: TextStyle(fontSize: 13, color: Vx.white),
+                              style: TextStyle(fontSize: 13, color: AppColor.text),
                               suffix: 'Seconds'.text.size(12).make().pOnly(right: 12),
                               placeholder: AppPref.getPlayerSeekShort().toString(),
                               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -309,7 +319,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                             'Medium Seek'.text.size(12).make().w(100),
                             CupertinoTextField(
                               controller: controller.tecPlayerSeekMid,
-                              style: TextStyle(fontSize: 13, color: Vx.white),
+                              style: TextStyle(fontSize: 13, color: AppColor.text),
                               suffix: 'Seconds'.text.size(12).make().pOnly(right: 12),
                               placeholder: AppPref.getPlayerSeekMid().toString(),
                               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -322,7 +332,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                             'Long Seek'.text.size(12).make().w(100),
                             CupertinoTextField(
                               controller: controller.tecPlayerSeekLong,
-                              style: TextStyle(fontSize: 13, color: Vx.white),
+                              style: TextStyle(fontSize: 13, color: AppColor.text),
                               suffix: 'Seconds'.text.size(12).make().pOnly(right: 12),
                               placeholder: AppPref.getPlayerSeekLong().toString(),
                               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -341,60 +351,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
 
         16.heightBox,
 
-        Container(
-          decoration: ExDecorator.box(borderColor: AppColor.border),
-          width: double.infinity,
-          child: VStack(
-            [
-              'AI Search (Local)'.text.bold.make().pOnly(bottom: 12),
-              Obx(
-                () => HStack(
-                  [
-                    'Model'.text.size(12).neutral400.make().w(110),
-                    '${SemanticSearchService.modelName}'.text.size(12).bold.make().expand(),
-                    if (controller.semanticBusy.value)
-                      SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.6),
-                      ),
-                  ],
-                ).pOnly(bottom: 8),
-              ),
-              Obx(
-                () => HStack(
-                  [
-                    'Indexed'.text.size(12).neutral400.make().w(110),
-                    '${controller.semanticEmbeddingCount.value}'.text.size(12).bold.make().expand(),
-                    'Missing'.text.size(12).neutral400.make().pOnly(right: 8),
-                    '${controller.semanticMissingCount.value}'.text.size(12).bold.make(),
-                  ],
-                ).pOnly(bottom: 8),
-              ),
-              Obx(
-                () => controller.semanticStatus.value.isEmpty
-                    ? 0.heightBox
-                    : controller.semanticStatus.value.text.size(11).neutral400.make().pOnly(bottom: 12),
-              ),
-              HStack(
-                [
-                  ExButtonText(
-                    label: 'Generate Missing Embeddings',
-                    labelSize: 12,
-                    height: 32,
-                    onPressed: controller.generateMissingEmbeddings,
-                  ).pOnly(right: 8),
-                  ExButtonText(
-                    label: 'Reindex All',
-                    labelSize: 12,
-                    height: 32,
-                    onPressed: controller.reindexAllEmbeddings,
-                  ),
-                ],
-              ),
-            ],
-          ).p12(),
-        ),
+        buildVisualSearchSettings(),
 
         // storage usage
         Obx(() {
@@ -418,7 +375,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                     Icon(item.isExternal ? Icons.sd_storage : UIconsPro.boldRounded.laptop, size: 16).pOnly(right: 8),
                     '${item.label}${item.isExternal ? ' (External)' : ''}'.text.bold.size(14).make(),
                     Spacer(),
-                    item.path.text.size(10).neutral400.make(),
+                    item.path.text.size(10).color(AppColor.muted).make(),
                   ]).pOnly(bottom: 8),
                   ExProgressBar(
                     value: usedPct.toInt(),
@@ -456,7 +413,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                 if (isLoading)
                   Center(child: CupertinoActivityIndicator().pSymmetric(v: 12))
                 else if (items.isEmpty)
-                  'No storage detected'.text.size(12).neutral400.make().pOnly(bottom: 8)
+                  'No storage detected'.text.size(12).color(AppColor.muted).make().pOnly(bottom: 8)
                 else
                   ...items.map((item) => _storageRow(item).pOnly(bottom: 8)),
               ],
@@ -482,7 +439,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
 
           CupertinoTextField(
             controller: controller.tecAppLogFilter,
-            style: TextStyle(fontSize: 13, color: Vx.white),
+            style: TextStyle(fontSize: 13, color: AppColor.text),
             placeholder: 'Filter logs...',
             placeholderStyle: TextStyle(fontSize: 12, color: Vx.neutral500),
             onChanged: (s) => controller.appLogKeyword.value = s,
@@ -508,7 +465,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
               }
             },
             child: Container(
-              decoration: ExDecorator.box(borderColor: Color(0xFF2B2A2F), fillColor: Colors.black, borderRadius: 6),
+              decoration: ExDecorator.box(borderColor: AppColor.border, fillColor: AppColor.container, borderRadius: 6),
               padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: HStack(
                 [
@@ -516,7 +473,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                   Obx(
                     () => Text(
                       controller.appLogLevelSelected.value.isEmpty ? 'Select Level' : controller.appLogLevelSelected.value,
-                      style: TextStyle(fontSize: 12, color: Vx.white),
+                      style: TextStyle(fontSize: 12, color: AppColor.text),
                     ),
                   ),
                 ],
@@ -562,13 +519,13 @@ class PageSettingsView extends GetView<PageSettingsController> {
           return Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Vx.neutral700),
+              border: Border.all(color: AppColor.border),
             ),
             child: VStack([
               Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-                  border: Border(bottom: BorderSide(color: Vx.neutral700)),
+                  border: Border(bottom: BorderSide(color: AppColor.border)),
                 ),
                 padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 child: HStack([
@@ -591,10 +548,10 @@ class PageSettingsView extends GetView<PageSettingsController> {
 
                     return Container(
                       decoration: BoxDecoration(
-                        color: index % 2 == 0 ? Vx.neutral900 : Vx.neutral800,
+                        color: index % 2 == 0 ? AppColor.container : AppColor.hover,
                         border: Border(
                           bottom: BorderSide(
-                            color: Vx.neutral800,
+                            color: AppColor.hover,
                             width: index == logs.length - 1 ? 0 : 1,
                           ),
                         ),
@@ -623,4 +580,73 @@ class PageSettingsView extends GetView<PageSettingsController> {
       ],
     );
   }
+  Widget buildVisualSearchSettings() => Container(
+    decoration: ExDecorator.box(borderColor: AppColor.border),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    width: double.infinity,
+    child: Obx(() {
+      final ready = controller.semanticReady.value;
+      final busy = controller.semanticBusy.value;
+      final missing = controller.semanticMissingCount.value;
+      final status = controller.semanticStatus.value;
+      final showStatus = status.isNotEmpty && (busy || (!status.startsWith('Ready.') &&
+          !(status.startsWith('Finished') && controller.semanticSkipped.value == 0)));
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Wrap(spacing: 10, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          const Tooltip(
+            message: 'Local visual search · English queries · One frame per video.\nSetup: ~155 MB + runtime, Python 3.12–3.14, macOS 14+, FFmpeg.\nCLIP ViT-B/32 INT8 · MIT license.',
+            child: Text('Visual Search', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          ),
+          if (ready) Text('${controller.semanticEmbeddingCount.value} indexed • $missing pending', style: const TextStyle(fontSize: 11)),
+          ])),
+          const SizedBox(width: 8),
+          Tooltip(
+            message: busy ? 'Keep completed work' : ready ? 'Index new or changed videos' : 'Download and set up local search',
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 28), padding: const EdgeInsets.symmetric(horizontal: 10),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: busy ? controller.stopSemanticIndex : ready ? controller.generateMissingEmbeddings : controller.setupSemanticSearch,
+              child: Text(busy ? 'Stop' : ready ? 'Index' : 'Set up', style: const TextStyle(fontSize: 11)),
+            ),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Visual Search options',
+            enabled: !busy,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            icon: const Icon(Icons.more_vert, size: 18),
+            style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            onSelected: (value) async {
+              switch (value) {
+                case 'refresh': await controller.refreshSemanticStatus(); break;
+                case 'repair': await controller.setupSemanticSearch(); break;
+                case 'rebuild': await controller.reindexAllEmbeddings(); break;
+              }
+            },
+            itemBuilder: (_) => [
+              if (ready) const PopupMenuItem(value: 'refresh', child: Text('Refresh status')),
+              const PopupMenuItem(value: 'repair', child: Text('Repair setup')),
+              if (ready) const PopupMenuItem(value: 'rebuild', child: Text('Rebuild frames & index')),
+            ],
+          ),
+        ]),
+        if (busy) Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: LinearProgressIndicator(
+            minHeight: 2,
+            value: controller.semanticProgress.value < 0 ? null : controller.semanticProgress.value.clamp(0, 1),
+            semanticsLabel: 'Visual Search progress',
+          ),
+        ),
+        if (showStatus) Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Tooltip(message: status, child: Text(status, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11))),
+        ),
+      ]);
+    }),
+  );
+
 }

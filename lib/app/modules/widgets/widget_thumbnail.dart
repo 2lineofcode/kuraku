@@ -577,6 +577,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     final cacheWidth = (widget.width * MediaQuery.devicePixelRatioOf(context)).round();
     Widget child;
     if ((widget.imageUrl ?? '').trim().isEmpty) {
@@ -634,7 +635,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
             ),
           ),
           progressIndicatorBuilder: (c, url, progress) => Stack(children: [
-            Container(width: widget.width, height: widget.height, color: Vx.neutral800).shimmer(primaryColor: Vx.neutral800, secondaryColor: Vx.neutral900),
+            Container(width: widget.width, height: widget.height, color: AppColor.hover).shimmer(primaryColor: AppColor.hover, secondaryColor: AppColor.container),
             if (progress.progress != null) ' ${(progress.progress! * 100).toDoubleStringAsFixed(digit: 0)}%'.text.xs.align(TextAlign.center).makeCentered(),
           ]),
           errorWidget: (c, e, s) => Icon(Icons.broken_image, size: widget.iconSize).wh(widget.width, widget.height).centered().color(AppColor.selected),

@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 
 import '../player/player_controller.dart';
 import 'home_controller.dart';
+import 'page_chat/page_chat_controller.dart';
 import 'page_download/page_download_controller.dart';
 import 'page_explore/page_explore_controller.dart';
 import 'page_home/page_home_controller.dart';
@@ -13,6 +14,7 @@ import 'page_tools/page_tools_controller.dart';
 class HomeBinding extends Bindings {
   @override
   void dependencies() {
+    GetInstance().lazyPut<PageChatController>(() => PageChatController(), permanent: true);
     GetInstance().lazyPut<PageProfileController>(() => PageProfileController(), permanent: true);
     // Home pages share the app lifetime, even when first accessed from a dialog.
     GetInstance().lazyPut<PageSettingsController>(() => PageSettingsController(), permanent: true);

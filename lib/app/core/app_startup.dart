@@ -1,0 +1,53 @@
+import 'package:flutter/material.dart';
+
+class AppStartup extends StatefulWidget {
+  const AppStartup({super.key, required this.initialize, required this.child});
+
+  final Future<void> Function() initialize;
+  final Widget child;
+
+  @override
+  State<AppStartup> createState() => _AppStartupState();
+}
+
+class _AppStartupState extends State<AppStartup> {
+  bool _ready = false;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      try {
+        await widget.initialize();
+        if (mounted) setState(() => _ready = true);
+      } catch (e) {
+        if (mounted) setState(() => _error = e);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_ready) return widget.child;
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark(useMaterial3: true),
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: _error == null
+                ? const Column(mainAxisSize: MainAxisSize.min, children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Opening JavIt...'),
+                  ])
+                : SelectableText('Could not start JavIt. Please restart the app.\n\n$_error'),
+          ),
+        ),
+      ),
+    );
+  }
+}

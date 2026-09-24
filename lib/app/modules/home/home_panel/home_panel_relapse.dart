@@ -93,7 +93,7 @@ mixin HomePanelRelapse {
         width: 300,
         backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
         animation: OverSlideAnimation(beginAlignment: Alignment.centerRight, reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: Colors.black.withAlpha(230),
+        color: AppColor.panel,
         child: VStack(
           [
             HStack(
@@ -121,9 +121,9 @@ mixin HomePanelRelapse {
                 : TimelineTheme(
                     data: TimelineThemeData(
                       direction: Axis.vertical,
-                      color: Colors.white,
-                      connectorTheme: ConnectorThemeData(color: Colors.white24, thickness: 1.6),
-                      indicatorTheme: IndicatorThemeData(color: Colors.white, size: 18),
+                      color: AppColor.text,
+                      connectorTheme: ConnectorThemeData(color: AppColor.border, thickness: 1.6),
+                      indicatorTheme: IndicatorThemeData(color: AppColor.text, size: 18),
                     ),
                     child: Timeline.tileBuilder(
                       physics: BouncingScrollPhysics(),
@@ -138,14 +138,14 @@ mixin HomePanelRelapse {
                           return DotIndicator(
                             size: 18,
                             color: times > 1 ? Vx.red700 : AppColor.selected,
-                            child: times > 1 ? '${times}x'.text.size(8).minFontSize(8).white.makeCentered() : Icon(UIconsPro.regularRounded.circle_dashed, size: 11, color: Colors.white),
+                            child: times > 1 ? '${times}x'.text.size(8).minFontSize(8).white.makeCentered() : Icon(UIconsPro.regularRounded.circle_dashed, size: 11, color: AppColor.text),
                           );
                         },
                         connectorBuilder: (context, index, type) {
                           final isLast = index == relapse.length - 1;
                           return isLast && type == ConnectorType.end
                               ? TransparentConnector()
-                              : SolidLineConnector(thickness: 1.6, color: Colors.white24);
+                              : SolidLineConnector(thickness: 1.6, color: AppColor.border);
                         },
                         contentsBuilder: (context, index) {
                           final item = relapse[index];
@@ -154,14 +154,14 @@ mixin HomePanelRelapse {
                             [
                               VStack(
                                 [
-                                  _formatRelapseTime(item).text.size(11).color(Colors.white).make(),
-                                  'Masturbate'.text.size(10).neutral300.minFontSize(10).make(),
+                                  _formatRelapseTime(item).text.size(11).color(AppColor.text).make(),
+                                  'Masturbate'.text.size(10).color(AppColor.muted).minFontSize(10).make(),
                                 ],
                                 crossAlignment: CrossAxisAlignment.start,
                               ).expand(),
-                              '$times Times'.text.size(11).minFontSize(11).white.make().pSymmetric(h: 8, v: 3).color(times > 1 ? Vx.red700 : AppColor.selected).cornerRadius(90),
+                              '$times Times'.text.size(11).minFontSize(11).color(times > 1 ? Colors.white : AppColor.text).make().pSymmetric(h: 8, v: 3).color(times > 1 ? Vx.red700 : AppColor.selected).cornerRadius(90),
                               IconButton(
-                                icon: Icon(UIconsPro.regularRounded.minus_circle, size: 12, color: Colors.white),
+                                icon: Icon(UIconsPro.regularRounded.minus_circle, size: 12, color: AppColor.text),
                                 tooltip: 'Delete 1 Record',
                                 onPressed: () async {
                                   await Overlayment.dismissLast();
@@ -180,7 +180,7 @@ mixin HomePanelRelapse {
                   ).expand(),
             Container(
               width: double.infinity,
-              decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4, fillColor: Colors.black),
+              decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4, fillColor: AppColor.container),
               child: VStack([
                 'This Week: ${countWeek.value}'.text.size(12).make(),
                 'This Month: ${countMonth.value}'.text.size(12).make(),

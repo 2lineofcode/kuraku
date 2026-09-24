@@ -20,6 +20,7 @@ import '../modules/home/home_panel/home_panel_relapse.dart';
 import '../modules/home/page_download/page_download_controller.dart';
 import '../modules/home/page_tools/page_tools_controller.dart';
 import '../routes/app_pages.dart';
+import '../utils/local_semantic_worker.dart';
 import 'app_logging.dart';
 import 'app_pref.dart';
 
@@ -35,7 +36,6 @@ class AppSettingService extends GetxService {
     await pref.initStorage;
 
 
-    await setupDesktop();
     await exposeExternalFiles();
     await setupAppPref();
     await setupHotkey();
@@ -104,10 +104,9 @@ class AppSettingService extends GetxService {
       backgroundColor: Colors.transparent,
       skipTaskbar: false,
     );
-    await windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
+    await windowManager.waitUntilReadyToShow(windowOptions);
+    await windowManager.show();
+    await windowManager.focus();
   }
 
   //
@@ -156,6 +155,8 @@ class AppSettingService extends GetxService {
 
   @override
   void onClose() {
+    LocalSemanticWorker.cancelSetup();
+    LocalSemanticWorker.stop();
     HardwareKeyboard.instance.removeHandler(_handleSearchShortcut);
     super.onClose();
   }

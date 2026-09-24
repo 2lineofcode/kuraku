@@ -24,6 +24,7 @@ import '../../routes/app_pages.dart';
 import '../../utils/helper.dart';
 import '../player/player_multi_view.dart';
 import 'home_panel/home_panel_library.dart';
+import 'page_chat/page_chat_controller.dart';
 import 'page_download/page_download_controller.dart';
 import 'page_explore/page_explore_controller.dart';
 import 'page_home/page_home_controller.dart';
@@ -127,21 +128,38 @@ class HomeController extends GetxController with StateMixin {
     deduplicateCart();
     ever<List<Videos>>(cart, (value) => AppPref.setAppCart(value));
 
-    await _syncGamification();
-    profile.value = await DBProfile.getProfile() ?? Profile();
-
-    await updateFooterSummary();
-
     sideMenuWidth.value = AppPref.getAppHideSideMenu() ? 65 : 180;
-
-    final relapseToday = await DBActivity.getCountRelapseToday();
-    isDangerMode.value = relapseToday >= AppPref.getAppMaxColi();
-
-    await getAllPlaylist();
-    await HomePanelLibrary.startAutoRescanWatcher();
-    unawaited(HomePanelLibrary.runStartupReconcile());
-
     change(200, status: RxStatus.success());
+  }
+
+  @override
+  void onReady() {
+    super.onReady();
+    unawaited(_loadStartupDetails());
+  }
+
+  Future<void> _loadStartupDetails() async {
+    Future<void> load(String name, Future<void> Function() action) async {
+      try {
+        await action();
+      } catch (e, stackTrace) {
+        AppLog.logE('Startup $name failed: $e\n$stackTrace');
+      }
+    }
+
+    await Future.wait([
+      load('profile', refreshProfile),
+      load('storage', updateFooterSummary),
+      load('playlist', getAllPlaylist),
+      load('activity', () async {
+        final relapseToday = await DBActivity.getCountRelapseToday();
+        isDangerMode.value = relapseToday >= AppPref.getAppMaxColi();
+      }),
+    ]);
+    if (isClosed) return;
+    await load('library watcher', HomePanelLibrary.startAutoRescanWatcher);
+    if (isClosed) return;
+    await load('library reconcile', HomePanelLibrary.runStartupReconcile);
   }
 
   @override
@@ -197,6 +215,9 @@ class HomeController extends GetxController with StateMixin {
   }
 
   Future<void> onMenuChange(String menu) async {
+    if (currentMenuSelected.value == kMenuChat && Get.isRegistered<PageChatController>() && !Get.isPrepared<PageChatController>()) {
+      if (!await Get.find<PageChatController>().flushDraft()) return;
+    }
     currentMenuSelected.value = menu;
   }
 
@@ -280,7 +301,7 @@ class HomeController extends GetxController with StateMixin {
       if (localVideos.isNotEmpty) {
         final search = Get.find<PageSearchController>().activeTab;
         search.showResults(query, localVideos);
-        currentMenuSelected.value = kMenuSearch;
+        await onMenuChange(kMenuSearch);
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (search.isClosed || !identical(Get.find<PageSearchController>().activeTab, search)) return;
@@ -296,7 +317,7 @@ class HomeController extends GetxController with StateMixin {
       download.filter.reset();
       download.tecSearch.text = query;
       download.currentPage.value = 1;
-      currentMenuSelected.value = kMenuDownload;
+      await onMenuChange(kMenuDownload);
       await download.onSearch(query);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -616,7 +637,7 @@ class HomeController extends GetxController with StateMixin {
   // ⵌ profile
   // ────────────────────────────────────────────────────────────────
   Future<void> onOpenProfile() async {
-    currentMenuSelected.value = kMenuProfile;
+    await onMenuChange(kMenuProfile);
     await Get.find<PageProfileController>().onRefresh();
   }
 
@@ -652,5 +673,6 @@ const kMenuExplore = 'Explore';
 const kMenuDownload = 'Download';
 const kMenuTools = 'Tools';
 const kMenuSetting = 'Settings';
+const kMenuChat = 'Chat with AI';
 
 const kMenuProfile = 'Profile';

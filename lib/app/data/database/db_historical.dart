@@ -9,19 +9,6 @@ const kHistoricalTypeSearch = 'search';
 mixin DBHistorical {
   static Database get _db => Get.find<DBService>().dbMain;
 
-  static Future<void> createTable(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS historical (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        type TEXT NOT NULL,
-        query TEXT NOT NULL COLLATE NOCASE,
-        updated_at INTEGER NOT NULL,
-        UNIQUE(type, query)
-      )
-    ''');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_historical_recent ON historical(type, updated_at DESC)');
-  }
-
   static Future<void> save(String type, String query) async {
     final value = query.trim();
     if (type.isEmpty || value.isEmpty) return;

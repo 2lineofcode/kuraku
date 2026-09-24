@@ -42,7 +42,7 @@ class ExAutoComplate extends StatelessWidget {
           focusNode: focusNode,
           clearButtonMode: OverlayVisibilityMode.editing,
           placeholder: placeHolder ?? 'Search...',
-          style: TextStyle(color: Vx.white, fontSize: fontSize ?? 14),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: fontSize ?? 14),
         );
       },
       itemBuilder: (context, s) {

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:javit/app/data/database/_init_db.dart';
+import 'package:javit/app/data/database/_update_db.dart';
 import 'package:javit/app/data/database/db_collection.dart';
 import 'package:javit/app/data/models/collection_entity.dart';
 import 'package:javit/app/data/models/videos_entity.dart';
@@ -150,11 +151,11 @@ void main() {
   });
 
   test('legacy migration preserves rows, recovers orphan groups and cascades by ID in SQLite', () async {
-    await DBService.migratePlaylistIds(database);
+    await DBUpdate.onUpgrade(database, 5, 6);
     final initialMigration = database.statements.toList();
     database.statements.clear();
     database.hasPlaylistId = true;
-    await DBService.migratePlaylistIds(database);
+    await DBUpdate.onUpgrade(database, 5, 6);
     expect(database.statements.any((sql) => sql.startsWith('ALTER TABLE')), isFalse);
     await DBCollection.getAllPlaylist();
     final result = await Process.run('python3', ['-c', r'''

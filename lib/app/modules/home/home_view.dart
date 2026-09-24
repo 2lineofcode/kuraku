@@ -18,6 +18,7 @@ import 'home_panel/home_panel_cart.dart';
 import 'home_panel/home_panel_library.dart';
 import 'home_panel/home_panel_playlist.dart';
 import 'home_panel/home_panel_relapse.dart';
+import 'page_chat/page_chat_view.dart';
 import 'page_download/page_download_view.dart';
 import 'page_explore/page_explore_view.dart';
 import 'page_home/page_home_view.dart';
@@ -31,6 +32,7 @@ class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return DropRegion(
       formats: Formats.standardFormats,
       hitTestBehavior: HitTestBehavior.opaque,
@@ -79,7 +81,7 @@ class HomeView extends GetView<HomeController> {
 
                               await Get.putAsync(() async {
                                 final service = DBService();
-                                await service.onReady();
+                                await service.init();
                                 return service;
                               });
 
@@ -137,7 +139,7 @@ class HomeView extends GetView<HomeController> {
               enabled: controller.isTopNavSearching.isFalse,
               clearButtonMode: OverlayVisibilityMode.never,
               placeholder: 'Anything...',
-              style: TextStyle(color: Vx.white, fontSize: 14),
+              style: TextStyle(color: AppColor.text, fontSize: 14),
               prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
               suffix: HStack(
                 [
@@ -229,12 +231,14 @@ class HomeView extends GetView<HomeController> {
                       Icon(item['icon'], size: 16).centered(),
                     ]).p(10),
                   ).pSymmetric(h: 10).pOnly(left: 0, bottom: 8),
-                ),
+                ).tooltip(item['name']),
               );
             },
           ).wh(60, 280).pOnly(top: 16),
+          const Spacer(),
+          chatMenu(),
         ],
-      );
+      ).expand();
     }
 
     // ** NORMAL MODE
@@ -262,8 +266,19 @@ class HomeView extends GetView<HomeController> {
             );
           },
         ).wh(180, 280).pOnly(top: 16),
+        const Spacer(),
+        chatMenu(),
       ],
     ).expand();
+  }
+
+  Widget chatMenu() {
+    return Obx(() => IconButton(
+      style: IconButton.styleFrom(backgroundColor: controller.currentMenuSelected.value == kMenuChat ? AppColor.selected : Colors.transparent),
+      icon: Icon(UIconsPro.regularRounded.comment_alt_dots, size: 16, color: AppColor.text),
+      tooltip: kMenuChat,
+      onPressed: () => controller.onMenuChange(kMenuChat),
+    )).pSymmetric(h: 10).w(double.infinity).pOnly(bottom: 4);
   }
 
   Widget bodyContent() {
@@ -278,6 +293,7 @@ class HomeView extends GetView<HomeController> {
           case kMenuTools: return const PageToolsView();
           case kMenuSetting: return const PageSettingsView();
           case kMenuProfile: return const PageProfileView();
+          case kMenuChat: return const PageChatView();
           default: return const PageHomeView();
         }
       },
@@ -321,7 +337,7 @@ class HomeView extends GetView<HomeController> {
           TextSpan(text: storageText, style: TextStyle(color: color)),
         ],
       ),
-      style: TextStyle(fontSize: 11, color: Vx.white),
+      style: TextStyle(fontSize: 11, color: AppColor.text),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       textAlign: TextAlign.end,
@@ -349,9 +365,9 @@ class HomeView extends GetView<HomeController> {
                   height: 150,
                   decoration: BoxDecoration(color: AppColor.appBar, borderRadius: BorderRadius.circular(12)),
                   child: VStack([
-                    Icon(UIconsPro.solidRounded.file_upload, size: 34, color: Vx.white).pOnly(bottom: 12).centered(),
+                    Icon(UIconsPro.solidRounded.file_upload, size: 34, color: AppColor.text).pOnly(bottom: 12).centered(),
                     'Drop here'.text.bold.size(16).makeCentered().pOnly(bottom: 6),
-                    'Drop a folder to add Library\nDrop a .mp4 file to play instantly'.text.size(12).align(TextAlign.center).color(Vx.neutral400).makeCentered(),
+                    'Drop a folder to add Library\nDrop a .mp4 file to play instantly'.text.size(12).align(TextAlign.center).color(AppColor.muted).makeCentered(),
                   ]).centered(),
                 ),
               ),

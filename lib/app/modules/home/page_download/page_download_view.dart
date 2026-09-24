@@ -8,6 +8,7 @@ import 'package:uicons_pro/uicons_pro.dart';
 import '../../../core/app_color.dart';
 import '../../../core/const.dart';
 import '../../../utils/helper.dart';
+import '../../widgets/widget_media_stack.dart';
 import '../../widgets/widget_search_history.dart';
 import '../../widgets/widget_search_suggestions_overlay.dart';
 import '../../widgets/widget_search_tab_bar.dart';
@@ -21,6 +22,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return Column(children: [
       Obx(() => SearchTabBar(
         tabs: controller.tabs.map((tab) => (title: tab.title.value, isLoading: tab.isLoading.value)).toList(),
@@ -49,6 +51,7 @@ class PageDownloadSearchView extends StatelessWidget {
   final PageDownloadSearchTab controller;
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return VStack(
       [
         HStack([
@@ -67,7 +70,7 @@ class PageDownloadSearchView extends StatelessWidget {
                     selectAllOnFocus: false,
                     clearButtonMode: OverlayVisibilityMode.editing,
                     placeholder: '${controller.phSearch}',
-                    style: TextStyle(color: Vx.white, fontSize: 14),
+                    style: TextStyle(color: AppColor.text, fontSize: 14),
                     prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
                     suffix: HStack(
                       [
@@ -93,7 +96,7 @@ class PageDownloadSearchView extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: AppColor.container,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Vx.neutral700, width: .5),
+                            border: Border.all(color: AppColor.border, width: .5),
                           ),
                           child: VStack(
                             List.generate(controller.commandSuggestions.length, (i) {
@@ -106,7 +109,7 @@ class PageDownloadSearchView extends StatelessWidget {
                                 child: VStack(
                                   [
                                     item.value.text.size(12).minFontSize(12).bold.make(),
-                                    item.description.text.size(10).minFontSize(10).neutral400.make().pOnly(top: 2),
+                                    item.description.text.size(10).minFontSize(10).color(AppColor.muted).make().pOnly(top: 2),
                                   ],
                                   crossAlignment: CrossAxisAlignment.start,
                                 ),
@@ -150,7 +153,7 @@ class PageDownloadSearchView extends StatelessWidget {
         HStack([
           Obx(() => TextButton(
             style: TextButton.styleFrom(
-              foregroundColor: Vx.white,
+              foregroundColor: AppColor.text,
               backgroundColor: controller.havingOnly.isFalse ? AppColor.selected : Colors.transparent,
               minimumSize: Size(0, 32),
               padding: EdgeInsets.symmetric(horizontal: 8),
@@ -227,7 +230,7 @@ class PageDownloadSearchView extends StatelessWidget {
           final item = controller.videos[i];
           return Container(
             color: AppColor.container,
-            child: ZStack([
+            child: MediaStack([
               ExThumbnail(
                 imageUrl: item.fanArt ?? '',
                 videoCode: item.videoCode,

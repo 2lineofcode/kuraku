@@ -12,6 +12,7 @@ class PageProfileView extends GetView<PageProfileController> {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return Obx(() {
       if (controller.isLoading.value) return const Center(child: CircularProgressIndicator());
       if (controller.error.value.isNotEmpty) {
@@ -40,18 +41,18 @@ class PageProfileView extends GetView<PageProfileController> {
               return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    CircleAvatar(radius: 25, backgroundColor: AppColor.selected, child: const Icon(Icons.person_outline_rounded, size: 28)),
+                    CircleAvatar(radius: 25, backgroundColor: AppColor.selected, child: Icon(Icons.person_outline_rounded, size: 28)),
                     const SizedBox(width: 16),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(profile.name?.trim().isNotEmpty == true ? profile.name! : 'Your profile', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
                       const SizedBox(height: 4),
-                      Text('Member since ${_date(profile.createdAt)}', style: const TextStyle(fontSize: 12, color: Colors.white54)),
+                      Text('Member since ${_date(profile.createdAt)}', style: TextStyle(fontSize: 12, color: AppColor.muted)),
                     ])),
                     if (!controller.isEditing.value && wide)
-                      TextButton.icon(onPressed: controller.editName, icon: const Icon(Icons.edit_outlined, size: 16), label: const Text('Edit profile')),
+                      TextButton.icon(onPressed: controller.editName, icon: Icon(Icons.edit_outlined, size: 16), label: const Text('Edit profile')),
                   ]),
                   if (!controller.isEditing.value && !wide)
-                    Padding(padding: const EdgeInsets.only(top: 12), child: TextButton.icon(onPressed: controller.editName, icon: const Icon(Icons.edit_outlined, size: 16), label: const Text('Edit profile'))),
+                    Padding(padding: const EdgeInsets.only(top: 12), child: TextButton.icon(onPressed: controller.editName, icon: Icon(Icons.edit_outlined, size: 16), label: const Text('Edit profile'))),
                   if (controller.isEditing.value) ...[
                     const SizedBox(height: 24),
                     const Text('Display name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
@@ -81,7 +82,7 @@ class PageProfileView extends GetView<PageProfileController> {
                   ],
                   if (controller.notice.value.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    Text(controller.notice.value, style: const TextStyle(fontSize: 12, color: Colors.greenAccent)),
+                    Text(controller.notice.value, style: TextStyle(fontSize: 12, color: (Get.isDarkMode ? Colors.greenAccent : Colors.green.shade700))),
                   ],
                 ])),
                 const SizedBox(height: 24),
@@ -101,9 +102,9 @@ class PageProfileView extends GetView<PageProfileController> {
                 const SizedBox(height: 24),
                 _heading('Achievements', '${home.achievementCount.value} of ${achievements.length} unlocked'),
                 if (home.latestAchievementTitles.isNotEmpty)
-                  Padding(padding: const EdgeInsets.only(bottom: 16), child: Text('Latest: ${home.latestAchievementTitles.join(' · ')}', style: const TextStyle(fontSize: 12, color: Colors.white70))),
+                  Padding(padding: const EdgeInsets.only(bottom: 16), child: Text('Latest: ${home.latestAchievementTitles.join(' · ')}', style: TextStyle(fontSize: 12, color: AppColor.muted))),
                 if (achievements.isEmpty)
-                  _card(const Text('No achievements yet. Your progress will appear here.', style: TextStyle(fontSize: 13, color: Colors.white54)))
+                  _card(Text('No achievements yet. Your progress will appear here.', style: TextStyle(fontSize: 13, color: AppColor.muted)))
                 else
                   Wrap(spacing: 16, runSpacing: 16, children: achievements.map((item) => SizedBox(width: panelWidth, child: _achievement(item))).toList()),
               ]);
@@ -126,34 +127,34 @@ class PageProfileView extends GetView<PageProfileController> {
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       const SizedBox(height: 4),
-      Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.white54)),
+      Text(subtitle, style: TextStyle(fontSize: 12, color: AppColor.muted)),
     ]),
   );
 
   Widget _stat(String label, String value, IconData icon, double width) => SizedBox(width: width, child: _card(
     Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Icon(icon, size: 20, color: Colors.white54),
+      Icon(icon, size: 20, color: AppColor.muted),
       const SizedBox(height: 14),
       Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
       const SizedBox(height: 4),
-      Text(label, style: const TextStyle(fontSize: 12, color: Colors.white54)),
+      Text(label, style: TextStyle(fontSize: 12, color: AppColor.muted)),
     ]),
   ));
 
   Widget _badge(String label, BadgeProgress progress, String unit, IconData icon) => _card(
     Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [Icon(icon, size: 20, color: Colors.amberAccent), const SizedBox(width: 10), Text(label, style: const TextStyle(fontSize: 12, color: Colors.white54))]),
+      Row(children: [Icon(icon, size: 20, color: (Get.isDarkMode ? Colors.amberAccent : Colors.orange.shade800)), const SizedBox(width: 10), Text(label, style: TextStyle(fontSize: 12, color: AppColor.muted))]),
       const SizedBox(height: 12),
       Text(progress.currentTitle, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
       const SizedBox(height: 16),
-      _progress(progress.percent, Colors.amberAccent),
+      _progress(progress.percent, (Get.isDarkMode ? Colors.amberAccent : Colors.orange.shade800)),
       const SizedBox(height: 8),
-      Text(progress.isMaxLevel ? 'Max level reached' : '${progress.currentValue}/${progress.targetValue} $unit · Next: ${progress.nextTitle}', style: const TextStyle(fontSize: 11, color: Colors.white54)),
+      Text(progress.isMaxLevel ? 'Max level reached' : '${progress.currentValue}/${progress.targetValue} $unit · Next: ${progress.nextTitle}', style: TextStyle(fontSize: 11, color: AppColor.muted)),
     ]),
   );
 
   Widget _achievement(AchievementProgress item) {
-    final color = item.isUnlocked ? Colors.greenAccent : Colors.white54;
+    final color = item.isUnlocked ? (Get.isDarkMode ? Colors.greenAccent : Colors.green.shade700) : AppColor.muted;
     return _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Icon(item.isUnlocked ? Icons.verified_outlined : Icons.lock_outline_rounded, size: 20, color: color),
@@ -163,7 +164,7 @@ class PageProfileView extends GetView<PageProfileController> {
         Text(item.group, style: TextStyle(fontSize: 10, color: color)),
       ]),
       const SizedBox(height: 10),
-      Text(item.description, style: const TextStyle(fontSize: 12, color: Colors.white54)),
+      Text(item.description, style: TextStyle(fontSize: 12, color: AppColor.muted)),
       const SizedBox(height: 16),
       _progress(item.percent, color),
       const SizedBox(height: 8),
@@ -176,7 +177,7 @@ class PageProfileView extends GetView<PageProfileController> {
     minHeight: 5,
     borderRadius: BorderRadius.circular(8),
     color: color,
-    backgroundColor: Colors.white10,
+    backgroundColor: AppColor.hover,
   );
 
   String _date(String? value) {

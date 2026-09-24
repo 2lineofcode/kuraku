@@ -15,6 +15,7 @@ class ImgViewerView extends GetView<ImgViewerController> {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     final isMacOS = Platform.isMacOS;
     final macTopInset = MediaQuery.of(context).padding.top;
     final macTitleInset = isMacOS ? 0.0 : 0.0;

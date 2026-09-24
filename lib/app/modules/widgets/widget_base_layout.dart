@@ -52,6 +52,7 @@ class MyLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return Scaffold(
       floatingActionButton: floatingActionButton?.pOnly(bottom: 16),
       body: Row(
@@ -120,7 +121,7 @@ class MyLayout extends StatelessWidget {
     );
   }
 
-  Widget body() => bodyContent.w(double.infinity).pOnly(top: 8).color(Color.fromARGB(255, 14, 12, 17));
+  Widget body() => bodyContent.w(double.infinity).pOnly(top: 8).color(AppColor.body);
 
   Widget footer() {
     return Container(

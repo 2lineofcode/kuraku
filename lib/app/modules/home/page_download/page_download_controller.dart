@@ -133,7 +133,7 @@ class PageDownloadController extends GetxController {
           height: Get.height * 0.5,
           backgroundSettings: BackgroundSettings(blur: 5, color: Colors.transparent),
           animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-          color: Colors.black.withAlpha(230),
+          color: AppColor.panel,
           child: VStack([
             'Downloads'.text.bold.make().pOnly(bottom: 12),
 
@@ -335,7 +335,7 @@ class PageDownloadController extends GetxController {
                   placeholder: 'Chunk',
                   prefix: Icon(UIconsPro.regularRounded.download, size: 13).pOnly(left: 8),
                   placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
-                  style: TextStyle(fontSize: 13, color: Vx.white),
+                  style: TextStyle(fontSize: 13, color: AppColor.text),
                   onChanged: (s) => AppPref.setDownloadWorker(s.toInt() ?? 1),
                 ).w(90),
               ],
@@ -345,7 +345,7 @@ class PageDownloadController extends GetxController {
               focusNode: fnUrl,
               prefix: Icon(UIconsPro.regularRounded.link, size: 13).pOnly(left: 8),
               placeholder: 'Url',
-              style: TextStyle(fontSize: 12, color: Vx.white),
+              style: TextStyle(fontSize: 12, color: AppColor.text),
               onChanged: (value) {
                 tecFilename.text = value.split('/').last;
               },
@@ -354,7 +354,7 @@ class PageDownloadController extends GetxController {
               controller: tecFilename,
               prefix: Icon(UIconsPro.regularRounded.hastag, size: 13).pOnly(left: 8),
               placeholder: 'Filename',
-              style: TextStyle(fontSize: 12, color: Vx.white),
+              style: TextStyle(fontSize: 12, color: AppColor.text),
               onSubmitted: (value) async {
                 await startProcessDownload(tecUrl.text, tecDir.text, tecFilename.text, isRawUrl: isRawUrl.value);
               },
@@ -372,7 +372,7 @@ class PageDownloadController extends GetxController {
                       onChanged: (s) => isRawUrl.value = s ?? false,
                     ),
                   ),
-                  Text('Raw Url', style: TextStyle(fontSize: 12, color: Vx.white)).pOnly(left: 8),
+                  Text('Raw Url', style: TextStyle(fontSize: 12, color: AppColor.text)).pOnly(left: 8),
                 ]).wFull(Get.context!).onInkTap(() => isRawUrl.value = !isRawUrl.value),
               ),
             ),
@@ -381,7 +381,7 @@ class PageDownloadController extends GetxController {
       ),
       actions: [
         CupertinoDialogAction(
-          child: Text('Open Log', style: TextStyle(fontSize: 12, color: Vx.white)),
+          child: Text('Open Log', style: TextStyle(fontSize: 12, color: AppColor.text)),
           onPressed: () async => await openDownloadLog(),
         ),
         CupertinoDialogAction(

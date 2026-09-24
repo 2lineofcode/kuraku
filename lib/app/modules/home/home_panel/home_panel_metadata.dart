@@ -18,14 +18,14 @@ mixin HomePanelMetadata {
   static Future<void> open(Videos video) async {
     // helpers for consistent micro UI styling
     Widget sectionLabel(String title) => HStack([
-          title.text.semiBold.size(12).white.make(),
+          title.text.semiBold.size(12).color(AppColor.text).make(),
           Expanded(child: Divider(color: AppColor.border.withValues(alpha: .6)).pOnly(left: 12)),
         ]).pOnly(bottom: 8, top: 16);
 
     Widget inputField({required String label, required TextEditingController controller, String? placeholder, Widget? suffix, Widget? labelAction}) {
       return VStack([
         HStack([
-          label.text.size(11).color(Vx.neutral400).make(),
+          label.text.size(11).color(AppColor.muted).make(),
           Spacer(),
           if (labelAction != null) labelAction,
         ]),
@@ -37,7 +37,7 @@ mixin HomePanelMetadata {
               controller: controller,
               placeholder: placeholder,
               padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              style: TextStyle(fontSize: 13, color: Vx.white),
+              style: TextStyle(fontSize: 13, color: AppColor.text),
               decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
             ).expand(),
             if (suffix != null) suffix.pOnly(right: 10),
@@ -91,14 +91,14 @@ mixin HomePanelMetadata {
         height: Get.height * 80 / 100,
         backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
         animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: Colors.black.withAlpha(240),
+        color: AppColor.panel,
         child: Stack(
           children: [
             VStack(
               [
                 HStack([
                   Icon(UIconsPro.regularRounded.pen_square, size: 16).pOnly(right: 8),
-                  'Edit Metadata ${video.videoCode.isNotEmptyAndNotNull ? '(${video.videoCode})' : ''}'.text.bold.white.make(),
+                  'Edit Metadata ${video.videoCode.isNotEmptyAndNotNull ? '(${video.videoCode})' : ''}'.text.bold.color(AppColor.text).make(),
                 ]).pOnly(bottom: 12),
 
                 // basic info
@@ -117,7 +117,7 @@ mixin HomePanelMetadata {
                 // cast & tags
                 sectionLabel('Cast & Tags'),
                 HStack([
-                  'Actress'.text.color(Vx.neutral400).size(11).make(),
+                  'Actress'.text.color(AppColor.muted).size(11).make(),
                   Spacer(),
                   IconButton(
                     icon: Icon(CupertinoIcons.add, size: 16),
@@ -163,7 +163,7 @@ mixin HomePanelMetadata {
 
                 8.heightBox,
                 HStack([
-                  'Category'.text.color(Vx.neutral400).size(11).make(),
+                  'Category'.text.color(AppColor.muted).size(11).make(),
                   Spacer(),
                   IconButton(
                     icon: Icon(CupertinoIcons.add, size: 16),
@@ -185,7 +185,7 @@ mixin HomePanelMetadata {
                                 ...categories.map(
                                   (cat) => HStack([
                                     '${cat.id ?? ''}'.text.size(10).color(Vx.neutral500).make().pOnly(right: 4),
-                                    '${cat.category ?? ''}'.text.size(11).semiBold.white.make(),
+                                    '${cat.category ?? ''}'.text.size(11).semiBold.color(AppColor.text).make(),
                                     Icon(UIconsPro.regularRounded.cross, size: 10)
                                         .pOnly(left: 6)
                                         .onInkTap(() {
@@ -311,7 +311,7 @@ mixin HomePanelMetadata {
         height: 144,
         backgroundSettings: BackgroundSettings(blur: 5, color: Colors.orange.withAlpha(50)),
         animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: Colors.black.withAlpha(230),
+        color: AppColor.panel,
         child: VStack(
           [
             'Add Category'.text.bold.make().pOnly(bottom: 16),
@@ -367,7 +367,7 @@ mixin HomePanelMetadata {
         height: 144,
         backgroundSettings: BackgroundSettings(blur: 5, color: Colors.orange.withAlpha(50)),
         animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: Colors.black.withAlpha(230),
+        color: AppColor.panel,
         child: VStack(
           [
             'Add Actress'.text.bold.make().pOnly(bottom: 16),

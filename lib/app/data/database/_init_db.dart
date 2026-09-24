@@ -9,9 +9,10 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../core/app_logging.dart';
 import '../../core/app_setting.dart';
+import '_update_db.dart';
 import 'db_activity.dart';
+import 'db_chat.dart';
 import 'db_collection.dart';
-import 'db_historical.dart';
 import 'db_library.dart';
 import 'db_video_embedding.dart';
 import 'db_videos.dart';
@@ -29,12 +30,11 @@ class DBService extends GetxService {
   // Global App Path
   late String appPath;
 
-  @override
-  Future<void> onReady() async {
-    super.onReady();
+  Future<DBService> init() async {
     appPath = Get.find<AppSettingService>().appPath;
     dbMain = await _initializeDatabase();
     dbR18 = await _initializeR18Database();
+    return this;
   }
 
   Future<Database> _initializeDatabase() async {
@@ -42,12 +42,14 @@ class DBService extends GetxService {
     await Directory(appPath).create(recursive: true);
     return await openDatabase(
       path,
-      version: 7,
+      version: DBUpdate.version,
       singleInstance: true,
       onConfigure: _onConfigure,
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
+      onCreate: onCreate,
+      onUpgrade: DBUpdate.onUpgrade,
+      onDowngrade: DBUpdate.onDowngrade,
       onOpen: (db) async {
+        await DBChat.recoverInterrupted(db);
         AppLog.logD('== Main Database ($dbName) opened (version: ${await db.getVersion()}) ==');
       },
     );
@@ -90,14 +92,8 @@ class DBService extends GetxService {
     await db.execute('PRAGMA foreign_keys = ON');
   }
 
-  Future<void> _onCreate(Database db, int version) async {
-    // Drop existing Test table (optional, only if you want to remove it)
-    await db.execute('DROP TABLE IF EXISTS library');
-    await db.execute('DROP TABLE IF EXISTS videos');
-    await db.execute('DROP TABLE IF EXISTS activity');
-    await db.execute('DROP TABLE IF EXISTS profile');
-    await db.execute('DROP TABLE IF EXISTS collection');
-
+  // Frozen v1 baseline; later schema changes belong in DBUpdate.
+  static Future<void> onCreate(Database db, int version) async {
     // Create Library table
     await db.execute('''
       CREATE TABLE library (
@@ -198,119 +194,12 @@ class DBService extends GetxService {
         name                        TEXT,
         cover                       TEXT,
         video_id                    TEXT,
-        playlist_id                 TEXT REFERENCES collection(id) ON DELETE CASCADE,
         created_at                  TEXT,
         updated_at                  TEXT
       )
     ''');
 
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_collection_playlist_id ON collection(playlist_id)');
-    await DBHistorical.createTable(db);
-    await _createFeatureTables(db);
-  }
-
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    AppLog.logD('Upgrading DB from $oldVersion to $newVersion');
-
-    if (oldVersion < 2) {
-      await _createFeatureTables(db);
-    }
-
-    if (oldVersion < 3) {
-      await _createFeatureTables(db);
-    }
-
-    if (oldVersion < 4) {
-      await _dropRemovedFeatureTables(db);
-    }
-
-    if (oldVersion < 5) {
-      await _createFeatureTables(db);
-    }
-
-    if (oldVersion < 6) {
-      await migratePlaylistIds(db);
-    }
-    if (oldVersion < 7) {
-      await DBHistorical.createTable(db);
-    }
-  }
-
-  static Future<void> migratePlaylistIds(Database db) async {
-    final columns = await db.rawQuery('PRAGMA table_info(collection)');
-    if (!columns.any((column) => column['name'] == 'playlist_id')) {
-      await db.execute('ALTER TABLE collection ADD COLUMN playlist_id TEXT REFERENCES collection(id) ON DELETE CASCADE');
-    }
-    // Recover legacy groups that have video rows but no playlist header.
-    await db.execute('''
-      INSERT INTO collection (id, type, name, cover, created_at, updated_at)
-      SELECT lower(hex(randomblob(16))), 'playlist', items.name, MAX(items.cover),
-             MIN(items.created_at), MAX(items.updated_at)
-      FROM collection AS items
-      WHERE items.type = 'playlist' AND items.video_id IS NOT NULL AND items.playlist_id IS NULL
-        AND NOT EXISTS (
-          SELECT 1 FROM collection AS header
-          WHERE header.type = 'playlist' AND header.video_id IS NULL AND header.name IS items.name
-        )
-      GROUP BY items.name
-    ''');
-    await db.execute('''
-      UPDATE collection AS items
-      SET playlist_id = (
-        SELECT header.id FROM collection AS header
-        WHERE header.type = 'playlist' AND header.video_id IS NULL AND header.name IS items.name
-        ORDER BY header.id LIMIT 1
-      )
-      WHERE items.type = 'playlist' AND items.video_id IS NOT NULL AND items.playlist_id IS NULL
-    ''');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_collection_playlist_id ON collection(playlist_id)');
-  }
-
-  Future<void> _createFeatureTables(Database db) async {
-    // watch sessions
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS watch_session (
-        id                          TEXT PRIMARY KEY,
-        video_id                    TEXT,
-        video_code                  TEXT,
-        watched_seconds             INTEGER,
-        created_at                  TEXT
-      )
-    ''');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_watch_session_created_at ON watch_session(created_at);');
-
-    // achievement unlock history
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS achievement_unlock (
-        id                          TEXT PRIMARY KEY,
-        achievement_key             TEXT UNIQUE,
-        title                       TEXT,
-        description                 TEXT,
-        unlocked_at                 TEXT,
-        created_at                  TEXT,
-        updated_at                  TEXT
-      )
-    ''');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_achievement_unlock_key ON achievement_unlock(achievement_key);');
-
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS video_embeddings (
-        video_id                     TEXT PRIMARY KEY,
-        source_text                  TEXT,
-        embedding                    TEXT,
-        model                        TEXT,
-        created_at                   TEXT,
-        updated_at                   TEXT
-      )
-    ''');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_video_embeddings_updated_at ON video_embeddings(updated_at);');
-
-  }
-
-  Future<void> _dropRemovedFeatureTables(Database db) async {
-    await db.execute('DROP TABLE IF EXISTS watch_next_item');
-    await db.execute('DROP TABLE IF EXISTS watch_next_queue');
-    await db.execute('DROP TABLE IF EXISTS health_snapshot');
+    await DBUpdate.onUpgrade(db, 1, version);
   }
 
   Database get mainDatabase => dbMain;
@@ -325,6 +214,7 @@ class DBService extends GetxService {
     await dbMain.delete('watch_session');
     await dbMain.delete('achievement_unlock');
     await dbMain.delete('historical');
+    await dbMain.delete('chat_conversation');
     await vacumDB();
   }
 

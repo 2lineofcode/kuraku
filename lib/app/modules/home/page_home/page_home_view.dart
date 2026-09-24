@@ -19,6 +19,7 @@ class PageHomeView extends GetView<PageHomeController> {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return Obx(
       () => controller.totalVideo.value != 0
           ? buildPage()
@@ -201,7 +202,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 ),
               ),
               title.text.size(12).make(),
-              if (subtitle != null && subtitle.isNotEmpty) subtitle.text.size(9).color(Vx.neutral400).maxLines(1).ellipsis.make().pOnly(left: 8),
+              if (subtitle != null && subtitle.isNotEmpty) subtitle.text.size(9).color(AppColor.muted).maxLines(1).ellipsis.make().pOnly(left: 8),
             ]).pSymmetric(h: 12, v: 4).onInkTap(() {
               final isVisible = !AppPref.getBool(prefKey);
               AppPref.setBool(prefKey, isVisible);
@@ -277,7 +278,7 @@ class PageHomeView extends GetView<PageHomeController> {
       onDoubleTap: () => HelperOpener.openVideoFile(video),
       child: Container(
         color: AppColor.container,
-        child: ZStack([
+        child: MediaStack([
           ExThumbnail(
             imageUrl: video.fanArt,
             videoPath: video.videoPath,
@@ -323,7 +324,7 @@ class PageHomeView extends GetView<PageHomeController> {
       onDoubleTap: () async => await HelperOpener.openVideoFile(video),
       child: Container(
         color: AppColor.container,
-        child: ZStack([
+        child: MediaStack([
           ExThumbnail(
             imageUrl: video.fanArt,
             videoPath: video.videoPath,

@@ -10,6 +10,7 @@ import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/data/models/videos_entity.dart';
 import 'package:javit/app/modules/player/player_controller.dart';
 import 'package:javit/app/modules/player/player_controls.dart';
+import 'package:javit/app/utils/semantic_search_service.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:overlayment/overlayment.dart';
@@ -60,6 +61,32 @@ class _Player implements Player {
 }
 
 void main() {
+  testWidgets('Permanent player only blocks visual search while visible', (tester) async {
+    Get.put(AppSettingService()..pref = _Preferences());
+    addTearDown(Get.reset);
+    final controller = Get.put(PlayerController(), permanent: true);
+    expect(SemanticSearchService.playbackActive, isFalse);
+    SemanticSearchService.beginPlayback();
+    controller.isPlayerVisible.value = false;
+    expect(SemanticSearchService.playbackActive, isTrue);
+    SemanticSearchService.endPlayback();
+    controller.isPlayerVisible.value = true;
+    expect(SemanticSearchService.playbackActive, isTrue);
+    controller.isPlayerVisible.value = true;
+    controller.isPlayerVisible.value = false;
+    expect(SemanticSearchService.playbackActive, isFalse);
+    SemanticSearchService.beginPlayback();
+    controller.isPlayerVisible.value = true;
+    controller.isPlayerVisible.value = false;
+    expect(SemanticSearchService.playbackActive, isTrue);
+    SemanticSearchService.endPlayback();
+    expect(SemanticSearchService.playbackActive, isFalse);
+    controller.isPlayerVisible.value = true;
+    await Get.delete<PlayerController>(force: true);
+    await tester.pump();
+    expect(SemanticSearchService.playbackActive, isFalse);
+  });
+
   testWidgets('trackpad pinch zooms video, clamps scale and resets without changing playback', (tester) async {
     Get.put(AppSettingService()..pref = _Preferences());
     addTearDown(Get.reset);

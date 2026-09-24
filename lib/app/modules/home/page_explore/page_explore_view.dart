@@ -23,6 +23,7 @@ class PageExploreView extends GetView<PageExploreController> {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return Column(children: [
       Obx(() => SearchTabBar(
         tabs: controller.tabs.map((tab) => (title: tab.title, isLoading: tab.isLoading.value || tab.isLoadingSelection.value || tab.isLoadingR18.value)).toList(),
@@ -47,6 +48,7 @@ class PageExploreTabView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return Obx(
       () => controller.isFresh.isFalse || controller.isLoading.value || controller.error.value.isNotEmpty
           ? buildPage()
@@ -86,7 +88,7 @@ class PageExploreTabView extends StatelessWidget {
               () => ExButtonOutline(
                 label: controller.menus[index],
                 labelSize: 12,
-                labelColor: controller.currentMenuSelected.value == controller.menus[index] ? Vx.white : Vx.neutral500,
+                labelColor: controller.currentMenuSelected.value == controller.menus[index] ? AppColor.text : AppColor.muted,
                 borderColor: controller.currentMenuSelected.value == controller.menus[index] ? AppColor.selected : AppColor.container,
                 backgroundColor: controller.currentMenuSelected.value == controller.menus[index] ? AppColor.selected : AppColor.container,
                 onPressed: () => controller.onMenuChange(controller.menus[index]),
@@ -113,7 +115,7 @@ class PageExploreTabView extends StatelessWidget {
                   controller: controller.tecSearchLeft,
                   focusNode: controller.fnSearchLeft,
                   placeholder: controller.phSearchLeft.value,
-                  style: TextStyle(color: Vx.white, fontSize: 12),
+                  style: TextStyle(color: AppColor.text, fontSize: 12),
                   clearButtonMode: OverlayVisibilityMode.editing,
                   prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
                   onChanged: (s) => controller.onLeftListDoSearch(s),
@@ -407,7 +409,7 @@ class PageExploreTabView extends StatelessWidget {
               focusNode: controller.fnSearchRight,
               clearButtonMode: OverlayVisibilityMode.editing,
               placeholder: 'Search (${controller.rightListR18Filtered.length}) Videos...',
-              style: TextStyle(color: Vx.white, fontSize: 14),
+              style: TextStyle(color: AppColor.text, fontSize: 14),
               prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
               onChanged: (q) => controller.onRightListDoSearch(q),
             ).expand(),
@@ -452,7 +454,7 @@ class PageExploreTabView extends StatelessWidget {
               ).cornerRadius(8);
             }
             final item = controller.rightListR18Filtered[i];
-            return ZStack(
+            return MediaStack(
               [
                 ExThumbnail(
                   imageUrl: item['fan_art'] ?? '',
@@ -537,7 +539,7 @@ class PageExploreTabView extends StatelessWidget {
       onDoubleTap: () async => await HelperOpener.openVideoFile(video, playlist: controller.rightListLocal.value),
       child: Container(
         color: AppColor.container,
-        child: ZStack([
+        child: MediaStack([
           ExThumbnail(
             imageUrl: video.fanArt,
             videoPath: video.videoPath,

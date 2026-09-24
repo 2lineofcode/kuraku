@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:ffi' as ffi;
+import 'dart:ui' show AppExitResponse;
 
 import 'package:dio/dio.dart';
 import 'package:ex_kit/ex.dart';
@@ -26,44 +27,33 @@ import 'app/core/app_logging.dart';
 import 'app/core/app_notification.dart';
 import 'app/core/app_pref.dart';
 import 'app/core/app_setting.dart';
+import 'app/core/app_startup.dart';
 import 'app/core/const.dart';
 import 'app/data/database/_init_db.dart';
 import 'app/modules/home/home_controller.dart';
+import 'app/modules/home/page_chat/page_chat_controller.dart';
 import 'app/routes/app_pages.dart';
 import 'app/utils/helper_toast.dart';
 import 'env.g.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await _cleanupDanglingMediaKitPlayers();
+  runApp(AppStartup(initialize: _initializeApp, child: const JavIt()));
+}
 
+Future<void> _initializeApp() async {
   final sw = Stopwatch()..start();
-
-  // player
+  final settings = AppSettingService();
+  await settings.setupDesktop();
+  AppLog.logD('Startup window shown: ${sw.elapsedMilliseconds}ms');
+  await _cleanupDanglingMediaKitPlayers();
   MediaKit.ensureInitialized();
   VideoPlayerMediaKit.ensureInitialized(macOS: true);
-
-
-  // local notification
-  await AppNotification.initialize();
-  await _requestNotificationPermissions();
-
-  // shortcut
   await hotKeyManager.unregisterAll();
-
-  /// makesure `AppSettingService` already initialized
-  await Get.putAsync(() => AppSettingService().init(), permanent: true);
-
-  // makesure `DBService` already initialized
-  await Get.putAsync(() async {
-    final service = DBService();
-    await service.onReady();
-    return service;
-  });
-
-  sw.stop();
-  AppLog.logD('All Depedencies loaded in ${sw.elapsedMilliseconds}ms');
-  runApp(JavIt());
+  await Get.putAsync(() => settings.init(), permanent: true);
+  AppLog.logD('Startup settings ready: ${sw.elapsedMilliseconds}ms');
+  await Get.putAsync(() => DBService().init(), permanent: true);
+  AppLog.logD('Startup dependencies ready: ${sw.elapsedMilliseconds}ms');
 }
 
 class JavIt extends StatefulWidget {
@@ -74,14 +64,29 @@ class JavIt extends StatefulWidget {
 }
 
 class _JavItState extends State<JavIt> with WindowListener {
+  AppLifecycleListener? _lifecycle;
+  bool _closing = false;
+
+  Future<bool> _flushChat() async {
+    if (Get.isRegistered<PageChatController>() && !Get.isPrepared<PageChatController>()) {
+      final chat = Get.find<PageChatController>();
+      await chat.stopResponse();
+      return chat.flushDraft();
+    }
+    return true;
+  }
+
   @override
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    windowManager.setPreventClose(true);
+    _lifecycle = AppLifecycleListener(onExitRequested: () async => await _flushChat() ? AppExitResponse.exit : AppExitResponse.cancel);
   }
 
   @override
   void dispose() {
+    _lifecycle?.dispose();
     windowManager.removeListener(this);
     super.dispose();
   }
@@ -93,21 +98,35 @@ class _JavItState extends State<JavIt> with WindowListener {
         enableLog: Env.logLvl == 'debug' ? true : false,
         title: Env.appName,
         initialRoute: AppPages.INITIAL,
-        theme: ThemeData.dark(useMaterial3: true).copyWith(
+        themeMode: AppPref.getAppDarkMode() ? ThemeMode.dark : ThemeMode.light,
+        theme: ThemeData.light(useMaterial3: true),
+        darkTheme: ThemeData.dark(useMaterial3: true).copyWith(
           textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: Vx.blue300)),
         ),
         getPages: AppPages.routes,
         defaultTransition: Transition.fadeIn,
         debugShowCheckedModeBanner: false,
-        onReady: () async => await _checkApplicationIsReady(),
+        onReady: () {
+          unawaited(_initializeNotifications());
+          unawaited(_checkApplicationIsReady());
+        },
       ),
     );
   }
 
   @override
-  void onWindowClose([int? windowId]) {
+  void onWindowClose([int? windowId]) async {
+    if (_closing) return;
+    _closing = true;
+    if (!await _flushChat()) {
+      _closing = false;
+      await HelperToast.error('Could not save chat draft. Retry saving before closing.');
+      return;
+    }
     AppPref.setAppLastOpen(DateTime.now().toStringEx());
     AppLog.logD('onWindowClose');
+    await windowManager.setPreventClose(false);
+    await windowManager.close();
   }
 
   @override
@@ -210,6 +229,15 @@ class _JavItState extends State<JavIt> with WindowListener {
     } else {
       AppLog.logS('=== 💎 Application is ready, without any issue 💎 ===');
     }
+  }
+}
+
+Future<void> _initializeNotifications() async {
+  try {
+    await AppNotification.initialize();
+    await _requestNotificationPermissions();
+  } catch (e, stackTrace) {
+    AppLog.logE('Notification setup failed: $e\n$stackTrace');
   }
 }
 

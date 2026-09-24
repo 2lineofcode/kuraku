@@ -16,6 +16,7 @@ import '../../data/database/db_gamification.dart';
 import '../../data/database/db_profile.dart';
 import '../../data/database/db_watch_session.dart';
 import '../../data/models/videos_entity.dart';
+import '../../utils/semantic_search_service.dart';
 
 class PlayerMultiView extends StatefulWidget {
   const PlayerMultiView({super.key});
@@ -34,6 +35,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
   @override
   void initState() {
     super.initState();
+    SemanticSearchService.beginPlayback();
     _initPlayers();
   }
 
@@ -42,6 +44,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
     for (final item in _items) {
       unawaited(item.dispose());
     }
+    SemanticSearchService.endPlayback();
     _shortcutFocusNode.dispose();
     super.dispose();
   }
@@ -331,6 +334,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return PopScope(
       canPop: true,
       child: Scaffold(
@@ -552,6 +556,7 @@ class _GridTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     final videoController = item.videoController;
     final label = (item.video.videoCode?.trim().isNotEmpty == true)
         ? item.video.videoCode!.trim()
@@ -693,6 +698,7 @@ class _MultiPlayerControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: ColoredBox(

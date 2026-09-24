@@ -16,6 +16,7 @@ import '../../../data/database/db_videos.dart';
 import '../../../data/models/collection_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
+import '../../widgets/widget_media_stack.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
 import '../page_home/page_home_controller.dart';
@@ -40,7 +41,7 @@ mixin HomePanelPlaylist {
         width: 300,
         backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
         animation: OverSlideAnimation(beginAlignment: Alignment.centerRight, reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: Colors.black.withAlpha(230),
+        color: AppColor.panel,
         actions: OverlayActions(
           onOpen: () async {
             _controller.playlist.value = await DBCollection.getAllPlaylist();
@@ -133,14 +134,14 @@ mixin HomePanelPlaylist {
           focusNode: fnName,
           placeholder: 'Name',
           prefix: Icon(CupertinoIcons.tag, size: 16).pOnly(left: 8),
-          style: TextStyle(color: Vx.white, fontSize: 12),
+          style: TextStyle(color: AppColor.text, fontSize: 12),
           readOnly: isFavorite,
         ).disabled(isFavorite).pOnly(bottom: 8),
         CupertinoTextField(
           controller: tecCover,
           placeholder: 'Paste image URL here...',
           prefix: Icon(CupertinoIcons.photo, size: 16).pOnly(left: 8),
-          style: TextStyle(fontSize: 12, color: Vx.white),
+          style: TextStyle(fontSize: 12, color: AppColor.text),
         ),
       ]),
       actions: [
@@ -224,7 +225,7 @@ mixin HomePanelPlaylist {
         height: 300,
         animation: OverFadeAnimation( reverseDurationMilliseconds: 100, durationMilliseconds: 100 ),
         backgroundSettings: BackgroundSettings(blur: 12),
-        color: Colors.black,
+        color: AppColor.panel,
 
         child: VStack([
           'Select playlist'.text.bold.make().pOnly(bottom: 16),
@@ -269,7 +270,7 @@ mixin HomePanelPlaylist {
             width: 300,
             height: 150,
             color: AppColor.selected,
-            child: ZStack([
+            child: MediaStack([
               ExThumbnail(
                 imageUrl: '${Env.imgUrl}${AppPref.getFavoriteCoverURL()}',
                 width: 300,
@@ -304,7 +305,7 @@ mixin HomePanelPlaylist {
           width: 300,
           height: 150,
           color: AppColor.selected,
-          child: ZStack([
+          child: MediaStack([
             ExThumbnail(
               imageUrl: item.cover,
               width: 300,
@@ -342,8 +343,8 @@ mixin HomePanelPlaylist {
 
         if (items.isEmpty) {
           return VStack([
-            Icon(UIconsPro.regularRounded.list, size: 28, color: Vx.neutral400).pOnly(bottom: 12).centered(),
-            'Playlist still empty'.text.size(13).color(Vx.neutral300).makeCentered(),
+            Icon(UIconsPro.regularRounded.list, size: 28, color: AppColor.muted).pOnly(bottom: 12).centered(),
+            'Playlist still empty'.text.size(13).color(AppColor.muted).makeCentered(),
           ]).centered();
         }
 

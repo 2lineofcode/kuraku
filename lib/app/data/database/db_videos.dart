@@ -93,6 +93,21 @@ mixin DBVideos {
     await _db.update(_tableName, videos.toJson(), where: 'id = ?', whereArgs: [videos.id]);
   }
 
+  static const _missingQuality = "(quality IS NULL OR TRIM(quality) = '')";
+
+  static Future<int> countMissingQuality() async => Sqflite.firstIntValue(
+    await _db.rawQuery('SELECT COUNT(*) FROM $_tableName WHERE $_missingQuality'),
+  ) ?? 0;
+
+  static Future<List<Videos>> getMissingQuality() async => _toVideos(await _db.query(
+    _tableName, columns: ['id', 'video_path'], where: _missingQuality,
+  ));
+
+  static Future<int> updateMissingQuality(Videos video, String quality) => _db.update(
+    _tableName, {'quality': quality, 'updated_at': DateTime.now().toStringEx()},
+    where: 'id = ? AND video_path = ? AND $_missingQuality', whereArgs: [video.id, video.videoPath],
+  );
+
   static Future<int> recoverMissingVideoCodes(String rootPath) async {
     if (rootPath.isEmpty) return 0;
     return _db.transaction((txn) async {

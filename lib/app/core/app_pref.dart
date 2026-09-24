@@ -6,11 +6,19 @@ import 'app_setting.dart';
 mixin AppPref {
   static final _pref = Get.find<AppSettingService>().pref;
 
+  static String? getActiveChat() => _pref.read<String>('chat_active_id');
+  static Future<void> setActiveChat(String id) => _pref.write('chat_active_id', id);
+  static bool getChatSidebarVisible() => _pref.read<bool>('chat_sidebar_visible') ?? true;
+  static Future<void> setChatSidebarVisible(bool value) => _pref.write('chat_sidebar_visible', value);
+
   // ** [app]
   static void setAppLastOpen(String value) => _pref.write(_kAppLastOpen, value);
 
   static bool getAppHideSideMenu() => _pref.read(_kAppHideSideMenu) ?? false;
   static void setAppHideSideMenu(bool value) => _pref.write(_kAppHideSideMenu, value);
+
+  static bool getAppDarkMode() => _pref.read<bool>('_kAppDarkMode') ?? true;
+  static Future<void> setAppDarkMode(bool value) => _pref.write('_kAppDarkMode', value);
 
   static int getAppMaxColi() => _pref.read(_kAppMaxColi) ?? 2;
   static void setAppMaxColi(int value) => _pref.write(_kAppMaxColi, value);

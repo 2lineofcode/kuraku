@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
@@ -25,12 +26,19 @@ class VideoEmbeddingRecord {
   });
 
   factory VideoEmbeddingRecord.fromJson(Map<String, dynamic> json) {
-    final raw = (json['embedding'] ?? '').toString();
-    final decoded = raw.isEmpty ? <dynamic>[] : jsonDecode(raw) as List<dynamic>;
+    final raw = json['embedding'];
+    final List<double> decoded;
+    if (raw is Uint8List) {
+      final bytes = ByteData.sublistView(raw);
+      decoded = List.generate(raw.length ~/ 4, (i) => bytes.getFloat32(i * 4, Endian.little));
+    } else {
+      final text = (raw ?? '').toString();
+      decoded = text.isEmpty ? [] : (jsonDecode(text) as List).map((e) => (e as num).toDouble()).toList();
+    }
     return VideoEmbeddingRecord(
       videoId: (json['video_id'] ?? '').toString(),
       sourceText: (json['source_text'] ?? '').toString(),
-      embedding: decoded.map((e) => (e as num).toDouble()).toList(),
+      embedding: decoded,
       model: (json['model'] ?? '').toString(),
       createdAt: (json['created_at'] ?? '').toString(),
       updatedAt: (json['updated_at'] ?? '').toString(),

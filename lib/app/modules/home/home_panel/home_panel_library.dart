@@ -168,7 +168,7 @@ mixin HomePanelLibrary {
         width: 300,
         backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
         animation: OverSlideAnimation(beginAlignment: Alignment.centerRight, reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: Colors.black.withAlpha(230),
+        color: AppColor.panel,
         child: VStack([
           HStack(
             [
@@ -239,7 +239,7 @@ mixin HomePanelLibrary {
 
           Container(
             width: double.infinity,
-            decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4, fillColor: Colors.black),
+            decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4, fillColor: AppColor.container),
             child: HStack([
               'Total Folder: ${await DBLibrary.getCount()}'.text.size(12).make(),
               Spacer(),
@@ -314,7 +314,7 @@ mixin HomePanelLibrary {
               placeholder: 'Alias',
               placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
               prefix: Icon(UIconsPro.regularRounded.tags, size: 14).pOnly(left: 8),
-              style: TextStyle(fontSize: 13, color: Vx.white),
+              style: TextStyle(fontSize: 13, color: AppColor.text),
               onSubmitted: (value) async {
                 await _onSubmit(
                   alias: tfAlias.text,

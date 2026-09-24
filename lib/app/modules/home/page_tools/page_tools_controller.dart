@@ -1,10 +1,15 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:ex_kit/ex.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
+import 'package:ffmpeg_kit_flutter_new/media_information_session.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_list_view/flutter_list_view.dart';
 import 'package:get/get.dart';
-import 'package:video_compress/video_compress.dart';
+import 'package:path/path.dart' as p;
 
+import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/database/db_r18.dart';
@@ -12,7 +17,6 @@ import '../../../data/database/db_videos.dart';
 import '../../../data/models/activity_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
-import '../home_controller.dart';
 import '../page_explore/page_explore_controller.dart';
 
 class PageToolsController extends GetxController with StateMixin {
@@ -21,7 +25,17 @@ class PageToolsController extends GetxController with StateMixin {
   final currentMenuSelected = kTopLargeFile.obs;
 
   // ** part: large filesize
-  final isHasDataNotScanned = true.obs; // is has data not scanned filesize & resolution
+  final missingQualityCount = 0.obs;
+  final qualityScanRunning = false.obs;
+  final qualityScanTotal = 0.obs;
+  final qualityScanChecked = 0.obs;
+  final qualityScanUpdated = 0.obs;
+  final qualityScanSkipped = 0.obs;
+  final qualityScanStatus = ''.obs;
+  final qualityScanFile = ''.obs;
+  bool _qualityScanCancelled = false;
+  MediaInformationSession? _qualityProbe;
+  Completer<String?>? _qualityProbeResult;
   final topLargeFileSizeList = <Videos>[].obs;
   final topLargeFilterMode = 'all'.obs; // all | internal | external
   final topLargeHoveredIndex = (-1).obs;
@@ -76,6 +90,7 @@ class PageToolsController extends GetxController with StateMixin {
 
   @override
   void onClose() {
+    stopQualityScan();
     tecFilterSearchLeft.dispose();
     fnFilterSearchLeft.dispose();
     leftListFocusNode.dispose();
@@ -139,80 +154,105 @@ class PageToolsController extends GetxController with StateMixin {
   }
 
   Future<void> checkIsHasDataNotScanned() async {
-    final vid = await DBVideos.getAll(where: 'quality IS NULL OR quality = ""');
-    for (var v in vid) {
-      AppLog.logD('checkIsHasDataNotScanned: ${v.videoPath}');
-    }
-    isHasDataNotScanned.value = vid.isEmpty;
+    missingQualityCount.value = await DBVideos.countMissingQuality();
+  }
+
+  Future<List<Videos>> loadMissingQuality() => DBVideos.getMissingQuality();
+  Future<int> saveMissingQuality(Videos video, String quality) => DBVideos.updateMissingQuality(video, quality);
+
+  void stopQualityScan() {
+    if (!qualityScanRunning.value) return;
+    _qualityScanCancelled = true;
+    qualityScanStatus.value = 'Stopping… Saved results will be kept.';
+    AppLog.logI('Resolution scan: stop requested');
+    unawaited(_cancelQualityProbe());
+  }
+
+  Future<void> _cancelQualityProbe() async {
+    final result = _qualityProbeResult;
+    try { await _qualityProbe?.cancel(); }
+    catch (e) { AppLog.logW('Resolution scan: cancel failed: $e'); }
+    if (result != null && !result.isCompleted) result.complete(null);
   }
 
   Future<void> scanAndUpdateDBVideoRes() async {
-    final home = Get.find<HomeController>();
-    final videos = await DBVideos.getAll(where: 'quality IS NULL OR quality = ""');
-    if (videos.isEmpty) {
-      home.footerText.value = 'Idle | All videos already have quality';
-      return;
-    }
-
-    HelperLoading.show(isDismissible: false);
+    if (qualityScanRunning.value || isClosed) return;
+    qualityScanRunning.value = true;
+    _qualityScanCancelled = false;
+    qualityScanTotal.value = 0;
+    qualityScanChecked.value = 0;
+    qualityScanUpdated.value = 0;
+    qualityScanSkipped.value = 0;
+    qualityScanStatus.value = 'Finding videos with missing resolution…';
     final sw = Stopwatch()..start();
-    final total = videos.length;
-
+    AppLog.logI('Resolution scan: started');
     try {
-      for (var i = 0; i < total; i++) {
-        final video = videos[i];
-        final percentage = ((i + 1) * 100 / total).toStringAsFixed(2);
-        home.footerText.value = 'Scanning ${i + 1}/$total | ($percentage%)';
-
-        final quality = await _extractQuality(video.videoPath ?? '');
-        if (quality != null) {
-          video.quality = quality;
-          await DBVideos.update(video);
+      final videos = await loadMissingQuality();
+      qualityScanTotal.value = videos.length;
+      for (final video in videos) {
+        if (_qualityScanCancelled || isClosed) break;
+        qualityScanFile.value = p.basename(video.videoPath ?? '');
+        qualityScanStatus.value = 'Reading video metadata…';
+        try {
+          final quality = await extractQuality(video.videoPath ?? '');
+          if (_qualityScanCancelled || isClosed) break;
+          if (quality != null && await saveMissingQuality(video, quality) > 0) {
+            qualityScanUpdated.value++;
+          } else {
+            qualityScanSkipped.value++;
+            AppLog.logW('Resolution scan: skipped ${video.id} (${qualityScanFile.value})');
+          }
+        } catch (e) {
+          if (_qualityScanCancelled || isClosed) break;
+          qualityScanSkipped.value++;
+          AppLog.logW('Resolution scan: ${qualityScanFile.value}: $e');
         }
-
-        // Yield to UI every few iterations to avoid visible freeze.
-        if (i % 5 == 0) await Future.delayed(const Duration(milliseconds: 1));
+        qualityScanChecked.value++;
+        await Future<void>.delayed(const Duration(milliseconds: 30));
       }
-
-      await home.onRefreshAllContent();
-      isHasDataNotScanned.value = true;
-      AppLog.logI('scanAndUpdateDBVideoRes finished in ${sw.elapsedMilliseconds} ms');
+      qualityScanStatus.value = '${_qualityScanCancelled ? 'Stopped' : 'Finished'} · ${qualityScanUpdated.value} updated · ${qualityScanSkipped.value} skipped';
+      AppLog.logI('Resolution scan: ${qualityScanStatus.value} in ${sw.elapsedMilliseconds} ms');
+      if (!isClosed) {
+        await checkIsHasDataNotScanned();
+        await getTopLargeFileSize(mode: topLargeFilterMode.value);
+      }
+    } catch (e) {
+      qualityScanStatus.value = 'Scan failed. Saved results are kept. Please retry.';
+      AppLog.logE('Resolution scan failed: $e');
     } finally {
-      HelperLoading.dismiss();
+      qualityScanFile.value = '';
+      qualityScanRunning.value = false;
     }
   }
 
-  Future<String?> _extractQuality(String path) async {
+  Future<String?> extractQuality(String path) async {
     if (path.isEmpty) return null;
-
+    final localPath = path.startsWith('file:') ? Uri.parse(path).toFilePath() : path;
+    final stat = await File(localPath).stat().timeout(const Duration(seconds: 5));
+    if (stat.type != FileSystemEntityType.file || _qualityScanCancelled || isClosed) return null;
+    final result = Completer<String?>();
+    _qualityProbeResult = result;
     try {
-      final medInfo = await VideoCompress.getMediaInfo(path);
-      if (medInfo.width != null && medInfo.height != null) {
-        return '${medInfo.width}x${medInfo.height}';
-      }
-    } catch (e) {
-      AppLog.logD('VideoCompress failed for $path => $e');
+      _qualityProbe = await FFprobeKit.getMediaInformationFromCommandArgumentsAsync([
+        '-v', 'error', '-select_streams', 'V:0', '-show_entries', 'stream=width,height',
+        '-print_format', 'json', '-i', localPath,
+      ], (session) {
+        if (result.isCompleted) return;
+        final streams = session.getMediaInformation()?.getStreams();
+        final stream = streams == null || streams.isEmpty ? null : streams.first;
+        final width = stream?.getWidth() ?? 0;
+        final height = stream?.getHeight() ?? 0;
+        result.complete(width > 0 && height > 0 ? '${width}x$height' : null);
+      });
+      if (_qualityScanCancelled || isClosed) await _cancelQualityProbe();
+      return await result.future.timeout(const Duration(seconds: 15), onTimeout: () async {
+        await _cancelQualityProbe();
+        throw TimeoutException('Metadata probe exceeded 15 seconds');
+      });
+    } finally {
+      _qualityProbe = null;
+      _qualityProbeResult = null;
     }
-
-    try {
-      final probe = await FFprobeKit.getMediaInformation(path);
-      final info = probe.getMediaInformation();
-      final streams = info?.getStreams();
-
-      if (streams != null) {
-        for (final stream in streams) {
-          final width = stream.getWidth();
-          final height = stream.getHeight();
-          if (width != null && height != null) {
-            return '${width}x$height';
-          }
-        }
-      }
-    } catch (e) {
-      AppLog.logE('FFprobeKit failed for $path => $e');
-    }
-
-    return null;
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -303,7 +343,7 @@ class PageToolsController extends GetxController with StateMixin {
         child: CupertinoTextField(
           controller: tecTodo,
           focusNode: fnTodo,
-          style: TextStyle(color: Vx.white, fontSize: 12),
+          style: TextStyle(color: AppColor.text, fontSize: 12),
           placeholder: 'TODO',
           onSubmitted: (value) async {
             final newTodo = Activity(type: kActivityTypeTodo, content: value);

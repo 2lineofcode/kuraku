@@ -12,6 +12,7 @@ import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
+import '../../../utils/local_semantic_worker.dart';
 import '../../../utils/semantic_search_service.dart';
 import '../../player/player_multi_view.dart';
 import '../home_controller.dart';
@@ -38,6 +39,9 @@ class PageSearchTab {
   int _historyRequest = 0;
   final phSearch = 'Video Code or Title or Path...'.obs;
   final semanticResultLabel = ''.obs;
+  final semanticCoverage = ''.obs;
+  final visualSensitivity = 'Balanced'.obs;
+  final semanticReasonByVideoId = <String, String>{}.obs;
   final semanticScoreByVideoId = <String, double>{}.obs;
   final sortBy = 'Random'.obs;
   final qualityFilter = 'All qualities'.obs;
@@ -121,6 +125,7 @@ class PageSearchTab {
     'query': tecSearch.text,
     'listView': isListView.value,
     'semantic': isSemanticMode.value,
+    'visualSensitivity': visualSensitivity.value,
     'sort': sortBy.value,
     'quality': qualityFilter.value,
     'hasSort': _hasSort.value,
@@ -137,9 +142,11 @@ class PageSearchTab {
     tecSearch.text = value['query'] is String ? value['query'] : '';
     isListView.value = value['listView'] == true;
     isSemanticMode.value = value['semantic'] == true;
+    if (['Strict', 'Balanced', 'Broad'].contains(value['visualSensitivity'])) visualSensitivity.value = value['visualSensitivity'];
     _updatePlaceholder();
-    if (['Random', 'Release Date', 'View Count', 'File Size'].contains(value['sort'])) sortBy.value = value['sort'];
+    if (['Relevance', 'Random', 'Release Date', 'View Count', 'File Size'].contains(value['sort'])) sortBy.value = value['sort'];
     _hasSort.value = value['hasSort'] == true;
+    if (isSemanticMode.value && !_hasSort.value) sortBy.value = 'Relevance';
     if (['All qualities', 'FHD only', 'HD only'].contains(value['quality'])) qualityFilter.value = value['quality'];
     filter.isFiltered.value = value['filtered'] == true;
     filter.tecVideoCode.text = value['videoCode'] is String ? value['videoCode'] : '';
@@ -159,11 +166,12 @@ class PageSearchTab {
       field.addListener(onChanged);
     }
     _preferenceWorker = everAll([
-      isListView, isSemanticMode, sortBy, qualityFilter, _hasSort, filter.isFiltered, filter.categoriesSelected, filter.currentRange,
+      isListView, isSemanticMode, visualSensitivity, sortBy, qualityFilter, _hasSort, filter.isFiltered, filter.categoriesSelected, filter.currentRange,
     ], (_) => onChanged());
   }
 
   void close() {
+    LocalSemanticWorker.cancelRequests(this);
     selectedVideos.clear();
     _closed = true;
     _historyRequest++;
@@ -182,7 +190,21 @@ class PageSearchTab {
   }
 
   Future<List<Videos>> loadVideos(String query) => query.isEmpty ? DBVideos.getAll() : DBVideos.search(query);
-  Future<List<SemanticSearchHit>> loadSemanticResults(String query) => SemanticSearchService.search(query);
+  Future<List<SemanticSearchHit>> loadSemanticResults(String query) {
+    final request = _request;
+    final minimum = visualSensitivity.value == 'Strict' ? .28 : visualSensitivity.value == 'Broad' ? .20 : .24;
+    return SemanticSearchService.search(query, owner: this, minimum: minimum, onCoverage: (indexed, total) {
+      if (_closed || request != _request) return;
+      semanticCoverage.value = '$indexed of $total videos have a visual index${indexed < total ? ' · Other matches use metadata' : ''}';
+    });
+  }
+
+  Future<void> setVisualSensitivity(String value) async {
+    if (_closed || !['Strict', 'Balanced', 'Broad'].contains(value)) return;
+    visualSensitivity.value = value;
+    await onSearch();
+  }
+
 
   Future<List<String>> loadHistory(String query) => DBHistorical.search(kHistoricalTypeSearch, query);
   Future<void> saveHistory(String query) => DBHistorical.save(kHistoricalTypeSearch, query);
@@ -294,7 +316,7 @@ class PageSearchTab {
   Future<void> onReset() async {
     if (_closed) return;
     tecSearch.clear();
-    sortBy.value = 'Random';
+    sortBy.value = isSemanticMode.value ? 'Relevance' : 'Random';
     qualityFilter.value = 'All qualities';
     _hasSort.value = false;
     filter.reset();
@@ -304,6 +326,7 @@ class PageSearchTab {
   Future<void> onSearch() async {
     if (_closed) return;
     hideSuggestions();
+    LocalSemanticWorker.cancelRequests(this);
     final request = ++_request;
     final query = tecSearch.text.trim();
     final semantic = isSemanticMode.value && query.isNotEmpty;
@@ -313,6 +336,8 @@ class PageSearchTab {
     error.value = '';
     semanticResultLabel.value = '';
     semanticScoreByVideoId.clear();
+    semanticReasonByVideoId.clear();
+    semanticCoverage.value = '';
     isSearchMode.value = query.isNotEmpty;
     selectedVideos.clear();
     videos.clear();
@@ -321,12 +346,13 @@ class PageSearchTab {
     try {
       final List<Videos> result;
       final scores = <String, double>{};
+      final reasons = <String, String>{};
       if (semantic) {
         final hits = await loadSemanticResults(query);
         result = hits.map((hit) => hit.video).toList();
         for (final hit in hits) {
           final id = (hit.video.id ?? '').trim();
-          if (id.isNotEmpty) scores[id] = hit.score;
+          if (id.isNotEmpty) { scores[id] = hit.score; reasons[id] = hit.reason; }
         }
       } else {
         result = await loadVideos(query);
@@ -335,12 +361,13 @@ class PageSearchTab {
       if (query.isEmpty) result.shuffle();
       isFresh.value = query.isEmpty && result.isEmpty;
       semanticScoreByVideoId.assignAll(scores);
-      semanticResultLabel.value = semantic ? 'AI Search' : '';
+      semanticReasonByVideoId.assignAll(reasons);
+      semanticResultLabel.value = semantic ? 'Visual Search' : '';
       allVideos.assignAll(result);
       _applyView();
     } catch (e) {
       if (_closed || request != _request) return;
-      error.value = 'Search failed. Please try again.';
+      error.value = e is SemanticSearchException ? e.message : 'Search failed. Please try again.';
       AppLog.logE('Local search failed: $e');
     } finally {
       if (!_closed && request == _request) {
@@ -351,6 +378,7 @@ class PageSearchTab {
   }
 
   void showResults(String query, List<Videos> result) {
+    LocalSemanticWorker.cancelRequests(this);
     if (_closed) return;
     selectedVideos.clear();
     hideSuggestions();
@@ -368,6 +396,8 @@ class PageSearchTab {
     error.value = '';
     semanticResultLabel.value = '';
     semanticScoreByVideoId.clear();
+    semanticReasonByVideoId.clear();
+    semanticCoverage.value = '';
     isFresh.value = false;
     isSearchMode.value = true;
     allVideos.assignAll(result);
@@ -376,6 +406,8 @@ class PageSearchTab {
 
   Future<void> toggleSemanticMode() async {
     isSemanticMode.toggle();
+    sortBy.value = isSemanticMode.value ? 'Relevance' : 'Random';
+    _hasSort.value = false;
     _updatePlaceholder();
     await onSearch();
   }
@@ -402,6 +434,7 @@ class PageSearchTab {
     }
     if (_hasSort.value) {
       switch (sortBy.value.toLowerCase()) {
+        case 'relevance': break;
         case 'random': next.shuffle(); break;
         case 'release date':
           next.removeWhere((video) => (video.videoCode ?? '').isEmpty);
@@ -437,6 +470,6 @@ class PageSearchTab {
   }
 
   void _updatePlaceholder() {
-    phSearch.value = isSemanticMode.value ? 'Local AI Search... ex: subtitle indo outdoor' : 'Video Code or Title or Path...';
+    phSearch.value = isSemanticMode.value ? 'Visual Search... e.g. a bright room, outdoors' : 'Video Code or Title or Path...';
   }
 }

@@ -157,6 +157,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     final shortcuts = <LogicalKeySet, Intent>{
       // Playback controls
       LogicalKeySet(LogicalKeyboardKey.space): PlayPauseIntent(),
@@ -372,28 +373,28 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
               Container(
                 decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                child: Icon(UIconsPro.regularRounded.plus, size: 14).p8(),
+                child: Icon(UIconsPro.regularRounded.plus, size: 14, color: Colors.white).p8(),
               ).tooltip('Add To Cart (C)').onInkTap(() => widget.controller.addToCart()),
 
               8.widthBox,
 
               Container(
                 decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                child: Icon(UIconsPro.regularRounded.info, size: 14).p8(),
+                child: Icon(UIconsPro.regularRounded.info, size: 14, color: Colors.white).p8(),
               ).tooltip('Video Info (I)').onInkTap(() => widget.controller.openInfo()),
 
               8.widthBox,
 
               Container(
                 decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                child: Icon(UIconsPro.regularRounded.list, size: 14).p8(),
+                child: Icon(UIconsPro.regularRounded.list, size: 14, color: Colors.white).p8(),
               ).tooltip('Playlist (L)').onInkTap(() => widget.controller.openList()),
 
               8.widthBox,
 
               Container(
                 decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                child: Icon(Icons.picture_in_picture_alt_rounded, size: 14).p8(),
+                child: Icon(Icons.picture_in_picture_alt_rounded, size: 14, color: Colors.white).p8(),
               ).tooltip('Mini Player (P)').onInkTap(() async {
                 widget.controller.enterMiniMode();
                 Get.back();
@@ -407,7 +408,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                   borderRadius: 12,
                   fillColor: AppColor.black120,
                 ),
-                child: Icon(UIconsPro.regularRounded.cross_small, size: 14).p8(),
+                child: Icon(UIconsPro.regularRounded.cross_small, size: 14, color: Colors.white).p8(),
               ).tooltip('Close (Q)').onInkTap(() async {
                 await widget.controller.stopPlayback();
                 Get.back();

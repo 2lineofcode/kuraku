@@ -8,7 +8,6 @@ import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:path/path.dart' as p;
-import 'package:translator/translator.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 import 'package:zoom_hover_pinch_image/zoom_hover_pinch_image.dart';
 
@@ -41,7 +40,7 @@ mixin HomePanelVideoInfo {
         width: 300,
         backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
         animation: OverSlideAnimation(beginAlignment: Alignment.centerRight, reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: Colors.black.withAlpha(230),
+        color: AppColor.panel,
         actions: OverlayActions(
           onReady: () async => _focusNode.requestFocus(),
         ),
@@ -104,11 +103,11 @@ mixin HomePanelVideoInfo {
                           .onInkTap(
                         () async {
                           HelperMisc.copyToClipboard(video.title, showToast: true);
-                          final translator = GoogleTranslator();
-                          final result = await translator.translate(video.title ?? '', from: 'en', to: 'id');
-                          final translated = '${result.text}'.trim();
-                          _translatedTitle.value = HelperDecensor.decensor(translated);
-                          video.title = translated;
+                          // final translator = GoogleTranslator();
+                          // final result = await translator.translate(video.title ?? '', from: 'en', to: 'id');
+                          // final translated = '${result.text}'.trim();
+                          // _translatedTitle.value = HelperDecensor.decensor(translated);
+                          // video.title = translated;
                         },
                       ),
                     ).tooltip(video.videoPath ?? ''),
@@ -232,7 +231,7 @@ mixin HomePanelVideoInfo {
                               for (int i = 0; i < video.actress!.length; i++) ...[
                                 '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}'
                                     .text
-                                    .neutral300
+                                    .color(AppColor.muted)
                                     .underline
                                     .size(11)
                                     .minFontSize(11)
@@ -249,7 +248,7 @@ mixin HomePanelVideoInfo {
                             'Category:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             Wrap(children: [
                               for (int i = 0; i < video.category!.length; i++) ...[
-                                '${HelperDecensor.decensor(video.category?[i].category)}'.text.neutral300.underline.size(11).minFontSize(11).make().onInkTap(() async {
+                                '${HelperDecensor.decensor(video.category?[i].category)}'.text.color(AppColor.muted).underline.size(11).minFontSize(11).make().onInkTap(() async {
                                   await _onItemCategoryClick(video, i);
                                 }).pOnly(right: 8)
 
@@ -260,7 +259,7 @@ mixin HomePanelVideoInfo {
                           // series
                           if (!video.series.isEmptyOrNull) ...[
                             'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${HelperDecensor.decensor(video.series)}'.text.underline.neutral300.size(11).minFontSize(11).make().onInkTap(() async {
+                            '${HelperDecensor.decensor(video.series)}'.text.underline.color(AppColor.muted).size(11).minFontSize(11).make().onInkTap(() async {
                               await _onItemSeriesClick(video);
                             }).pOnly(bottom: 16)
                           ],
@@ -268,19 +267,19 @@ mixin HomePanelVideoInfo {
                           // release date
                           if (!video.releaseDate.isEmptyOrNull) ...[
                             'Release Date:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.releaseDateFormated}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                            '${video.releaseDateFormated}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
 
                           // duration
                           if (video.duration != 0) ...[
                             'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.durationFormated}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                            '${video.durationFormated}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
 
                           // label
                           if (!video.label.isEmptyOrNull) ...[
                             'Label:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.label}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() {
+                            '${video.label}'.text.color(AppColor.muted).underline.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() {
                               _onItemLabelClick(video);
                             }),
                           ],
@@ -288,7 +287,7 @@ mixin HomePanelVideoInfo {
                           // studio
                           if (!video.studio.isEmptyOrNull) ...[
                             'Studio:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.studio}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() {
+                            '${video.studio}'.text.color(AppColor.muted).underline.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() {
                               _onItemStudioClick(video);
                             }),
                           ],
@@ -296,7 +295,7 @@ mixin HomePanelVideoInfo {
                           // director
                           if (!video.director.isEmptyOrNull) ...[
                             'Director:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.director}'.text.neutral300.underline.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() {
+                            '${video.director}'.text.color(AppColor.muted).underline.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() {
                               _onItemDirectorClick(video);
                             }),
                           ],
@@ -306,11 +305,11 @@ mixin HomePanelVideoInfo {
                           VStack([
                             // resolution
                             'Res:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.quality}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                            '${video.quality}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
 
                             // filesize
                             'File Size:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                            '${video.filesize?.toFileSizeFormat()}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                            '${video.filesize?.toFileSizeFormat()}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ]),
 
                           // ~~~
@@ -326,7 +325,7 @@ mixin HomePanelVideoInfo {
                                       // duration (non jav)
                                       if (video.duration == 0) ...[
                                         'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                                        '${_mediaInfo[3]}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                                        '${_mediaInfo[3]}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                                       ],
                                     ])
                                   : 0.heightBox;
@@ -335,13 +334,13 @@ mixin HomePanelVideoInfo {
 
                           // Path
                           'Path:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                          '${video.videoPath?.getLastSegments()}'.text.neutral300.ellipsis.size(11).minFontSize(11).make().color(Vx.neutral800).onInkTap(() async {
+                          '${video.videoPath?.getLastSegments()}'.text.color(AppColor.muted).ellipsis.size(11).minFontSize(11).make().color(AppColor.hover).onInkTap(() async {
                             await _onItemVideoPathClick(video);
                           }).tooltip(video.videoPath ?? ''),
 
                           // added
                           'Added:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4, top: 16),
-                          '${video.createdAt?.reformatDate()}'.text.neutral300.size(11).minFontSize(11).make().pOnly(bottom: 16),
+                          '${video.createdAt?.reformatDate()}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
 
                         ]).p12(),
                       ),
@@ -372,7 +371,7 @@ mixin HomePanelVideoInfo {
         height: max(Get.height * 80 / 100, 400),
         backgroundSettings: BackgroundSettings(blur: 5, color: Colors.transparent),
         animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: Colors.black.withAlpha(230),
+        color: AppColor.panel,
         actions: OverlayActions(onReady: () async => focusNode.requestFocus()),
         child: FocusScope(
           autofocus: true,

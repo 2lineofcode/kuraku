@@ -24,6 +24,7 @@ class PageSearchView extends GetView<PageSearchController> {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return Column(children: [
       Obx(() => SearchTabBar(
         tabs: controller.tabs.map((tab) => (title: tab.title.value, isLoading: tab.isLoading.value)).toList(),
@@ -47,6 +48,7 @@ class PageSearchTabView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return Obx(
       () => controller.isFresh.isFalse || controller.isLoading.value || controller.error.value.isNotEmpty
           ? buildPage()
@@ -77,7 +79,7 @@ class PageSearchTabView extends StatelessWidget {
                 selectAllOnFocus: false,
                 clearButtonMode: OverlayVisibilityMode.editing,
                 placeholder: '${controller.phSearch.value}',
-                style: TextStyle(color: Vx.white, fontSize: 14),
+                style: TextStyle(color: AppColor.text, fontSize: 14),
                 prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
                 onTap: controller.showHistory,
                 onChanged: controller.onSearchTextChanged,
@@ -101,7 +103,7 @@ class PageSearchTabView extends StatelessWidget {
 
           Obx(
             () => IconButton(
-              tooltip: controller.isSemanticMode.value ? 'AI Search On' : 'AI Search Off',
+              tooltip: controller.isSemanticMode.value ? 'Visual Search On' : 'Visual Search Off',
               onPressed: controller.toggleSemanticMode,
               icon: controller.isSemanticBusy.value
                   ? SizedBox(
@@ -141,7 +143,7 @@ class PageSearchTabView extends StatelessWidget {
               builder: (context, menu, child) => TextButton.icon(
                 style: TextButton.styleFrom(
                   backgroundColor: AppColor.selected.withAlpha(150),
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColor.text,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   minimumSize: const Size(0, 32),
@@ -159,14 +161,35 @@ class PageSearchTabView extends StatelessWidget {
           }).pOnly(left: 8, right: 12),
 
           
-        ], crossAlignment: CrossAxisAlignment.center).pOnly(bottom: 24),
+        ], crossAlignment: CrossAxisAlignment.center).pOnly(bottom: 8),
 
 
-        Obx(() => controller.isSearchMode.isTrue || controller.selectedVideos.isNotEmpty
+        Obx(() => controller.isSemanticMode.value || controller.isSearchMode.isTrue || controller.selectedVideos.isNotEmpty
             ? HStack(
                 [
-                  '${controller.semanticResultLabel.value.isEmpty ? 'Result' : controller.semanticResultLabel.value}: ${controller.videos.length} Videos'.text.size(12).make(),
-                  Spacer(),
+                  Expanded(child: Wrap(spacing: 12, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                    '${controller.videos.length} ${controller.videos.length == 1 ? 'video' : 'videos'}'.text.size(12).make(),
+                    if (controller.isSemanticMode.value) ...[
+                      Tooltip(
+                        message: 'Visual matches',
+                        child: DropdownButton<String>(
+                          value: controller.visualSensitivity.value,
+                          isDense: true,
+                          underline: const SizedBox.shrink(),
+                          style: TextStyle(fontSize: 12, color: AppColor.text),
+                          dropdownColor: AppColor.panel,
+                          items: ['Strict', 'Balanced', 'Broad'].map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                          onChanged: (value) { if (value != null) controller.setVisualSensitivity(value); },
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Search settings\n${controller.semanticCoverage.value.isEmpty ? 'Describe the image in English. Search uses one frame per video.' : controller.semanticCoverage.value}',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: Get.isRegistered<HomeController>() ? () => Get.find<HomeController>().onMenuChange(kMenuSetting) : null,
+                        icon: const Icon(Icons.settings_outlined, size: 16),
+                      ),
+                    ],
+                  ])),
                   if (controller.selectedVideos.isNotEmpty)
                     TextButton(
                       onPressed: controller.selectedVideos.clear,
@@ -181,19 +204,31 @@ class PageSearchTabView extends StatelessWidget {
                     }),
                   ],
                 ],
-              ).pOnly(bottom: 16)
+              ).pOnly(bottom: 8)
             : 0.heightBox),
         
         Obx(
           () => controller.isLoading.value
               ? const Center(child: CircularProgressIndicator()).expand()
               : controller.error.value.isNotEmpty
-              ? Center(child: Text(controller.error.value)).expand()
+              ? Center(child: Padding(padding: const EdgeInsets.all(16), child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(controller.error.value, textAlign: TextAlign.center),
+                    const SizedBox(height: 12),
+                    Wrap(spacing: 8, children: [
+                      OutlinedButton(onPressed: controller.onSearch, child: const Text('Retry')),
+                      if (controller.isSemanticMode.value) TextButton(onPressed: controller.toggleSemanticMode, child: const Text('Use regular search')),
+                    ]),
+                  ],
+                ))).expand()
               : controller.videos.isEmpty
               ? ExUiErrorOrEmpty(
                   illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
                   title: 'No Data Found',
-                  message: 'No Result Found, as you searched for "${controller.tecSearch.text}"\nor Add some video to your library first.',
+                  message: controller.isSemanticMode.value
+                      ? 'Try a simpler English description, Broad matches, or check your filters.'
+                      : 'No Result Found, as you searched for "${controller.tecSearch.text}"\nor Add some video to your library first.',
                 ).expand()
               : (controller.isListView.value ? modeListView() : modeGridView()).expand(),
         ),
@@ -206,7 +241,7 @@ class PageSearchTabView extends StatelessWidget {
   // ────────────────────────────────────────────────────────────────
   List<Widget> _sortMenuItems() => [
     const Padding(padding: EdgeInsets.fromLTRB(12, 8, 12, 4), child: Text('Sort by', style: TextStyle(fontSize: 11, color: Colors.grey))),
-    for (final sort in ['Random', 'Release Date', 'View Count', 'File Size'])
+    for (final sort in [if (controller.isSemanticMode.value) 'Relevance', 'Random', 'Release Date', 'View Count', 'File Size'])
       MenuItemButton(
         onPressed: () => controller.onSortByChange(sort),
         leadingIcon: Icon(controller.sortBy.value == sort ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 16),
@@ -307,10 +342,10 @@ class PageSearchTabView extends StatelessWidget {
                       Text(video.title ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12)).tooltip(video.videoPath ?? ''),
                       if (actresses.isNotEmpty) ...[
                         SizedBox(height: 8),
-                        Text(actresses, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Vx.neutral400)),
+                        Text(actresses, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: AppColor.muted)),
                       ],
                       SizedBox(height: 8),
-                      Text(details, style: TextStyle(fontSize: 11, color: Vx.neutral400)),
+                      Text(details, style: TextStyle(fontSize: 11, color: AppColor.muted)),
                     ],
                   ),
                 ),
@@ -360,7 +395,7 @@ class PageSearchTabView extends StatelessWidget {
   }) {
     final child = Container(
         color: AppColor.container,
-        child: ZStack([
+        child: MediaStack([
           ExThumbnail(
             imageUrl: video.fanArt,
             videoPath: video.videoPath,
@@ -444,7 +479,7 @@ class PageSearchTabView extends StatelessWidget {
             Container(
               color: Vx.amber700.withAlpha(220),
               child: HStack([
-                'AI ${(controller.semanticScoreByVideoId[(video.id ?? '').trim()]! * 100).toStringAsFixed(0)}%'.text.black.bold.size(10).minFontSize(10).make(),
+                '${controller.semanticReasonByVideoId[(video.id ?? '').trim()] ?? 'Match'}'.text.black.bold.size(10).minFontSize(10).make(),
               ]).pSymmetric(h: 4, v: 2),
             ).cornerRadius(4).positioned(bottom: 24, right: 4),
           ],

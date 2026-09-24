@@ -11,6 +11,7 @@ import '../../../core/app_color.dart';
 import '../../../core/const.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../utils/helper.dart';
+import '../../widgets/widget_media_stack.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_video_info.dart';
@@ -21,10 +22,13 @@ class PageToolsView extends GetView<PageToolsController> {
   const PageToolsView({super.key});
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return VStack(
       [
         // header
         _buildMenu().h(30).pOnly(bottom: 16),
+
+        buildResolutionScan(),
 
         // content
         Obx(() {
@@ -50,7 +54,7 @@ class PageToolsView extends GetView<PageToolsController> {
           () => ExButtonOutline(
             label: item,
             labelSize: 12,
-            labelColor: controller.currentMenuSelected.value == item ? Vx.white : Vx.neutral500,
+            labelColor: controller.currentMenuSelected.value == item ? AppColor.text : AppColor.muted,
             borderColor: controller.currentMenuSelected.value == item ? AppColor.selected : AppColor.container,
             backgroundColor: controller.currentMenuSelected.value == item ? AppColor.selected : AppColor.container,
             onPressed: () => controller.onMenuChange(item),
@@ -63,6 +67,48 @@ class PageToolsView extends GetView<PageToolsController> {
   // ────────────────────────────────────────────────────────────────
   // ⵌ ~ content
   // ────────────────────────────────────────────────────────────────
+  Widget buildResolutionScan() => Obx(() {
+    final running = controller.qualityScanRunning.value;
+    final missing = controller.missingQualityCount.value;
+    final status = controller.qualityScanStatus.value;
+    final failed = status.startsWith('Scan failed');
+    final stopping = status.startsWith('Stopping');
+    if (!running && missing == 0 && !failed) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(children: [
+        if (running) ...[
+          SizedBox(width: 12, height: 12, child: CircularProgressIndicator(
+            strokeWidth: 1.5,
+            value: controller.qualityScanTotal.value == 0 ? null : controller.qualityScanChecked.value / controller.qualityScanTotal.value,
+            semanticsLabel: 'Resolution scan progress',
+          )),
+          const SizedBox(width: 8),
+          Expanded(child: Tooltip(
+            message: '${controller.qualityScanFile.value}\n${controller.qualityScanUpdated.value} updated · ${controller.qualityScanSkipped.value} skipped',
+            child: Text('Scanning ${controller.qualityScanChecked.value}/${controller.qualityScanTotal.value}', style: const TextStyle(fontSize: 11)),
+          )),
+        ],
+        if (!running && (failed || controller.qualityScanSkipped.value > 0))
+          Tooltip(message: status, child: const Padding(
+            padding: EdgeInsets.only(right: 4),
+            child: Icon(Icons.info_outline, size: 14),
+          )),
+        Tooltip(
+          message: running ? 'Keep completed results' : 'Scan missing video resolutions',
+          child: TextButton(
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 28), padding: const EdgeInsets.symmetric(horizontal: 8),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: stopping && running ? null : running ? controller.stopQualityScan : controller.scanAndUpdateDBVideoRes,
+            child: Text(running ? stopping ? 'Stopping…' : 'Stop' : 'Scan ($missing)', style: const TextStyle(fontSize: 11)),
+          ),
+        ),
+      ]),
+    );
+  });
+
   Widget uiTopLargeFileSize() {
     if (controller.topLargeFileSizeList.isEmpty) {
       return ExUiErrorOrEmpty(
@@ -76,13 +122,6 @@ class PageToolsView extends GetView<PageToolsController> {
         // ** options
         HStack([
           Obx(() => 'Top ${controller.topLargeFileSizeList.length} Large File'.text.make()),
-          Obx(
-            () => ExButtonText(
-              label: 'Re-Scan',
-              labelSize: 12,
-              onPressed: () async => controller.scanAndUpdateDBVideoRes(),
-            ).badge(size: 6, color: Vx.red500, position: VxBadgePosition.right).pOnly(right: 12).hide(isVisible: controller.isHasDataNotScanned.isFalse),
-          ),
           Spacer(),
 
           HStack([
@@ -105,7 +144,7 @@ class PageToolsView extends GetView<PageToolsController> {
               },
               child: Container(
                 width: 100,
-                decoration: ExDecorator.box(borderColor: Color(0xFF2B2A2F), fillColor: Colors.black, borderRadius: 6),
+                decoration: ExDecorator.box(borderColor: AppColor.border, fillColor: AppColor.container, borderRadius: 6),
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: HStack(
                   [
@@ -113,7 +152,7 @@ class PageToolsView extends GetView<PageToolsController> {
                     Obx(
                       () => Text(
                         controller.topLargeFilterMode.value.isEmpty ? '<select>' : controller.topLargeFilterMode.value.toTitleCase!,
-                        style: TextStyle(fontSize: 12, color: Vx.white),
+                        style: TextStyle(fontSize: 12, color: AppColor.text),
                       ),
                     ),
                   ],
@@ -129,7 +168,7 @@ class PageToolsView extends GetView<PageToolsController> {
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              border: Border.all(width: .5, color: Vx.neutral700)
+              border: Border.all(width: .5, color: AppColor.border)
             ),
             child: Column(
               children: [
@@ -137,7 +176,7 @@ class PageToolsView extends GetView<PageToolsController> {
                   decoration: BoxDecoration(
                     color: AppColor.container,
                     border: Border(
-                      bottom: BorderSide(width: .5, color: Vx.neutral700)
+                      bottom: BorderSide(width: .5, color: AppColor.border)
                     ),
                   ),
                   child: Row(
@@ -171,8 +210,8 @@ class PageToolsView extends GetView<PageToolsController> {
                           child: AnimatedContainer(
                             duration: 120.milliseconds,
                             decoration: BoxDecoration(
-                              color: hoveredIndex == index ? Vx.neutral800.withValues(alpha: .6) : Colors.transparent,
-                              border: Border(top: BorderSide(width: .5, color: Vx.neutral700)),
+                              color: hoveredIndex == index ? AppColor.hover : Colors.transparent,
+                              border: Border(top: BorderSide(width: .5, color: AppColor.border)),
                             ),
                             child: Row(
                               children: [
@@ -194,7 +233,7 @@ class PageToolsView extends GetView<PageToolsController> {
                                   flex: 1,
                                 ),
                                 _buildDataCell(
-                                  pathLabel.text.ellipsis.size(12).neutral400.make(),
+                                  pathLabel.text.ellipsis.size(12).color(AppColor.muted).make(),
                                   flex: 3,
                                 ),
                                 _buildDataCell(
@@ -236,7 +275,7 @@ class PageToolsView extends GetView<PageToolsController> {
                 return ExButtonOutline(
                   label: mode == 'exact' ? 'Exact' : 'Probable',
                   labelSize: 11,
-                  labelColor: isSelected ? Vx.white : Vx.neutral500,
+                  labelColor: isSelected ? AppColor.text : AppColor.muted,
                   borderColor: isSelected ? AppColor.selected : AppColor.container,
                   backgroundColor: isSelected ? AppColor.selected : AppColor.container,
                   onPressed: () => controller.setDuplicateMode(mode),
@@ -250,7 +289,7 @@ class PageToolsView extends GetView<PageToolsController> {
             controller.duplicateMode.value == 'exact'
                 ? 'Exact = same code, atau non-JAV dengan filesize + normalized filename yang sama'
                 : 'Probable = same normalized filename/title, cocok buat re-download beda resolusi'
-          ).text.size(11).neutral400.make().pOnly(bottom: 12),
+          ).text.size(11).color(AppColor.muted).make().pOnly(bottom: 12),
         ),
         Expanded(
           child: Obx(
@@ -269,7 +308,7 @@ class PageToolsView extends GetView<PageToolsController> {
                   0: FlexColumnWidth(1),
                   1: FlexColumnWidth(4),
                 },
-                border: TableBorder.all(width: 0.5, color: Vx.neutral700),
+                border: TableBorder.all(width: 0.5, color: AppColor.border),
                 children: [
                   TableRow(
                     decoration: BoxDecoration(color: AppColor.container),
@@ -283,7 +322,7 @@ class PageToolsView extends GetView<PageToolsController> {
                     controller.duplicateVideoList.length,
                     (index) {
                       final item = controller.duplicateVideoList[index];
-                      final rowColor = controller.duplicateHoveredIndex.value == index ? Vx.neutral800.withValues(alpha: .6) : Colors.transparent;
+                      final rowColor = controller.duplicateHoveredIndex.value == index ? AppColor.hover : Colors.transparent;
                       return TableRow(
                         children: [
                           MouseRegion(
@@ -316,7 +355,7 @@ class PageToolsView extends GetView<PageToolsController> {
                                   .text
                                   .ellipsis
                                   .size(12)
-                                  .neutral400
+                                  .color(AppColor.muted)
                                   .make()
                                   .p12()
                                   .onInkTap(() async {
@@ -380,7 +419,7 @@ class PageToolsView extends GetView<PageToolsController> {
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              border: Border.all(width: .5, color: Vx.neutral700),
+              border: Border.all(width: .5, color: AppColor.border),
             ),
             child: Column(
               children: [
@@ -388,7 +427,7 @@ class PageToolsView extends GetView<PageToolsController> {
                   decoration: BoxDecoration(
                     color: AppColor.container,
                     border: Border(
-                      bottom: BorderSide(width: .5, color: Vx.neutral700),
+                      bottom: BorderSide(width: .5, color: AppColor.border),
                     ),
                   ),
                   child: Row(
@@ -420,8 +459,8 @@ class PageToolsView extends GetView<PageToolsController> {
                             child: AnimatedContainer(
                               duration: 120.milliseconds,
                               decoration: BoxDecoration(
-                                color: hoveredIndex == index ? Vx.neutral800.withValues(alpha: .6) : Colors.transparent,
-                                border: Border(top: BorderSide(width: .5, color: Vx.neutral700)),
+                                color: hoveredIndex == index ? AppColor.hover : Colors.transparent,
+                                border: Border(top: BorderSide(width: .5, color: AppColor.border)),
                               ),
                               child: Row(
                                 children: [
@@ -429,7 +468,7 @@ class PageToolsView extends GetView<PageToolsController> {
                                   _buildDataCell(todoText.text.ellipsis.size(12).make(), flex: 4),
                                   _buildDataCell(
                                     IconButton(
-                                      icon: Icon(UIconsPro.regularRounded.trash, size: 14, color: Vx.neutral400),
+                                      icon: Icon(UIconsPro.regularRounded.trash, size: 14, color: AppColor.muted),
                                       onPressed: () => controller.deleteTodos(item),
                                     ).centered(),
                                     flex: 1,
@@ -503,7 +542,7 @@ class PageToolsView extends GetView<PageToolsController> {
       flex: flex,
       child: Container(
         decoration: BoxDecoration(
-          border: Border(right: isLast ? BorderSide.none : BorderSide(width: .5, color: Vx.neutral700)),
+          border: Border(right: isLast ? BorderSide.none : BorderSide(width: .5, color: AppColor.border)),
         ),
         child: label.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
       ),
@@ -515,7 +554,7 @@ class PageToolsView extends GetView<PageToolsController> {
       flex: flex,
       child: Container(
         decoration: BoxDecoration(
-          border: Border(right: isLast ? BorderSide.none : BorderSide(width: .5, color: Vx.neutral700)),
+          border: Border(right: isLast ? BorderSide.none : BorderSide(width: .5, color: AppColor.border)),
         ),
         child: child.p12(),
       ),
@@ -575,7 +614,7 @@ class PageToolsView extends GetView<PageToolsController> {
             controller: controller.tecFilterSearchLeft,
             focusNode: controller.fnFilterSearchLeft,
             placeholder: 'Search (${controller.leftList.length})...',
-            style: TextStyle(color: Vx.white, fontSize: 12),
+            style: TextStyle(color: AppColor.text, fontSize: 12),
             clearButtonMode: OverlayVisibilityMode.editing,
             prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
             onSubmitted: (s) async => await controller.onLeftListDoSearch(s),
@@ -705,7 +744,7 @@ class PageToolsView extends GetView<PageToolsController> {
       itemCount: controller.rightListFiltered.length,
       itemBuilder: (context, i) {
         final item = controller.rightListFiltered[i];
-        return ZStack(
+        return MediaStack(
           [
             ExThumbnail(
               imageUrl: item['fan_art'] ?? '',

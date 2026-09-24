@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
+import '../../../core/app_color.dart';
 import '../../../core/const.dart';
 import '../../../utils/helper.dart';
 
@@ -25,7 +26,7 @@ mixin HomePanelAppLog {
       OverWindow(
         canMove: true,
         position: Offset(50, 50),
-        color: Colors.black.withAlpha(200),
+        color: AppColor.panel,
         actions: OverlayActions(
           onOpen: () async {
             _appLogRuntime.sort((a, b) {
@@ -49,11 +50,11 @@ mixin HomePanelAppLog {
             Obx(
               () => ListView.separated(
                 itemCount: _appLogRuntime.length,
-                separatorBuilder: (context, index) => Divider(color: Vx.white.withAlpha(30)),
+                separatorBuilder: (context, index) => Divider(color: AppColor.border),
                 itemBuilder: (context, index) {
                   final item = _appLogRuntime[index];
 
-                  var tColor = Vx.white;
+                  var tColor = AppColor.text;
                   if (item.type?.toLowerCase() == 'error') tColor = Vx.red400;
                   else if (item.type?.toLowerCase() == 'warning') tColor = Vx.yellow400;
                   else if (item.type?.toLowerCase() == 'info') tColor = Vx.blue400;

@@ -19,8 +19,14 @@ mixin AppNotification {
   static final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   static void Function(String? payload)? _onNotificationTap;
 
-  static Future<void> initialize({void Function(String? payload)? onNotificationTap}) async {
-    _onNotificationTap = onNotificationTap;
+  static Future<void>? _initialization;
+
+  static Future<void> initialize({void Function(String? payload)? onNotificationTap}) {
+    if (onNotificationTap != null) _onNotificationTap = onNotificationTap;
+    return _initialization ??= _initialize();
+  }
+
+  static Future<void> _initialize() async {
 
     const initializationSettings = InitializationSettings(
       macOS: DarwinInitializationSettings(),
@@ -51,6 +57,7 @@ mixin AppNotification {
       macOS: DarwinNotificationDetails(),
     );
 
+    await initialize();
     await _plugin.show(
       id: ExRandom.between(100000, 10000000),
       title: model.title,

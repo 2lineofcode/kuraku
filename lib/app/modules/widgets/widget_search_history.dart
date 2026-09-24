@@ -16,6 +16,7 @@ class SearchHistoryDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return SearchSuggestionsOverlay(child: suggestions.isEmpty ? const SizedBox.shrink() : _buildDropdown(context));
   }
 
@@ -26,7 +27,7 @@ class SearchHistoryDropdown extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColor.container,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF404040), width: .5),
+        border: Border.all(color: AppColor.border, width: .5),
       ),
       child: Material(
         color: Colors.transparent,

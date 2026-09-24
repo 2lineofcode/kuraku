@@ -16,6 +16,7 @@ class SearchTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppColor.dependOn(context);
     return SizedBox(
       height: 32,
       child: ListView.builder(
