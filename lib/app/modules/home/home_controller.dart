@@ -12,12 +12,12 @@ import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
 import '../../core/app_setting.dart';
 import '../../data/database/db_activity.dart';
-import '../../data/database/db_collection.dart';
 import '../../data/database/db_gamification.dart';
+import '../../data/database/db_playlist.dart';
 import '../../data/database/db_profile.dart';
 import '../../data/database/db_videos.dart';
-import '../../data/models/collection_entity.dart';
 import '../../data/models/library_entity.dart';
+import '../../data/models/playlist_entity.dart';
 import '../../data/models/profile_entity.dart';
 import '../../data/models/videos_entity.dart';
 import '../../routes/app_pages.dart';
@@ -112,7 +112,7 @@ class HomeController extends GetxController with StateMixin {
   final achievementProgress = <AchievementProgress>[].obs;
 
   // playlist
-  final playlist = <Collection>[].obs;
+  final playlist = <Playlist>[].obs;
 
   
 
@@ -659,7 +659,7 @@ class HomeController extends GetxController with StateMixin {
   // ────────────────────────────────────────────────────────────────
   Future<void> getAllPlaylist() async {
     playlist.clear();
-    playlist.value = await DBCollection.getAllPlaylist();
+    playlist.value = await DBPlaylist.getAllPlaylist();
   }
 
 }

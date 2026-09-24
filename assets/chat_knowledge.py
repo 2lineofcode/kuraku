@@ -11,7 +11,8 @@ TABLES = {
     'main': {
         'videos': 'id video_code title title_ja actress category release_date duration studio label director series view_count is_favorite filesize quality created_at fan_art poster description',
         'library': 'id alias total_video',
-        'collection': 'id type name video_id playlist_id',
+        'playlist': 'id name',
+        'playlist_item': 'playlist_id video_id created_at',
         'watch_session': 'video_id video_code watched_seconds created_at',
     },
     'r18': {

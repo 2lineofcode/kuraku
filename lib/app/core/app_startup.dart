@@ -42,7 +42,7 @@ class _AppStartupState extends State<AppStartup> {
                 ? const Column(mainAxisSize: MainAxisSize.min, children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text('Opening JavIt...'),
+                    Text('Opening JavIt, Please wait...'),
                   ])
                 : SelectableText('Could not start JavIt. Please restart the app.\n\n$_error'),
           ),

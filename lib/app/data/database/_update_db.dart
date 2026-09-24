@@ -14,6 +14,9 @@ mixin DBUpdate {
     8: (name: 'Add chat conversations and messages', run: _v8Chat),
     9: (name: 'Save chat activity summaries', run: _v9ChatActivity),
     10: (name: 'Cache title translations', run: _v10ChatTranslations),
+    11: (name: 'Separate playlists and memberships', run: _v11Playlists),
+    12: (name: 'Harden watch history and reconcile duration', run: _v12WatchSessions),
+    13: (name: 'Pin chat conversations', run: _v13PinnedChats),
   };
 
   static int get version {
@@ -184,6 +187,72 @@ mixin DBUpdate {
         PRIMARY KEY (source_text, target_language)
       )
     ''');
+  }
+
+  static Future<void> _v11Playlists(Database db) async {
+    final unsupported = await db.rawQuery("SELECT id FROM collection WHERE type IS NULL OR type != 'playlist' LIMIT 1");
+    if (unsupported.isNotEmpty) throw StateError('Cannot migrate unsupported collection types; original data is preserved');
+    await db.execute('''
+      CREATE TABLE playlist (
+        id TEXT NOT NULL PRIMARY KEY CHECK(length(trim(id)) > 0),
+        name TEXT NOT NULL COLLATE NOCASE UNIQUE
+          CHECK(length(trim(name)) > 0 AND name = trim(name) AND lower(name) != 'favorite'),
+        cover TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE playlist_item (
+        playlist_id TEXT NOT NULL REFERENCES playlist(id) ON DELETE CASCADE,
+        video_id TEXT NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (playlist_id, video_id)
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_playlist_item_video_id ON playlist_item(video_id)');
+    await db.execute('''
+      INSERT INTO playlist (id, name, cover, created_at, updated_at)
+      SELECT id, trim(name), cover, COALESCE(created_at, CURRENT_TIMESTAMP), COALESCE(updated_at, CURRENT_TIMESTAMP)
+      FROM collection WHERE video_id IS NULL
+    ''');
+    await db.execute('''
+      INSERT INTO playlist_item (playlist_id, video_id, created_at)
+      SELECT playlist_id, video_id, COALESCE(MIN(created_at), CURRENT_TIMESTAMP)
+      FROM collection WHERE video_id IS NOT NULL
+      GROUP BY playlist_id, video_id
+    ''');
+    await db.execute('DROP TABLE collection');
+  }
+
+  static Future<void> _v12WatchSessions(Database db) async {
+    // History survives library deletion and can include videos opened outside the library.
+    await db.execute('''
+      CREATE TABLE watch_session_new (
+        id TEXT NOT NULL PRIMARY KEY CHECK(length(trim(id)) > 0),
+        video_id TEXT,
+        video_code TEXT,
+        watched_seconds INTEGER NOT NULL CHECK(typeof(watched_seconds) = 'integer' AND watched_seconds > 0),
+        created_at TEXT NOT NULL CHECK(length(created_at) >= 10)
+      )
+    ''');
+    await db.execute('''
+      INSERT INTO watch_session_new (id, video_id, video_code, watched_seconds, created_at)
+      SELECT id, video_id, video_code, watched_seconds, created_at FROM watch_session
+    ''');
+    await db.execute('DROP TABLE watch_session');
+    await db.execute('ALTER TABLE watch_session_new RENAME TO watch_session');
+    await db.execute('CREATE INDEX idx_watch_session_created_at ON watch_session(created_at)');
+    await db.execute('''
+      UPDATE profile SET total_watch_duration = (SELECT COALESCE(SUM(watched_seconds), 0) FROM watch_session)
+      WHERE id = '1'
+    ''');
+  }
+
+  static Future<void> _v13PinnedChats(Database db) async {
+    await db.execute('ALTER TABLE chat_conversation ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0 CHECK(is_pinned IN (0, 1))');
+    await db.execute('DROP INDEX idx_chat_recent');
+    await db.execute('CREATE INDEX idx_chat_recent ON chat_conversation(is_pinned DESC, last_activity_at DESC, id)');
   }
 
 }

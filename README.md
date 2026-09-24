@@ -12,11 +12,16 @@ JavIt turns video folders on your Mac or external drives into a searchable perso
 - Scan supported local video files and keep registered libraries in sync.
 - Detect JAV video codes from filenames and look up matching metadata from the local R18 database.
 - Browse recent releases, recently added videos, favorites, most watched videos, unwatched videos, and random picks.
-- Search the local collection by video code, title, path, actress, category, and other filters.
+- Search the local collection by video code, title, path, actress, category, and other filters, with multiple search tabs, history, multi-selection, and per-tab quality filters.
+- Find visually related videos with optional offline CLIP Visual Search.
 - Play local files with playlist support, mini player, fullscreen, playback speed, volume persistence, and watch tracking.
 - Explore metadata by actress, series, category, and year.
 - Find large files and possible duplicates, scan video quality, and manage simple todos.
 - Search and download supported releases from the Download page.
+- Chat with a configured AI provider using local library/catalog lookups, Japanese-title discovery, cached title translations, and optional web search.
+- View your profile, watch time, streak, and achievement progress.
+
+The video-info Download action opens links in **Downie** on macOS for supported configured sites (NJAV, MissAV, JavMost, Sextb, and JavGuru). Install Downie separately to use this action.
 
 ## How It Works
 
@@ -32,15 +37,17 @@ Scan files and detect video codes
 javit.db personal library
         |
         v
-Home, Search, Explore, Tools, and Player
+Home, Search, Explore, Chat, Tools, Profile, and Player
 ```
 
 JavIt uses two SQLite databases:
 
-- **`javit.db`** stores your libraries, local video records, favorites, collections, watch sessions, achievements, activities, and search indexes.
+- **`javit.db`** stores your libraries, local video records, favorites, collections, watch sessions, achievements, activities, search indexes, chat conversations/drafts, and cached title translations.
 - **`r18_YYYYMMDD.db`** is the external metadata catalog used to enrich recognized JAV files with titles, actresses, categories, studios, artwork, trailers, and more.
 
 Files without a recognized code are still added to the library as local videos using their filename as the title.
+
+App data lives in the system Documents directory under `APP_NAME` (normally `~/Documents/JavIt` on macOS). This includes both databases and the optional `semantic_runtime` folder. Main-database schema migrations run automatically during startup.
 
 ## Search Modes
 
@@ -93,10 +100,10 @@ Model source: [Xenova's CLIP ONNX conversion](https://huggingface.co/Xenova/clip
 JavIt is currently developed and tested on macOS. Install the following first:
 
 - macOS with Xcode and Command Line Tools
-- Flutter SDK with Dart SDK `^3.5.3`
+- Flutter SDK `>=3.44.0` with Dart SDK `>=3.12.0 <4.0.0` for the checked-in dependency lockfile (the app's own Dart constraint is `^3.5.3`)
 - CocoaPods
 - Homebrew
-- Python 3
+- Python 3 for R18 import and local chat queries; Python 3.12–3.14 for optional Visual Search
 - `gunzip` (usually available on macOS)
 
 Install the native dependencies:
@@ -128,17 +135,48 @@ Run the macOS app:
 flutter run -d macos
 ```
 
-## AgnesAI Chat
+AI and Tavily keys are optional for local library use. Configure them below when enabling AI replies or web search.
 
-Set these values in your local `.env`:
+### Release build
 
-```dotenv
-AGNES_API_KEY=your_key_here
-AGNES_BASE_URL=https://apihub.agnes-ai.com/v1
-AGNES_MODEL=agnes-2.5-flash
+After completing local setup:
+
+```bash
+flutter build macos --release --no-tree-shake-icons
 ```
 
-After changing the environment, regenerate it and restart the app:
+The app is written to `build/macos/Build/Products/Release/javit.app`. Alternatively, `./publish.sh macos` updates the version in `pubspec.yaml` and `APP_VER` in `.env`, regenerates the environment, refreshes dependencies, and builds the release. Despite its name, the script does not upload or distribute the app.
+
+## Keyboard Shortcuts
+
+These shortcuts work while JavIt is active:
+
+| Shortcut | Action |
+|---|---|
+| `⌘1` / `⌘2` / `⌘3` | Home / Search / Explore |
+| `⌘4` / `⌘5` | Downloads / Tools |
+| `⌘/` | Chat with AI |
+| `⌘,` | Settings |
+| `⌘B` | Expand or collapse the side menu |
+| `⌘P` / `⌘E` | Playlist / video cart |
+| `⌘R` | Reload pages |
+
+In chat cover previews, use `←` / `→` for the previous/next image and `↓` to close; click the video code to copy it.
+
+## AI Chat
+
+Set these values in your local `.env` (AgnesAI is one example provider):
+
+```dotenv
+AI_PROVIDER=AgnesAI
+AI_API_KEY=your_key_here
+AI_BASE_URL=https://apihub.agnes-ai.com/v1
+AI_MODEL=agnes-2.5-flash
+```
+
+The client requires an HTTPS base URL with a compatible `/chat/completions` endpoint, Bearer authentication, SSE streaming, and native tool calls for local/web tools. Providers with a different API format need a client change. `AI_PROVIDER` is the display name saved with each reply; change it together with `AI_BASE_URL`, `AI_MODEL`, and `AI_API_KEY` when switching providers. Existing replies retain their original metadata; retrying an unfinished reply uses the current provider/model. Direct local replies use `local` with no model.
+
+For an existing setup, rename the `AGNES_API_KEY`, `AGNES_BASE_URL`, and `AGNES_MODEL` keys to `AI_API_KEY`, `AI_BASE_URL`, and `AI_MODEL`, keeping their values, and add `AI_PROVIDER`. After changing the environment, regenerate it and restart/rebuild the app:
 
 ```bash
 dart run enven
@@ -148,30 +186,32 @@ flutter run -d macos
 To verify authentication and streaming with a short test prompt:
 
 ```bash
-dart run tool/agnes_smoke_test.dart
+dart run tool/chat_smoke_test.dart
 ```
 
-Chat uses hybrid local knowledge from the active `javit.db` and R18 snapshot. Exact lookups such as `Berapa jumlah video saya?`, `Tampilkan favorit saya`, or `cek kode TEST-123` run locally without an API key. Other questions go to AgnesAI; when needed, it selects a read-only SQL query and summarizes the result. Complex questions still incur API latency. Replies stream with Stop and Retry controls and are saved locally. Library access uses the `query_local` tool, separate from `web_search`; SQL is never sent to the search provider. The collapsible Thinking panel shows actual activity summaries (not private model reasoning), expands while working, and collapses automatically when the response finishes. Activity summaries and duration are saved with each reply.
+Chat uses hybrid local knowledge from the active `javit.db` and R18 snapshot. Exact lookups such as `Berapa jumlah video saya?`, `Tampilkan favorit saya`, or `cek kode TEST-123` run locally without an API key. Other questions go to the configured AI provider; when needed, it selects a read-only SQL query and summarizes the result. Complex questions still incur API latency. Replies stream with Stop and Retry controls and are saved locally. Library access uses the `query_local` tool, separate from `web_search`; SQL is never sent to the search provider. The collapsible Thinking panel shows actual activity summaries (not private model reasoning), expands while working, and collapses automatically when the response finishes. Activity summaries and duration are saved with each reply.
 
 The chat composer supports `/status`, `/help`, `/new`, `/stop`, `/r18`, `/filter`, `/similar`, `/translate`, and `/clear` commands without calling the model. `/clear` deletes messages and the draft only in the active conversation. Type `/` to filter commands; use arrow keys to select, Tab to complete, Enter to run, or Escape to dismiss. `/status` reports configuration, not a live connectivity check. `/r18`, `/filter`, `/similar`, and `/translate` fill editable prompts with the first placeholder selected; the same templates appear on the welcome screen. `/translate` prepares a normal chat translation request; the per-row Translate action uses the persistent title cache.
 
-For title/topic discovery, Agnes expands the search phrase into Japanese and English equivalents and calls `search_local_titles`. It searches original Japanese titles, English titles, and cached `machine_translation` entries, including records without English titles. Results retain the Japanese title and show which field matched. This is translated keyword search, not a semantic similarity index or an automatic translation of the entire catalog. Missing cached translations do not prevent Japanese-title matching. Use `/r18` or the Japanese-title template on the welcome screen; its topic placeholder is selected for replacement. Title searches load 25 records per database page with no total result cap, ordered by newest release date and then Code; unknown dates come last. Next/Previous read the database directly without another model call; the search and current page survive chat reload. Copy includes the current page. Tables share the chat vertical scroll and only scroll horizontally themselves. Legacy DVD ID headers display as Code. The chat header provides New and Delete actions, with confirmation before deletion.
+For title/topic discovery, the model expands the search phrase into Japanese and English equivalents and calls `search_local_titles`. It searches original Japanese titles, English titles, and cached `machine_translation` entries, including records without English titles. Results retain the Japanese title and show which field matched. This is translated keyword search, not a semantic similarity index or an automatic translation of the entire catalog. Missing cached translations do not prevent Japanese-title matching. Use `/r18` or the Japanese-title template on the welcome screen; its topic placeholder is selected for replacement. Title searches load 25 records per database page with no total result cap, ordered by newest release date and then Code; unknown dates come last. Next/Previous read the database directly without another model call; the search and current page survive chat reload. Copy includes the current page. Tables share the chat vertical scroll and only scroll horizontally themselves. Legacy DVD ID headers display as Code. The chat header provides New and Delete actions, with confirmation before deletion.
 
 Search supports multiple required concepts (AND, with translated synonyms inside each concept), excluded terms, and “not in my library.” Similar reads the reference code's real title/description first, then matches translated themes across titles and descriptions; match fields and search terms explain the results. It keeps newest-first ordering rather than claiming a semantic similarity score. The Similar row action prepares an editable prompt. Translate opens an Indonesian translation dialog for Japanese titles, with retry on failure. Successful translations are cached in `javit.db` by source title and language and reused across chats; migration 10 creates this cache on restart without changing R18 data.
 
-Local knowledge uses Python's standard SQLite library, without model downloads or indexing. Only selected library/catalog metadata is exposed; filesystem paths, other chats, and embeddings are excluded. Complex requests send conversation history, the allowed schema, and bounded query results to AgnesAI. Local lookup results also become part of that conversation history. Queries cannot write data, attach arbitrary databases, or read arbitrary files; they stop after ten seconds and return at most 500 rows with bounded text. Video lists are rendered directly as Image, Code, Title (followed by any additional fields), paginated at 25 rows per page. Covers are fetched in batches from library/R18 metadata and use the shared cached thumbnail widget; missing covers show a placeholder. Only the current page mounts image widgets; copying a reply includes every loaded row. Large result tables are abbreviated in subsequent model context, while the full result stays saved in chat. Missing databases or rejected queries are reported rather than treated as empty results.
+Local knowledge uses Python's standard SQLite library, without model downloads or indexing. Only selected library/catalog metadata is exposed; filesystem paths, other chats, and embeddings are excluded. Complex requests send conversation history, the allowed schema, and bounded query results to the configured AI provider. Local lookup results also become part of that conversation history. Queries cannot write data, attach arbitrary databases, or read arbitrary files; they stop after ten seconds and return at most 500 rows with bounded text. Video lists are rendered directly as Image, Code, Title (followed by any additional fields), paginated at 25 rows per page. Covers are fetched in batches from library/R18 metadata and use the shared cached thumbnail widget; missing covers show a placeholder. Only the current page mounts image widgets; copying a reply includes every loaded row. Large result tables are abbreviated in subsequent model context, while the full result stays saved in chat. Missing databases or rejected queries are reported rather than treated as empty results.
 
-Web search uses [Tavily Search](https://docs.tavily.com/documentation/api-reference/endpoint/search). Set `TAVILY_API_KEY` in `.env`, run `dart run enven`, and restart. Agnes can request `web_search`; JavIt executes the search and sends up to five result excerpts back for a sourced answer. Only the search query goes to Tavily. This is search, not a full browser or arbitrary URL reader. Search failures and missing keys are reported without fabricated results. Each model turn has at most two search rounds and three queries; Stop cancels both provider and model requests. Local lookups still work without a search key. Verify after setup with `dart run tool/agnes_smoke_test.dart --web`.
+Web search uses [Tavily Search](https://docs.tavily.com/documentation/api-reference/endpoint/search). Set `TAVILY_API_KEY` in `.env`, run `dart run enven`, and restart. The model can request `web_search`; JavIt executes the search and sends up to five result excerpts back for a sourced answer. Only the search query goes to Tavily. This is search, not a full browser or arbitrary URL reader. Search failures and missing keys are reported without fabricated results. Each model turn has at most two search rounds and three queries; Stop cancels both provider and model requests. Local lookups still work without a search key. Verify after setup with `dart run tool/chat_smoke_test.dart --web`.
 
 Checks: `python3 -B test/chat_knowledge_test.py` and `flutter test test/chat_knowledge_test.dart test/page_chat_response_test.dart`.
 
 `.env` and `lib/env.g.dart` are ignored by Git. Enven embeds configuration in the desktop build: use a personal key for local builds, and do not distribute a build containing your key. Shared builds need a backend proxy or per-user credentials.
 
-API reference: https://agnes-ai.com/en/docs/agnes-25-flash
+Example provider reference: https://agnes-ai.com/en/docs/agnes-25-flash
 
 ## First Run and R18 Database Setup
 
 On launch, JavIt looks for an `r18*.db` file in its app data directory. If one is missing, the app shows a **Download & Install** prompt.
+
+The app first displays a loading screen while settings and databases initialize. Initialization failures appear on that screen with an instruction to restart.
 
 The setup process downloads the R18 dump, extracts it with `gunzip`, then runs `r18_to_javit.py` with Python to create the SQLite database. The import can take several minutes; keep the application open until it finishes, then restart the app.
 

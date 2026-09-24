@@ -22,10 +22,10 @@ import '../../data/database/db_activity.dart';
 import '../../data/database/db_gamification.dart';
 import '../../data/database/db_profile.dart';
 import '../../data/database/db_videos.dart';
-import '../../data/database/db_watch_session.dart';
 import '../../data/models/videos_entity.dart';
 import '../../utils/helper.dart';
 import '../../utils/semantic_search_service.dart';
+import '../../utils/watch_session_tracker.dart';
 import '../home/home_controller.dart';
 import '../home/home_panel/home_panel_video_info.dart';
 import '../home/page_home/page_home_controller.dart';
@@ -70,27 +70,17 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   bool _hasSyncedPreferences = false;
   bool _isAutoAdvancing = false;
 
-  Duration _sessionWatchDuration = Duration.zero;
-  DateTime? _playStartedAt;
+  final _watchTracker = WatchSessionTracker();
+  bool _watchVideoReady = false;
 
-  void _accumulateWatchDuration() {
-    final started = _playStartedAt;
-    if (started == null) return;
-
-    final diff = DateTime.now().difference(started);
-    if (!diff.isNegative && diff.inMilliseconds > 0) {
-      _sessionWatchDuration += diff;
-    }
-    _playStartedAt = null;
+  void _syncWatchState() {
+    _watchTracker.setPlaying(_watchVideoReady && player.state.playing && !player.state.buffering);
   }
 
   Future<void> _persistWatchDuration() async {
-    // ensure latest in-flight segment is counted
-    _accumulateWatchDuration();
-    if (_sessionWatchDuration > Duration.zero) {
-      await DBProfile.updateTotalWatchDuration(_sessionWatchDuration);
-      await DBWatchSession.addSession(video: currentVideo.value, duration: _sessionWatchDuration);
-
+    try {
+      await _watchTracker.flush();
+      if (!_watchVideoReady && currentVideo.value.id == null) return;
       final summary = await DBGamification.syncAndGetSummary();
       if (Get.isRegistered<HomeController>()) {
         final home = Get.find<HomeController>();
@@ -99,10 +89,8 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
         home.achievementCount.value = summary.achievementCount;
         home.latestAchievementTitles.value = summary.latestAchievements.map((e) => e.title).toList();
       }
-
-      AppLog.logD('_sessionWatchDuration -> ${_sessionWatchDuration.inSeconds} seconds');
-      
-      _sessionWatchDuration = Duration.zero;
+    } catch (e) {
+      AppLog.logW('Failed to save watch duration: $e');
     }
   }
 
@@ -205,8 +193,6 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     await (_playerInitialization ??= _initializePlayer());
     _externalPlaylist = playlist;
     currentVideo.value = video;
-    _sessionWatchDuration = Duration.zero;
-    _playStartedAt = null;
 
     await DBVideos.updateViewCount(currentVideo.value);
     await generatePlaylist();
@@ -222,6 +208,8 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   }
 
   Future<void> stopPlayback() async {
+    _watchVideoReady = false;
+    _watchTracker.setPlaying(false);
     await _persistWatchDuration();
     try { await player.stop(); } 
     catch (_) {}
@@ -386,17 +374,13 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     _subscriptions.add(player.stream.position.listen((value) => position.value = value));
     _subscriptions.add(player.stream.duration.listen((value) => duration.value = value));
     _subscriptions.add(player.stream.playing.listen((value) {
-      final nowPlaying = value;
-      if (nowPlaying) {
-        // start measuring watch time when playback starts/resumes
-        _playStartedAt ??= DateTime.now();
-      } else {
-        // accumulate watch time when playback pauses/stops
-        _accumulateWatchDuration();
-      }
-      isPlaying.value = nowPlaying;
+      isPlaying.value = value;
+      _watchTracker.setPlaying(_watchVideoReady && value && !isBuffering.value);
     }));
-    _subscriptions.add(player.stream.buffering.listen((value) => isBuffering.value = value));
+    _subscriptions.add(player.stream.buffering.listen((value) {
+      isBuffering.value = value;
+      _watchTracker.setPlaying(_watchVideoReady && isPlaying.value && !value);
+    }));
     _subscriptions.add(player.stream.bufferingPercentage.listen((value) => bufferingPercent.value = value));
 
     _subscriptions.add(player.stream.volume.listen((value) {
@@ -434,14 +418,13 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     }));
 
     _subscriptions.add(player.stream.completed.listen((value) async {
-      if (value != true) return;
-      if (_isAutoAdvancing) return;
-      if (currentIndexPlaying.value < 0) return;
-      if (currentIndexPlaying.value + 1 >= playlist.length) return;
-
+      if (value != true || _isAutoAdvancing) return;
       _isAutoAdvancing = true;
+      isPlaying.value = false;
+      _watchTracker.setPlaying(false);
       try {
-        await nextVideo();
+        await _persistWatchDuration();
+        if (currentIndexPlaying.value >= 0 && currentIndexPlaying.value + 1 < playlist.length) await nextVideo();
       } finally {
         _isAutoAdvancing = false;
       }
@@ -477,6 +460,9 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       return;
     }
 
+    _watchVideoReady = false;
+    _watchTracker.setVideo(video);
+
     try {
       isInitialized.value = false;
       _hasSyncedPreferences = false;
@@ -489,6 +475,8 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
         play: true,
       );
 
+      _watchVideoReady = true;
+      _syncWatchState();
       await applyAudioNormalization(enabled: isAudioNormalizationEnabled.value, persist: false);
       await player.setRate(playbackSpeed.value);
       await player.setVolume(volume.value * 100);
@@ -498,6 +486,8 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       } catch (_) {}
       isInitialized.value = true;
     } catch (e) {
+      _watchVideoReady = false;
+      _watchTracker.setPlaying(false);
       isInitialized.value = false;
       await HelperToast.error('Failed to load video: $e');
     }
@@ -946,7 +936,9 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
   @override
   Future<void> onClose() async {
+    _watchVideoReady = false;
     try {
+      try { await _watchTracker.close(); } catch (e) { AppLog.logW('Failed to close watch session: $e'); }
       await _persistWatchDuration();
     } finally {
       try {

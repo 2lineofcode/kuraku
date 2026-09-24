@@ -45,7 +45,7 @@ mixin AppNotification {
   static Future<bool> requestPermissions() async {
     final macOSGranted = await _plugin.resolvePlatformSpecificImplementation<MacOSFlutterLocalNotificationsPlugin>()?.requestPermissions(
           alert: true,
-          badge: true,
+          badge: false,
           sound: true,
           critical: true,
         );

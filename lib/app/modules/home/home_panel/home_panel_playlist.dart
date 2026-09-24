@@ -11,9 +11,9 @@ import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
-import '../../../data/database/db_collection.dart';
+import '../../../data/database/db_playlist.dart';
 import '../../../data/database/db_videos.dart';
-import '../../../data/models/collection_entity.dart';
+import '../../../data/models/playlist_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_media_stack.dart';
@@ -23,12 +23,12 @@ import '../page_home/page_home_controller.dart';
 
 mixin HomePanelPlaylist {
   static final _controller = Get.find<HomeController>();
-  static final _playlistSelected = Collection().obs;
+  static final _playlistSelected = Playlist().obs;
   static final _isDetailMode = false.obs;
   static final _isFavoriteMode = false.obs;
   static final _listVideos = <Videos>[].obs;
   static final _listFavoriteVideo = <Videos>[].obs;
-  static Future<List<_PlaylistVideoItem>>? _detailFuture;
+  static Future<List<Videos>>? _detailFuture;
 
   static Future<void> open() async {
     if (Overlayment.count > 0) { await Overlayment.dismissLast(); return; }
@@ -44,7 +44,7 @@ mixin HomePanelPlaylist {
         color: AppColor.panel,
         actions: OverlayActions(
           onOpen: () async {
-            _controller.playlist.value = await DBCollection.getAllPlaylist();
+            _controller.playlist.value = await DBPlaylist.getAllPlaylist();
             _listFavoriteVideo.value = await DBVideos.getAll(where: 'is_favorite = 1');
           },
           onClose: (p0) async {
@@ -112,7 +112,7 @@ mixin HomePanelPlaylist {
     );
   }
 
-  static Future<void> showDialogAddOrEditPlaylist({Collection? playlist}) async {
+  static Future<void> showDialogAddOrEditPlaylist({Playlist? playlist}) async {
     if (Overlayment.count > 0) await Overlayment.dismissLast();
     final tecName = TextEditingController();
     final fnName = FocusNode();
@@ -158,7 +158,7 @@ mixin HomePanelPlaylist {
                     child: Text('Yes', style: TextStyle(color: Vx.red500, fontSize: 13)),
                     onPressed: () async {
                       Get.back();
-                      await DBCollection.deletePlaylist(playlist);
+                      await DBPlaylist.deletePlaylist(playlist);
                       await _controller.getAllPlaylist();
                     },
                   ),
@@ -186,8 +186,8 @@ mixin HomePanelPlaylist {
               return;
             }
             try {
-              final edited = Collection(id: playlist?.id, name: name, cover: tecCover.text, type: kCollectionTypePlaylist);
-              final saved = playlist == null ? await DBCollection.addPlaylist(edited) : await DBCollection.updatePlaylist(edited);
+              final edited = Playlist(id: playlist?.id, name: name, cover: tecCover.text);
+              final saved = playlist == null ? await DBPlaylist.addPlaylist(edited) : await DBPlaylist.updatePlaylist(edited);
               if (!saved) {
                 await HelperToast.warn('Could not save playlist. The name may already be in use or the playlist no longer exists.');
                 return;
@@ -205,7 +205,7 @@ mixin HomePanelPlaylist {
   }
 
   static Future<void> showDialogAddToPlaylistItem(List<Videos> videos) async {
-    final allPlaylist = await DBCollection.getAllPlaylist();
+    final allPlaylist = await DBPlaylist.getAllPlaylist();
     if (allPlaylist.isEmpty) {
       await HelperToast.warn('No playlist found. Please create one first.');
       return;
@@ -241,7 +241,7 @@ mixin HomePanelPlaylist {
               ).onInkTap(() async {
                 await Overlayment.dismissLast();
                 try {
-                  await DBCollection.addPlaylistItemBulk(playlists[index].id!, videos);
+                  await DBPlaylist.addPlaylistItemBulk(playlists[index].id!, videos);
                   await HelperToast.success('Added ${videos.length} video(s) to ${playlists[index].name}');
                 } catch (e) {
                   AppLog.logE('Failed to add playlist items: $e');
@@ -281,9 +281,8 @@ mixin HomePanelPlaylist {
               Obx(() => 'Favorite (${_listFavoriteVideo.length})'.text.ellipsis.bold.size(12).make().pSymmetric(h: 8, v: 4).color(AppColor.black180).cornerRadius(90).positioned(bottom: 8, right: 8)),
               Icon(UIconsPro.regularRounded.pen_clip, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
                 showDialogAddOrEditPlaylist(
-                  playlist: Collection(
+                  playlist: Playlist(
                     name: 'Favorite',
-                    type: kCollectionTypePlaylist,
                     cover: AppPref.getFavoriteCoverURL(),
                   ),
                 );
@@ -292,7 +291,7 @@ mixin HomePanelPlaylist {
             ]).onInkTap(() {
               if (_listFavoriteVideo.isEmpty) return;
               _isFavoriteMode.value = true;
-              _playlistSelected.value = Collection(name: 'Favorite', type: kCollectionTypePlaylist);
+              _playlistSelected.value = Playlist(name: 'Favorite');
               _listVideos.assignAll(_listFavoriteVideo);
               _detailFuture = _buildFavoriteFuture();
               _isDetailMode.value = true;
@@ -313,7 +312,7 @@ mixin HomePanelPlaylist {
               fitUrl: BoxFit.cover,
               withProxy: false,
             ),
-            '${item.name} (${item.total! - 1})'.text.ellipsis.bold.size(12).make().pSymmetric(h: 8, v: 4).color(AppColor.black180).cornerRadius(90).positioned(bottom: 8, right: 8),
+            '${item.name} (${item.total})'.text.ellipsis.bold.size(12).make().pSymmetric(h: 8, v: 4).color(AppColor.black180).cornerRadius(90).positioned(bottom: 8, right: 8),
             Icon(UIconsPro.regularRounded.pen_clip, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() => showDialogAddOrEditPlaylist(playlist: item)).positioned(left: 8, top: 4),
           ]),
         ).onInkTap(() {
@@ -330,7 +329,7 @@ mixin HomePanelPlaylist {
   static Widget _uiDetail() {
     _detailFuture ??= _buildDetailFuture();
 
-    return FutureBuilder<List<_PlaylistVideoItem>>(
+    return FutureBuilder<List<Videos>>(
       future: _detailFuture,
       builder: (context, asyncSnapshot) {
         if (asyncSnapshot.connectionState == ConnectionState.waiting) {
@@ -352,9 +351,8 @@ mixin HomePanelPlaylist {
           itemCount: items.length,
           separatorBuilder: (context, index) => Divider(color: AppColor.border),
           itemBuilder: (context, index) {
-            final playlistItem = items[index].collection;
-            final video = items[index].video;
-            final videoId = playlistItem.videoId;
+            final video = items[index];
+            final videoId = video.id;
 
             if (videoId.isNullOrEmpty) {
               return ListTile(
@@ -422,8 +420,8 @@ mixin HomePanelPlaylist {
                             await Get.find<PageHomeController>().getListFavorite();
                             _controller.update();
                           } else {
-                            await DBCollection.deletePlaylistItems(_playlistSelected.value.id ?? '', videoId!);
-                            _controller.playlist.value = await DBCollection.getAllPlaylist();
+                            await DBPlaylist.deletePlaylistItems(_playlistSelected.value.id ?? '', videoId!);
+                            _controller.playlist.value = await DBPlaylist.getAllPlaylist();
                             _refreshDetail();
                           }
                           _isDetailMode.refresh(); // force FutureBuilder rebuild
@@ -440,43 +438,23 @@ mixin HomePanelPlaylist {
     );
   }
 
-  static Future<List<_PlaylistVideoItem>> _buildDetailFuture() async {
+  static Future<List<Videos>> _buildDetailFuture() async {
     if (_isFavoriteMode.isTrue) return _buildFavoriteFuture();
 
     _listVideos.clear();
-    final items = await DBCollection.getPlaylist(_playlistSelected.value.id ?? '');
-
-    final videos = await Future.wait(
-      items.map((e) async {
-        if (e.videoId.isNullOrEmpty) return Videos();
-        try {
-          return await DBVideos.getByID(e.videoId!);
-        } catch (_) {
-          return Videos();
-        }
-      }),
-    );
-
-    final playlistItems = List.generate(items.length, (index) => _PlaylistVideoItem(items[index], videos[index]));
-    final validVideos = playlistItems.map((e) => e.video).where((v) => v.id != null).toList();
-    _listVideos.assignAll(validVideos);
-    return playlistItems;
+    final videos = await DBPlaylist.getPlaylist(_playlistSelected.value.id ?? '');
+    _listVideos.assignAll(videos);
+    return videos;
   }
 
-  static Future<List<_PlaylistVideoItem>> _buildFavoriteFuture() async {
-    final items = _listFavoriteVideo.map((v) => _PlaylistVideoItem(Collection(name: 'Favorite', videoId: v.id), v)).toList();
-    _listVideos.assignAll(_listFavoriteVideo);
-    return items;
+  static Future<List<Videos>> _buildFavoriteFuture() async {
+    final videos = _listFavoriteVideo.toList();
+    _listVideos.assignAll(videos);
+    return videos;
   }
 
   static void _refreshDetail() {
     _detailFuture = _buildDetailFuture();
   }
 
-}
-
-class _PlaylistVideoItem {
-  _PlaylistVideoItem(this.collection, this.video);
-  final Collection collection;
-  final Videos video;
 }

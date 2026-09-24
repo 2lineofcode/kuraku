@@ -1,39 +1,30 @@
 import 'dart:convert';
 
 
-class Collection {
+class Playlist {
   String? id;
-  String? type;
   String? name;
   String? cover;
-  String? videoId;
-  String? playlistId;
   String? createdAt;
   String? updatedAt;
-  int? total;
+  int total = 0;
 
-  Collection({this.id, this.type, this.name, this.cover, this.videoId, this.playlistId, this.createdAt, this.updatedAt, this.total});
+  Playlist({this.id, this.name, this.cover, this.createdAt, this.updatedAt, this.total = 0});
 
-  Collection.fromJson(Map<String, dynamic> json) {
+  Playlist.fromJson(Map<String, dynamic> json) {
     id = json['id'];
-    type = json['type'];
     name = json['name'];
     cover = json['cover'];
-    videoId = json['video_id'];
-    playlistId = json['playlist_id'];
     createdAt = json['created_at'];
     updatedAt = json['updated_at'];
-    total = json['total'];
+    total = json['total'] ?? 0;
   }
 
   Map<String, dynamic> toJson() {
     final data = <String, dynamic>{};
     data['id'] = id;
-    data['type'] = type;
     data['name'] = name;
     data['cover'] = cover;
-    data['video_id'] = videoId;
-    data['playlist_id'] = playlistId;
     data['created_at'] = createdAt;
     data['updated_at'] = updatedAt;
     return data;

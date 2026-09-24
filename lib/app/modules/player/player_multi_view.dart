@@ -13,10 +13,9 @@ import '../../core/app_color.dart';
 import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
 import '../../data/database/db_gamification.dart';
-import '../../data/database/db_profile.dart';
-import '../../data/database/db_watch_session.dart';
 import '../../data/models/videos_entity.dart';
 import '../../utils/semantic_search_service.dart';
+import '../../utils/watch_session_tracker.dart';
 
 class PlayerMultiView extends StatefulWidget {
   const PlayerMultiView({super.key});
@@ -892,33 +891,30 @@ class _MultiVideoItem {
   final FocusNode focusNode = FocusNode();
   final ValueNotifier<Size?> videoSize = ValueNotifier<Size?>(null);
   final List<StreamSubscription> _subscriptions = [];
-  Duration _sessionWatchDuration = Duration.zero;
-  DateTime? _playStartedAt;
+  final _watchTracker = WatchSessionTracker();
   bool _isDisposed = false;
 
   void bindPlayerStreams() {
     if (player == null) return;
 
-    if (player!.state.playing) {
-      _playStartedAt ??= DateTime.now();
-    }
-
-    _subscriptions.add(
-      player!.stream.playing.listen((value) {
-        if (value) {
-          _playStartedAt ??= DateTime.now();
-        } else {
-          _accumulateWatchDuration();
-        }
-      }),
-    );
-    _subscriptions.add(
-      player!.stream.completed.listen((value) {
-        if (value == true) {
-          _accumulateWatchDuration();
-        }
-      }),
-    );
+    _watchTracker.setVideo(video);
+    var playing = player!.state.playing;
+    var buffering = player!.state.buffering;
+    _watchTracker.setPlaying(playing && !buffering);
+    _subscriptions.add(player!.stream.playing.listen((value) {
+      playing = value;
+      _watchTracker.setPlaying(playing && !buffering);
+    }));
+    _subscriptions.add(player!.stream.buffering.listen((value) {
+      buffering = value;
+      _watchTracker.setPlaying(playing && !buffering);
+    }));
+    _subscriptions.add(player!.stream.completed.listen((value) {
+      if (value) {
+        playing = false;
+        _watchTracker.setPlaying(false);
+      }
+    }));
 
     num? width;
     num? height;
@@ -942,37 +938,10 @@ class _MultiVideoItem {
     );
   }
 
-  void _accumulateWatchDuration() {
-    final started = _playStartedAt;
-    if (started == null) return;
-
-    final diff = DateTime.now().difference(started);
-    if (!diff.isNegative && diff.inMilliseconds > 0) {
-      _sessionWatchDuration += diff;
-    }
-    _playStartedAt = null;
-  }
-
-  Future<void> _persistWatchDuration() async {
-    _accumulateWatchDuration();
-    if (_sessionWatchDuration <= Duration.zero) return;
-
-    try {
-      await DBProfile.updateTotalWatchDuration(_sessionWatchDuration);
-      await DBWatchSession.addSession(video: video, duration: _sessionWatchDuration);
-      await DBGamification.syncAndGetSummary();
-      AppLog.logD('multi watch duration -> ${video.videoCode ?? video.id ?? '-'}: ${_sessionWatchDuration.inSeconds} seconds');
-
-      _sessionWatchDuration = Duration.zero;
-    } catch (e) {
-      AppLog.logW('Failed to save multi watch duration: $e');
-    }
-  }
-
   Future<void> dispose() async {
     if (_isDisposed) return;
     _isDisposed = true;
-    _accumulateWatchDuration();
+    _watchTracker.setPlaying(false);
     for (final sub in _subscriptions) {
       await sub.cancel();
     }
@@ -981,6 +950,11 @@ class _MultiVideoItem {
     } catch (_) {}
     videoSize.dispose();
     focusNode.dispose();
-    await _persistWatchDuration();
+    try {
+      await _watchTracker.close();
+      if (player != null) await DBGamification.syncAndGetSummary();
+    } catch (e) {
+      AppLog.logW('Failed to close multi watch session: $e');
+    }
   }
 }

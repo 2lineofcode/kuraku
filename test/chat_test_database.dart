@@ -23,6 +23,7 @@ class ChatTestDatabase implements Database, Transaction {
   final statements = <List<Object?>>[];
   bool failWrites = false;
   bool failMessageInsert = false;
+  bool failConversationUpdate = false;
 
   @override
   Future<void> execute(String sql, [List<Object?>? arguments]) async { schema.add(sql); }
@@ -32,7 +33,10 @@ class ChatTestDatabase implements Database, Transaction {
     if (table == 'chat_message') {
       found.sort((a, b) => (a['position'] as int).compareTo(b['position'] as int));
     } else if (table == 'chat_conversation') {
-      found.sort((a, b) => (b['last_activity_at'] as String).compareTo(a['last_activity_at'] as String));
+      found.sort((a, b) {
+        final pinned = ((b['is_pinned'] as int?) ?? 0).compareTo((a['is_pinned'] as int?) ?? 0);
+        return pinned != 0 ? pinned : (b['last_activity_at'] as String).compareTo(a['last_activity_at'] as String);
+      });
     }
     return found;
   }
@@ -46,7 +50,7 @@ class ChatTestDatabase implements Database, Transaction {
   }
   @override
   Future<int> update(String table, Map<String, Object?> values, {String? where, List<Object?>? whereArgs, ConflictAlgorithm? conflictAlgorithm}) async {
-    if (failWrites) throw StateError('Disk full');
+    if (failWrites || table == 'chat_conversation' && failConversationUpdate) throw StateError('Disk full');
     statements.add(['UPDATE $table SET ${values.keys.map((key) => '$key = ?').join(',')} WHERE $where', [...values.values, ...?whereArgs]]);
     final found = rows[table]!.where((row) => row['id'] == whereArgs?.first).toList();
     for (final row in found) { row.addAll(values); }
@@ -56,7 +60,8 @@ class ChatTestDatabase implements Database, Transaction {
   Future<int> delete(String table, {String? where, List<Object?>? whereArgs}) async {
     if (failWrites) throw StateError('Disk full');
     statements.add(['DELETE FROM $table WHERE $where', whereArgs]);
-    rows[table]!.removeWhere((row) => row[where!.split(' ').first] == whereArgs!.first);
+    rows[table]!.removeWhere((row) => row[where!.split(' ').first] == whereArgs!.first
+        && (where != 'conversation_id = ? AND position > ?' || (row['position'] as int) > (whereArgs[1] as int)));
     if (table == 'chat_conversation') rows['chat_message']!.removeWhere((row) => row['conversation_id'] == whereArgs!.first);
     return 1;
   }

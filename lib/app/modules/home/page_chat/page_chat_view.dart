@@ -9,8 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/app_color.dart';
 import '../../../data/models/chat_entity.dart';
-import '../../../utils/agnes_chat_service.dart';
 import '../../../utils/chat_knowledge.dart';
+import '../../../utils/chat_service.dart';
 import '../../widgets/widget_thumbnail.dart';
 import 'page_chat_controller.dart';
 
@@ -81,8 +81,6 @@ class PageChatView extends GetView<PageChatController> {
                         const SizedBox(height: 8),
                         _composer(),
                         const SizedBox(height: 8),
-                        Text('Hybrid · Local lookup + AgnesAI · Chats saved on this device',
-                          textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppColor.muted)),
                       ]),
                     ),
                   ))),
@@ -144,6 +142,8 @@ class PageChatView extends GetView<PageChatController> {
                     selected: chat == active,
                     selectedColor: AppColor.text,
                     contentPadding: const EdgeInsets.only(left: 8),
+                    leading: chat.isPinned ? Icon(Icons.push_pin_rounded, size: 13, color: AppColor.muted) : null,
+                    minLeadingWidth: 14,
                     title: Text(chat.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
                     onTap: () {
                       controller.selectChat(chat);
@@ -151,6 +151,11 @@ class PageChatView extends GetView<PageChatController> {
                     },
                     trailing: MenuAnchor(
                       menuChildren: [
+                        MenuItemButton(
+                          leadingIcon: Icon(chat.isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined, size: 12),
+                          onPressed: () => controller.togglePin(chat),
+                          child: Text(chat.isPinned ? 'Unpin chat' : 'Pin chat', style: const TextStyle(fontSize: 12)),
+                        ),
                         MenuItemButton(
                           leadingIcon: Icon(UIconsPro.regularRounded.edit, size: 12),
                           onPressed: () => _editChat(context, chat, deleting: false),
@@ -211,6 +216,37 @@ class PageChatView extends GetView<PageChatController> {
     ));
   }
 
+  Widget _messageEditor() {
+    return Obx(() {
+      final disabled = controller.busy.value || controller.respondingChatId.value != null;
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: AppColor.hover, borderRadius: BorderRadius.circular(18)),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+          CupertinoTextField(
+            key: const ValueKey('edit-message-input'), controller: controller.editInput,
+            autofocus: true, minLines: 2, maxLines: 10, readOnly: disabled,
+            style: TextStyle(fontSize: 13, color: AppColor.text),
+            placeholder: 'Edit message',
+          ),
+          const SizedBox(height: 8),
+          Text('Resubmitting replaces the messages after this one.', style: TextStyle(fontSize: 10, color: AppColor.muted)),
+          const SizedBox(height: 4),
+          Wrap(alignment: WrapAlignment.end, spacing: 8, children: [
+            TextButton(onPressed: disabled ? null : controller.cancelEdit, child: const Text('Cancel')),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller.editInput,
+              builder: (context, value, _) => FilledButton(
+                onPressed: disabled || value.text.trim().isEmpty ? null : controller.submitEdit,
+                child: const Text('Save & resend'),
+              ),
+            ),
+          ]),
+        ]),
+      );
+    });
+  }
+
   Widget _conversation() {
     return ListView.builder(
       controller: controller.scrollController,
@@ -222,7 +258,7 @@ class PageChatView extends GetView<PageChatController> {
         final message = controller.messages[position];
         final assistant = message.role == 'assistant';
         final generating = message.status == 'pending' || message.status == 'streaming';
-        final invalid = assistant && AgnesChatService.isProtocolText(message.content);
+        final invalid = assistant && ChatService.isProtocolText(message.content);
         if (assistant && (message.status == 'failed' || invalid) && position + 1 < controller.messages.length && controller.messages[position + 1].role == 'assistant') {
           return const SizedBox.shrink();
         }
@@ -238,19 +274,21 @@ class PageChatView extends GetView<PageChatController> {
                   Row(mainAxisSize: MainAxisSize.min, children: [
                     Icon(Icons.auto_awesome_outlined, size: 15, color: AppColor.muted),
                     const SizedBox(width: 8),
-                    const Text('AgnesAI', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    Text(message.provider == 'local' ? 'Local library' : message.provider ?? 'AI', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                   ]),
                   const SizedBox(height: 8),
                   if (generating || message.activity.isNotEmpty)
                     _ChatActivityPanel(key: ValueKey('activity-${message.id}'), steps: List.of(message.activity),
                       active: generating, status: message.status, elapsedMs: message.elapsedMs),
                 ],
-                if (content.isNotEmpty) Container(
-                  key: ValueKey('bubble-${message.id}'),
-                  padding: assistant ? const EdgeInsets.symmetric(vertical: 8) : const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: assistant ? null : BoxDecoration(color: AppColor.hover, borderRadius: BorderRadius.circular(18)),
-                  child: _markdown(context, content, databasePaged: message.titleSearch != null),
-                ),
+                if (content.isNotEmpty) Obx(() => controller.editingMessageId.value == message.id && !assistant
+                  ? _messageEditor()
+                  : Container(
+                      key: ValueKey('bubble-${message.id}'),
+                      padding: assistant ? const EdgeInsets.symmetric(vertical: 8) : const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: assistant ? null : BoxDecoration(color: AppColor.hover, borderRadius: BorderRadius.circular(18)),
+                      child: _markdown(context, content, databasePaged: message.titleSearch != null),
+                    )),
                 if (message.titleSearch != null && !generating) Obx(() {
                   final offset = message.titleSearch!['offset'] as int? ?? 0;
                   final disabled = controller.busy.value || controller.respondingChatId.value != null;
@@ -283,6 +321,13 @@ class PageChatView extends GetView<PageChatController> {
                     icon: Icon(Icons.copy_rounded, size: 14, color: AppColor.muted),
                     onPressed: () => _copy(context, content),
                   ),
+                  if (!assistant) Obx(() => IconButton(
+                    tooltip: 'Edit message', visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints.tightFor(width: 30, height: 30), padding: EdgeInsets.zero,
+                    icon: Icon(Icons.edit_outlined, size: 14, color: AppColor.muted),
+                    onPressed: controller.busy.value || controller.respondingChatId.value != null
+                        ? null : () => controller.editMessage(message),
+                  )),
                   if (index == 0 && (!assistant || message.status == 'failed' || message.status == 'cancelled' || invalid))
                     Obx(() => controller.respondingChatId.value != null ? const SizedBox.shrink() : TextButton.icon(
                       onPressed: controller.retryResponse,
@@ -372,7 +417,7 @@ class PageChatView extends GetView<PageChatController> {
           FutureBuilder<String>(future: translation ??= controller.translateTitle(title), builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) return const CupertinoActivityIndicator();
             if (snapshot.hasError) return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(snapshot.error is AgnesChatException ? (snapshot.error as AgnesChatException).message : 'Could not load or save the translation.', style: const TextStyle(fontSize: 12)),
+              Text(snapshot.error is ChatException ? (snapshot.error as ChatException).message : 'Could not load or save the translation.', style: const TextStyle(fontSize: 12)),
               TextButton(onPressed: () => setState(() => translation = null), child: const Text('Retry translation')),
             ]);
             return SelectableText(snapshot.data ?? '', style: const TextStyle(fontSize: 14));
@@ -455,6 +500,7 @@ class PageChatView extends GetView<PageChatController> {
   Widget _composer() {
     return Obx(() {
       final matches = controller.matchingCommands;
+      final editing = controller.editingMessageId.value != null;
       final selected = controller.commandIndex.value.clamp(0, matches.isEmpty ? 0 : matches.length - 1);
       return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
@@ -534,7 +580,7 @@ class PageChatView extends GetView<PageChatController> {
               valueListenable: controller.input,
               builder: (context, value, _) => IconButton.filled(
                 tooltip: 'Send message',
-                onPressed: value.text.trim().isEmpty || controller.busy.value || !controller.ready.value ? null : controller.submitInput,
+                onPressed: editing || value.text.trim().isEmpty || controller.busy.value || !controller.ready.value ? null : controller.submitInput,
                 icon: const Icon(Icons.arrow_upward_rounded, size: 20),
               ),
             )),

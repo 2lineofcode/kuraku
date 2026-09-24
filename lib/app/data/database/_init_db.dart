@@ -9,11 +9,13 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../core/app_logging.dart';
 import '../../core/app_setting.dart';
+import '../../utils/watch_session_tracker.dart';
 import '_update_db.dart';
 import 'db_activity.dart';
 import 'db_chat.dart';
-import 'db_collection.dart';
 import 'db_library.dart';
+import 'db_playlist.dart';
+import 'db_profile.dart';
 import 'db_video_embedding.dart';
 import 'db_videos.dart';
 
@@ -210,8 +212,12 @@ class DBService extends GetxService {
     await DBVideos.deleteAll();
     await DBVideoEmbeddings.deleteAll();
     await DBActivity.deleteAll();
-    await DBCollection.deleteAll();
-    await dbMain.delete('watch_session');
+    await DBPlaylist.deleteAll();
+    await WatchSessionTracker.resetHistory(() => dbMain.transaction((txn) async {
+      await txn.delete('watch_session');
+      await txn.update('profile', {'total_watch_duration': 0, 'badge_for_watch_duration': DBProfile.watchDurationBadge(0)},
+        where: 'id = ?', whereArgs: ['1']);
+    }));
     await dbMain.delete('achievement_unlock');
     await dbMain.delete('historical');
     await dbMain.delete('chat_conversation');

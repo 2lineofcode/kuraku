@@ -10,6 +10,7 @@ analyzer:
     todo: ignore
     invalid_use_of_protected_member: ignore
     body_might_complete_normally_catch_error: ignore
+    non_constant_identifier_names: ignore
     # deprecated_member_use: ignore
 
 linter:

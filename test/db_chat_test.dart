@@ -13,10 +13,36 @@ import 'chat_test_database.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   tearDown(Get.reset);
+  test('Provider metadata survives reload and retry changes only the selected reply', () async {
+    final db = ChatTestDatabase();
+    Get.put<DBService>(ChatTestService()..dbMain = db);
+    final chat = ChatConversation();
+    await DBChat.send(chat, 'Hello');
+    final previous = await DBChat.addAssistant(chat, 'old-model', provider: 'old-provider');
+    previous..status = 'completed'..content = 'Saved answer';
+    await DBChat.saveAssistant(previous);
+    final reply = await DBChat.addAssistant(chat, 'new-model', provider: 'new-provider');
+    expect((await DBChat.getMessages(chat.id)).last.provider, 'new-provider');
+    db.failWrites = true;
+    await expectLater(DBChat.resetAssistant(reply, provider: 'local', model: null), throwsStateError);
+    expect(reply.provider, 'new-provider');
+    expect(reply.model, 'new-model');
+    db.failWrites = false;
+    await DBChat.resetAssistant(reply, provider: 'local', model: null);
+    expect(reply.provider, 'local');
+    expect(reply.model, isNull);
+    final saved = await DBChat.getMessages(chat.id);
+    expect(saved.last.provider, 'local');
+    expect(saved.last.model, isNull);
+    expect(saved[1].provider, 'old-provider');
+    expect(saved[1].model, 'old-model');
+    expect(saved[1].content, 'Saved answer');
+  });
   test('Chat schema persists messages, preserves drafts, enforces constraints and cascades deletion', () async {
     final db = ChatTestDatabase();
     Get.put<DBService>(ChatTestService()..dbMain = db);
-    await DBUpdate.onUpgrade(db, 7, DBUpdate.version);
+    await DBUpdate.onUpgrade(db, 7, 10);
+    await DBUpdate.onUpgrade(db, 12, 13);
     final chat = ChatConversation()..draft = 'Unsent text';
     await DBChat.saveConversation(chat);
     final first = await DBChat.send(chat, 'Hello');
@@ -56,6 +82,7 @@ with tempfile.TemporaryDirectory() as folder:
     conn.execute('CREATE TABLE existing_data (value TEXT)')
     conn.execute("INSERT INTO existing_data VALUES ('preserved')")
     for sql in schema:
+        if 'ADD COLUMN is_pinned' in sql and any(row[1] == 'is_pinned' for row in conn.execute('PRAGMA table_info(chat_conversation)')): continue
         if 'ADD COLUMN activity' not in sql or not any(row[1] == 'activity' for row in conn.execute('PRAGMA table_info(chat_message)')):
             conn.execute(sql)
     for sql, args in statements:
@@ -68,6 +95,7 @@ with tempfile.TemporaryDirectory() as folder:
     assert conn.execute('SELECT title, draft FROM chat_conversation').fetchone() == ('Renamed chat', 'Next draft')
     assert conn.execute('SELECT content FROM chat_message ORDER BY position').fetchall() == [('Hello',), ('Second message',)]
     for sql in schema:
+        if 'ADD COLUMN is_pinned' in sql and any(row[1] == 'is_pinned' for row in conn.execute('PRAGMA table_info(chat_conversation)')): continue
         if 'ADD COLUMN activity' not in sql or not any(row[1] == 'activity' for row in conn.execute('PRAGMA table_info(chat_message)')):
             conn.execute(sql)
     assert conn.execute('SELECT value FROM existing_data').fetchone() == ('preserved',)
@@ -100,4 +128,67 @@ with tempfile.TemporaryDirectory() as folder:
 ''', jsonEncode([db.schema, statements, recovery, deletion, chat.id])]);
     expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
   });
+  test('Editing truncates only the selected conversation atomically and pinning preserves recency', () async {
+    final db = ChatTestDatabase();
+    Get.put<DBService>(ChatTestService()..dbMain = db);
+    await DBUpdate.onUpgrade(db, 7, 10);
+    await DBUpdate.onUpgrade(db, 12, 13);
+    final chat = ChatConversation();
+    final first = await DBChat.send(chat, 'Original');
+    chat.messages.add(first);
+    await DBChat.addAssistant(chat, 'test', provider: 'test-provider');
+    await DBChat.send(chat, 'Follow-up');
+    final other = ChatConversation();
+    await DBChat.send(other, 'Keep me');
+    chat.draft = 'Keep draft';
+    await DBChat.saveConversation(chat);
+    final recent = chat.lastActivityAt;
+    await DBChat.setPinned(chat, true);
+    expect(chat.lastActivityAt, recent);
+    expect((await DBChat.getConversations()).first.id, chat.id);
+    db.failWrites = true;
+    await expectLater(DBChat.setPinned(chat, false), throwsStateError);
+    expect(chat.isPinned, isTrue);
+    db.failWrites = false;
+    final before = jsonEncode(db.rows);
+    db.failConversationUpdate = true;
+    await expectLater(DBChat.editUserMessage(chat, first.id, 'Edited'), throwsStateError);
+    expect(jsonEncode(db.rows), before);
+    db.failConversationUpdate = false;
+    await expectLater(DBChat.editUserMessage(other, first.id, 'Wrong chat'), throwsStateError);
+    await expectLater(DBChat.editUserMessage(chat, first.id, ' '), throwsArgumentError);
+    final baseline = List<List<Object?>>.from(db.statements);
+    final edited = await DBChat.editUserMessage(chat, first.id, 'Edited');
+    final editing = db.statements.skip(baseline.length).toList();
+    expect(edited.id, first.id);
+    expect((await DBChat.getMessages(chat.id)).single.content, 'Edited');
+    expect((await DBChat.getMessages(other.id)).single.content, 'Keep me');
+    expect((await DBChat.getConversations()).first.draft, 'Keep draft');
+    final result = await Process.run('python3', ['-c', r'''
+import json, sqlite3, sys
+schema, baseline, editing, chat_id, other_id = json.loads(sys.argv[1])
+db = sqlite3.connect(':memory:')
+db.execute('PRAGMA foreign_keys=ON')
+for sql in schema: db.execute(sql)
+for sql, args in baseline: db.execute(sql, args)
+db.commit()
+before = db.execute('SELECT * FROM chat_message ORDER BY id').fetchall()
+db.execute("CREATE TRIGGER fail_chat BEFORE UPDATE ON chat_conversation BEGIN SELECT RAISE(ABORT, 'failed'); END")
+try:
+    with db:
+        for sql, args in editing: db.execute(sql, args)
+except sqlite3.IntegrityError: pass
+else: raise AssertionError('Failure not injected')
+assert db.execute('SELECT * FROM chat_message ORDER BY id').fetchall() == before
+db.execute('DROP TRIGGER fail_chat')
+with db:
+    for sql, args in editing: db.execute(sql, args)
+assert db.execute('SELECT content FROM chat_message WHERE conversation_id=?', [chat_id]).fetchall() == [('Edited',)]
+assert db.execute('SELECT content FROM chat_message WHERE conversation_id=?', [other_id]).fetchall() == [('Keep me',)]
+assert db.execute('SELECT id,draft FROM chat_conversation ORDER BY is_pinned DESC,last_activity_at DESC,id').fetchone() == (chat_id,'Keep draft')
+assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+''', jsonEncode([db.schema, baseline, editing, chat.id, other.id])]);
+    expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+  });
+
 }

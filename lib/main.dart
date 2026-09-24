@@ -34,6 +34,7 @@ import 'app/modules/home/home_controller.dart';
 import 'app/modules/home/page_chat/page_chat_controller.dart';
 import 'app/routes/app_pages.dart';
 import 'app/utils/helper_toast.dart';
+import 'app/utils/watch_session_tracker.dart';
 import 'env.g.dart';
 
 void main() {
@@ -76,12 +77,23 @@ class _JavItState extends State<JavIt> with WindowListener {
     return true;
   }
 
+  Future<bool> _flushBeforeExit() async {
+    try {
+      if (!await _flushChat()) return false;
+      await WatchSessionTracker.flushAll();
+      return true;
+    } catch (e) {
+      AppLog.logE('Could not save pending activity before exit: $e');
+      return false;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     windowManager.addListener(this);
     windowManager.setPreventClose(true);
-    _lifecycle = AppLifecycleListener(onExitRequested: () async => await _flushChat() ? AppExitResponse.exit : AppExitResponse.cancel);
+    _lifecycle = AppLifecycleListener(onExitRequested: () async => await _flushBeforeExit() ? AppExitResponse.exit : AppExitResponse.cancel);
   }
 
   @override
@@ -118,9 +130,9 @@ class _JavItState extends State<JavIt> with WindowListener {
   void onWindowClose([int? windowId]) async {
     if (_closing) return;
     _closing = true;
-    if (!await _flushChat()) {
+    if (!await _flushBeforeExit()) {
       _closing = false;
-      await HelperToast.error('Could not save chat draft. Retry saving before closing.');
+      await HelperToast.error('Could not save pending activity or chat draft. Please try closing again.');
       return;
     }
     AppPref.setAppLastOpen(DateTime.now().toStringEx());

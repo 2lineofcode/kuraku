@@ -9,15 +9,15 @@ import '../../../core/app_pref.dart';
 import '../../../data/database/_init_db.dart';
 import '../../../data/database/db_chat.dart';
 import '../../../data/models/chat_entity.dart';
-import '../../../utils/agnes_chat_service.dart';
 import '../../../utils/chat_knowledge.dart';
+import '../../../utils/chat_service.dart';
 
 class PageChatController extends GetxController {
-  PageChatController({AgnesChatService? api}) : api = api ?? AgnesChatService(knowledge: ChatKnowledge(
+  PageChatController({ChatService? api}) : api = api ?? ChatService(knowledge: ChatKnowledge(
     mainPath: Get.find<DBService>().dbMain.path, r18Path: Get.find<DBService>().dbR18?.path,
     loadScript: () => rootBundle.loadString('assets/chat_knowledge.py'),
   ));
-  final AgnesChatService api;
+  final ChatService api;
   final respondingChatId = RxnString();
   CancelToken? _responseToken;
   CancelToken? _pageToken;
@@ -27,6 +27,8 @@ class PageChatController extends GetxController {
   Future<void>? _generation;
   ChatMessage? _unsavedReply;
   final input = TextEditingController();
+  final editInput = TextEditingController();
+  final editingMessageId = RxnString();
   final searchInput = TextEditingController();
   final focusNode = FocusNode();
   final scrollController = ScrollController();
@@ -48,10 +50,8 @@ class PageChatController extends GetxController {
   List<ChatMessage> get messages => activeChat.value.messages;
 
   static const commands = {
-    '/status': 'Show model, tools and response status',
     '/new': 'Start a new chat',
     '/stop': 'Stop the current response',
-    '/help': 'Show available commands',
     '/r18': 'Template: Japanese-only R18 titles',
     '/filter': 'Template: required themes, exclusions and unowned videos',
     '/similar': 'Template: find similar themes by video code',
@@ -81,7 +81,7 @@ class PageChatController extends GetxController {
   Future<void> _command(String text) async {
     final name = text.toLowerCase();
     if (!commands.containsKey(name)) {
-      commandNotice.value = 'Unknown command. Type /help to see available commands.';
+      commandNotice.value = 'Unknown command. Type / to see available commands.';
       return;
     }
     if (_unsavedReply != null && !await flushDraft()) return;
@@ -102,13 +102,6 @@ class PageChatController extends GetxController {
     input.clear();
     commandNotice.value = '';
     switch (name) {
-      case '/status':
-        commandNotice.value = 'Model: ${api.model} · API: ${api.configurationError == null ? 'configured' : 'not configured'}\n'
-            'Local knowledge: ${api.knowledge == null ? 'not configured' : 'configured'} · Web search: ${api.webSearch.configured ? 'configured' : 'not configured'}\n'
-            'Response: ${respondingChatId.value == null ? 'idle' : 'running'} · Messages: ${messages.length}\n'
-            'Configuration status only; connectivity has not been checked.';
-      case '/help':
-        commandNotice.value = commands.entries.map((entry) => '${entry.key} — ${entry.value}').join('\n');
       case '/stop':
         final running = respondingChatId.value != null;
         await stopResponse();
@@ -202,7 +195,7 @@ class PageChatController extends GetxController {
   Future<bool> retry() => ready.value ? flushDraft() : reload();
 
   Future<void> send() async {
-    if (busy.value || !ready.value || input.text.trim().isEmpty) return;
+    if (busy.value || !ready.value || editingMessageId.value != null || input.text.trim().isEmpty) return;
     if (input.text.trim().startsWith('/')) {
       await _command(input.text.trim());
       return;
@@ -221,18 +214,70 @@ class PageChatController extends GetxController {
       final message = await DBChat.send(chat, text);
       if (input.text != text) chat.draft = input.text;
       chat.messages.add(message);
-      chats.remove(chat);
-      chats.insert(0, chat);
+      _sortChats();
       _activate(chat);
       await AppPref.setActiveChat(chat.id);
     });
     if (saved) await _startResponse(chat);
   }
 
+  void _sortChats() {
+    chats.sort((a, b) {
+      if (a.isPinned != b.isPinned) return a.isPinned ? -1 : 1;
+      final recent = b.lastActivityAt.compareTo(a.lastActivityAt);
+      return recent != 0 ? recent : a.id.compareTo(b.id);
+    });
+  }
+
+  void editMessage(ChatMessage message) {
+    if (busy.value || !ready.value || respondingChatId.value != null || message.role != 'user' || !messages.contains(message)) return;
+    editInput.text = message.content;
+    editingMessageId.value = message.id;
+  }
+
+  void cancelEdit() {
+    editingMessageId.value = null;
+    editInput.clear();
+  }
+
+  Future<void> submitEdit() async {
+    if (busy.value || !ready.value || respondingChatId.value != null) return;
+    final chat = activeChat.value;
+    final id = editingMessageId.value;
+    final text = editInput.text.trim();
+    if (id == null || text.isEmpty) return;
+    if (api.configurationError != null && !api.canReplyLocally(text)) {
+      error.value = api.configurationError!;
+      return;
+    }
+    _draftTimer?.cancel();
+    final saved = await _run(() async {
+      await _persistDraft(chat);
+      final edited = await DBChat.editUserMessage(chat, id, text);
+      chat.messages.removeWhere((message) => message.position >= edited.position);
+      chat.messages.add(edited);
+      _sortChats();
+      _activate(chat);
+    });
+    if (saved) await _startResponse(chat);
+  }
+
+  Future<void> togglePin(ChatConversation chat) async {
+    if (busy.value || !ready.value) return;
+    _draftTimer?.cancel();
+    await _run(() async {
+      await _persistDraft(activeChat.value);
+      await DBChat.setPinned(chat, !chat.isPinned);
+      _sortChats();
+      chats.refresh();
+      if (activeChat.value == chat) activeChat.refresh();
+    });
+  }
+
   Future<void> retryResponse() async {
     if (busy.value || respondingChatId.value != null || !ready.value) return;
     final chat = activeChat.value;
-    if (chat.messages.isEmpty || chat.messages.last.status == 'completed' && chat.messages.last.role == 'assistant' && !AgnesChatService.isProtocolText(chat.messages.last.content)) return;
+    if (chat.messages.isEmpty || chat.messages.last.status == 'completed' && chat.messages.last.role == 'assistant' && !ChatService.isProtocolText(chat.messages.last.content)) return;
     if (api.configurationError != null && !api.canReplyLocally(chat.messages.lastWhere((message) => message.role == 'user').content)) {
       error.value = api.configurationError!;
       return;
@@ -254,16 +299,19 @@ class PageChatController extends GetxController {
     ChatMessage? answer;
     final elapsed = Stopwatch()..start();
     try {
-      final history = chat.messages.where((message) => message.status == 'completed' && !(message.role == 'assistant' && AgnesChatService.isProtocolText(message.content))).map((message) => {
+      final history = chat.messages.where((message) => message.status == 'completed' && !(message.role == 'assistant' && ChatService.isProtocolText(message.content))).map((message) => {
         'role': message.role, 'content': message.content,
       }).toList();
+      final local = api.canReplyLocally(history.lastWhere((message) => message['role'] == 'user')['content']!);
+      final provider = local ? 'local' : api.provider;
+      final model = local ? null : api.model;
       if (!await _run(() async {
         final last = chat.messages.lastOrNull;
-        if (last?.role == 'assistant' && (last!.status != 'completed' || AgnesChatService.isProtocolText(last.content))) {
-          await DBChat.resetAssistant(last);
+        if (last?.role == 'assistant' && (last!.status != 'completed' || ChatService.isProtocolText(last.content))) {
+          await DBChat.resetAssistant(last, provider: provider, model: model);
           answer = last;
         } else {
-          answer = await DBChat.addAssistant(chat, api.model);
+          answer = await DBChat.addAssistant(chat, model, provider: provider);
           chat.messages.add(answer!);
         }
         if (activeChat.value == chat) activeChat.refresh();
@@ -286,7 +334,7 @@ class PageChatController extends GetxController {
         if (activeChat.value == chat) activeChat.refresh();
         if (checkpoint.elapsedMilliseconds >= 500) {
           if (!await _run(() => DBChat.saveAssistant(response), block: false)) {
-            throw const AgnesChatException('Could not save the response. Please retry saving.');
+            throw const ChatException('Could not save the response. Please retry saving.');
           }
           checkpoint.reset();
         }
@@ -297,7 +345,7 @@ class PageChatController extends GetxController {
       if (answer != null) {
         answer!.status = token.isCancelled ? 'cancelled' : 'failed';
         answer!.errorMessage = token.isCancelled ? 'Response stopped.'
-            : failure is AgnesChatException ? failure.message : 'The response was interrupted. Please retry.';
+            : failure is ChatException ? failure.message : 'The response was interrupted. Please retry.';
       }
     } finally {
       api.onActivity = null;
@@ -321,6 +369,7 @@ class PageChatController extends GetxController {
   }
 
   void _activate(ChatConversation chat) {
+    cancelEdit();
     commandNotice.value = '';
     activeChat.value = chat;
     activeChat.refresh();
@@ -374,12 +423,12 @@ class PageChatController extends GetxController {
   Future<String> _translateTitle(String title) async {
     final cached = await DBChat.getTranslation(title);
     if (cached != null) return cached;
-    if (isClosed) throw const AgnesChatException('Translation stopped.');
+    if (isClosed) throw const ChatException('Translation stopped.');
     final token = CancelToken();
     _translationTokens.add(token);
     try {
       final text = await api.translateTitle(title, token);
-      if (isClosed || token.isCancelled) throw const AgnesChatException('Translation stopped.');
+      if (isClosed || token.isCancelled) throw const ChatException('Translation stopped.');
       await DBChat.saveTranslation(title, text);
       return text;
     } finally { _translationTokens.remove(token); }
@@ -437,7 +486,8 @@ class PageChatController extends GetxController {
       search.value = '';
       final empty = chats.firstWhereOrNull((chat) => !chat.persisted && chat.draft.trim().isEmpty);
       final next = empty ?? ChatConversation();
-      if (empty == null) chats.insert(0, next);
+      if (empty == null) chats.add(next);
+      _sortChats();
       _activate(next);
       await AppPref.setActiveChat(next.id);
     });
@@ -490,6 +540,7 @@ class PageChatController extends GetxController {
     _draftTimer?.cancel();
     input.removeListener(_draftChanged);
     input.dispose();
+    editInput.dispose();
     searchInput.dispose();
     focusNode.dispose();
     scrollController.dispose();

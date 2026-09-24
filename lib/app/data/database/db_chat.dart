@@ -19,7 +19,7 @@ mixin DBChat {
   }
 
   static Future<List<ChatConversation>> getConversations() async {
-    final rows = await _db.query('chat_conversation', orderBy: 'last_activity_at DESC, id');
+    final rows = await _db.query('chat_conversation', orderBy: 'is_pinned DESC, last_activity_at DESC, id');
     return rows.map(ChatConversation.fromJson).toList();
   }
 
@@ -63,13 +63,37 @@ mixin DBChat {
     return message;
   }
 
-  static Future<ChatMessage> addAssistant(ChatConversation chat, String model) async {
+  static Future<ChatMessage> editUserMessage(ChatConversation chat, String messageId, String text) async {
+    final content = text.trim();
+    if (content.isEmpty) throw ArgumentError('Message cannot be empty');
+    final now = DateTime.now().toUtc().toIso8601String();
+    final edited = await _db.transaction((txn) async {
+      final rows = await txn.query('chat_message', where: 'id = ? AND conversation_id = ? AND role = ?',
+        whereArgs: [messageId, chat.id, 'user'], limit: 1);
+      if (rows.isEmpty) throw StateError('User message no longer exists');
+      final original = rows.single;
+      await txn.update('chat_message', {'content': content, 'updated_at': now}, where: 'id = ?', whereArgs: [messageId]);
+      await txn.delete('chat_message', where: 'conversation_id = ? AND position > ?', whereArgs: [chat.id, original['position']]);
+      await _save(txn, chat.toJson()..addAll({'updated_at': now, 'last_activity_at': now}), true);
+      return ChatMessage.fromJson({...original, 'content': content, 'updated_at': now});
+    });
+    chat..updatedAt = now..lastActivityAt = now;
+    return edited;
+  }
+
+  static Future<void> setPinned(ChatConversation chat, bool pinned) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    await _save(_db, chat.toJson()..addAll({'is_pinned': pinned ? 1 : 0, 'updated_at': now}), chat.persisted);
+    chat..persisted = true..isPinned = pinned..updatedAt = now;
+  }
+
+  static Future<ChatMessage> addAssistant(ChatConversation chat, String? model, {required String provider}) async {
     return _db.transaction((txn) async {
       final rows = await txn.rawQuery('SELECT COALESCE(MAX(position), 0) + 1 AS position FROM chat_message WHERE conversation_id = ?', [chat.id]);
       final now = DateTime.now().toUtc().toIso8601String();
       final values = <String, Object?>{
         'id': UuidV4().generate(), 'conversation_id': chat.id, 'position': rows.first['position'],
-        'role': 'assistant', 'content': '', 'status': 'pending', 'provider': 'agnes', 'model': model,
+        'role': 'assistant', 'content': '', 'status': 'pending', 'provider': provider, 'model': model,
         'created_at': now, 'updated_at': now,
       };
       await txn.insert('chat_message', values);
@@ -77,13 +101,14 @@ mixin DBChat {
     });
   }
 
-  static Future<void> resetAssistant(ChatMessage message) async {
+  static Future<void> resetAssistant(ChatMessage message, {required String provider, required String? model}) async {
     final now = DateTime.now().toUtc().toIso8601String();
     final count = await _db.update('chat_message', {
       'content': '', 'status': 'pending', 'error_message': null, 'activity': '{}', 'updated_at': now,
+      'provider': provider, 'model': model,
     }, where: 'id = ?', whereArgs: [message.id]);
     if (count != 1) throw StateError('Chat message no longer exists');
-    message..content = ''..status = 'pending'..errorMessage = null..elapsedMs = 0..updatedAt = now;
+    message..content = ''..status = 'pending'..errorMessage = null..elapsedMs = 0..updatedAt = now..provider = provider..model = model;
     message.activity.clear();
     message.titleSearch = null;
   }

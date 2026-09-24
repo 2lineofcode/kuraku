@@ -15,20 +15,20 @@ import 'package:javit/app/data/database/db_chat.dart';
 import 'package:javit/app/data/models/chat_entity.dart';
 import 'package:javit/app/modules/home/page_chat/page_chat_controller.dart';
 import 'package:javit/app/modules/home/page_chat/page_chat_view.dart';
-import 'package:javit/app/utils/agnes_chat_service.dart';
 import 'package:javit/app/utils/chat_knowledge.dart';
+import 'package:javit/app/utils/chat_service.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 
 import 'chat_test_database.dart';
 
-class _Agnes extends AgnesChatService {
-  _Agnes({String apiKey = 'test-key', super.knowledge}) : super(apiKey: apiKey);
+class _ChatApi extends ChatService {
+  _ChatApi({String apiKey = 'test-key', super.knowledge}) : super(apiKey: apiKey);
   int translations = 0;
   bool translationFails = false;
   @override
   Future<String> translateTitle(String title, CancelToken token) async {
     translations++;
-    if (translationFails) throw const AgnesChatException('Translation unavailable.');
+    if (translationFails) throw const ChatException('Translation unavailable.');
     return 'Berjalan di tengah hujan';
   }
   Completer<void>? wait;
@@ -65,12 +65,12 @@ void main() {
     final folder = Directory.systemTemp.createTempSync('javit-preview-test-');
     addTearDown(() => folder.deleteSync(recursive: true));
     Get.put(AppSettingService()..pref = ChatTestPreferences()..appPath = folder.path);
-    final controller = Get.put(PageChatController(api: _Agnes()));
+    final controller = Get.put(PageChatController(api: _ChatApi()));
     await tester.pumpWidget(GetMaterialApp(home: const Scaffold(body: PageChatView())));
     await tester.pumpAndSettle();
     final chat = controller.activeChat.value;
     await DBChat.send(chat, 'Show images');
-    final answer = await DBChat.addAssistant(chat, 'fixture');
+    final answer = await DBChat.addAssistant(chat, 'fixture', provider: 'Saved provider');
     answer..status = 'completed'..content = ChatKnowledge.render({
       'columns': ['code', 'title'], 'rows': [['TEST-001', 'One'], ['TEST-002', 'Missing'], ['TEST-003', 'Three']],
       'covers': {'TEST-001': 'https://example.com/one.jpg', 'TEST-003': 'https://example.com/three.jpg'},
@@ -80,6 +80,7 @@ void main() {
     await controller.selectChat(chat);
     controller.usePrompt('Keep my draft');
     await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Saved provider'), findsOneWidget);
     final cover = find.byTooltip('Preview image').first;
     await tester.ensureVisible(cover);
     await tester.tap(cover);
@@ -122,13 +123,13 @@ void main() {
     addTearDown(Get.reset);
     Get.put<DBService>(ChatTestService()..dbMain = ChatTestDatabase());
     Get.put(AppSettingService()..pref = ChatTestPreferences());
-    final api = _Agnes()..translationFails = true;
+    final api = _ChatApi()..translationFails = true;
     final controller = Get.put(PageChatController(api: api));
     await tester.pumpWidget(GetMaterialApp(home: const Scaffold(body: PageChatView())));
     await tester.pumpAndSettle();
     final chat = controller.activeChat.value;
     await DBChat.send(chat, 'Search rain');
-    final answer = await DBChat.addAssistant(chat, 'fixture');
+    final answer = await DBChat.addAssistant(chat, 'fixture', provider: 'Saved provider');
     answer..status = 'completed'..content = ChatKnowledge.render({
       'columns': ['code', 'title', 'title_ja'], 'rows': [['TEST-001', 'Rainy walk', '雨の散歩']],
       'sources': ['fixture'], 'elapsed_ms': 1, 'truncated': false,
@@ -173,7 +174,7 @@ void main() {
     Get.put<DBService>(ChatTestService()..dbMain = database);
     Get.put(AppSettingService()..pref = ChatTestPreferences());
     final knowledge = _PagedKnowledge();
-    final api = _Agnes(knowledge: knowledge);
+    final api = _ChatApi(knowledge: knowledge);
     final controller = Get.put(PageChatController(api: api));
     await tester.pumpWidget(GetMaterialApp(home: const Scaffold(body: PageChatView())));
     await tester.pumpAndSettle();
@@ -204,7 +205,7 @@ void main() {
     await controller.flushDraft();
     final chat = controller.activeChat.value;
     await DBChat.send(chat, 'Search rain');
-    final answer = await DBChat.addAssistant(chat, 'fixture');
+    final answer = await DBChat.addAssistant(chat, 'fixture', provider: 'Saved provider');
     final query = <String, dynamic>{'operation': 'search_titles', 'source': 'r18', 'terms': ['rain', '雨'], 'limit': 25, 'offset': 0};
     answer..status = 'completed'..titleSearch = {...query, 'has_more': true}
       ..content = ChatKnowledge.render(await knowledge.request(query, CancelToken()));
@@ -246,7 +247,7 @@ void main() {
     final database = ChatTestDatabase();
     Get.put<DBService>(ChatTestService()..dbMain = database);
     Get.put(AppSettingService()..pref = ChatTestPreferences());
-    final api = _Agnes(apiKey: '');
+    final api = _ChatApi(apiKey: '');
     final controller = Get.put(PageChatController(api: api));
     await tester.pumpWidget(GetMaterialApp(home: const Scaffold(body: PageChatView())));
     await tester.pumpAndSettle();
@@ -258,23 +259,24 @@ void main() {
     await controller.selectChat(second);
     controller.usePrompt('/');
     await tester.pump();
-    expect(find.text('/status'), findsOneWidget);
+    expect(find.text('/status'), findsNothing);
+    expect(find.text('/help'), findsNothing);
     expect(find.text('/clear'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pump();
     expect(controller.commandIndex.value, 1);
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pump();
-    expect(controller.input.text, '/new');
+    expect(controller.input.text, '/stop');
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
     expect(controller.matchingCommands, isEmpty);
-    controller.usePrompt('/sta');
+    controller.usePrompt('/sto');
     await tester.pump();
     expect(find.text('/clear'), findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
-    expect(controller.commandNotice.value, contains('API: not configured'));
+    expect(controller.commandNotice.value, 'No response is running.');
     expect(controller.messages.length, 1);
     expect(api.requests, isEmpty);
     controller.usePrompt('/unknown');
@@ -283,7 +285,7 @@ void main() {
     expect(controller.commandNotice.value, contains('Unknown command'));
     controller.usePrompt('/help');
     await controller.send();
-    expect(controller.commandNotice.value, contains('/clear'));
+    expect(controller.commandNotice.value, contains('Unknown command'));
     controller.usePrompt('/clear');
     database.failWrites = true;
     await controller.send();
@@ -314,7 +316,7 @@ void main() {
     addTearDown(Get.reset);
     Get.put<DBService>(ChatTestService()..dbMain = ChatTestDatabase());
     Get.put(AppSettingService()..pref = ChatTestPreferences());
-    final api = _Agnes()..wait = Completer<void>();
+    final api = _ChatApi()..wait = Completer<void>();
     final controller = Get.put(PageChatController(api: api));
     await tester.pumpWidget(GetMaterialApp(home: const Scaffold(body: PageChatView())));
     await tester.pumpAndSettle();
@@ -343,7 +345,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     Get.put<DBService>(ChatTestService()..dbMain = ChatTestDatabase());
     Get.put(AppSettingService()..pref = ChatTestPreferences());
-    final controller = Get.put(PageChatController(api: _Agnes()));
+    final controller = Get.put(PageChatController(api: _ChatApi()));
     String? copied;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
       if (call.method == 'Clipboard.setData') copied = call.arguments['text'] as String;
@@ -354,7 +356,7 @@ void main() {
     await tester.pumpAndSettle();
     final chat = controller.activeChat.value;
     await DBChat.send(chat, 'Show 200 records');
-    final response = await DBChat.addAssistant(chat, 'test');
+    final response = await DBChat.addAssistant(chat, 'test', provider: 'Saved provider');
     response.content = ChatKnowledge.render({
       'columns': ['dvd_id', 'title_en'], 'rows': List.generate(200, (i) => ['TEST-${i + 1}', 'Sample title ${i + 1}']),
       'sources': ['fixture.db'], 'elapsed_ms': 1, 'truncated': false,
@@ -397,7 +399,7 @@ void main() {
     final database = ChatTestDatabase();
     Get.put<DBService>(ChatTestService()..dbMain = database);
     Get.put(AppSettingService()..pref = ChatTestPreferences());
-    final api = _Agnes()..wait = Completer<void>();
+    final api = _ChatApi()..wait = Completer<void>();
     final controller = Get.put(PageChatController(api: api));
     await tester.pumpWidget(GetMaterialApp(home: const Scaffold(body: PageChatView())));
     await tester.pumpAndSettle();
@@ -449,7 +451,7 @@ void main() {
     final database = ChatTestDatabase();
     Get.put<DBService>(ChatTestService()..dbMain = database);
     Get.put(AppSettingService()..pref = ChatTestPreferences());
-    final controller = Get.put(PageChatController(api: _Agnes()));
+    final controller = Get.put(PageChatController(api: _ChatApi()));
     String? copied;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
       if (call.method == 'Clipboard.setData') copied = call.arguments['text'] as String;
@@ -507,12 +509,86 @@ void main() {
     expect(find.text('Retry response'), findsOneWidget);
   });
 
+  testWidgets('Messages edit inline, preserve drafts and regenerate; pinned chats survive reload', (tester) async {
+    addTearDown(Get.reset);
+    final database = ChatTestDatabase();
+    Get.put<DBService>(ChatTestService()..dbMain = database);
+    Get.put(AppSettingService()..pref = ChatTestPreferences());
+    final api = _ChatApi();
+    final controller = Get.put(PageChatController(api: api));
+    await tester.pumpWidget(GetMaterialApp(home: const Scaffold(body: PageChatView())));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Hybrid ·'), findsNothing);
+    controller.usePrompt('Original question');
+    await controller.send();
+    controller.usePrompt('Follow-up');
+    await controller.send();
+    final first = controller.messages.first;
+    controller.usePrompt('Unsent draft');
+    await controller.flushDraft();
+    await tester.pumpAndSettle();
+    final edit = find.byTooltip('Edit message').last;
+    await tester.ensureVisible(edit);
+    await tester.tap(edit);
+    await tester.pumpAndSettle();
+    final field = find.byKey(const ValueKey('edit-message-input'));
+    await tester.enterText(field, 'Changed question');
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+    expect(controller.messages.first.content, 'Original question');
+    expect(controller.input.text, 'Unsent draft');
+    controller.editMessage(first);
+    await tester.pumpAndSettle();
+    await tester.enterText(field, '  ');
+    await tester.pump();
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Save & resend')).onPressed, isNull);
+    await tester.enterText(field, 'Changed question');
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save & resend'));
+    await tester.pumpAndSettle();
+    database.failWrites = true;
+    await tester.tap(find.text('Save & resend'));
+    await tester.pumpAndSettle();
+    expect(controller.messages, hasLength(4));
+    expect(controller.editInput.text, 'Changed question');
+    expect(controller.error.value, isNotEmpty);
+    database.failWrites = false;
+    await tester.ensureVisible(find.text('Save & resend'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save & resend'));
+    await tester.pumpAndSettle();
+    expect(controller.messages.map((m) => m.content), ['Changed question', 'Test answer']);
+    expect(controller.messages.first.id, first.id);
+    expect(controller.input.text, 'Unsent draft');
+    expect(api.requests.last, [{'role': 'user', 'content': 'Changed question'}]);
+    final pinned = controller.activeChat.value;
+    await tester.tap(find.descendant(of: find.widgetWithText(ListTile, pinned.title), matching: find.byTooltip('Chat options')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pin chat'));
+    await tester.pumpAndSettle();
+    expect(pinned.isPinned, isTrue);
+    await controller.newChat();
+    controller.usePrompt('Newer conversation');
+    await controller.send();
+    expect(controller.chats.first.id, pinned.id);
+    await controller.reload();
+    expect(controller.chats.first.id, pinned.id);
+    expect(controller.chats.first.isPinned, isTrue);
+    await controller.selectChat(controller.chats.first);
+    expect(controller.messages.first.content, 'Changed question');
+    expect(controller.input.text, 'Unsent draft');
+    await controller.togglePin(controller.activeChat.value);
+    expect(controller.chats.first.title, 'Newer conversation');
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Chat history preserves drafts and supports search, rename and deletion', (tester) async {
     addTearDown(Get.reset);
     final database = ChatTestDatabase();
     Get.put<DBService>(ChatTestService()..dbMain = database);
     Get.put(AppSettingService()..pref = ChatTestPreferences());
-    final controller = Get.put(PageChatController(api: _Agnes()));
+    final controller = Get.put(PageChatController(api: _ChatApi()));
     await tester.pumpWidget(GetMaterialApp(
       theme: ThemeData.light(), darkTheme: ThemeData.dark(), themeMode: ThemeMode.dark,
       home: const Scaffold(body: PageChatView()),

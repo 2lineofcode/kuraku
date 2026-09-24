@@ -14,11 +14,6 @@ mixin DBProfile {
     return maps.isNotEmpty ? Profile.fromJson(maps.first) : null;
   }
 
-  static Future<void> update(Profile profile) async {
-    profile.updatedAt = DateTime.now().toStringEx();
-    await _db.update(_tableName, profile.toJson(), where: 'id = ?', whereArgs: [profile.id]);
-  }
-
   static Future<void> updateName(String name) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) throw ArgumentError('Name cannot be empty');
@@ -29,29 +24,17 @@ mixin DBProfile {
     if (updated == 0) throw StateError('Profile not found');
   }
 
-  static Future<void> updateTotalWatchDuration(Duration duration) async {
-    final profile = await getProfile();
-    if (profile == null) return;
-
-    profile.totalWatchDuration = (profile.totalWatchDuration ?? 0) + duration.inSeconds;
-    profile.badgeForWatchDuration = _watchDurationBadge(profile.totalWatchDuration ?? 0);
-    await update(profile);
-  }
-
   static Future<void> syncCollectionBadge(int totalVideo) async {
-    final profile = await getProfile();
-    if (profile == null) return;
-
-    profile.badgeForCollection = _collectionBadge(totalVideo);
-    await update(profile);
+    await _db.update(_tableName, {'badge_for_collection': _collectionBadge(totalVideo)}, where: 'id = ?', whereArgs: ['1']);
   }
 
   static Future<void> syncWatchDurationBadge() async {
-    final profile = await getProfile();
-    if (profile == null) return;
-
-    profile.badgeForWatchDuration = _watchDurationBadge(profile.totalWatchDuration ?? 0);
-    await update(profile);
+    await _db.transaction((txn) async {
+      final rows = await txn.query(_tableName, columns: ['total_watch_duration'], where: 'id = ?', whereArgs: ['1']);
+      if (rows.isEmpty) return;
+      await txn.update(_tableName, {'badge_for_watch_duration': watchDurationBadge((rows.first['total_watch_duration'] as int?) ?? 0)},
+        where: 'id = ?', whereArgs: ['1']);
+    });
   }
 
   static String _collectionBadge(int count) {
@@ -73,7 +56,7 @@ mixin DBProfile {
     }
   }
 
-  static String _watchDurationBadge(int seconds) {
+  static String watchDurationBadge(int seconds) {
     if (seconds <= 0) return 'Fresh Eyes';
 
     final hours = seconds ~/ 3600;

@@ -19,6 +19,9 @@ def test_queries():
             db.executescript("CREATE TABLE derived_video (content_id TEXT, dvd_id TEXT, title_en TEXT); INSERT INTO derived_video VALUES ('one', 'TEST-001', 'Catalog title');")
         def run(sql, **extra):
             return knowledge.run({'main': str(main), 'r18': str(r18), 'sql': sql, **extra})
+        with sqlite3.connect(main) as db:
+            db.executescript("CREATE TABLE playlist (id TEXT, name TEXT); CREATE TABLE playlist_item (playlist_id TEXT, video_id TEXT, created_at TEXT); INSERT INTO playlist VALUES ('p1','My list'); INSERT INTO playlist_item VALUES ('p1','0','2026');")
+        assert run('SELECT p.name, v.video_code FROM playlist p JOIN playlist_item i ON i.playlist_id=p.id JOIN videos v ON v.id=i.video_id')['rows'] == [['My list', 'TEST-001']]
         assert run('SELECT count(*) AS total FROM main.videos')['rows'] == [[30]]
         assert run('SELECT title FROM main.videos WHERE video_code = ?', args=["' OR 1=1 --"])['rows'] == []
         joined = run('SELECT DISTINCT v.video_code, r.title_en FROM main.videos v JOIN r18.derived_video r ON r.dvd_id = v.video_code')

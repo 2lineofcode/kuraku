@@ -18,7 +18,7 @@ void main() {
         return const MaterialApp(home: Text('Home ready'));
       }),
     ));
-    expect(find.text('Opening JavIt...'), findsOneWidget);
+    expect(find.text('Opening JavIt, Please wait...'), findsOneWidget);
     expect(appBuilt, isFalse);
     await tester.pump();
     expect(calls, 1);

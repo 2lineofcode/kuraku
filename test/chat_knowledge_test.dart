@@ -5,8 +5,8 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/utils/agnes_chat_service.dart';
 import 'package:javit/app/utils/chat_knowledge.dart';
+import 'package:javit/app/utils/chat_service.dart';
 
 class _Knowledge extends ChatKnowledge {
   _Knowledge() : super(mainPath: '/local/javit.db', r18Path: '/local/r18_test.db');
@@ -71,7 +71,7 @@ void main() {
 
   test('Exact local intents bypass API even without an API key; complex filters do not', () async {
     final knowledge = _Knowledge();
-    final api = AgnesChatService(apiKey: '', knowledge: knowledge);
+    final api = ChatService(apiKey: '', knowledge: knowledge);
     addTearDown(api.close);
     final result = await api.reply([{'role': 'user', 'content': 'Berapa jumlah video saya?'}], CancelToken()).join();
     expect(result, contains('| 42 |'));
@@ -99,7 +99,7 @@ void main() {
   test('Complex questions use a bounded query, then stream a grounded answer', () async {
     final knowledge = _Knowledge();
     final adapter = _Adapter();
-    final api = AgnesChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
+    final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
     addTearDown(api.close);
     final messages = [{'role': 'user', 'content': 'Count my 4K favorites'}];
     final result = await api.reply(messages, CancelToken()).join();
@@ -119,7 +119,7 @@ void main() {
       'sources': ['r18_test.db'], 'elapsed_ms': 1, 'truncated': false,
     };
     final adapter = _Adapter()..answers[0] = '{"sql":"SELECT dvd_id AS code, title_en FROM r18.derived_video ORDER BY dvd_id LIMIT 200"}';
-    final api = AgnesChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
+    final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
     addTearDown(api.close);
     final result = await api.reply([{'role': 'user', 'content': 'Show 200 matching videos'}], CancelToken()).join();
     expect(adapter.requests, hasLength(1));
@@ -149,7 +149,7 @@ void main() {
       'search_terms': ['rain', '雨'], 'sources': ['r18_test.db'], 'elapsed_ms': 1, 'truncated': false,
     };
     final adapter = _Adapter()..answers[0] = '{"terms":["rain","雨"],"source":"r18","missing_english":true,"limit":200}';
-    final api = AgnesChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
+    final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
     addTearDown(api.close);
     Map<String, dynamic>? search;
     api.onTitleSearch = (value) => search = value;
@@ -177,7 +177,7 @@ void main() {
       '{"code":"TEST-001"}',
       '{"terms":["rain","雨"],"source":"r18","similar_to":"TEST-001","required_terms":[["outdoor","屋外"]],"exclude_terms":["compilation"],"unowned":true,"limit":25}',
     ]);
-    final api = AgnesChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
+    final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
     addTearDown(api.close);
     Map<String, dynamic>? saved;
     api.onTitleSearch = (query) => saved = query;
@@ -197,7 +197,7 @@ void main() {
   test('Textual tool markup is hidden and retried using the local tool', () async {
     final knowledge = _Knowledge();
     final adapter = _Adapter()..answers.insert(0, '<tool_call>\n<function=web_search>\n<parameter=query>SELECT * FROM main.videos</parameter>\n</function>\n</tool_call>');
-    final api = AgnesChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
+    final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
     addTearDown(api.close);
     final activities = <String>[];
     api.onActivity = activities.add;
@@ -213,13 +213,13 @@ void main() {
   test('General chat needs no SQL; rejected queries and cancellation cannot produce a fabricated result', () async {
     final knowledge = _Knowledge();
     final adapter = _Adapter()..answers.clear()..answers.add('Hello!');
-    final api = AgnesChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
+    final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
     addTearDown(api.close);
     expect(await api.reply([{'role': 'user', 'content': 'Hello'}], CancelToken()).join(), 'Hello!');
     expect(knowledge.queries.length, 1);
     knowledge.fail = true;
-    await expectLater(api.reply([{'role': 'user', 'content': 'total video saya'}], CancelToken()).join(), throwsA(isA<AgnesChatException>()));
-    await expectLater(api.reply([{'role': 'user', 'content': 'total video saya'}], CancelToken()..cancel()).join(), throwsA(isA<AgnesChatException>()));
+    await expectLater(api.reply([{'role': 'user', 'content': 'total video saya'}], CancelToken()).join(), throwsA(isA<ChatException>()));
+    await expectLater(api.reply([{'role': 'user', 'content': 'total video saya'}], CancelToken()..cancel()).join(), throwsA(isA<ChatException>()));
     expect(adapter.requests.length, 1);
   });
 }

@@ -12,6 +12,7 @@ class ChatConversation {
   final String createdAt;
   String title = 'New chat';
   String draft = '';
+  bool isPinned = false;
   late String updatedAt;
   late String lastActivityAt;
   bool persisted = false;
@@ -21,13 +22,14 @@ class ChatConversation {
       : id = json['id'] as String, createdAt = json['created_at'] as String {
     title = json['title'] as String;
     draft = json['draft'] as String;
+    isPinned = json['is_pinned'] == 1;
     updatedAt = json['updated_at'] as String;
     lastActivityAt = json['last_activity_at'] as String;
     persisted = true;
   }
 
   Map<String, Object?> toJson() => {
-    'id': id, 'title': title, 'draft': draft,
+    'id': id, 'title': title, 'draft': draft, 'is_pinned': isPinned ? 1 : 0,
     'created_at': createdAt, 'updated_at': updatedAt, 'last_activity_at': lastActivityAt,
   };
 }
@@ -58,7 +60,7 @@ class ChatMessage {
   final String id, conversationId, role, createdAt;
   String content, status, updatedAt;
   final int position;
-  final String? provider, model;
+  String? provider, model;
   String? errorMessage;
   final activity = <String>[];
   int elapsedMs = 0;

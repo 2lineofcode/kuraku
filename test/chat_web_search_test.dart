@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/utils/agnes_chat_service.dart';
+import 'package:javit/app/utils/chat_service.dart';
 import 'package:javit/app/utils/chat_web_search.dart';
 
 class _Adapter implements HttpClientAdapter {
@@ -40,7 +40,7 @@ void main() {
         _event({'tool_calls': [{'index': 0, 'function': {'name': 'search', 'arguments': '"Python release"}'}}]}, 'tool_calls'), 'data: [DONE]\n\n'].join());
       return _stream([_event({'content': 'Found the official release page.'}, 'stop'), 'data: [DONE]\n\n'].join());
     });
-    final api = AgnesChatService(apiKey: 'agnes-key', webSearch: search, dio: Dio()..httpClientAdapter = adapter);
+    final api = ChatService(apiKey: 'test-key', webSearch: search, dio: Dio()..httpClientAdapter = adapter);
     addTearDown(api.close);
     final result = await api.reply([{'role': 'user', 'content': 'Search Python releases'}], CancelToken()).join();
     expect(result, contains('**Web sources**'));
@@ -48,7 +48,7 @@ void main() {
     expect(result, isNot(contains('javascript:')));
     expect(searchAdapter.requests.single.headers['Authorization'], 'Bearer search-key');
     expect(searchAdapter.requests.single.data, isNot(contains('messages')));
-    expect(adapter.requests.first.headers['Authorization'], 'Bearer agnes-key');
+    expect(adapter.requests.first.headers['Authorization'], 'Bearer test-key');
     final history = adapter.requests.last.data['messages'] as List;
     expect(history.last['role'], 'tool');
     expect(history.last['tool_call_id'], 'call_1');
@@ -76,7 +76,7 @@ void main() {
     final searchAdapter = _Adapter((_) => throw StateError('Search must not execute'));
     var count = 0;
     final adapter = _Adapter((_) => count++ == 0 ? _stream(_call(arguments: '{broken')) : _stream(_event({'content': 'Search failed.'}, 'stop')));
-    final api = AgnesChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter,
+    final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter,
       webSearch: ChatWebSearch(apiKey: 'test', dio: Dio()..httpClientAdapter = searchAdapter));
     addTearDown(api.close);
     expect(await api.reply([{'role': 'user', 'content': 'Search'}], CancelToken()).join(), 'Search failed.');
@@ -87,10 +87,10 @@ void main() {
   test('Repeated tool calls stop at the round limit', () async {
     final adapter = _Adapter((_) => _stream(_call()));
     final searchAdapter = _Adapter((_) => _json({'results': []}));
-    final api = AgnesChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter,
+    final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter,
       webSearch: ChatWebSearch(apiKey: 'test', dio: Dio()..httpClientAdapter = searchAdapter));
     addTearDown(api.close);
-    await expectLater(api.reply([{'role': 'user', 'content': 'Search'}], CancelToken()).join(), throwsA(isA<AgnesChatException>()));
+    await expectLater(api.reply([{'role': 'user', 'content': 'Search'}], CancelToken()).join(), throwsA(isA<ChatException>()));
     expect(adapter.requests.length, 3);
     expect(adapter.requests.last.data['tool_choice'], 'none');
     expect(searchAdapter.requests.length, 2);
@@ -115,7 +115,7 @@ void main() {
   test('Incomplete tool streams never execute a partial call', () async {
     final calls = <Map<String, dynamic>>[];
     final body = [_event({'tool_calls': [{'index': 0, 'id': 'call_1', 'function': {'name': 'web_search', 'arguments': '{"query":'}}]}), 'data: [DONE]\n\n'].join();
-    await expectLater(AgnesChatService.decodeEvents(Stream.value(utf8.encode(body)), toolCalls: calls).toList(), throwsA(isA<AgnesChatException>()));
+    await expectLater(ChatService.decodeEvents(Stream.value(utf8.encode(body)), toolCalls: calls).toList(), throwsA(isA<ChatException>()));
     expect(calls, isEmpty);
   });
 }

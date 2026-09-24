@@ -6,20 +6,21 @@ import '../../env.g.dart';
 import 'chat_knowledge.dart';
 import 'chat_web_search.dart';
 
-class AgnesChatException implements Exception {
-  const AgnesChatException(this.message);
+class ChatException implements Exception {
+  const ChatException(this.message);
   final String message;
   @override
   String toString() => message;
 }
 
-class AgnesChatService {
-  AgnesChatService({Dio? dio, String? apiKey, String? baseUrl, String? model, this.knowledge, ChatWebSearch? webSearch})
+class ChatService {
+  ChatService({Dio? dio, String? apiKey, String? baseUrl, String? model, String? provider, this.knowledge, ChatWebSearch? webSearch})
       : webSearch = webSearch ?? ChatWebSearch(),
         _dio = dio ?? Dio(BaseOptions(connectTimeout: const Duration(seconds: 20))),
-        _apiKey = (apiKey ?? Env.agnesApiKey).trim(),
-        baseUrl = (baseUrl ?? Env.agnesBaseUrl).trim().replaceFirst(RegExp(r'/+$'), ''),
-        model = (model ?? Env.agnesModel).trim();
+        _apiKey = (apiKey ?? Env.aiApiKey).trim(),
+        baseUrl = (baseUrl ?? Env.aiBaseUrl).trim().replaceFirst(RegExp(r'/+$'), ''),
+        model = (model ?? Env.aiModel).trim(),
+        provider = (provider ?? Env.aiProvider).trim();
 
   void Function(String)? onActivity;
   void Function(Map<String, dynamic>)? onTitleSearch;
@@ -27,15 +28,16 @@ class AgnesChatService {
   final ChatKnowledge? knowledge;
   final Dio _dio;
   final String _apiKey;
-  final String baseUrl, model;
+  final String baseUrl, model, provider;
 
   String? get configurationError {
-    if (_apiKey.isEmpty) return 'Set AGNES_API_KEY in .env, run dart run enven, then restart the app.';
+    if (_apiKey.isEmpty) return 'Set AI_API_KEY in .env, run dart run enven, then restart the app.';
     final uri = Uri.tryParse(baseUrl);
     if (uri == null || uri.scheme != 'https' || uri.host.isEmpty || uri.userInfo.isNotEmpty || uri.hasQuery || uri.hasFragment) {
-      return 'AGNES_BASE_URL must be an HTTPS API base URL, such as https://apihub.agnes-ai.com/v1.';
+      return 'AI_BASE_URL must be an HTTPS API base URL, such as https://api.example.com/v1.';
     }
-    if (model.isEmpty) return 'Set AGNES_MODEL in .env, then regenerate the environment and restart.';
+    if (provider.isEmpty) return 'Set AI_PROVIDER in .env, then regenerate the environment and restart.';
+    if (model.isEmpty) return 'Set AI_MODEL in .env, then regenerate the environment and restart.';
     return null;
   }
 
@@ -65,18 +67,18 @@ class AgnesChatService {
       }
       yield* _remoteReply(messages, cancelToken, schema: schema);
     } on DioException catch (error) {
-      if (CancelToken.isCancel(error)) throw const AgnesChatException('Response stopped.');
+      if (CancelToken.isCancel(error)) throw const ChatException('Response stopped.');
       rethrow;
     } on StateError catch (error) {
-      throw AgnesChatException(error.message.toString());
+      throw ChatException(error.message.toString());
     } on FormatException {
-      throw const AgnesChatException('Could not understand the local query. Try a more specific question.');
+      throw const ChatException('Could not understand the local query. Try a more specific question.');
     }
   }
 
   Stream<String> _remoteReply(List<Map<String, String>> messages, CancelToken cancelToken, {Map<String, dynamic>? schema}) async* {
     final invalid = configurationError;
-    if (invalid != null) throw AgnesChatException(invalid);
+    if (invalid != null) throw ChatException(invalid);
     final links = <String, String>{};
     final localSources = <String>{};
     final history = <Map<String, dynamic>>[
@@ -121,7 +123,7 @@ class AgnesChatService {
           ),
         );
         final body = response.data;
-        if (body == null) throw const AgnesChatException('AgnesAI returned an empty response.');
+        if (body == null) throw const ChatException('The AI provider returned an empty response.');
         final calls = <Map<String, dynamic>>[];
         final content = StringBuffer();
         try {
@@ -140,7 +142,7 @@ class AgnesChatService {
           if (links.isNotEmpty) yield _sourceFooter(links);
           return;
         }
-        if (round == 2) throw const AgnesChatException('The tool request could not be completed. Please retry with a more specific question.');
+        if (round == 2) throw const ChatException('The tool request could not be completed. Please retry with a more specific question.');
         if (content.isNotEmpty) yield '\n\n';
         history.add({'role': 'assistant', 'content': content.isEmpty ? null : content.toString(), 'tool_calls': calls});
         for (final call in calls) {
@@ -205,24 +207,24 @@ class AgnesChatService {
       }
 
     } on DioException catch (error) {
-      if (CancelToken.isCancel(error)) throw const AgnesChatException('Response stopped.');
+      if (CancelToken.isCancel(error)) throw const ChatException('Response stopped.');
       final status = error.response?.statusCode;
       final message = switch (status) {
-        401 || 403 => 'AgnesAI rejected the API key or model access. Check your account and configuration.',
-        429 => 'AgnesAI rate limit or quota reached. Wait before retrying.',
-        404 => 'AgnesAI endpoint or model was not found. Check AGNES_BASE_URL and AGNES_MODEL.',
-        400 => 'AgnesAI rejected this request. The conversation may be too long or the model configuration invalid.',
-        _ => 'Could not reach AgnesAI or the response was interrupted. Please retry.',
+        401 || 403 => 'The AI provider rejected the API key or model access. Check your account and configuration.',
+        429 => 'The AI provider rate limit or quota reached. Wait before retrying.',
+        404 => 'The AI provider endpoint or model was not found. Check AI_BASE_URL and AI_MODEL.',
+        400 => 'The AI provider rejected this request. The conversation may be too long or the model configuration invalid.',
+        _ => 'Could not reach The AI provider or the response was interrupted. Please retry.',
       };
-      throw AgnesChatException(message);
+      throw ChatException(message);
     } on FormatException {
-      throw const AgnesChatException('The response could not be read. Please retry.');
+      throw const ChatException('The response could not be read. Please retry.');
     }
   }
 
   Future<String> translateTitle(String title, CancelToken token) async {
-    if (title.trim().isEmpty || title.length > 4000) throw const AgnesChatException('Title must contain 1–4000 characters.');
-    if (configurationError != null) throw AgnesChatException(configurationError!);
+    if (title.trim().isEmpty || title.length > 4000) throw const ChatException('Title must contain 1–4000 characters.');
+    if (configurationError != null) throw ChatException(configurationError!);
     try {
       final response = await _dio.post<ResponseBody>('$baseUrl/chat/completions',
         data: {'model': model, 'stream': true, 'messages': [
@@ -234,19 +236,19 @@ class AgnesChatService {
           contentType: Headers.jsonContentType, responseType: ResponseType.stream, followRedirects: false,
           sendTimeout: const Duration(seconds: 30), receiveTimeout: const Duration(seconds: 90)),
       );
-      if (response.data == null) throw const AgnesChatException('Translation returned no text.');
+      if (response.data == null) throw const ChatException('Translation returned no text.');
       final output = StringBuffer();
       await for (final chunk in decodeEvents(response.data!.stream.cast<List<int>>())) {
         output.write(chunk);
-        if (output.length > 16000) throw const AgnesChatException('Translation response was too long.');
+        if (output.length > 16000) throw const ChatException('Translation response was too long.');
       }
       final translated = output.toString().trim();
-      if (translated.isEmpty) throw const AgnesChatException('Translation returned no text.');
+      if (translated.isEmpty) throw const ChatException('Translation returned no text.');
       return translated;
     } on DioException {
-      throw const AgnesChatException('Translation failed. Check your connection and API configuration, then retry.');
+      throw const ChatException('Translation failed. Check your connection and API configuration, then retry.');
     } on FormatException {
-      throw const AgnesChatException('Translation could not be read. Please retry.');
+      throw const ChatException('Translation could not be read. Please retry.');
     }
   }
 
@@ -267,14 +269,14 @@ class AgnesChatService {
       final payload = data.join('\n');
       data = [];
       if (payload.trim() == '[DONE]') {
-        if (!hasContent && calls.isEmpty) throw const AgnesChatException('AgnesAI returned no answer. Please retry.');
-        if (calls.isNotEmpty && !finished) throw const AgnesChatException('AgnesAI returned incomplete tool calls.');
+        if (!hasContent && calls.isEmpty) throw const ChatException('The AI provider returned no answer. Please retry.');
+        if (calls.isNotEmpty && !finished) throw const ChatException('The AI provider returned incomplete tool calls.');
         if (pendingText.length >= 4) throw const FormatException('Incomplete protocol marker');
         if (pendingText.isNotEmpty) yield pendingText;
         return;
       }
       final decoded = jsonDecode(payload);
-      if (decoded is! Map || decoded['error'] != null) throw const AgnesChatException('AgnesAI could not complete this response.');
+      if (decoded is! Map || decoded['error'] != null) throw const ChatException('The AI provider could not complete this response.');
       final choices = decoded['choices'];
       if (choices is! List) throw const FormatException('Missing choices');
       if (choices.isEmpty) continue;
@@ -325,13 +327,13 @@ class AgnesChatService {
           continue;
         }
         if (calls.isNotEmpty) throw const FormatException('Missing tool finish reason');
-        if (reason != 'stop') throw const AgnesChatException('AgnesAI stopped before completing the answer. You can retry.');
+        if (reason != 'stop') throw const ChatException('The AI provider stopped before completing the answer. You can retry.');
         finished = true;
       }
     }
     if (pendingText.length >= 4) throw const FormatException('Incomplete protocol marker');
     if (pendingText.isNotEmpty) yield pendingText;
-    if (!finished || (!hasContent && calls.isEmpty)) throw const AgnesChatException('AgnesAI disconnected before the answer was complete. Please retry.');
+    if (!finished || (!hasContent && calls.isEmpty)) throw const ChatException('The AI provider disconnected before the answer was complete. Please retry.');
   }
 
   static Stream<String> _withFinalLine(Stream<String> lines) async* {

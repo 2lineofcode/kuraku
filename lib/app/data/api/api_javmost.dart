@@ -7,6 +7,9 @@ import '../../core/app_network.dart';
 import '../models/__javmost_new_release.dart';
 
 mixin ApiJavMost {
+
+  static final String _BASE_URL = 'https://www.javmost.ws';
+
   static Map<String, dynamic> _parseMap(dynamic data) {
     if (data is Map<String, dynamic>) return data;
 
@@ -32,32 +35,32 @@ mixin ApiJavMost {
 
   static Future<JavMostModel> getNewRelease({int page = 1}) async {
     if (page <= 1) page = 1;
-    return _fetch('${Env.proxyUrl}https://www.javmost.ws/showlist2/new/$page/release/');
+    return _fetch('${Env.proxyUrl}$_BASE_URL/showlist2/new/$page/release/');
   }
 
   static Future<JavMostModel> getTopMonthly({int page = 1}) async {
     if (page <= 1) page = 1;
-    return _fetch('${Env.proxyUrl}https://www.javmost.ws/showlist2/none/$page/topmonth/');
+    return _fetch('${Env.proxyUrl}$_BASE_URL/showlist2/none/$page/topmonth/');
   }
 
   static Future<JavMostModel> getTopWeekly({int page = 1}) async {
     if (page <= 1) page = 1;
-    return _fetch('${Env.proxyUrl}https://www.javmost.ws/showlist2/none/$page/topweek/');
+    return _fetch('${Env.proxyUrl}$_BASE_URL/showlist2/none/$page/topweek/');
   }
 
   static Future<JavMostModel> getTopDaily({int page = 1}) async {
     if (page <= 1) page = 1;
-    return _fetch('${Env.proxyUrl}https://www.javmost.ws/showlist2/none/$page/topdaily/');
+    return _fetch('${Env.proxyUrl}$_BASE_URL/showlist2/none/$page/topdaily/');
   }
 
   static Future<JavMostModel> getBestRating({int page = 1}) async {
     if (page <= 1) page = 1;
-    return _fetch('${Env.proxyUrl}https://www.javmost.ws/showlist2/none/$page/rating/');
+    return _fetch('${Env.proxyUrl}$_BASE_URL/showlist2/none/$page/rating/');
   }
 
   static Future<JavMostModel> search({String s = '',  int page = 1}) async {
     if (page <= 1) page = 1;
     final q = Uri.encodeComponent(s.trim());
-    return _fetch('${Env.proxyUrl}https://www.javmost.ws/showlist2/$q/$page/search/');
+    return _fetch('${Env.proxyUrl}$_BASE_URL/showlist2/$q/$page/search/');
   }
 }
