@@ -8,6 +8,10 @@ import 'package:javit/app/modules/home/home_controller.dart';
 
 class _HomeController extends GetxController implements HomeController {
   int searchRequests = 0;
+  String? selectedMenu;
+
+  @override
+  Future<void> onMenuChange(String menu) async { selectedMenu = menu; }
 
   @override
   Future<void> onInit() async { super.onInit(); }
@@ -43,6 +47,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
     await tester.sendKeyEvent(LogicalKeyboardKey.slash);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    expect(home.selectedMenu, kMenuChat);
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.slash);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
@@ -53,6 +58,11 @@ void main() {
     expect(await tester.sendKeyEvent(LogicalKeyboardKey.slash), isFalse);
     expect(focus.hasFocus, isTrue);
     expect(home.searchRequests, 1);
+    home.selectedMenu = null;
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.slash);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    expect(home.selectedMenu, kMenuChat);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

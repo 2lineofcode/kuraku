@@ -29,6 +29,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
   final _items = <_MultiVideoItem>[];
   final _shortcutFocusNode = FocusNode();
   bool _isLoading = true;
+  bool _closing = false;
   int? _focusedIndex = 0;
   int? _expandedIndex;
 
@@ -41,7 +42,9 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
 
   @override
   void dispose() {
+    _closing = true;
     for (final item in _items) {
+      item.videoSize.removeListener(_onVideoSizeChanged);
       unawaited(item.dispose());
     }
     SemanticSearchService.endPlayback();
@@ -60,6 +63,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
     }
 
     for (final video in candidates) {
+      if (!mounted || _closing) return;
       final path = _normalizePath(video.videoPath);
       if (path == null) {
         _items.add(
@@ -83,16 +87,18 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
       }
 
       final player = Player();
-      await player.setVolume(0);
-      await player.setRate(AppPref.getPlayerSpeed());
-      final videoController = VideoController(player);
-      final item = _MultiVideoItem(
-        video: video,
-        player: player,
-        videoController: videoController,
-      );
+      _MultiVideoItem? item;
 
       try {
+        await player.setVolume(0);
+        if (!mounted || _closing) return;
+        await player.setRate(AppPref.getPlayerSpeed());
+        if (!mounted || _closing) return;
+        item = _MultiVideoItem(
+          video: video,
+          player: player,
+          videoController: VideoController(player),
+        );
         item.videoSize.addListener(_onVideoSizeChanged);
         item.bindPlayerStreams();
 
@@ -101,30 +107,37 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
           play: true,
         );
 
+        if (!mounted || _closing) return;
         _items.add(item);
       } catch (e) {
-        item.videoSize.removeListener(_onVideoSizeChanged);
-        await item.dispose();
+        if (!mounted || _closing) return;
         _items.add(
           _MultiVideoItem(
             video: video,
             errorText: 'Failed to open video: $e',
           ),
         );
+      } finally {
+        if (item == null) {
+          await player.dispose();
+        } else if (!_items.contains(item)) {
+          item.videoSize.removeListener(_onVideoSizeChanged);
+          await item.dispose();
+        }
       }
     }
 
-    if (mounted) {
+    if (mounted && !_closing) {
       setState(() => _isLoading = false);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_items.isEmpty) return;
+        if (!mounted || _closing || _items.isEmpty) return;
         _focusTile(0);
       });
     }
   }
 
   void _focusTile(int index) {
-    if (index < 0 || index >= _items.length) return;
+    if (!mounted || _closing || index < 0 || index >= _items.length) return;
     final item = _items[index];
     if (item.videoController == null) return;
 
@@ -141,7 +154,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
   }
 
   void _toggleExpandTile(int index) {
-    if (index < 0 || index >= _items.length) return;
+    if (!mounted || _closing || index < 0 || index >= _items.length) return;
     if (_items[index].videoController == null) return;
 
     final shouldCollapse = _expandedIndex == index;
@@ -158,18 +171,19 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
   }
 
   void _closeTile(int index) {
-    if (index < 0 || index >= _items.length) return;
+    if (!mounted || _closing || index < 0 || index >= _items.length) return;
 
     final item = _items.removeAt(index);
     item.videoSize.removeListener(_onVideoSizeChanged);
-    unawaited(item.dispose());
+    // Let the tile unmount before disposing its notifiers and focus node.
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(item.dispose()));
 
     setState(() {
       if (_items.isEmpty) {
         _focusedIndex = null;
         _expandedIndex = null;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) Get.back();
+          _closeAllPlayers();
         });
         return;
       }
@@ -188,17 +202,18 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _items.isEmpty || _focusedIndex == null) return;
+      if (!mounted || _closing || _items.isEmpty || _focusedIndex == null) return;
       _items[_focusedIndex!].focusNode.requestFocus();
     });
   }
 
   void _onVideoSizeChanged() {
-    if (!mounted) return;
+    if (!mounted || _closing) return;
     setState(() {});
   }
 
   Player? get _activePlayer {
+    if (_closing) return null;
     final index = _expandedIndex ?? _focusedIndex;
     if (index == null || index < 0 || index >= _items.length) return null;
     return _items[index].player;
@@ -253,16 +268,10 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
     await player.setVolume(player.state.volume == 0 ? 100 : 0);
   }
 
-  Future<void> _closeAllPlayers() async {
-    final items = List<_MultiVideoItem>.from(_items);
-    _items.clear();
-    for (final item in items) {
-      item.videoSize.removeListener(_onVideoSizeChanged);
-      await item.dispose();
-    }
-    if (mounted) {
-      Get.back();
-    }
+  void _closeAllPlayers() {
+    if (!mounted || _closing || ModalRoute.of(context)?.isCurrent != true) return;
+    setState(() => _closing = true);
+    Get.back();
   }
 
   Future<void> _refreshExpandedPlayback(int index) async {
@@ -272,6 +281,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
 
     try {
       await Future.delayed(const Duration(milliseconds: 50));
+      if (!mounted || _closing || !_items.any((item) => item.player == player)) return;
       final position = player.state.position;
       final playing = player.state.playing;
       await player.pause();
@@ -337,6 +347,9 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
     AppColor.dependOn(context);
     return PopScope(
       canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop && !_closing) setState(() => _closing = true);
+      },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: MaterialDesktopVideoControlsTheme(
@@ -380,7 +393,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
                 _MultiSpeedUpIntent: CallbackAction<_MultiSpeedUpIntent>(onInvoke: (intent) { _changeActiveSpeed(0.1); return null; }),
                 _MultiSpeedDownIntent: CallbackAction<_MultiSpeedDownIntent>(onInvoke: (intent) { _changeActiveSpeed(-0.1); return null; }),
                 _MultiMuteIntent: CallbackAction<_MultiMuteIntent>(onInvoke: (intent) { _toggleActiveMute(); return null; }),
-                _MultiCloseIntent: CallbackAction<_MultiCloseIntent>(onInvoke: (intent) { unawaited(_closeAllPlayers()); return null; }),
+                _MultiCloseIntent: CallbackAction<_MultiCloseIntent>(onInvoke: (intent) { _closeAllPlayers(); return null; }),
               },
               child: Focus(
                 focusNode: _shortcutFocusNode,
@@ -395,6 +408,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
   }
 
   Widget _buildBody() {
+    if (_closing) return const SizedBox.shrink();
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
@@ -424,7 +438,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
               tooltip: 'Back to Grid',
             ),
           IconButton(
-            onPressed: () => Get.back(),
+            onPressed: _closeAllPlayers,
             icon: const Icon(Icons.close, color: Colors.white70),
             tooltip: 'Close',
           ),
@@ -518,6 +532,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
   Widget _buildTile(int index, bool isExpandedMode) {
     final item = _items[index];
     return _GridTile(
+      key: ObjectKey(item),
       item: item,
       isFocused: _focusedIndex == index,
       isExpanded: isExpandedMode,
@@ -539,6 +554,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
 
 class _GridTile extends StatelessWidget {
   const _GridTile({
+    super.key,
     required this.item,
     required this.isFocused,
     required this.isExpanded,

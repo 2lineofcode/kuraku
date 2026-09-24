@@ -20,6 +20,10 @@ class _SearchSuggestionsOverlayState extends State<SearchSuggestionsOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    // Covered routes must not retain an overlay with stale layout constraints.
+    if (ModalRoute.isCurrentOf(context) == false || !TickerMode.valuesOf(context).enabled) {
+      return const SizedBox(width: double.infinity);
+    }
     return OverlayPortal.overlayChildLayoutBuilder(
       controller: _overlay,
       overlayChildBuilder: (context, info) {

@@ -10,6 +10,7 @@ import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:process_run/process_run.dart' as cmd;
+import 'package:process_run/process_run.dart' as shell;
 import 'package:uicons_pro/uicons_pro.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:video_player/video_player.dart';
@@ -247,19 +248,28 @@ mixin HelperOpener {
                           final searchEngine = AppPref.getDefaultSearchEngine();
                           switch (searchEngine.toLowerCase()) {
                             case 'njav':
-                              await launchUrlString('${Env.njavUrl}/${video.videoCode}');
+                              // await launchUrlString('${Env.njavUrl}/${video.videoCode}');
+                              var url = '${Env.njavUrl}/${video.videoCode}'.replaceAll('/en/search', '');
+                              url += '-uncensored-leak';
+                              await shell.run('open downie://XUOpenURL?url=$url');
                               break;
                             case 'missav':
-                              await launchUrlString('${Env.missavUrl}/${video.videoCode}');
+                              // await launchUrlString('${Env.missavUrl}/${video.videoCode}');
+                              var url = '${Env.missavUrl}/${video.videoCode}'.replaceAll('/en/search', '');
+                              url += '-uncensored-leak';
+                              await shell.run('open downie://XUOpenURL?url=$url');
                               break;
                             case 'javmost':
-                              await launchUrlString('${Env.javmostUrl}/${video.videoCode}');
+                              var url = '${Env.javmostUrl}/${video.videoCode}'.replaceAll('/search', '');
+                              await shell.run('open downie://XUOpenURL?url=$url');
                               break;
                             case 'sextb':
-                              await launchUrlString('${Env.sextbUrl}/${video.videoCode}');
+                              var url = '${Env.sextbUrl}/${video.videoCode}'.replaceAll('/search', '');
+                              await shell.run('open downie://XUOpenURL?url=$url');
                               break;
                             case 'javguru':
-                              await launchUrlString('${Env.javguruUrl}/?s=${video.videoCode}');
+                              var url = '${Env.javguruUrl}/?s=${video.videoCode}';
+                              await shell.run('open downie://XUOpenURL?url=$url');
                               break;
                             default:
                               await launchUrlString('${Env.njavUrl}/${video.videoCode}');
@@ -769,6 +779,7 @@ mixin HelperOpener {
       {'key': '⌘ + T',  'action': 'Add new todo'},
 
       {'key': '⌘ + ,',  'action': 'Open Settings'},
+      {'key': '⌘ + /',  'action': 'Open Chat with AI'},
       {'key': '⌘ + .',  'action': 'Open relapse panel'},
     ];
 

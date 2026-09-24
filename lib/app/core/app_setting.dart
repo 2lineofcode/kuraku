@@ -185,6 +185,7 @@ class AppSettingService extends GetxService {
     HotKey _hotKey4 = HotKey(key: PhysicalKeyboardKey.digit4, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKey5 = HotKey(key: PhysicalKeyboardKey.digit5, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyComma = HotKey(key: PhysicalKeyboardKey.comma, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKeySlash = HotKey(key: PhysicalKeyboardKey.slash, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
 
     await hotKeyManager.register(_hotKeyEsc, keyUpHandler: (hotKey) {
       // AppLog.logD('hotKeyEsc Pressed');
@@ -313,6 +314,13 @@ class AppSettingService extends GetxService {
       try { Get.find<HomeController>().onMenuChange(kMenuSetting); } 
       catch (e, stackTrace) {
         _logHotkeyError('meta+,', e, stackTrace);
+      }
+    });
+
+    await hotKeyManager.register(_hotKeySlash, keyUpHandler: (hotKey) async {
+      try { await Get.find<HomeController>().onMenuChange(kMenuChat); }
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+/', e, stackTrace);
       }
     });
 
