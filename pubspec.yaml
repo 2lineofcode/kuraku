@@ -1,7 +1,7 @@
 name: javit
 description: "A new Flutter project."
 publish_to: "none"
-version: 1.0.0+20260924.38
+version: 1.0.0+20260925.40
 
 environment:
   sdk: ^3.5.3
@@ -13,6 +13,7 @@ dependencies:
   path: ^1.9.1
   path_provider: ^2.1.6
   sqflite: ^2.4.4
+  sql_formatter: ^0.1.0
 
   # ** player
   cached_video_player_plus: ^4.1.0
@@ -82,6 +83,7 @@ flutter:
     - assets/r18_to_javit.py
     - assets/semantic_worker.py
     - assets/chat_knowledge.py
+    - assets/sql_editor.py
     - assets/javit_dl
     - assets/notif.mp3
 

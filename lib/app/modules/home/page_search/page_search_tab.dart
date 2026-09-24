@@ -136,6 +136,8 @@ class PageSearchTab {
     'categories': filter.categoriesSelected.toList(),
     'yearStart': filter.currentRange.value.start,
     'yearEnd': filter.currentRange.value.end,
+    'durationMin': filter.durationMin.value,
+    'durationMax': filter.durationMax.value,
   };
 
   void restorePreferences(Map<String, dynamic> value) {
@@ -153,6 +155,12 @@ class PageSearchTab {
     filter.tecActressName.text = value['actress'] is String ? value['actress'] : '';
     filter.tecCategory.text = value['categoryDraft'] is String ? value['categoryDraft'] : '';
     if (value['categories'] is List) filter.categoriesSelected.assignAll((value['categories'] as List).whereType<String>().toSet());
+    filter.durationMin.value = value['durationMin'] is int && value['durationMin'] >= 0 ? value['durationMin'] : null;
+    filter.durationMax.value = value['durationMax'] is int && value['durationMax'] > 0 ? value['durationMax'] : null;
+    if (filter.durationMin.value != null && filter.durationMax.value != null && filter.durationMin.value! > filter.durationMax.value!) {
+      filter.durationMin.value = null;
+      filter.durationMax.value = null;
+    }
     final start = value['yearStart'];
     final end = value['yearEnd'];
     final year = DateTime.now().year.toDouble();
@@ -166,7 +174,7 @@ class PageSearchTab {
       field.addListener(onChanged);
     }
     _preferenceWorker = everAll([
-      isListView, isSemanticMode, visualSensitivity, sortBy, qualityFilter, _hasSort, filter.isFiltered, filter.categoriesSelected, filter.currentRange,
+      isListView, isSemanticMode, visualSensitivity, sortBy, qualityFilter, _hasSort, filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax,
     ], (_) => onChanged());
   }
 
@@ -453,6 +461,7 @@ class PageSearchTab {
     actresses: (video) => (video.actress ?? []).map((actress) => actress.nameRomaji ?? ''),
     categories: (video) => (video.category ?? []).map((category) => category.category ?? ''),
     releaseDate: (video) => video.releaseDate,
+    durationMinutes: (video) => video.duration,
   );
 
   Future<void> openDialogFilter({bool Function()? isAvailable}) async {

@@ -26,6 +26,7 @@ import 'page_profile/page_profile_view.dart';
 import 'page_search/page_search_controller.dart';
 import 'page_search/page_search_view.dart';
 import 'page_settings/page_settings_view.dart';
+import 'page_sqleditor/page_sqleditor_view.dart';
 import 'page_tools/page_tools_view.dart';
 
 class HomeView extends GetView<HomeController> {
@@ -236,6 +237,7 @@ class HomeView extends GetView<HomeController> {
             },
           ).wh(60, 280).pOnly(top: 16),
           const Spacer(),
+          sqlEditorMenu(),
           chatMenu(),
         ],
       ).expand();
@@ -267,9 +269,19 @@ class HomeView extends GetView<HomeController> {
           },
         ).wh(180, 280).pOnly(top: 16),
         const Spacer(),
+        sqlEditorMenu(),
         chatMenu(),
       ],
     ).expand();
+  }
+
+  Widget sqlEditorMenu() {
+    return Obx(() => IconButton(
+      style: IconButton.styleFrom(backgroundColor: controller.currentMenuSelected.value == kMenuSqlEditor ? AppColor.selected : Colors.transparent),
+      icon: Icon(Icons.data_object_rounded, size: 16, color: AppColor.text),
+      tooltip: kMenuSqlEditor,
+      onPressed: () => controller.onMenuChange(kMenuSqlEditor),
+    )).pSymmetric(h: 10).w(double.infinity).pOnly(bottom: 4);
   }
 
   Widget chatMenu() {
@@ -293,6 +305,7 @@ class HomeView extends GetView<HomeController> {
           case kMenuTools: return const PageToolsView();
           case kMenuSetting: return const PageSettingsView();
           case kMenuProfile: return const PageProfileView();
+          case kMenuSqlEditor: return const PageSqleditorView();
           case kMenuChat: return const PageChatView();
           default: return const PageHomeView();
         }

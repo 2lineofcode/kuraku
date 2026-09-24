@@ -22,6 +22,8 @@ typedef _DownloadQuery = ({
   List<String>? categories,
   int? yearStart,
   int? yearEnd,
+  int? durationMin,
+  int? durationMax,
 });
 
 class PageDownloadSearchTab {
@@ -79,6 +81,8 @@ class PageDownloadSearchTab {
     'categories': filter.categoriesSelected.toList(),
     'yearStart': filter.currentRange.value.start,
     'yearEnd': filter.currentRange.value.end,
+    'durationMin': filter.durationMin.value,
+    'durationMax': filter.durationMax.value,
   };
 
   void restorePreferences(Map<String, dynamic> value) {
@@ -89,6 +93,12 @@ class PageDownloadSearchTab {
     filter.tecActressName.text = value['actress'] is String ? value['actress'] : '';
     filter.tecCategory.text = value['categoryDraft'] is String ? value['categoryDraft'] : '';
     if (value['categories'] is List) filter.categoriesSelected.assignAll((value['categories'] as List).whereType<String>().toSet());
+    filter.durationMin.value = value['durationMin'] is int && value['durationMin'] >= 0 ? value['durationMin'] : null;
+    filter.durationMax.value = value['durationMax'] is int && value['durationMax'] > 0 ? value['durationMax'] : null;
+    if (filter.durationMin.value != null && filter.durationMax.value != null && filter.durationMin.value! > filter.durationMax.value!) {
+      filter.durationMin.value = null;
+      filter.durationMax.value = null;
+    }
     final start = value['yearStart'];
     final end = value['yearEnd'];
     final year = DateTime.now().year.toDouble();
@@ -115,7 +125,7 @@ class PageDownloadSearchTab {
       field.addListener(onChanged);
     }
     _preferenceWorker = everAll([
-      havingOnly, filter.isFiltered, filter.categoriesSelected, filter.currentRange,
+      havingOnly, filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax,
     ], (_) => onChanged());
   }
 
@@ -377,8 +387,10 @@ class PageDownloadSearchTab {
     final categories = _filterCategories();
     final yearStart = _filterYearStart();
     final yearEnd = _filterYearEnd();
+    final durationMin = filter.durationMin.value;
+    final durationMax = filter.durationMax.value;
     _query = (query: query, route: route, videoCode: videoCode, actressName: actressName,
-      categories: categories, yearStart: yearStart, yearEnd: yearEnd);
+      categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax);
 
     try {
       final int total;
@@ -387,13 +399,13 @@ class PageDownloadSearchTab {
           total = await DBR18.getByFilterCount(
             matchAllCategories: true,
             videoCode: videoCode, actressName: actressName, categories: categories,
-            yearStart: yearStart, yearEnd: yearEnd,
+            yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
           );
           break;
         case PageDownloadQueryRoute.dbSearch:
           total = await DBR18.getSearchCount(
             query, matchAllCategories: true, videoCode: videoCode, actressName: actressName, categories: categories,
-            yearStart: yearStart, yearEnd: yearEnd,
+            yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
           );
           break;
         default:
@@ -419,6 +431,7 @@ class PageDownloadSearchTab {
     actresses: (video) => video.actresses ?? <String>[],
     categories: (video) => video.categories ?? <String>[],
     releaseDate: (video) => video.releaseDate,
+    durationMinutes: (video) => video.duration,
   );
 
   void showHavingOnly(bool value) {
@@ -451,6 +464,8 @@ class PageDownloadSearchTab {
       final categories = snapshot.categories;
       final yearStart = snapshot.yearStart;
       final yearEnd = snapshot.yearEnd;
+      final durationMin = snapshot.durationMin;
+      final durationMax = snapshot.durationMax;
 
       final List<Map<String, dynamic>> r18videos;
       final isJavMostApi = route == PageDownloadQueryRoute.apiCommand;
@@ -467,7 +482,7 @@ class PageDownloadSearchTab {
             actressName: actressName,
             categories: categories,
             yearStart: yearStart,
-            yearEnd: yearEnd,
+            yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
           );
           break;
         case PageDownloadQueryRoute.dbFilterOnly:
@@ -479,7 +494,7 @@ class PageDownloadSearchTab {
             actressName: actressName,
             categories: categories,
             yearStart: yearStart,
-            yearEnd: yearEnd,
+            yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
           );
           break;
         case PageDownloadQueryRoute.dbSearch:
@@ -491,7 +506,7 @@ class PageDownloadSearchTab {
             actressName: actressName,
             categories: categories,
             yearStart: yearStart,
-            yearEnd: yearEnd,
+            yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
           );
           break;
         case PageDownloadQueryRoute.none:
@@ -578,7 +593,7 @@ class PageDownloadSearchTab {
     return _filterVideoCode() != null ||
         _filterActressName() != null ||
         (_filterCategories()?.isNotEmpty ?? false) ||
-        _hasCustomYearRange;
+        _hasCustomYearRange || filter.hasDurationFilter;
   }
 
   Future<Set<String>> loadExistingVideoCodes() async => (await DBVideos.getAll()).map((video) => video.videoCode ?? '').toSet();
@@ -616,6 +631,8 @@ class PageDownloadSearchTab {
     List<String>? categories,
     int? yearStart,
     int? yearEnd,
+    int? durationMin,
+    int? durationMax,
   }) {
     final output = <Map<String, dynamic>>[];
 
@@ -662,11 +679,15 @@ class PageDownloadSearchTab {
         if (year == null || year < yearStart || year > yearEnd) continue;
       }
 
+      final duration = int.tryParse((item.length ?? '').toString().replaceAll(RegExp(r'[^0-9]'), ''));
+      if (durationMin != null || durationMax != null) {
+        if (duration == null || duration <= 0 || (durationMin != null && duration < durationMin) || (durationMax != null && duration > durationMax)) continue;
+      }
       output.add({
         'id': item.url ?? rawCode,
         'video_code': rawCode,
         'title': rawTitle,
-        'duration': int.tryParse((item.length ?? '').toString().replaceAll(RegExp(r'[^0-9]'), '')),
+        'duration': duration,
         'release_date': rawRelease,
         'trailer': item.dataPreview ?? '',
         'fan_art': item.cover ?? '',

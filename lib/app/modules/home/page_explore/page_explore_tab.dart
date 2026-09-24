@@ -91,6 +91,8 @@ class PageExploreTab {
     'categories': filter.categoriesSelected.toList(),
     'yearStart': filter.currentRange.value.start,
     'yearEnd': filter.currentRange.value.end,
+    'durationMin': filter.durationMin.value,
+    'durationMax': filter.durationMax.value,
   };
 
   void restorePreferences(Map<String, dynamic> value) {
@@ -108,6 +110,12 @@ class PageExploreTab {
     filter.tecVideoCode.text = value['videoCode'] is String ? value['videoCode'] : '';
     filter.tecCategory.text = value['categoryDraft'] is String ? value['categoryDraft'] : '';
     if (value['categories'] is List) filter.categoriesSelected.assignAll((value['categories'] as List).whereType<String>().toSet());
+    filter.durationMin.value = value['durationMin'] is int && value['durationMin'] >= 0 ? value['durationMin'] : null;
+    filter.durationMax.value = value['durationMax'] is int && value['durationMax'] > 0 ? value['durationMax'] : null;
+    if (filter.durationMin.value != null && filter.durationMax.value != null && filter.durationMin.value! > filter.durationMax.value!) {
+      filter.durationMin.value = null;
+      filter.durationMax.value = null;
+    }
     final start = value['yearStart'];
     final end = value['yearEnd'];
     final year = DateTime.now().year.toDouble();
@@ -122,7 +130,7 @@ class PageExploreTab {
     }
     _preferenceWorker = everAll([
       currentMenuSelected, leftListSelected, leftSortSelected, rightListViewMode, singleActressMode,
-      filter.isFiltered, filter.categoriesSelected, filter.currentRange,
+      filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax,
     ], (_) => onChanged());
   }
 
@@ -464,6 +472,7 @@ class PageExploreTab {
     actresses: (video) => _splitCsvField(video['actresses']),
     categories: (video) => _splitCsvField(video['categories']),
     releaseDate: (video) => video['release_date'] ?? '',
+    durationMinutes: (video) => num.tryParse('${video['duration'] ?? video['runtime_mins'] ?? ''}'),
   );
 
   Future<void> _applyFilter() async {

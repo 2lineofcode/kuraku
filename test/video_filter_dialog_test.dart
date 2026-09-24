@@ -2,6 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:javit/app/modules/home/page_download/page_download_search_tab.dart';
+import 'package:javit/app/modules/home/page_explore/page_explore_tab.dart';
+import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
 import 'package:javit/app/utils/helper_opener.dart';
 
 const adapter = VideoFilterAdapter<String>(
@@ -30,6 +33,72 @@ void main() {
     state.reset();
     expect(state.categories, ['Category']);
     expect(state.actresses, ['Actress']);
+    expect(state.hasFilters, isFalse);
+  });
+
+  test('duration bounds include endpoints and exclude missing runtime only when active', () {
+    final state = VideoFilterState();
+    final durations = VideoFilterAdapter<num?>(videoCode: (_) => '', actresses: (_) => [], categories: (_) => [],
+      releaseDate: (_) => null, durationMinutes: (value) => value);
+    final values = <num?>[null, 0, 59, 60, 90, 120, 121, 600];
+    expect(state.apply(values, durations), values);
+    state.durationMin.value = 60;
+    state.durationMax.value = 120;
+    expect(state.apply(values, durations), [60, 90, 120]);
+    expect(state.hasFilters, isTrue);
+    state.durationMax.value = null;
+    expect(state.apply(values, durations), [60, 90, 120, 121, 600]);
+    state.durationMin.value = null;
+    state.durationMax.value = 60;
+    expect(state.apply(values, durations), [59, 60]);
+    state.reset();
+    expect(state.apply(values, durations), values);
+    expect(state.hasFilters, isFalse);
+  });
+
+  test('duration preferences survive tab recreation in Search Download and Explore', () {
+    final tabs = [PageSearchTab(0), PageDownloadSearchTab(0), PageExploreTab(0, pins: <String>{}.obs)];
+    final restored = [PageSearchTab(1), PageDownloadSearchTab(1), PageExploreTab(1, pins: <String>{}.obs)];
+    for (var i = 0; i < tabs.length; i++) {
+      final dynamic tab = tabs[i];
+      final dynamic copy = restored[i];
+      tab.filter.durationMin.value = 60;
+      tab.filter.durationMax.value = 180;
+      copy.restorePreferences(tab.toPreferences());
+      expect(copy.filter.durationMin.value, 60);
+      expect(copy.filter.durationMax.value, 180);
+      tab.dispose();
+      copy.dispose();
+    }
+  });
+
+  testWidgets('duration draft validates, applies, cancels and resets', (tester) async {
+    final state = VideoFilterState();
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: TextButton(
+      onPressed: () => HelperOpener.openFilterDialog(state: state, allVideos: <String>[], videos: <String>[].obs,
+        adapter: adapter, showActressName: false, showCategories: false, showYears: false), child: const Text('Open')))));
+    Future<void> open() async { await tester.tap(find.text('Open')); await tester.pumpAndSettle(); }
+    await open();
+    await tester.enterText(find.byKey(const ValueKey('filter-duration-min')), '120');
+    await tester.enterText(find.byKey(const ValueKey('filter-duration-max')), '60');
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter valid minutes; max must be at least min.'), findsOneWidget);
+    expect(state.hasFilters, isFalse);
+    await tester.enterText(find.byKey(const ValueKey('filter-duration-max')), '180');
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(state.durationMin.value, 120);
+    expect(state.durationMax.value, 180);
+    await open();
+    await tester.tap(find.text('Reset'));
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(state.durationMin.value, 120);
+    await open();
+    await tester.tap(find.text('Reset'));
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
     expect(state.hasFilters, isFalse);
   });
 

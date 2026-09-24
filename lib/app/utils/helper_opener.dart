@@ -887,6 +887,8 @@ mixin HelperOpener {
     state.tecCategory.clear();
     state.categoriesSelected.assignAll(values.categories);
     state.currentRange.value = values.years;
+    state.durationMin.value = values.durationMin;
+    state.durationMax.value = values.durationMax;
     state.isFiltered.value = state.hasFilters;
     if (applyLocalFilter) videos.assignAll(state.apply(allVideos, adapter));
     if (!state.hasFilters) {
@@ -903,17 +905,21 @@ class VideoFilterAdapter<T> {
     required this.actresses,
     required this.categories,
     required this.releaseDate,
+    this.durationMinutes,
   });
 
   final String Function(T video) videoCode;
   final Iterable<String> Function(T video) actresses;
   final Iterable<String> Function(T video) categories;
   final String? Function(T video) releaseDate;
+  final num? Function(T video)? durationMinutes;
 }
 
 class VideoFilterState {
   VideoFilterState({RxBool? isFiltered}) : isFiltered = isFiltered ?? false.obs;
 
+  final durationMin = RxnInt();
+  final durationMax = RxnInt();
   final RxBool isFiltered;
   final tecVideoCode = TextEditingController();
   final tecActressName = TextEditingController();
@@ -949,12 +955,16 @@ class VideoFilterState {
     tecCategory.text = '';
     categoriesSelected.clear();
     currentRange.value = RangeValues(2000, DateTime.now().year.toDouble());
+    durationMin.value = null;
+    durationMax.value = null;
     isFiltered.value = false;
   }
 
+  bool get hasDurationFilter => durationMin.value != null || durationMax.value != null;
+
   bool get hasYearFilter => currentRange.value.start > 2000 || currentRange.value.end < DateTime.now().year;
 
-  bool get hasFilters => tecVideoCode.text.trim().isNotEmpty || tecActressName.text.trim().isNotEmpty || categoriesSelected.isNotEmpty || hasYearFilter;
+  bool get hasFilters => tecVideoCode.text.trim().isNotEmpty || tecActressName.text.trim().isNotEmpty || categoriesSelected.isNotEmpty || hasYearFilter || hasDurationFilter;
 
   List<T> apply<T>(List<T> allVideos, VideoFilterAdapter<T> adapter) {
     var filteredVideos = allVideos.toList();
@@ -995,12 +1005,20 @@ class VideoFilterState {
       }).toList();
     }
 
+    if (hasDurationFilter) {
+      filteredVideos = filteredVideos.where((video) {
+        final minutes = adapter.durationMinutes?.call(video);
+        return minutes != null && minutes.isFinite && minutes > 0
+            && (durationMin.value == null || minutes >= durationMin.value!)
+            && (durationMax.value == null || minutes <= durationMax.value!);
+      }).toList();
+    }
     isFiltered.value = hasFilters;
     return filteredVideos;
   }
 }
 
-typedef _VideoFilterValues = ({String videoCode, String actress, List<String> categories, RangeValues years});
+typedef _VideoFilterValues = ({String videoCode, String actress, List<String> categories, RangeValues years, int? durationMin, int? durationMax});
 
 class _VideoFilterDialog extends StatefulWidget {
   const _VideoFilterDialog({required this.state, required this.widthFactor, required this.showVideoCode, required this.showActressName, required this.showCategories, required this.showYears, required this.matchAllCategories});
@@ -1022,6 +1040,9 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
   late final _actress = TextEditingController(text: widget.state.tecActressName.text);
   final _category = TextEditingController();
   late final _categories = widget.state.categoriesSelected.toList();
+  late final _durationMin = TextEditingController(text: widget.state.durationMin.value?.toString() ?? '');
+  late final _durationMax = TextEditingController(text: widget.state.durationMax.value?.toString() ?? '');
+  String? _durationError;
   late RangeValues _years = widget.state.currentRange.value;
 
   @override
@@ -1029,6 +1050,8 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
     _code.dispose();
     _actress.dispose();
     _category.dispose();
+    _durationMin.dispose();
+    _durationMax.dispose();
     super.dispose();
   }
 
@@ -1038,12 +1061,24 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
       _actress.clear();
       _category.clear();
       _categories.clear();
+      _durationMin.clear();
+      _durationMax.clear();
+      _durationError = null;
       _years = RangeValues(2000, DateTime.now().year.toDouble());
     });
   }
 
   void _apply() {
+    final min = int.tryParse(_durationMin.text.trim());
+    final max = int.tryParse(_durationMax.text.trim());
+    if ((_durationMin.text.trim().isNotEmpty && (min == null || min < 0))
+        || (_durationMax.text.trim().isNotEmpty && (max == null || max <= 0))
+        || (min != null && max != null && min > max)) {
+      setState(() => _durationError = 'Enter valid minutes; max must be at least min.');
+      return;
+    }
     Navigator.of(context).pop<_VideoFilterValues>((
+      durationMin: min, durationMax: max,
       videoCode: widget.showVideoCode ? _code.text.trim() : '',
       actress: widget.showActressName ? _actress.text.trim() : '',
       categories: widget.showCategories ? List<String>.from(_categories) : <String>[],
@@ -1195,6 +1230,31 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                       ),
                       const SizedBox(height: 20),
                     ],
+                    _label('Duration (minutes)'),
+                    Row(children: [
+                      Expanded(child: CupertinoTextField(
+                        key: const ValueKey('filter-duration-min'), controller: _durationMin,
+                        placeholder: 'Min · Any', keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                        style: TextStyle(color: AppColor.text, fontSize: 12),
+                        placeholderStyle: TextStyle(color: _muted, fontSize: 12),
+                        decoration: BoxDecoration(color: AppColor.container, border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(8)),
+                      )),
+                      Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('–', style: TextStyle(color: _muted))),
+                      Expanded(child: CupertinoTextField(
+                        key: const ValueKey('filter-duration-max'), controller: _durationMax,
+                        placeholder: 'Max · Any', keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                        style: TextStyle(color: AppColor.text, fontSize: 12),
+                        placeholderStyle: TextStyle(color: _muted, fontSize: 12),
+                        decoration: BoxDecoration(color: AppColor.container, border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(8)),
+                      )),
+                    ]),
+                    if (_durationError != null) Padding(padding: const EdgeInsets.only(top: 6),
+                      child: Text(_durationError!, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.error))),
+                    const SizedBox(height: 20),
                     if (widget.showYears) ...[
                       Row(children: [
                         Expanded(child: Text('Release year', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),

@@ -91,7 +91,7 @@ mixin DBR18 {
     'TK1', 'TK2', 'TK3', 'EC', '4D', '5D', 'DL',
   ];
 
-  static Map<String, dynamic> _buildFilterClause({ bool matchAllCategories = false, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, }) {
+  static Map<String, dynamic> _buildFilterClause({ bool matchAllCategories = false, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, int? durationMin, int? durationMax, }) {
     final clauses = <String>[];
     final args = <Object?>[];
 
@@ -128,6 +128,16 @@ mixin DBR18 {
       clauses.add('CAST(substr(v.release_date, 1, 4) AS INTEGER) BETWEEN ? AND ?');
       args.add(yearStart);
       args.add(yearEnd);
+    }
+
+    if (durationMin != null || durationMax != null) clauses.add('v.runtime_mins > 0');
+    if (durationMin != null) {
+      clauses.add('v.runtime_mins >= ?');
+      args.add(durationMin);
+    }
+    if (durationMax != null) {
+      clauses.add('v.runtime_mins <= ?');
+      args.add(durationMax);
     }
 
     return {
@@ -225,7 +235,7 @@ mixin DBR18 {
     return result;
   }
 
-  static Future<List<Map<String, dynamic>>> search(String query, { bool matchAllCategories = false, int? page = 1, int? perPage = 100, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd}) async {
+  static Future<List<Map<String, dynamic>>> search(String query, { bool matchAllCategories = false, int? page = 1, int? perPage = 100, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, int? durationMin, int? durationMax}) async {
     if (!_isReady()) return [];
 
     final searchString = '%$query%';
@@ -243,7 +253,7 @@ mixin DBR18 {
     )
   ''';
 
-    final filter = _buildFilterClause(matchAllCategories: matchAllCategories,videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd);
+    final filter = _buildFilterClause(matchAllCategories: matchAllCategories,videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax);
     final blacklist = _buildBlacklistClause();
 
     final maps = await _rawQuery('''
@@ -279,7 +289,7 @@ mixin DBR18 {
     return maps;
   }
 
-  static Future<int> getSearchCount(String query, {bool matchAllCategories = false,String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd}) async {
+  static Future<int> getSearchCount(String query, {bool matchAllCategories = false,String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, int? durationMin, int? durationMax}) async {
     if (!_isReady()) return 0;
 
     final searchString = '%$query%';
@@ -294,7 +304,7 @@ mixin DBR18 {
     )
   ''';
 
-    final filter = _buildFilterClause(matchAllCategories: matchAllCategories,videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd);
+    final filter = _buildFilterClause(matchAllCategories: matchAllCategories,videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax);
     final blacklist = _buildBlacklistClause();
 
     final maps = await _rawQuery('''
@@ -319,7 +329,7 @@ mixin DBR18 {
     String? actressName,
     List<String>? categories,
     int? yearStart,
-    int? yearEnd,
+    int? yearEnd, int? durationMin, int? durationMax,
   }) async {
     if (!_isReady()) return [];
 
@@ -331,7 +341,7 @@ mixin DBR18 {
       actressName: actressName,
       categories: categories,
       yearStart: yearStart,
-      yearEnd: yearEnd,
+      yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
     );
     final blacklist = _buildBlacklistClause();
 
@@ -374,7 +384,7 @@ mixin DBR18 {
     String? actressName,
     List<String>? categories,
     int? yearStart,
-    int? yearEnd,
+    int? yearEnd, int? durationMin, int? durationMax,
   }) async {
     if (!_isReady()) return 0;
 
@@ -384,7 +394,7 @@ mixin DBR18 {
       actressName: actressName,
       categories: categories,
       yearStart: yearStart,
-      yearEnd: yearEnd,
+      yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
     );
     final blacklist = _buildBlacklistClause();
 
@@ -636,6 +646,7 @@ mixin DBR18 {
         da.id AS actress_id,                                      -- actress_id
         v.content_id AS id,                                       -- id
         v.dvd_id AS video_code,                                   -- video_code
+        v.runtime_mins AS duration,
         COALESCE(t.target_en, v.title_en, v.title_ja) AS title,   -- title
         v.release_date AS release_date,                           -- release_date
         v.sample_url AS trailer,                                  -- trailer
@@ -690,6 +701,7 @@ mixin DBR18 {
         SELECT
           v.content_id AS id,                                       -- id
           v.dvd_id AS video_code,                                   -- video_code
+        v.runtime_mins AS duration,
           COALESCE(t.target_en, v.title_en, v.title_ja) AS title,   -- title
           v.release_date AS release_date,                           -- release_date
           v.sample_url AS trailer,                                  -- trailer
@@ -744,6 +756,7 @@ mixin DBR18 {
         SELECT
         v.content_id AS id,                                      -- id
         v.dvd_id AS video_code,                                  -- video_code
+        v.runtime_mins AS duration,
         COALESCE(t.target_en, v.title_en, v.title_ja) AS title,  -- title
         v.release_date AS release_date,                          -- release_date
         v.sample_url AS trailer,                                 -- trailer
@@ -817,6 +830,7 @@ mixin DBR18 {
         SELECT
           v.content_id AS id,                                       -- id
           v.dvd_id AS video_code,                                   -- video_code
+        v.runtime_mins AS duration,
           COALESCE(t.target_en, v.title_en, v.title_ja) AS title,   -- title
           s.name_en AS series,                                      -- series
           v.release_date AS release_date,                           -- release_date
@@ -873,6 +887,7 @@ mixin DBR18 {
         SELECT
           v.content_id AS id,                                       -- id
           v.dvd_id AS video_code,                                   -- video_code
+        v.runtime_mins AS duration,
           COALESCE(t.target_en, v.title_en, v.title_ja) AS title,   -- title
           v.release_date AS release_date,                           -- release_date
           v.sample_url AS trailer,                                  -- trailer
@@ -923,6 +938,7 @@ mixin DBR18 {
         SELECT
           v.content_id AS id,                                         -- id
           v.dvd_id AS video_code,                                     -- video_code
+        v.runtime_mins AS duration,
           COALESCE(t.target_en, v.title_en, v.title_ja) AS title,     -- title
           v.release_date AS release_date,                             -- release_date
           v.sample_url AS trailer,                                    -- trailer
@@ -976,6 +992,7 @@ mixin DBR18 {
         SELECT
           v.content_id AS id,                                         -- id
           v.dvd_id AS video_code,                                     -- video_code
+        v.runtime_mins AS duration,
           COALESCE(t.target_en, v.title_en, v.title_ja) AS title,     -- title
           v.release_date AS release_date,                             -- release_date
           v.sample_url AS trailer,                                    -- trailer
@@ -1002,7 +1019,7 @@ mixin DBR18 {
     String? actressName,
     List<String>? categories,
     int? yearStart,
-    int? yearEnd,
+    int? yearEnd, int? durationMin, int? durationMax,
   }) async {
     if (!_isReady()) return [];
 
@@ -1016,7 +1033,7 @@ mixin DBR18 {
       actressName: actressName,
       categories: categories,
       yearStart: yearStart,
-      yearEnd: yearEnd,
+      yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
     );
     final blacklist = _buildBlacklistClause();
 

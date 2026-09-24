@@ -51,6 +51,22 @@ void main() {
     await expectLater(api.translateTitle('雨', CancelToken()), throwsA(isA<ChatException>()));
   });
 
+  test('SQL generation sends schema only, no tools, and unwraps fenced SQL', () async {
+    final adapter = _Adapter()..body = 'data: ${jsonEncode({'choices': [{'delta': {'content': '```sql\nSELECT id FROM videos LIMIT 10;\n```'}, 'finish_reason': 'stop'}]})}\n\ndata: [DONE]\n\n';
+    final api = ChatService(dio: Dio()..httpClientAdapter = adapter, apiKey: 'test-key');
+    addTearDown(api.close);
+    expect(await api.generateSql('List ten videos', {'videos': ['id', 'title']}, CancelToken()), 'SELECT id FROM videos LIMIT 10;');
+    expect(adapter.request!.data['tools'], isNull);
+    expect(adapter.request!.data['messages'].first['content'], contains('Never generate DELETE'));
+    expect(adapter.request!.data['messages'].first['content'], contains('"videos":["id","title"]'));
+    expect(adapter.request!.data['messages'].last['content'], 'List ten videos');
+    await expectLater(api.generateSql('', {'videos': ['id']}, CancelToken()), throwsA(isA<ChatException>()));
+    await expectLater(api.generateSql('Read', {}, CancelToken()), throwsA(isA<ChatException>()));
+    adapter.status = 429;
+    adapter.body = 'private error';
+    await expectLater(api.generateSql('Read', {'videos': ['id']}, CancelToken()), throwsA(isA<ChatException>().having((e) => e.message, 'safe error', isNot(contains('private error')))));
+  });
+
   test('Protocol tags split across content chunks are not exposed as answers', () async {
     final output = StringBuffer();
     final events = ['<to', 'ol_', 'call>', '<function=web_search>'].map((part) =>

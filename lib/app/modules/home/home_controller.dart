@@ -673,6 +673,7 @@ const kMenuExplore = 'Explore';
 const kMenuDownload = 'Download';
 const kMenuTools = 'Tools';
 const kMenuSetting = 'Settings';
+const kMenuSqlEditor = 'SQL Editor';
 const kMenuChat = 'Chat with AI';
 
 const kMenuProfile = 'Profile';

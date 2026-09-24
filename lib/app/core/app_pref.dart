@@ -11,6 +11,28 @@ mixin AppPref {
   static bool getChatSidebarVisible() => _pref.read<bool>('chat_sidebar_visible') ?? true;
   static Future<void> setChatSidebarVisible(bool value) => _pref.write('chat_sidebar_visible', value);
 
+  static Map<String, dynamic> getSqlSnippets() => Map<String, dynamic>.from(_pref.read<Map>('sql_snippets') ?? {});
+  static Future<void> setSqlSnippets(Map<String, dynamic> value) async {
+    final previous = getSqlSnippets();
+    try {
+      await _pref.write('sql_snippets', value);
+    } catch (_) {
+      _pref.writeInMemory('sql_snippets', previous);
+      rethrow;
+    }
+  }
+
+  static Map<String, dynamic> getSqlTabs() => Map<String, dynamic>.from(_pref.read<Map>('sql_tabs') ?? {});
+  static Future<void> setSqlTabs(Map<String, dynamic> value) async {
+    final previous = getSqlTabs();
+    try {
+      await _pref.write('sql_tabs', value);
+    } catch (_) {
+      _pref.writeInMemory('sql_tabs', previous);
+      rethrow;
+    }
+  }
+
   // ** [app]
   static void setAppLastOpen(String value) => _pref.write(_kAppLastOpen, value);
 
