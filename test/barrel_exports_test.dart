@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:javit/app/data/models/videos_entity.dart';
 import 'package:javit/app/modules/widgets/widgets.dart';
+import 'package:javit/app/utils/helper.dart';
 
 void main() {
   test('the widgets barrel exposes every shared widget', () {
