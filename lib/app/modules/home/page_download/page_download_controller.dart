@@ -83,10 +83,6 @@ class PageDownloadController extends GetxController {
     if (index < 0 || index >= tabs.length) return;
     activeTabIndex.value = index;
     _saveTabs();
-    final tab = activeTab;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!isClosed && !tab.isClosed && identical(activeTab, tab)) tab.fnSearch.requestFocus();
-    });
   }
 
   void closeTab(int index) {

@@ -48,6 +48,9 @@ def run(request):
                 return sqlite3.SQLITE_OK
             if action == sqlite3.SQLITE_READ and source in ('main', None):
                 return sqlite3.SQLITE_OK
+            # Keep our COMMIT/ROLLBACK authorized on Python versions without detach support.
+            if action == sqlite3.SQLITE_TRANSACTION:
+                return sqlite3.SQLITE_OK
             if action == sqlite3.SQLITE_FUNCTION and (column or '').lower() in FUNCTIONS:
                 return sqlite3.SQLITE_OK
             if action in (sqlite3.SQLITE_INSERT, sqlite3.SQLITE_UPDATE):
@@ -62,7 +65,7 @@ def run(request):
             db.setlimit(sqlite3.SQLITE_LIMIT_COLUMN, 128)
             db.setlimit(sqlite3.SQLITE_LIMIT_EXPR_DEPTH, 100)
         db.set_progress_handler(lambda: time.monotonic() - started > 10, 1000)
-        # Own transaction control stays outside the untrusted statement's authorizer.
+        # SQL input is restricted to a single SELECT/INSERT/UPDATE statement.
         db.execute('BEGIN')
         db.set_authorizer(authorize)
         db.execute('EXPLAIN ' + sql, args).close()
@@ -95,7 +98,6 @@ def run(request):
                   'write': bool(writes), 'elapsed_ms': round((time.monotonic() - started) * 1000, 1)}
         # Serialize before committing so encoding failures cannot hide a successful write.
         json.dumps(result, allow_nan=False)
-        db.set_authorizer(None)
         db.execute('COMMIT')
         return result
     except sqlite3.DatabaseError as error:
@@ -105,10 +107,12 @@ def run(request):
             raise ValueError('Query exceeded the 10-second time limit. No changes were committed.') from error
         raise
     finally:
-        db.set_authorizer(None)
-        if db.in_transaction:
-            db.rollback()
-        db.close()
+        db.set_progress_handler(None, 0)
+        try:
+            if db.in_transaction:
+                db.rollback()
+        finally:
+            db.close()
 
 
 if __name__ == '__main__':

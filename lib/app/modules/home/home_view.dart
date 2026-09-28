@@ -297,9 +297,7 @@ class HomeView extends GetView<HomeController> {
     return Obx(
       () {
         switch (controller.currentMenuSelected.value) {
-          case kMenuSearch:
-            WidgetsBinding.instance.addPostFrameCallback((_) => Get.find<PageSearchController>().activeTab.fnSearch.requestFocus());
-            return const PageSearchView();
+          case kMenuSearch: return const PageSearchView();
           case kMenuExplore: return const PageExploreView();
           case kMenuDownload: return const PageDownloadView();
           case kMenuTools: return const PageToolsView();

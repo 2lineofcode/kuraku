@@ -475,6 +475,7 @@ void main() {
     addTearDown(Get.reset);
     await tester.pumpWidget(const MaterialApp(home: Scaffold(body: PageSearchView())));
     await tester.pumpAndSettle();
+    expect(controller.activeTab.fnSearch.hasFocus, isFalse);
     final first = controller.activeTab;
     await tester.enterText(find.byType(CupertinoTextField), 'First draft');
     first.filter.tecActressName.text = 'Actress';

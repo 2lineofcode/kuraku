@@ -165,7 +165,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 ),
               );
             default:
-              return const SizedBox.shrink();
+              return SizedBox.shrink(key: ValueKey(sectionKey));
           }
         },
       ),

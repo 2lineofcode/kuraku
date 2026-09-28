@@ -308,7 +308,6 @@ class HomeController extends GetxController with StateMixin {
           if (search.scrollGridController.hasClients) {
             search.scrollGridController.jumpTo(0);
           }
-          search.fnSearch.requestFocus();
         });
         return;
       }
@@ -325,7 +324,6 @@ class HomeController extends GetxController with StateMixin {
         if (download.scrollController.hasClients) {
           download.scrollController.jumpTo(0);
         }
-        download.fnSearch.requestFocus();
       });
     } finally {
       isTopNavSearching.value = false;

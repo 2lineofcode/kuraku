@@ -33,6 +33,22 @@ class _HomeView extends PageHomeView {
 }
 
 void main() {
+  testWidgets('Home handles unknown sections in saved order', (tester) async {
+    Get.put(AppSettingService()..pref = _Preferences());
+    final controller = Get.put<PageHomeController>(_Controller());
+    addTearDown(Get.reset);
+    controller.totalVideo.value = 1;
+    controller.homeSectionOrder.assignAll(['unknown-section', AppPref.homeSecNewRelease]);
+    controller.listNewRelease.add(Videos(title: 'Video'));
+
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: _HomeView())));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Video'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('Home restores vertical and per-section horizontal scroll after leaving the page', (tester) async {
     Get.put(AppSettingService()..pref = _Preferences());
     final controller = Get.put<PageHomeController>(_Controller());
