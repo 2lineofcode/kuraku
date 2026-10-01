@@ -128,7 +128,7 @@ void main() {
     while (Overlayment.count > 0) {
       await Overlayment.dismissLast();
     }
-    await Get.reset();
+    Get.reset();
   });
 
   Future<void> pump(WidgetTester tester) async {

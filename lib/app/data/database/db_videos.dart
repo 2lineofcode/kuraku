@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
@@ -180,6 +181,29 @@ mixin DBVideos {
   static Future<List<Videos>> getAll({String? where, List<Object?>? whereArgs, String? orderBy, String? groupBy, int? limit}) async {
     final maps = await _db.query(_tableName, where: where, whereArgs: whereArgs, groupBy: groupBy, orderBy: orderBy, limit: limit);
     return _toVideos(maps);
+  }
+
+  static Future<List<({Videos video, double weight})>> getRecommendationSeeds() async {
+    final rows = await _db.rawQuery('''
+      SELECT v.*, w.seconds, w.last_watched FROM videos v
+      LEFT JOIN (
+        SELECT video_id, SUM(watched_seconds) AS seconds, MAX(created_at) AS last_watched
+        FROM watch_session WHERE video_id IS NOT NULL GROUP BY video_id
+      ) w ON w.video_id = v.id
+      WHERE v.is_favorite = 1 OR v.view_count > 0 OR w.seconds > 0
+    ''');
+    final now = DateTime.now();
+    return rows.map((row) {
+      final video = Videos.fromJson(row);
+      final seconds = (row['seconds'] as num?)?.toDouble();
+      final lastWatched = DateTime.tryParse('${row['last_watched'] ?? ''}');
+      final days = lastWatched == null ? 0 : math.max(0, now.difference(lastWatched).inDays);
+      // Legacy opens are weak evidence; short recorded previews are not preferences.
+      final watchedWeight = seconds == null
+          ? math.log(1 + (video.viewCount ?? 0).clamp(0, 10)) * 0.15
+          : seconds < 120 ? 0.0 : (seconds / 600).clamp(1.0, 3.0) * 30 / (30 + days);
+      return (video: video, weight: (video.isFavorite == 1 ? 5.0 : 0.0) + watchedWeight);
+    }).where((item) => item.weight > 0).toList();
   }
 
   static Future<List<Videos>> getAllLike(String column, String like, {String? jsonObject}) async {

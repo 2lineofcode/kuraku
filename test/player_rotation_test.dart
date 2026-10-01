@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -56,11 +57,39 @@ class _Player implements Player {
 
   _Player(this.platform);
 
+  final subtitles = <SubtitleTrack>[];
+
+  @override
+  Future<void> setSubtitleTrack(SubtitleTrack track) async => subtitles.add(track);
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
+  test('external subtitles load as file URIs and can be disabled without opening another video', () async {
+    Get.put(AppSettingService()..pref = _Preferences());
+    addTearDown(Get.reset);
+    final directory = Directory.systemTemp.createTempSync('javit-subtitle-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final file = File('${directory.path}/English subtitle #1.SRT')..writeAsStringSync('1\n00:00:00,000 --> 00:00:01,000\nHello\n');
+    final player = _Player(_NativePlayer());
+    final controller = PlayerController()..player = player;
+    controller.currentVideo.value = Videos(videoPath: '/movies/video.mp4');
+    controller.isInitialized.value = true;
+    controller.isPlayerVisible.value = true;
+    await controller.loadSubtitle(file.path);
+    expect(player.subtitles.single.uri, isTrue);
+    expect(Uri.parse(player.subtitles.single.id).toFilePath(), file.path);
+    expect(player.subtitles.single.title, 'English subtitle #1.SRT');
+    expect(controller.currentVideo.value.videoPath, '/movies/video.mp4');
+    await controller.selectSubtitle(SubtitleTrack.no());
+    expect(player.subtitles.last.id, 'no');
+    controller.isPlayerVisible.value = false;
+    await controller.loadSubtitle(file.path);
+    expect(player.subtitles.length, 2);
+  });
+
   testWidgets('Permanent player only blocks visual search while visible', (tester) async {
     Get.put(AppSettingService()..pref = _Preferences());
     addTearDown(Get.reset);

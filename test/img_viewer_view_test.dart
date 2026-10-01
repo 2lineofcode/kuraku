@@ -27,8 +27,8 @@ void main() {
     controller.images.assignAll(images);
     controller.title.value = 'Screenshots';
   });
-  tearDown(() async {
-    await Get.reset();
+  tearDown(() {
+    Get.reset();
     if (directory.existsSync()) directory.deleteSync(recursive: true);
   });
 

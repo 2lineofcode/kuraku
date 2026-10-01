@@ -779,7 +779,6 @@ mixin HelperOpener {
       {'key': '⌘ + T',  'action': 'Add new todo'},
 
       {'key': '⌘ + ,',  'action': 'Open Settings'},
-      {'key': '⌘ + /',  'action': 'Open Chat with AI'},
       {'key': '⌘ + .',  'action': 'Open relapse panel'},
     ];
 

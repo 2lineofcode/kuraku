@@ -412,6 +412,114 @@ mixin DBR18 {
     return maps[0]['total'] as int;
   }
 
+  static ({String join, String id, String name, String jp, String search}) _advancedGroup(String kind) {
+    switch (kind) {
+      case 'Actress': return (
+        join: 'JOIN derived_video_actress link ON link.content_id = v.content_id JOIN derived_actress g ON g.id = link.actress_id',
+        id: 'g.id', name: "COALESCE(NULLIF(TRIM(g.name_romaji), ''), NULLIF(TRIM(g.name_kanji), ''), NULLIF(TRIM(g.name_kana), ''))",
+        jp: "COALESCE(NULLIF(TRIM(g.name_kanji), ''), g.name_kana)",
+        search: "COALESCE(g.name_romaji, '') || ' ' || COALESCE(g.name_kanji, '') || ' ' || COALESCE(g.name_kana, '')",
+      );
+      case 'Category':
+      case 'Series': return (
+        join: kind == 'Category'
+            ? 'JOIN derived_video_category link ON link.content_id = v.content_id JOIN derived_category g ON g.id = link.category_id'
+            : 'JOIN derived_series g ON g.id = v.series_id',
+        id: 'g.id', name: "COALESCE(NULLIF(TRIM(g.name_en), ''), NULLIF(TRIM(g.name_ja), ''))",
+        jp: 'g.name_ja', search: "COALESCE(g.name_en, '') || ' ' || COALESCE(g.name_ja, '')",
+      );
+      case 'Year': return (
+        join: '', id: "strftime('%Y', v.release_date)", name: "strftime('%Y', v.release_date)",
+        jp: "''", search: "strftime('%Y', v.release_date)",
+      );
+      default: throw ArgumentError('Unknown R18 group: $kind');
+    }
+  }
+
+  // Match the local video-code validator before counting or selecting catalog results.
+  static String get _advancedVideos {
+    const prefix = "substr(dvd_id, 1, instr(dvd_id, '-') - 1)";
+    const tail = "substr(dvd_id, instr(dvd_id, '-') + 1)";
+    const serial = "CASE WHEN instr($tail, '-') = 0 THEN $tail ELSE substr($tail, 1, instr($tail, '-') - 1) END";
+    const suffix = "CASE WHEN instr($tail, '-') = 0 THEN 'x' ELSE substr($tail, instr($tail, '-') + 1) END";
+    final blacklist = [
+      for (final prefix in _blacklistedPrefixes) "dvd_id NOT LIKE '$prefix%'",
+      for (final suffix in _blacklistedSuffixes) "dvd_id NOT LIKE '%$suffix'",
+    ].join(' AND ');
+    // Literal predicates let SQLite use the converter's matching partial index.
+    return '''
+      WITH eligible AS (
+        SELECT * FROM derived_video
+        WHERE length($prefix) >= 2 AND $prefix NOT GLOB '*[^A-Za-z]*'
+          AND length(ltrim(($serial), 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz')) BETWEEN 2 AND 5
+          AND ltrim(($serial), 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') NOT GLOB '*[^0-9]*'
+          AND ($suffix) != '' AND ($suffix) NOT GLOB '*[^A-Za-z0-9]*'
+          AND $blacklist
+      )
+    ''';
+  }
+
+  static Database? _advancedCacheDatabase;
+  // ponytail: cache four catalog lists per connection; invalidate when the R18 snapshot changes.
+  static final _advancedGroups = <String, Future<List<Map<String, dynamic>>>>{};
+
+  static Future<List<Map<String, dynamic>>> getAdvancedSearchGroups(String kind, {String? q}) async {
+    if (!_isReady()) return [];
+    if (!identical(_advancedCacheDatabase, _db)) {
+      _advancedCacheDatabase = _db;
+      _advancedGroups.clear();
+    }
+    final task = _advancedGroups.putIfAbsent(kind, () => _loadAdvancedSearchGroups(kind));
+    final List<Map<String, dynamic>> rows;
+    try {
+      rows = await task;
+    } catch (_) {
+      _advancedGroups.removeWhere((key, value) => key == kind && identical(value, task));
+      rethrow;
+    }
+    final search = (q ?? '').trim().toLowerCase();
+    return rows.where((row) => search.isEmpty || '${row['search_text']}'.toLowerCase().contains(search)).toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> _loadAdvancedSearchGroups(String kind) async {
+    final group = _advancedGroup(kind);
+    final isYear = kind == 'Year';
+    final relation = kind == 'Category' ? 'category' : 'actress';
+    final table = switch (kind) {
+      'Series' => 'derived_series', 'Category' => 'derived_category', _ => 'derived_actress',
+    };
+    final join = kind == 'Series' || isYear ? '' : 'JOIN derived_video_$relation link ON link.content_id = v.content_id';
+    final key = isYear ? group.id : kind == 'Series' ? 'v.series_id' : 'link.${relation}_id';
+    final name = isYear ? 'summary.id' : group.name;
+    return _rawQuery('''
+      $_advancedVideos,
+      summary AS (
+        SELECT $key AS id, COUNT(DISTINCT v.dvd_id) AS video_count, MAX(date(v.release_date)) AS max_release_date
+        FROM eligible v $join GROUP BY $key
+      )
+      SELECT summary.id, $name AS name_en, ${isYear ? "''" : group.jp} AS name_ja,
+        ${isYear ? 'summary.id' : group.search} AS search_text, summary.video_count, summary.max_release_date
+      FROM summary ${isYear ? '' : 'JOIN $table g ON g.id = summary.id'}
+      WHERE $name IS NOT NULL
+      ORDER BY max_release_date DESC, name_en COLLATE NOCASE, summary.id
+    ''');
+  }
+
+  static Future<List<Map<String, dynamic>>> getAdvancedSearchVideos(String kind, Object id) async {
+    if (!_isReady()) return [];
+    final group = _advancedGroup(kind);
+    return _rawQuery('''
+      $_advancedVideos
+      SELECT v.content_id AS id, v.dvd_id AS video_code, v.runtime_mins AS duration,
+        COALESCE((SELECT NULLIF(t.target_en, '') FROM machine_translation t WHERE t.source_ja = v.title_ja LIMIT 1), NULLIF(v.title_en, ''), v.title_ja) AS title, MAX(date(v.release_date)) AS release_date,
+        v.sample_url AS trailer, v.jacket_full_url AS fan_art, v.jacket_thumb_url AS poster
+      FROM eligible v ${group.join}
+      WHERE ${group.id} = ?
+      GROUP BY v.dvd_id
+      ORDER BY date(v.release_date) DESC, v.dvd_id
+    ''', [id]);
+  }
+
   static Future<List<Map<String, dynamic>>> getAllActress({String? q}) async {
     if (!_isReady()) return [];
 

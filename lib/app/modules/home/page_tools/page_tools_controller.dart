@@ -5,7 +5,6 @@ import 'package:ex_kit/ex.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/media_information_session.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_list_view/flutter_list_view.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
@@ -59,8 +58,13 @@ class PageToolsController extends GetxController with StateMixin {
   final fnFilterSearchLeft = FocusNode();
 
   final leftList = <Map<String, dynamic>>[].obs;
-  final leftListScrollController = FlutterListViewController().obs;
+  final leftListScrollController = ScrollController().obs;
   final leftListSelected = ''.obs;
+  final leftListSelectedId = ''.obs;
+  final leftListLoading = false.obs;
+  final leftListError = ''.obs;
+  int _leftRequest = 0;
+  int _selectionRequest = 0;
   final leftListHoveredIndex = (-1).obs;
   final leftListSelectedIndex = 0.obs;
   final leftListFocusNode = FocusNode();
@@ -82,7 +86,7 @@ class PageToolsController extends GetxController with StateMixin {
     await getTopLargeFileSize();
     await checkIsHasDataNotScanned();
     await onReset();
-    await filterBySeries();
+    if (currentMenuSelected.value == kAdvanceSearch) await filterBySeries();
 
     AppLog.logI('page tools ==> onInit called: ${sw.elapsedMilliseconds} ms');
     change(200, status: RxStatus.success());
@@ -90,10 +94,13 @@ class PageToolsController extends GetxController with StateMixin {
 
   @override
   void onClose() {
+    _leftRequest++;
+    _selectionRequest++;
     stopQualityScan();
     tecFilterSearchLeft.dispose();
     fnFilterSearchLeft.dispose();
     leftListFocusNode.dispose();
+    leftListScrollController.value.dispose();
     super.onClose();
   }
 
@@ -102,12 +109,22 @@ class PageToolsController extends GetxController with StateMixin {
     switch (menu) {
       case kTopLargeFile: await getTopLargeFileSize(); await checkIsHasDataNotScanned(); break;
       case kDuplicate: await getDuplicateVideos(); break;
-      case kAdvanceSearch: break;
+      case kAdvanceSearch:
+        if (leftList.isEmpty && !leftListLoading.value) await _loadAdvancedGroups(currentFilterBy.value, tecFilterSearchLeft.text);
+        break;
       case kTodo: await getTodos(); break;
     }
   }
 
   Future<void> onReset() async {
+    _leftRequest++;
+    _selectionRequest++;
+    leftListSelectedId.value = '';
+    leftListSelectedIndex.value = -1;
+    leftListHoveredIndex.value = -1;
+    leftList.clear();
+    leftListLoading.value = false;
+    leftListError.value = '';
     currentFilterBy.value = kSeries;
     leftListSelected.value = '';
     tecFilterSearchLeft.text = '';
@@ -120,7 +137,7 @@ class PageToolsController extends GetxController with StateMixin {
     todoPosterByCode.clear();
     rightList.value = [];
     rightListFiltered.value = [];
-    filter.isFiltered.value = false;
+    filter.reset();
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -370,71 +387,71 @@ class PageToolsController extends GetxController with StateMixin {
   // ────────────────────────────────────────────────────────────────
   // ** part: kAdvanceSearch
   // ────────────────────────────────────────────────────────────────
-  Future<void> filterByActress({String? q}) async => leftList.value = await DBR18.getAllActress(q: q);
-  Future<void> filterBySeries({String? q}) async => leftList.value = await DBR18.getAllSeries(q: q);
-  Future<void> filterByCategories({String? q}) async => leftList.value = await DBR18.getAllCategories(q: q);
-  Future<void> filterByYear({String? q}) async {
-    final yearNow = DateTime.now().year;
-    final sub30Year = yearNow - 40;
-    leftList.value = [];
-    for (var i = sub30Year; i <= yearNow; i++) {
-      leftList.value.add({'id': i, 'name_en': i.toString()});
+  Future<void> filterByActress({String? q}) => _loadAdvancedGroups(kActress, q);
+  Future<void> filterBySeries({String? q}) => _loadAdvancedGroups(kSeries, q);
+  Future<void> filterByCategories({String? q}) => _loadAdvancedGroups(kCategory, q);
+  Future<void> filterByYear({String? q}) => _loadAdvancedGroups(kYear, q);
+
+  Future<void> _loadAdvancedGroups(String kind, String? q) async {
+    final request = ++_leftRequest;
+    _selectionRequest++;
+    currentFilterBy.value = kind;
+    tecFilterSearchLeft.text = q ?? '';
+    leftListSelected.value = '';
+    leftListSelectedId.value = '';
+    leftListSelectedIndex.value = -1;
+    leftListHoveredIndex.value = -1;
+    leftList.clear();
+    rightList.clear();
+    rightListFiltered.clear();
+    leftListLoading.value = true;
+    leftListError.value = '';
+    try {
+      final query = kind == kCategory && q != null ? HelperDecensor.censored(q.toTitleCase) : q;
+      final items = await DBR18.getAdvancedSearchGroups(kind, q: query);
+      if (isClosed || request != _leftRequest) return;
+      leftList.assignAll(items);
+    } catch (e) {
+      if (!isClosed && request == _leftRequest) leftListError.value = 'Could not load catalog. Please retry.';
+      AppLog.logE('R18 groups failed: $e');
+    } finally {
+      if (!isClosed && request == _leftRequest) leftListLoading.value = false;
     }
-    leftList.value.sort((a, b) => b['id'].compareTo(a['id']));
   }
 
   Future<void> onLeftListTap(dynamic item, int index) async {
+    final request = ++_selectionRequest;
+    final kind = currentFilterBy.value;
     change(0, status: RxStatus.loading());
-
     leftListSelectedIndex.value = index;
-    leftListFocusNode.requestFocus();
-
     leftListSelected.value = item['name_en'];
-    final _selectedId = item['id'];
-    var videos = <Map<String, dynamic>>[];
-
-    switch (currentFilterBy.value) {
-      case kActress: videos = await DBR18.getAllVideosByActress(_selectedId); break;
-      case kSeries: videos = await DBR18.getAllVideosBySeries(leftListSelected.value); break;
-      case kCategory: videos = await DBR18.getAllVideosByCategory(leftListSelected.value); break;
-      case kYear: videos = await DBR18.getAllVideosByYear(leftListSelected.value); break;
-    }
-
-    // filter
-    rightList.value = [];
-    rightListFiltered.value = [];
-    for (var i = 0; i < videos.length; i++) {
-      final videoCode = videos[i]['video_code'].toString();
-      if (videoCode.isValidVideoCode()) {
-        rightList.value.add(videos[i]);
-      }
-    }
-
-    // check has match video by code
-    final vList = await DBVideos.getAll();
-    rightList.assignAll(rightList.map((r18) {
-      final Map<String, dynamic> _mutableItem = Map.from(r18);
-      final hasMatch = vList.any((vItem) => r18['video_code'].toString() == (vItem.videoCode!));
-      _mutableItem['match'] = hasMatch;
-      _mutableItem['is_clicked'] = false;
-
-      final releaseDate = DateTime.parse(r18['release_date'] ?? '');
-      _mutableItem['is_released'] = releaseDate.isBefore(DateTime.now());
-      return _mutableItem;
-    }).toList());
-
-    rightList.refresh();
-
-    rightListFiltered.value = rightList.toList();
-    rightListFiltered.refresh();
-
-    if (rightList.isNotEmpty) {
+    leftListSelectedId.value = '${item['id']}';
+    leftListFocusNode.requestFocus();
+    rightList.clear();
+    rightListFiltered.clear();
+    try {
+      final (videos, owned) = await (
+        DBR18.getAdvancedSearchVideos(kind, item['id']), DBVideos.getAll(),
+      ).wait;
+      if (isClosed || request != _selectionRequest) return;
+      final codes = owned.map((video) => (video.videoCode ?? '').toUpperCase()).toSet();
+      final now = DateTime.now();
+      rightList.assignAll(videos.map((video) {
+        final released = DateTime.tryParse('${video['release_date'] ?? ''}');
+        return {
+          ...video,
+          'match': codes.contains('${video['video_code']}'.toUpperCase()),
+          'is_clicked': false,
+          'is_released': released == null ? null : !released.isAfter(now),
+        };
+      }));
+      await _applyFilter();
       change(200, status: RxStatus.success());
-    } else {
-      change(200, status: RxStatus.empty());
+    } catch (e) {
+      if (!isClosed && request == _selectionRequest) change(0, status: RxStatus.error('Could not load videos. Please retry.'));
+      AppLog.logE('R18 selection failed: $e');
     }
   }
-
 
   void onLeftListKeyPressedArrowUp() {
     try {
@@ -463,16 +480,10 @@ class PageToolsController extends GetxController with StateMixin {
   }
 
   Future<void> onLeftListDoSearch(String q) async {
-    final prefix = HelperDecensor.censored(q.toTitleCase);
-    switch (currentFilterBy.value) {
-      case kActress: await filterByActress(q: q); break;
-      case kSeries: await filterBySeries(q: q); break;
-      case kCategory: await filterByCategories(q: prefix); break;
-      case kYear: await filterByYear(q: q); break;
-    }
+    await _loadAdvancedGroups(currentFilterBy.value, q);
+    if (isClosed) return;
     fnFilterSearchLeft.requestFocus();
-    leftListScrollController.value.animToTop();
-    if (filter.isFiltered.isTrue) await _applyFilter();
+    if (leftListScrollController.value.hasClients) leftListScrollController.value.jumpTo(0);
   }
 
 

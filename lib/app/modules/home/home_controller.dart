@@ -198,6 +198,7 @@ class HomeController extends GetxController with StateMixin {
       AppLog.logS('${preserveInputState ? 'Refresh Background Content' : 'Refresh All Content'} Take Time: ${sw.elapsedMilliseconds} ms');
       change(200, status: RxStatus.success());
     } catch (e) {
+      AppLog.logE('Refresh all content failed: $e');
       ExAlert.adaptive(
         title: Text('Ups'),
         content: Text('${e.toString()}'),

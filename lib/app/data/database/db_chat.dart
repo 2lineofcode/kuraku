@@ -157,4 +157,6 @@ mixin DBChat {
   static Future<void> delete(String id) async {
     await _db.delete('chat_conversation', where: 'id = ?', whereArgs: [id]);
   }
+
+  static Future<void> deleteAll() async => _db.delete('chat_conversation');
 }

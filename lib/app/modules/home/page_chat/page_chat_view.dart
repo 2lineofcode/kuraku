@@ -97,8 +97,14 @@ class PageChatView extends GetView<PageChatController> {
       decoration: BoxDecoration(color: AppColor.appBar, border: Border(right: BorderSide(color: AppColor.border))),
       padding: const EdgeInsets.all(8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Padding(padding: EdgeInsets.fromLTRB(4, 4, 4, 8),
-          child: Text('JavIt AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+        Padding(padding: const EdgeInsets.fromLTRB(4, 0, 0, 4), child: Row(children: [
+          const Expanded(child: Text('JavIt AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+          IconButton(tooltip: 'Delete all chats', onPressed: () => _deleteAllChats(context),
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+            padding: EdgeInsets.zero,
+            icon: const Icon(Icons.delete_sweep_outlined, size: 16)),
+        ])),
         SizedBox(width: double.infinity, child: ExButtonOutline(
           height: 38, radius: 12, labelSize: 12,
           borderColor: AppColor.border, labelColor: AppColor.text,
@@ -623,6 +629,18 @@ class PageChatView extends GetView<PageChatController> {
     } else {
       await controller.renameChat(chat, title);
     }
+  }
+
+  Future<void> _deleteAllChats(BuildContext context) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (context) => CupertinoAlertDialog(
+      title: const Text('Delete all chats?', style: TextStyle(fontSize: 14)),
+      content: const Text('All conversations, messages, and drafts will be deleted. This cannot be undone.', style: TextStyle(fontSize: 12)),
+      actions: [
+        CupertinoDialogAction(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel', style: TextStyle(fontSize: 13))),
+        CupertinoDialogAction(isDestructiveAction: true, onPressed: () => Navigator.pop(context, true), child: const Text('Delete all', style: TextStyle(fontSize: 13))),
+      ],
+    ));
+    if (confirmed == true) await controller.deleteAllChats();
   }
 }
 

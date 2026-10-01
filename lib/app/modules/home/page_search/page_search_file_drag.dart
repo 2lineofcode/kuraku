@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../core/app_logging.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_toast.dart';
 import '../home_panel/home_panel_library.dart';
@@ -61,6 +62,7 @@ class SearchFileDrag extends StatelessWidget {
         await HelperToast.warn('Some moved paths could not be confirmed. Add the destination folder to your library and rescan after Finder finishes.');
       }
     } catch (e) {
+      AppLog.logE('File drag failed: $e');
       await HelperToast.error('File drag failed: $e');
     } finally {
       HomePanelLibrary.fileDragInProgress = false;

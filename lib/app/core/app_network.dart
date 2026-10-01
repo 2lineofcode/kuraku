@@ -105,4 +105,17 @@ class LogInterceptor extends Interceptor {
 
     super.onResponse(response, handler);
   }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    final request = err.requestOptions;
+    final status = err.response?.statusCode;
+    final message = '🔴 [${request.method}] ${request.uri.path} | ${status ?? err.type.name} | ${err.message}';
+    if (CancelToken.isCancel(err)) {
+      AppLog.logD(message);
+    } else {
+      AppLog.logW(message);
+    }
+    super.onError(err, handler);
+  }
 }

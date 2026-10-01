@@ -392,6 +392,25 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
               8.widthBox,
 
+              PopupMenuButton<String>(
+                tooltip: 'Subtitles',
+                icon: const Icon(Icons.subtitles_outlined, size: 18, color: Colors.white),
+                onSelected: (value) async {
+                  if (value == 'load') {
+                    await widget.controller.pickSubtitle();
+                  } else {
+                    await widget.controller.selectSubtitle(value == 'no' ? SubtitleTrack.no() : SubtitleTrack.auto());
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'load', child: Text('Load subtitle file…')),
+                  PopupMenuItem(value: 'auto', child: Text('Auto')),
+                  PopupMenuItem(value: 'no', child: Text('Off')),
+                ],
+              ),
+
+              8.widthBox,
+
               Container(
                 decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
                 child: Icon(Icons.picture_in_picture_alt_rounded, size: 14, color: Colors.white).p8(),

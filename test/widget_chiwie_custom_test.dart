@@ -127,7 +127,7 @@ void main() {
     chewieController.dispose();
     await videoController.dispose();
     await platform.controllerEvents.close();
-    await Get.reset();
+    Get.reset();
   });
 
   Future<void> pump(WidgetTester tester) async {

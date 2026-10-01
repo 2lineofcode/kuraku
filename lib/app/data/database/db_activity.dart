@@ -190,8 +190,23 @@ mixin DBActivity {
     return ok ? relapse : null;
   }
 
-  static Future<void> deleteRelapseByDateLimitOne(String date) =>
-      _db.rawDelete('DELETE FROM $_tableName WHERE type = ? AND content = ? ORDER BY content DESC, id DESC LIMIT 1', [kActivityTypeRelapse, date]);
+  static Future<Activity?> deleteRelapseByDateLimitOne(String date) async {
+    return _db.transaction((txn) async {
+      final rows = await txn.query(_tableName, where: 'type = ? AND content = ?',
+        whereArgs: [kActivityTypeRelapse, date], orderBy: 'created_at DESC, id DESC', limit: 1);
+      if (rows.isEmpty) return null;
+      final item = Activity.fromJson(rows.first);
+      await txn.delete(_tableName, where: 'id = ? AND type = ?', whereArgs: [item.id, kActivityTypeRelapse]);
+      return item;
+    });
+  }
+
+  static Future<void> restoreRelapse(Activity item) async {
+    if (item.type != kActivityTypeRelapse || item.id == null || item.content == null) {
+      throw ArgumentError('Invalid relapse record');
+    }
+    await _db.insert(_tableName, item.toJson(), conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
 
   static Future<int> countRelapse({DateTime? start, DateTime? end}) async {
     if (start == null && end == null) {

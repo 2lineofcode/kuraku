@@ -12,7 +12,10 @@ class _Service extends DBService {
   Future<void> onReady() async {}
 }
 
-class _Database implements Database {
+class _Database implements Database, Transaction {
+  @override
+  Future<T> transaction<T>(Future<T> Function(Transaction txn) action, {bool? exclusive}) => action(this);
+
   final rows = <Map<String, Object?>>[];
   final queries = <Map<String, Object?>>[];
   final raw = <List<Object?>>[];
@@ -22,6 +25,8 @@ class _Database implements Database {
       case null:
       case '1 = 1':
         return true;
+      case 'type = ? AND content = ?':
+        return row['type'] == args[0] && row['content'] == args[1];
       case 'type = ?':
         return row['type'] == args[0];
       case 'id = ?':
@@ -31,7 +36,7 @@ class _Database implements Database {
       case 'type = ? AND lower(content) = lower(?)':
         return row['type'] == args[0] && '${row['content']}'.toLowerCase() == '${args[1]}'.toLowerCase();
     }
-    if (where!.contains('json_extract')) {
+    if (where.contains('json_extract')) {
       if (row['type'] != args[0]) return false;
       Object? filename;
       try {
@@ -294,9 +299,15 @@ void main() {
       await DBActivity.addRelapse(date: DateTime(2026, 3, 4));
       await DBActivity.addRelapse(date: DateTime(2026, 3, 4));
 
-      await DBActivity.deleteRelapseByDateLimitOne('2026-03-04');
+      database.rows[0]['created_at'] = '2026-03-04 01:00:00';
+      database.rows[1]['created_at'] = '2026-03-04 02:00:00';
+      final latest = Map<String, Object?>.from(database.rows[1]);
+      final removed = await DBActivity.deleteRelapseByDateLimitOne('2026-03-04');
       expect(database.rows, hasLength(1));
-      expect(database.raw.last.first, contains('LIMIT 1'));
+      expect(removed!.toJson(), latest);
+      await DBActivity.restoreRelapse(removed);
+      expect(database.rows.last, latest);
+      await DBActivity.deleteRelapseByDateLimitOne('2026-03-04');
 
       await DBActivity.deleteRelapseByDateLimitOne('2026-03-04');
       await DBActivity.deleteRelapseByDateLimitOne('2026-03-04');

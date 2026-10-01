@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
+import 'package:javit/app/core/app_pref.dart';
 import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/core/const.dart';
 import 'package:javit/app/data/database/_init_db.dart';
@@ -56,34 +57,43 @@ class _Settings extends PageSettingsController {
   Future<void> onInit() async {}
 
   @override
-  Future<void> onRefresh() async => refreshes++;
+  Future<void> onRefresh() async {}
+
+  @override
+  Future<void> refreshRelapse() async => refreshes++;
 }
 
-class _Database implements Database {
+class _Database implements Database, Transaction {
+  @override
+  Future<T> transaction<T>(Future<T> Function(Transaction txn) action, {bool? exclusive}) => action(this);
+
   final rows = <Map<String, Object?>>[];
   final deleted = <List<Object?>>[];
+  Completer<void>? insertGate;
+  bool failInsert = false;
 
   @override
   Future<List<Map<String, Object?>>> query(String table, {bool? distinct, List<String>? columns, String? where, List<Object?>? whereArgs, String? groupBy, String? having, String? orderBy, int? limit, int? offset}) async {
-    expect(table, 'activity');
-    final found = rows.where((row) => row['type'] == whereArgs!.first).toList()
+    expectSync(table, 'activity');
+    final found = rows.where((row) => row['type'] == whereArgs!.first && (whereArgs.length < 2 || row['content'] == whereArgs[1])).toList()
       ..sort((a, b) => '${b['created_at']}'.compareTo('${a['created_at']}'));
     return found.take(limit ?? found.length).map(Map<String, Object?>.from).toList();
   }
 
   @override
   Future<int> insert(String table, Map<String, Object?> values, {String? nullColumnHack, ConflictAlgorithm? conflictAlgorithm}) async {
+    if (failInsert) throw StateError('Insert failed');
+    if (insertGate != null) await insertGate!.future;
     rows.add(Map<String, Object?>.from(values));
     return rows.length;
   }
 
   @override
-  Future<int> rawDelete(String sql, [List<Object?>? arguments]) async {
-    deleted.add(arguments ?? const []);
-    final index = rows.indexWhere((row) => row['type'] == arguments![0] && row['content'] == arguments[1]);
-    if (index == -1) return 0;
-    rows.removeAt(index);
-    return 1;
+  Future<int> delete(String table, {String? where, List<Object?>? whereArgs}) async {
+    deleted.add(whereArgs!);
+    final before = rows.length;
+    rows.removeWhere((row) => row['id'] == whereArgs[0] && row['type'] == whereArgs[1]);
+    return before - rows.length;
   }
 
   @override
@@ -126,8 +136,9 @@ void main() {
   final todayText = today.toStringEx(format: kYMd);
   final oldDayText = today.subtract(const Duration(days: 60)).toStringEx(format: kYMd);
 
+  var rowSequence = 0;
   Map<String, Object?> row(String content, String createdAt) => {
-        'id': '$content-$createdAt',
+        'id': '${DateTime.now().microsecondsSinceEpoch}-${rowSequence++}',
         'type': kActivityTypeRelapse,
         'content': content,
         'created_at': createdAt,
@@ -143,101 +154,120 @@ void main() {
     settings = _Settings();
     Get.put<PageSettingsController>(settings);
   });
-  tearDown(() async {
-    while (Overlayment.count > 0) {
-      await Overlayment.dismissLast();
-    }
-    await Get.reset();
-  });
+  tearDown(Get.reset);
+
+  void panelTest(String name, Future<void> Function(WidgetTester) body) {
+    testWidgets(name, (tester) async {
+      try {
+        await body(tester);
+      } finally {
+        while (Overlayment.count > 0) {
+          unawaited(Overlayment.dismissLast());
+          await tester.pumpAndSettle();
+        }
+      }
+    });
+  }
 
   Future<void> pump(WidgetTester tester) async {
     await tester.pumpWidget(GetMaterialApp(theme: ThemeData.dark(), home: const Scaffold(body: Text('Home'))));
     await tester.pumpAndSettle();
   }
 
-  testWidgets('summarises the week, the month and all time from the aggregated rows', (tester) async {
+  panelTest('shows a compact summary, neutral badges and valid date totals', (tester) async {
     database.rows.addAll([
-      row(todayText, now.toStringEx()),
-      row(todayText, now.toStringEx()),
+      row(todayText, now.toStringEx()), row(todayText, now.toStringEx()),
       row(oldDayText, '$oldDayText 09:00:00'),
+      row('invalid', now.toStringEx()), row('2099-01-01', now.toStringEx()),
     ]);
     await pump(tester);
-
     unawaited(HomePanelRelapse.open());
     await tester.pumpAndSettle();
-
-    expect(Overlayment.count, 1);
-    expect(find.text('Relapse'), findsOneWidget);
-    expect(find.text('This Week: 2'), findsOneWidget);
-    expect(find.text('This Month: 2'), findsOneWidget);
-    expect(find.text('All Time: 3'), findsOneWidget);
-    expect(find.text('2 Times'), findsOneWidget);
-    expect(find.text('1 Times'), findsOneWidget);
-    expect(find.text('Just now'), findsOneWidget, reason: 'the newest entry was created right now');
-    expect(find.textContaining('Last Transaction: '), findsOneWidget);
-    expect(find.text('Last Transaction: -'), findsNothing);
+    expect(find.text('2 / 2'), findsOneWidget);
+    expect(find.text('Daily limit reached'), findsOneWidget);
+    expect(find.text('Invalid date'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('2×'), 80, scrollable: find.byType(Scrollable));
+    expect(find.text('2×'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('Today'), findsOneWidget);
+    expect(find.textContaining('Last recorded Just now'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
-  testWidgets('shows the empty state when nothing was ever recorded', (tester) async {
+  panelTest('empty state supports logging without closing the panel', (tester) async {
     await pump(tester);
-
     unawaited(HomePanelRelapse.open());
     await tester.pumpAndSettle();
-
-    expect(find.text('Still dont have data'), findsOneWidget);
-    expect(find.text('All Time: 0'), findsOneWidget);
-    expect(find.text('This Week: 0'), findsOneWidget);
-    expect(find.text('Last Transaction: -'), findsOneWidget);
-    expect(find.text('1 Times'), findsNothing);
-  });
-
-  testWidgets('opening the panel again closes it instead of stacking overlays', (tester) async {
-    await pump(tester);
-
-    unawaited(HomePanelRelapse.open());
+    expect(find.text('0 / 2'), findsOneWidget);
+    expect(find.text('No records yet'), findsWidgets);
+    await tester.tap(find.text('Log relapse'));
     await tester.pumpAndSettle();
-    expect(Overlayment.count, 1);
-
-    await HomePanelRelapse.open();
-    await tester.pumpAndSettle();
-    expect(Overlayment.count, 0);
-    expect(find.text('Relapse'), findsNothing);
-  });
-
-  testWidgets('the refresh action records a new relapse and refreshes the settings page', (tester) async {
-    database.rows.add(row(todayText, now.toStringEx()));
-    home.isDangerMode.value = false;
-    await pump(tester);
-
-    unawaited(HomePanelRelapse.open());
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Relapse :('));
-    await tester.pumpAndSettle();
-
-    expect(database.rows.where((entry) => entry['content'] == todayText), hasLength(2));
-    expect(settings.refreshes, 1);
-    expect(home.isDangerMode.value, isTrue, reason: 'two relapses today reach the default limit');
-    expect(Overlayment.count, 0);
-  });
-
-  testWidgets('deleting one record removes a single row for that day and re-evaluates danger mode', (tester) async {
-    database.rows.addAll([
-      row(todayText, now.toStringEx()),
-      row(todayText, now.toStringEx()),
-    ]);
-    home.isDangerMode.value = true;
-    await pump(tester);
-
-    unawaited(HomePanelRelapse.open());
-    await tester.pumpAndSettle();
-    expect(find.text('2 Times'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Delete 1 Record'));
-    await tester.pumpAndSettle();
-
     expect(database.rows, hasLength(1));
-    expect(database.deleted.single, [kActivityTypeRelapse, todayText]);
-    expect(home.isDangerMode.value, isFalse);
+    expect(find.text('1 / 2'), findsOneWidget);
+    expect(Overlayment.count, 1);
+    expect(settings.refreshes, 2);
+  });
+
+  panelTest('opening the panel again closes it', (tester) async {
+    await pump(tester);
+    unawaited(HomePanelRelapse.open());
+    await tester.pumpAndSettle();
+    unawaited(HomePanelRelapse.open());
+    await tester.pumpAndSettle();
     expect(Overlayment.count, 0);
   });
+
+  panelTest('remove and undo preserve the record and update the daily limit', (tester) async {
+    final earlier = row(todayText, '$todayText 01:00:00');
+    final latest = row(todayText, '$todayText 02:00:00');
+    database.rows.addAll([earlier, latest]);
+    await pump(tester);
+    unawaited(HomePanelRelapse.open());
+    await tester.pumpAndSettle();
+    expect(home.isDangerMode.value, isTrue);
+    await tester.tap(find.byTooltip('Entry actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove latest entry'));
+    await tester.pumpAndSettle();
+    expect(database.rows, [earlier]);
+    expect(home.isDangerMode.value, isFalse);
+    expect(Overlayment.count, 1);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(database.rows, [earlier, latest]);
+    expect(home.isDangerMode.value, isTrue);
+    expect(find.text('Undo'), findsNothing);
+  });
+  panelTest('busy state prevents duplicate logs and insert failures stay recoverable', (tester) async {
+    await pump(tester);
+    unawaited(HomePanelRelapse.open());
+    await tester.pumpAndSettle();
+    database.failInsert = true;
+    await tester.tap(find.text('Log relapse'));
+    await tester.pumpAndSettle();
+    expect(database.rows, isEmpty);
+    expect(find.text('Could not complete the request. Please retry.'), findsOneWidget);
+    database.failInsert = false;
+    database.insertGate = Completer<void>();
+    await tester.tap(find.text('Log relapse'));
+    await tester.pump();
+    await tester.tap(find.text('Log relapse'));
+    database.insertGate!.complete();
+    await tester.pumpAndSettle();
+    expect(database.rows, hasLength(1));
+    expect(find.text('1 / 2'), findsOneWidget);
+  });
+
+  test('daily limit changes only on save and zero blocks playback', () async {
+    settings.tecAppMaxColi.text = '';
+    expect(AppPref.getAppMaxColi(), 2);
+    settings.tecAppMaxColi.text = '0';
+    await settings.saveRelapseLimit();
+    expect(AppPref.getAppMaxColi(), 0);
+    expect(home.isDangerMode.value, isTrue);
+    settings.tecAppMaxColi.text = '2';
+    await settings.saveRelapseLimit();
+    expect(home.isDangerMode.value, isFalse);
+  });
+
 }

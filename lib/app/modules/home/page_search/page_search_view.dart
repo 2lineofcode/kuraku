@@ -7,6 +7,7 @@ import 'package:super_context_menu/super_context_menu.dart' as scm;
 import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/app_logging.dart';
 import '../../../core/const.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
@@ -25,7 +26,12 @@ class PageSearchView extends GetView<PageSearchController> {
   @override
   Widget build(BuildContext context) {
     AppColor.dependOn(context);
-    return Column(children: [
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyN, meta: true, includeRepeats: false): controller.addTab,
+        const SingleActivator(LogicalKeyboardKey.keyW, meta: true, includeRepeats: false): () => controller.closeTab(controller.activeTabIndex.value),
+      },
+      child: Focus(autofocus: true, child: Column(children: [
       Obx(() => SearchTabBar(
         tabs: controller.tabs.map((tab) => (title: tab.title.value, isLoading: tab.isLoading.value)).toList(),
         activeIndex: controller.activeTabIndex.value,
@@ -38,7 +44,8 @@ class PageSearchView extends GetView<PageSearchController> {
         final tab = controller.activeTab;
         return PageSearchTabView(key: ValueKey(tab.id), controller: tab);
       })),
-    ]);
+    ])),
+    );
   }
 }
 
@@ -269,6 +276,7 @@ class PageSearchTabView extends StatelessWidget {
           try {
             await controller.performSelectionAction(value, selected);
           } catch (e) {
+            AppLog.logE('Search selection action failed ($value): $e');
             await HelperToast.error(e.toString());
           }
         });

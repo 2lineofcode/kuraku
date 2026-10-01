@@ -279,16 +279,22 @@ class PageSettingsView extends GetView<PageSettingsController> {
                         ).pOnly(bottom: 8),
                         HStack(
                           [
-                            'Maximum Coli Per-Day'.text.size(12).make().pOnly(right: 12).w(100),
+                            'Daily relapse limit'.text.size(12).make().pOnly(right: 12).w(100),
                             CupertinoTextField(
                               controller: controller.tecAppMaxColi,
                               style: TextStyle(fontSize: 13, color: AppColor.text),
                               placeholder: AppPref.getAppMaxColi().toString(),
                               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                              onChanged: (s) => AppPref.setAppMaxColi(s.isEmpty ? 0 : int.parse(s)),
+                              onSubmitted: (_) => controller.saveRelapseLimit(),
+                              suffix: IconButton(
+                                tooltip: 'Save daily limit (0 blocks playback)',
+                                icon: Icon(Icons.check, size: 16),
+                                onPressed: controller.saveRelapseLimit,
+                              ),
                             ).expand(),
                           ],
                         ).pOnly(bottom: 8),
+                        '0 blocks playback. Press Enter or ✓ to save.'.text.size(11).color(AppColor.muted).make(),
                       ],
                     ).p12(),
                   ).expand(),

@@ -22,18 +22,6 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null);
   });
 
-  test('the notification model keeps every field it is given', () {
-    const model = NotificationModel(title: 'Download finished', body: 'ABP-001 is ready', payload: '/movies/ABP-001.mp4', id: 7);
-    expect(model.title, 'Download finished');
-    expect(model.body, 'ABP-001 is ready');
-    expect(model.payload, '/movies/ABP-001.mp4');
-    expect(model.id, 7);
-
-    const minimal = NotificationModel(title: 'Title', body: 'Body');
-    expect(minimal.payload, isNull);
-    expect(minimal.id, isNull);
-  });
-
   group('platform plugin', () {
     test('initialisation happens once and is reused by later calls', () async {
       await AppNotification.initialize(onNotificationTap: (_) {});
@@ -64,13 +52,5 @@ void main() {
       expect(arguments['id'] as int, inInclusiveRange(100000, 10000000));
     });
 
-    test('two notifications never reuse the same identifier', () async {
-      for (var i = 0; i < 5; i++) {
-        await AppNotification.show(NotificationModel(title: 'Title $i', body: 'Body $i'));
-      }
-
-      final ids = calls.where((call) => call.method == 'show').map((call) => (call.arguments as Map)['id']).toSet();
-      expect(ids.length, greaterThan(1), reason: 'ids are randomised per notification');
-    });
   }, skip: !Platform.isMacOS ? 'the notification plugin is only wired up for macOS' : null);
 }

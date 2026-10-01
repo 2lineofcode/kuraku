@@ -43,7 +43,16 @@ mixin AppPref {
   static Future<void> setAppDarkMode(bool value) => _pref.write('_kAppDarkMode', value);
 
   static int getAppMaxColi() => _pref.read(_kAppMaxColi) ?? 2;
-  static void setAppMaxColi(int value) => _pref.write(_kAppMaxColi, value);
+  static Future<void> setAppMaxColi(int value) async {
+    if (value < 0) throw ArgumentError.value(value, 'value');
+    final previous = getAppMaxColi();
+    try {
+      await _pref.write(_kAppMaxColi, value);
+    } catch (_) {
+      _pref.writeInMemory(_kAppMaxColi, previous);
+      rethrow;
+    }
+  }
 
   static List<Videos> getAppCart() {
     final list = _pref.read<List>(_kAppCart);

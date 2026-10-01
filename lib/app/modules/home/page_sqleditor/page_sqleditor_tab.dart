@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sql_formatter/sql_formatter.dart' as sql_formatter;
 
+import '../../../core/app_logging.dart';
 import '../../../utils/chat_service.dart';
 
 class PageSqleditorTab extends GetxController {
@@ -221,6 +222,7 @@ class PageSqleditorTab extends GetxController {
       }
       if (!token.isCancelled && !isClosed && selectedSource == source.value) result.value = data;
     } catch (error) {
+      if (!token.isCancelled) AppLog.logW('SQL query failed for $selectedSource: $error');
       if (!isClosed && selectedSource == source.value) {
         queryError.value = token.isCancelled ? 'Query stopped.' : _message(error);
         if (committing.value) queryError.value += ' If completion is uncertain, check the database before retrying the write.';
@@ -261,6 +263,7 @@ class PageSqleditorTab extends GetxController {
         aiSql.value = sql;
       }
     } catch (error) {
+      if (!token.isCancelled) AppLog.logW('SQL generation failed for $selectedSource: $error');
       if (!isClosed && selectedSource == source.value) aiError.value = token.isCancelled ? 'Generation stopped or timed out. You can retry.' : _message(error);
     } finally {
       timer.cancel();
@@ -400,8 +403,9 @@ class PageSqleditorTab extends GetxController {
       final schema = await loadSchema?.call(source.value) ?? <String, List<String>>{};
       if (isClosed || request != _schemaRequest) return;
       _schema = schema;
-    } catch (_) {
+    } catch (error) {
       if (isClosed || request != _schemaRequest) return;
+      AppLog.logW('SQL schema load failed for ${source.value}: $error');
       _schema = {};
       schemaError.value = 'Could not load schema. Click to retry.';
     } finally {

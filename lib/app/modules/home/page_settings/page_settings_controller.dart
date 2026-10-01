@@ -104,15 +104,30 @@ class PageSettingsController extends GetxController {
       appMiniMode.value = false;
     }
 
-    final _last = await DBActivity.getAllRelapse();
-    
-    if (_last.isNotEmpty) {
-      lastRelapse.value = _last[0].createdAt?.reformatDate(to: 'MMM, d y HH:mm') ?? '';
-    } else {
-      lastRelapse.value = '-';
-    }
+    await refreshRelapse();
 
     AppLog.logI('page settings ==> onInit called: ${sw.elapsedMilliseconds} ms');
+  }
+
+  Future<void> refreshRelapse() async {
+    final latest = await DBActivity.getLatestRelapseTransaction();
+    lastRelapse.value = latest?.createdAt?.reformatDate(to: 'MMM, d y HH:mm') ?? '-';
+  }
+
+  Future<void> saveRelapseLimit() async {
+    final value = int.tryParse(tecAppMaxColi.text);
+    if (value == null || value < 0) {
+      tecAppMaxColi.text = AppPref.getAppMaxColi().toString();
+      await HelperToast.error('Enter a valid daily limit. Zero blocks playback.');
+      return;
+    }
+    try {
+      await AppPref.setAppMaxColi(value);
+      final count = await DBActivity.getCountRelapseToday();
+      Get.find<HomeController>().isDangerMode.value = count >= value;
+    } catch (_) {
+      await HelperToast.error('Could not save daily limit. Please retry.');
+    }
   }
 
   @override
@@ -138,6 +153,7 @@ class PageSettingsController extends GetxController {
     try {
       storageList.value = await _scanStorage();
     } catch (e) {
+      AppLog.logE('Failed to read storage: $e');
       await HelperToast.error('Failed to read storage: $e');
     } finally {
       isLoadingStorage.value = false;
@@ -158,6 +174,7 @@ class PageSettingsController extends GetxController {
       semanticMissingCount.value = status['pending'] as int;
     } catch (e) {
       semanticStatus.value = e.toString();
+      AppLog.logW('Visual Search: status refresh failed: $e');
     }
   }
 

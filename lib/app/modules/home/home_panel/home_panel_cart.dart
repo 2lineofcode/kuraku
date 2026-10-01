@@ -201,6 +201,7 @@ mixin HomePanelCart {
               try {
                 File(videos.videoPath!).deleteSync();
               } catch (e) {
+                AppLog.logE('Failed to delete video ${videos.videoPath}: $e');
                 await HelperToast.error('Failed to delete video: ${videos.videoPath}');
               }
               _controller.cart.remove(videos);
@@ -240,6 +241,7 @@ mixin HomePanelCart {
                 try {
                   File(file!).deleteSync();
                 } catch (e) {
+                  AppLog.logE('Failed to delete video $file: $e');
                   await HelperToast.error('Failed to delete video: $file');
                 }
               }

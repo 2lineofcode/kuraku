@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_logging.dart';
+
 class AppStartup extends StatefulWidget {
   const AppStartup({super.key, required this.initialize, required this.child});
 
@@ -23,6 +25,7 @@ class _AppStartupState extends State<AppStartup> {
         await widget.initialize();
         if (mounted) setState(() => _ready = true);
       } catch (e) {
+        AppLog.logE('Application startup failed: $e');
         if (mounted) setState(() => _error = e);
       }
     });

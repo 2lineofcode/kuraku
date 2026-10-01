@@ -23,7 +23,6 @@ import 'page_download/page_download_view.dart';
 import 'page_explore/page_explore_view.dart';
 import 'page_home/page_home_view.dart';
 import 'page_profile/page_profile_view.dart';
-import 'page_search/page_search_controller.dart';
 import 'page_search/page_search_view.dart';
 import 'page_settings/page_settings_view.dart';
 import 'page_sqleditor/page_sqleditor_view.dart';

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/app_logging.dart';
 import '../../../utils/helper_loading.dart';
 import '../../../utils/helper_opener.dart';
 import '../../widgets/widget_search_tab_bar.dart';
@@ -404,6 +405,7 @@ class PageSqleditorTabView extends StatelessWidget {
                         await controller.saveSnippet(source, name, currentSql);
                         if (context.mounted) setState(() { selected = name.trim(); adding = false; name = ''; });
                       } catch (e) {
+                        AppLog.logW('Failed to save SQL snippet: $e');
                         if (context.mounted) setState(() => error = e is StateError ? e.message.toString() : 'Could not save snippet. Please retry.');
                       } finally {
                         if (context.mounted) setState(() => busy = false);

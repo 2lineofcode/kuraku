@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:ex_kit/ex.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -95,6 +96,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   }
 
   List<Videos>? _externalPlaylist;
+  static const subtitleExtensions = ['srt', 'vtt', 'ass', 'ssa'];
   static const _supportedDropVideoExtensions = {'mp4', 'mkv', 'avi', 'mov'};
   Future<void>? _playerInitialization;
   Worker? _semanticPlaybackWorker;
@@ -230,6 +232,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
   Future<void> onDropEvent(PerformDropEvent event) async {
     isDropHovering.value = false;
+    final video = currentVideo.value;
     final droppedPaths = <String>[];
     final readTasks = <Future<void>>[];
 
@@ -252,6 +255,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     if (droppedPaths.isEmpty) return;
 
     final videoPaths = <String>[];
+    final subtitlePaths = <String>[];
     var hasUnsupportedFile = false;
 
     for (final path in droppedPaths) {
@@ -263,9 +267,20 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
       if (_isVideoPath(path)) {
         videoPaths.add(path);
+      } else if (subtitleExtensions.contains(extension(path).toLowerCase().replaceFirst('.', ''))) {
+        subtitlePaths.add(path);
       } else {
         hasUnsupportedFile = true;
       }
+    }
+
+    if (subtitlePaths.isNotEmpty) {
+      if (subtitlePaths.length != 1 || videoPaths.isNotEmpty) {
+        await HelperToast.warn('Drop one subtitle file onto the current video');
+      } else if (identical(currentVideo.value, video)) {
+        await loadSubtitle(subtitlePaths.single);
+      }
+      return;
     }
 
     if (videoPaths.isEmpty) {
@@ -281,6 +296,49 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     }
 
     await _openDroppedVideos(videoPaths);
+  }
+
+  Future<void> pickSubtitle() async {
+    final video = currentVideo.value;
+    try {
+      final result = await FilePicker.pickFiles(
+        dialogTitle: 'Load subtitle',
+        type: FileType.custom,
+        allowedExtensions: subtitleExtensions,
+      );
+      final path = result?.files.single.path;
+      if (path != null && !isClosed && identical(currentVideo.value, video)) await loadSubtitle(path);
+    } catch (e) {
+      AppLog.logW('Failed to open subtitle picker: $e');
+      await HelperToast.error('Failed to open subtitle: $e');
+    } finally {
+      requestFocusOnPlayer();
+    }
+  }
+
+  Future<void> loadSubtitle(String path) async {
+    try {
+      if (!subtitleExtensions.contains(extension(path).toLowerCase().replaceFirst('.', ''))) {
+        throw ArgumentError('Supported subtitles: .srt, .vtt, .ass, .ssa');
+      }
+      if (!File(path).existsSync()) throw FileSystemException('Cannot access subtitle', path);
+      await selectSubtitle(SubtitleTrack.uri(Uri.file(path).toString(), title: basename(path)));
+    } catch (e) {
+      AppLog.logW('Failed to load subtitle ($path): $e');
+      await HelperToast.error('Failed to load subtitle: $e');
+    }
+  }
+
+  Future<void> selectSubtitle(SubtitleTrack track) async {
+    if (isClosed || !isInitialized.value || !isPlayerVisible.value) return;
+    try {
+      await player.setSubtitleTrack(track);
+    } catch (e) {
+      AppLog.logW('Failed to select subtitle track: $e');
+      await HelperToast.error('Failed to select subtitle: $e');
+    } finally {
+      requestFocusOnPlayer();
+    }
   }
 
   void enterMiniMode() {
@@ -489,6 +547,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       _watchVideoReady = false;
       _watchTracker.setPlaying(false);
       isInitialized.value = false;
+      AppLog.logE('Failed to load video: $e');
       await HelperToast.error('Failed to load video: $e');
     }
   }

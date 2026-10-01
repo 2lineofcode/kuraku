@@ -37,7 +37,7 @@ class PageSearchController extends GetxController {
       }
     }
     if (tabs.isEmpty) {
-      addTab();
+      addTab(focusSearch: false);
     } else {
       final active = saved['activeTab'];
       selectTab(active is int ? active.clamp(0, tabs.length - 1) : 0);
@@ -55,13 +55,14 @@ class PageSearchController extends GetxController {
 
   PageSearchTab createTab(int id) => PageSearchTab(id);
 
-  void addTab() {
+  void addTab({bool focusSearch = true}) {
     final tab = createTab(_nextTabId++);
     tab.watchPreferences(_saveTabs);
     tabs.add(tab);
     unawaited(tab.onRefresh());
     selectTab(tabs.length - 1);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!isClosed && !tab.isClosed && identical(activeTab, tab) && focusSearch) tab.fnSearch.requestFocus();
       if (!isClosed && tabScrollController.hasClients) tabScrollController.jumpTo(tabScrollController.position.maxScrollExtent);
     });
   }

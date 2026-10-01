@@ -2,13 +2,11 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_list_view/flutter_list_view.dart';
 import 'package:flutter_popup/flutter_popup.dart';
 import 'package:get/get.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
-import '../../../core/const.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_media_stack.dart';
@@ -571,40 +569,39 @@ class PageToolsView extends GetView<PageToolsController> {
 
           // filter by
           HStack([
-            'Filter by: (${controller.leftList.length})'.text.size(11).minFontSize(11).make(),
-            Spacer(),
+            'Filter by: (${controller.leftList.length})'.text.size(11).minFontSize(11).maxLines(1).ellipsis.make().expand(),
             Obx(
               () => CustomPopup(
                 content: VStack([
                   // Actress
                   '${controller.currentFilterBy.value == kActress ? '◉' : '◎'} $kActress'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
                     controller.currentFilterBy.value = kActress;
-                    await controller.filterByActress();
                     Get.back();
+                    await controller.filterByActress();
                   }),
 
                   // Series
                   '${controller.currentFilterBy.value == kSeries ? '◉' : '◎'} $kSeries'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
                     controller.currentFilterBy.value = kSeries;
-                    await controller.filterBySeries();
                     Get.back();
+                    await controller.filterBySeries();
                   }),
 
                   // Category
                   '${controller.currentFilterBy.value == kCategory ? '◉' : '◎'} $kCategory'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
                     controller.currentFilterBy.value = kCategory;
-                    await controller.filterByCategories();
                     Get.back();
+                    await controller.filterByCategories();
                   }),
 
                   // Year
                   '${controller.currentFilterBy.value == kYear ? '◉' : '◎'} $kYear'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
                     controller.currentFilterBy.value = kYear;
-                    await controller.filterByYear();
                     Get.back();
+                    await controller.filterByYear();
                   }),
                 ]),
-                child: '${controller.currentFilterBy}'.text.minFontSize(11).size(11).make().pSymmetric(h: 8).box.color(AppColor.selected).make().cornerRadius(4),
+                child: controller.currentFilterBy.value.text.minFontSize(11).size(11).make().pSymmetric(h: 8).box.color(AppColor.selected).make().cornerRadius(4),
               ),
             ),
           ]),
@@ -620,6 +617,10 @@ class PageToolsView extends GetView<PageToolsController> {
             onSubmitted: (s) async => await controller.onLeftListDoSearch(s),
           ).pSymmetric(v: 16),
           
+          if (controller.leftListLoading.value) const LinearProgressIndicator(minHeight: 2),
+          if (controller.leftListError.value.isNotEmpty) controller.leftListError.value.text.size(11).make().p8(),
+          if (!controller.leftListLoading.value && controller.leftListError.value.isEmpty && controller.leftList.isEmpty)
+            'No matching items'.text.size(11).color(AppColor.muted).make().p8(),
           // list
           FocusScope(
             autofocus: true,
@@ -635,23 +636,28 @@ class PageToolsView extends GetView<PageToolsController> {
                   }
                 }
               },
-              child: FlutterListView(
+              child: ListView.builder(
                 controller: controller.leftListScrollController.value,
-                delegate: FlutterListViewDelegate(
-                  (context, index) {
+                itemCount: controller.leftList.length,
+                itemBuilder: (context, index) {
                     final item = controller.leftList[index];
                     return VStack(
                       [
                         Obx(
                           () {
-                            final isSelected = item['name_en'] == controller.leftListSelected.value;
+                            final isSelected = '${item['id']}' == controller.leftListSelectedId.value;
                             final isHovered = index == controller.leftListHoveredIndex.value;
                             return MouseRegion(
                               onEnter: (_) => controller.leftListHoveredIndex.value = index,
                               onExit: (_) => controller.leftListHoveredIndex.value = -1,
                               child: InkWell(
                                 onTap: () async => await controller.onLeftListTap(item, index),
-                                child: '${HelperDecensor.decensor(item['name_en'])}'.text.size(11).minFontSize(11).make().w(double.infinity).p4(),
+                                child: VStack([
+                                  '${HelperDecensor.decensor(item['name_en'])}'.text.size(11).minFontSize(11).maxLines(2).ellipsis.make(),
+                                  if ((item['name_ja'] ?? '').toString().trim().isNotEmpty && item['name_ja'] != item['name_en'])
+                                    '${item['name_ja']}'.text.size(10).color(AppColor.muted).maxLines(1).ellipsis.make(),
+                                  '${item['video_count']} videos · ${item['max_release_date'] ?? 'Date unknown'}'.text.size(9).color(AppColor.muted).make(),
+                                ]).w(double.infinity).p4(),
                               )
                                   .color(isSelected ? AppColor.selected : isHovered ? AppColor.border : Colors.transparent)
                                   .cornerRadius(8),
@@ -661,9 +667,7 @@ class PageToolsView extends GetView<PageToolsController> {
                         Divider(color: AppColor.border, thickness: 0.5),
                       ],
                     );
-                  },
-                  childCount: controller.leftList.length,
-                ),
+                },
               ),
             ),
           ).expand(),
@@ -718,11 +722,14 @@ class PageToolsView extends GetView<PageToolsController> {
             ]).pOnly(bottom: 12),
 
             // list video
-            Obx(() => _buildVideoList()).expand(),
+            Obx(() => controller.rightListFiltered.isEmpty
+                ? const Center(child: Text('No videos match the current filters'))
+                : _buildVideoList()).expand(),
 
           ],
         ).p12(),
         onLoading: ExUiLoading(message: 'Loading...'.text.size(11).minFontSize(11).makeCentered()),
+        onError: (error) => Center(child: Text(error ?? 'Could not load videos')),
         onEmpty: ExUiErrorOrEmpty(
           illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
           title: 'No Data Found',
@@ -792,7 +799,7 @@ class PageToolsView extends GetView<PageToolsController> {
               color: AppColor.black180,
               child: HStack([
                 Icon(UIconsPro.solidRounded.calendar, size: 10).pOnly(right: 5),
-                '${item['release_date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).align(TextAlign.center).ellipsis.make(),
+                (DateTime.tryParse('${item['release_date'] ?? ''}')?.toIso8601String().substring(0, 10) ?? 'Date unknown').text.size(10).minFontSize(10).align(TextAlign.center).ellipsis.make(),
               ]).p4(),
             ).cornerRadius(8).p2().positioned(left: 0),
 

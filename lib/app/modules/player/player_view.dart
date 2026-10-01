@@ -92,7 +92,7 @@ class PlayerView extends GetView<PlayerController> {
                   Icon(Icons.file_open_rounded, color: Colors.white, size: 40),
                   SizedBox(height: 12),
                   Text(
-                    'Drop video here',
+                    'Drop video or subtitle here',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -102,7 +102,7 @@ class PlayerView extends GetView<PlayerController> {
                   ),
                   SizedBox(height: 6),
                   Text(
-                    'Support .mp4, .mkv, .avi, .mov\nMultiple files will become playlist',
+                    'Videos: .mp4, .mkv, .avi, .mov\nMultiple videos become a playlist\nSubtitle: .srt, .vtt, .ass, .ssa',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white70,

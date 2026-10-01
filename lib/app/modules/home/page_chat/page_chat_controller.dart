@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
+import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
 import '../../../data/database/_init_db.dart';
 import '../../../data/database/db_chat.dart';
@@ -134,7 +135,8 @@ class PageChatController extends GetxController {
         await action();
         error.value = '';
         return true;
-      } catch (_) {
+      } catch (failure) {
+        AppLog.logW('Chat operation failed: $failure');
         error.value = 'Could not load or save chat. Please retry.';
         return false;
       } finally {
@@ -522,6 +524,22 @@ class PageChatController extends GetxController {
         _activate(next);
         await AppPref.setActiveChat(next.id);
       }
+    });
+  }
+
+  Future<void> deleteAllChats() async {
+    if (busy.value || !ready.value) return;
+    await stopResponse();
+    _draftTimer?.cancel();
+    await _run(() async {
+      await DBChat.deleteAll();
+      final next = ChatConversation();
+      chats.assignAll([next]);
+      _unsavedReply = null;
+      searchInput.clear();
+      search.value = '';
+      _activate(next);
+      await AppPref.setActiveChat(next.id);
     });
   }
 

@@ -428,7 +428,7 @@ class PageExploreTab {
       case '🇮🇩 Sub Indonesia': return DBVideos.getAll(where: 'video_code != "" AND (video_path LIKE "%-id%" OR video_path LIKE "%indo%")', orderBy: 'updated_at DESC');
       case '🇬🇧 Sub English': return DBVideos.getAll(where: 'video_code != "" AND (video_path LIKE "%-en%" OR video_path LIKE "%-sub%")', orderBy: 'updated_at DESC');
       case '✨ Reduce Mosaic': return DBVideos.getAll(where: 'video_code != "" AND (video_path LIKE "%-un%" OR video_path LIKE "%-rm%" OR video_path LIKE "%reducing mosaic%")', orderBy: 'updated_at DESC');
-      case '🚫 Non Jav': return DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC');
+      case '🚫 Non Jav': return DBVideos.getAll(where: 'release_date IS NULL OR TRIM(release_date) = ""', orderBy: 'updated_at DESC');
       case '💿 FHD': return DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != "" AND quality = "1920x1080"', orderBy: 'updated_at DESC');
       case '📺 HD': return DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != "" AND quality != "1920x1080"', orderBy: 'updated_at DESC');
       default: return Future.value([]);
@@ -770,7 +770,7 @@ class PageExploreTab {
     final cNewAdded = await DBVideos.getAll(orderBy: 'created_at DESC', limit: 50);
     final cMostWatch = await DBVideos.getAll(where: 'view_count >= 3', orderBy: 'view_count DESC, updated_at DESC');
     final cNeverWatch = await DBVideos.getAll(where: 'view_count = 0', orderBy: 'updated_at DESC');
-    final cNonJav = await DBVideos.getAll(where: 'video_code IS NULL OR video_code = ""', orderBy: 'updated_at DESC');
+    final cNonJav = await _getCustomVideos('🚫 Non Jav');
     final cSubId = await DBVideos.getAll(where: 'video_code != "" AND (video_path LIKE "%-id%" OR video_path LIKE "%indo%")', orderBy: 'updated_at DESC');
     final cSubEn = await DBVideos.getAll(where: 'video_code != "" AND (video_path LIKE "%-en%" OR video_path LIKE "%-sub%")', orderBy: 'updated_at DESC');
     final cRM = await DBVideos.getAll(where: 'video_code != "" AND (video_path LIKE "%-un%" OR video_path LIKE "%-rm%" OR video_path LIKE "%reducing mosaic%")', orderBy: 'updated_at DESC');

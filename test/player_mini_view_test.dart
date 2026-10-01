@@ -41,7 +41,7 @@ class _Controller extends PlayerController {
   void onInit() {}
 
   @override
-  void onClose() {}
+  Future<void> onClose() async {}
 
   @override
   Future<void> seekRelative(Duration offset) async {

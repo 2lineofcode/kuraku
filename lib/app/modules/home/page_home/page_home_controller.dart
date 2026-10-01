@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:get/get.dart';
 
 import '../../../core/app_logging.dart';
@@ -15,6 +17,7 @@ class PageHomeController extends GetxController {
   final listNeverWatch = <Videos>[].obs;
   final listOldest = <Videos>[].obs;
   final totalVideo = 0.obs;
+  int _recommendationRequest = 0;
 
   final homeSectionOrder = <String>[].obs;
 
@@ -50,57 +53,54 @@ class PageHomeController extends GetxController {
   }
 
   Future<void> getListRecommendation() async {
-    final results = await Future.wait([
-      DBVideos.getAll(where: 'view_count > 0', orderBy: 'view_count DESC, updated_at DESC', limit: 100),
-      DBVideos.getAll(where: 'view_count = 0', orderBy: 'created_at DESC', limit: 300),
-    ]);
-    final watched = results[0];
-    final candidates = results[1];
+    final request = ++_recommendationRequest;
+    final (seeds, candidates) = await (
+      DBVideos.getRecommendationSeeds(),
+      DBVideos.getAll(where: 'COALESCE(view_count, 0) = 0 AND COALESCE(is_favorite, 0) = 0'),
+    ).wait;
+    if (isClosed || request != _recommendationRequest) return;
+    listRecommendation.value = rankRecommendations(candidates, seeds);
+  }
 
-    if (candidates.isEmpty) {
-      listRecommendation.clear();
-      return;
-    }
+  static List<Videos> rankRecommendations(List<Videos> candidates, List<({Videos video, double weight})> seeds) {
+    String normalize(String? value) => (value ?? '').trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    Set<String> actresses(Videos video) => (video.actress ?? <VideoActress>[])
+        .map((item) => normalize(item.nameRomaji)).where((name) => name.isNotEmpty).toSet();
+    Set<String> categories(Videos video) => (video.category ?? <VideoCategory>[])
+        .map((item) => normalize(item.category)).where((name) => name.isNotEmpty).toSet();
 
-    if (watched.isEmpty) {
-      candidates.shuffle();
-      listRecommendation.value = candidates.take(20).toList();
-      return;
-    }
-
-    final actressWeight = <String, int>{};
-    final categoryWeight = <String, int>{};
-
-    for (final video in watched) {
-      final weight = (video.viewCount ?? 1).toInt().clamp(1, 10);
-      for (final actress in video.actress ?? <VideoActress>[]) {
-        final name = (actress.nameRomaji ?? '').trim();
-        if (name.isNotEmpty) actressWeight[name] = (actressWeight[name] ?? 0) + weight;
+    final actressWeight = <String, double>{};
+    final categoryWeight = <String, double>{};
+    for (final seed in seeds) {
+      final cast = actresses(seed.video);
+      final tags = categories(seed.video);
+      for (final name in cast) {
+        actressWeight[name] = (actressWeight[name] ?? 0) + seed.weight / cast.length;
       }
-      for (final category in video.category ?? <VideoCategory>[]) {
-        final name = (category.category ?? '').trim();
-        if (name.isNotEmpty) categoryWeight[name] = (categoryWeight[name] ?? 0) + weight;
+      for (final name in tags) {
+        categoryWeight[name] = (categoryWeight[name] ?? 0) + seed.weight / tags.length;
       }
     }
 
+    final categoryFrequency = <String, int>{};
+    for (final video in candidates) {
+      for (final name in categories(video)) {
+        categoryFrequency[name] = (categoryFrequency[name] ?? 0) + 1;
+      }
+    }
+    final maxActress = actressWeight.values.fold(0.0, math.max);
+    final maxCategory = categoryWeight.values.fold(0.0, math.max);
     final scored = candidates.map((video) {
-      var score = 0;
-      for (final actress in video.actress ?? <VideoActress>[]) {
-        score += (actressWeight[(actress.nameRomaji ?? '').trim()] ?? 0) * 3;
-      }
-      for (final category in video.category ?? <VideoCategory>[]) {
-        score += categoryWeight[(category.category ?? '').trim()] ?? 0;
-      }
+      final castScore = actresses(video).fold(0.0, (score, name) => math.max(score, actressWeight[name] ?? 0));
+      final tags = categories(video);
+      final tagScore = tags.fold(0.0, (score, name) => score + (categoryWeight[name] ?? 0)
+          * math.log((candidates.length + 1) / (categoryFrequency[name]! + 1)) / math.log(candidates.length + 1));
+      final score = (maxActress == 0 ? 0.0 : 3 * castScore / maxActress)
+          + (maxCategory == 0 || tags.isEmpty ? 0.0 : tagScore / (maxCategory * tags.length));
       return (video: video, score: score);
-    }).toList();
-
-    scored.sort((a, b) {
-      final byScore = b.score.compareTo(a.score);
-      if (byScore != 0) return byScore;
-      return (b.video.createdAt ?? '').compareTo(a.video.createdAt ?? '');
-    });
-
-    listRecommendation.value = scored.take(20).map((item) => item.video).toList();
+    }).toList()..shuffle();
+    scored.sort((a, b) => b.score.compareTo(a.score));
+    return scored.take(20).map((item) => item.video).toList();
   }
 
   Future<void> getListMostWatch() async {

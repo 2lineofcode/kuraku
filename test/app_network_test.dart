@@ -1,14 +1,12 @@
 import 'dart:typed_data';
 
-import 'package:dio/dio.dart';
+import 'package:dio/dio.dart' hide LogInterceptor;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:javit/app/core/app_network.dart';
 import 'package:javit/app/modules/home/home_panel/home_panel_log.dart';
 
 class _Adapter implements HttpClientAdapter {
-  _Adapter({this.statusCode = 200});
-
-  int statusCode;
+  int statusCode = 200;
   final requests = <RequestOptions>[];
 
   @override

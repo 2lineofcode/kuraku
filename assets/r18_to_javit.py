@@ -5,11 +5,38 @@ import sqlite3
 import re
 import time
 import datetime
+from pathlib import Path
 
 
 SCRIPT_NAME = "r18_to_javit"
-SCRIPT_VERSION = "1.1.0"
-SCRIPT_UPDATED_AT = "2026-05-26"
+SCRIPT_VERSION = "1.2.0"
+SCRIPT_UPDATED_AT = "2026-09-29"
+
+
+def create_catalog_indexes(conn):
+    # Keep eligibility identical to DBR18._advancedVideos.
+    prefix = "substr(dvd_id, 1, instr(dvd_id, '-') - 1)"
+    tail = "substr(dvd_id, instr(dvd_id, '-') + 1)"
+    serial = f"CASE WHEN instr({tail}, '-') = 0 THEN {tail} ELSE substr({tail}, 1, instr({tail}, '-') - 1) END"
+    suffix = f"CASE WHEN instr({tail}, '-') = 0 THEN 'x' ELSE substr({tail}, instr({tail}, '-') + 1) END"
+    predicate = f"""
+      length({prefix}) >= 2 AND {prefix} NOT GLOB '*[^A-Za-z]*'
+      AND length(ltrim(({serial}), 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz')) BETWEEN 2 AND 5
+      AND ltrim(({serial}), 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') NOT GLOB '*[^0-9]*'
+      AND ({suffix}) != '' AND ({suffix}) NOT GLOB '*[^A-Za-z0-9]*'
+    """
+    prefixes = ['TK', '7', '9', 'K9', 'FTKT', 'GOOE', 'JTKT', 'GTKT', 'DDMP', 'DMPXA', 'USTD', 'VWBS', 'HPXR', 'VWAS', 'TCBD', 'DAXA', 'TWUSS', 'PJXF', 'KKC', 'GNXF', 'JAXA', 'UHB', 'BPUH', 'GNXT', 'ZTKT', 'PB', 'D1', 'D2', 'D3', 'DK', 'BCQA', 'ANRS', 'SPUF', 'ANRM']
+    suffixes = ['BOD', 'DOD', 'Ta', 'Tb', 'Tc', 'Td', 'Te', 'TK', 'TK1', 'TK2', 'TK3', 'EC', '4D', '5D', 'DL']
+    for pattern in [value + '%' for value in prefixes] + ['%' + value for value in suffixes]:
+        predicate += f" AND dvd_id NOT LIKE '{pattern}'"
+    indexes = {
+        'idx_dv_advanced_catalog': f"ON derived_video(series_id, dvd_id, release_date, content_id) WHERE {predicate}",
+        'idx_dvc_content_category': 'ON derived_video_category(content_id, category_id)',
+    }
+    for name, definition in indexes.items():
+        conn.execute(f'CREATE INDEX IF NOT EXISTS {name} {definition}')
+    conn.execute('ANALYZE idx_dv_advanced_catalog')
+    conn.execute('ANALYZE derived_video_category')
 
 
 def cleanup_old_r18_dbs(workdir, keep_db_path):
@@ -258,6 +285,7 @@ def psql2sqlite(in_psql_file, out_sqlite_file):
         for stmt in safe_indexes:
             cursor.execute(stmt)
 
+        create_catalog_indexes(conn)
         conn.commit()
         cursor.execute("PRAGMA optimize;")
 
@@ -287,7 +315,17 @@ if __name__ == "__main__":
         default=".",
         help="Working directory (default: current directory)"
     )
+    parser.add_argument('--indexes-only', metavar='DATABASE', help='Add catalog indexes to an existing SQLite database without importing or deleting files')
     args = parser.parse_args()
+    if args.indexes_only:
+        conn = sqlite3.connect(Path(args.indexes_only).resolve().as_uri() + '?mode=rw', uri=True, timeout=30)
+        try:
+            create_catalog_indexes(conn)
+            conn.commit()
+            print('Catalog indexes ready')
+        finally:
+            conn.close()
+        raise SystemExit(0)
 
     workdir = args.dir
 

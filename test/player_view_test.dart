@@ -39,7 +39,7 @@ class _Controller extends PlayerController {
   void onInit() {}
 
   @override
-  void onClose() {}
+  Future<void> onClose() async {}
 
   @override
   Future<void> stopPlayback() async => stops++;
@@ -88,7 +88,7 @@ void main() {
 
     expect(hint().opacity, 0);
     expect(barrier().ignoring, isTrue);
-    expect(find.text('Drop video here'), findsOneWidget);
+    expect(find.text('Drop video or subtitle here'), findsOneWidget);
 
     controller.isDropHovering.value = true;
     await tester.pump();
