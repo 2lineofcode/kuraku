@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:get/get.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sql_formatter/sql_formatter.dart' as sql_formatter;
@@ -90,6 +91,7 @@ class PageSqleditorTab extends GetxController {
   final committing = false.obs;
   final queryError = ''.obs;
   final result = Rxn<Map<String, dynamic>>();
+  final resultsExpanded = false.obs;
   final resultSource = ''.obs;
   final resultSql = ''.obs;
   final generating = false.obs;
@@ -107,7 +109,7 @@ class PageSqleditorTab extends GetxController {
   final aiPrompt = TextEditingController();
   final focusNode = FocusNode();
   final suggestions = <String>[].obs;
-  final selectedSuggestion = 0.obs;
+  final completionPopup = SuggestionsController<String>();
   final revision = 0.obs;
   final _drafts = <String, TextEditingValue>{};
   final _parameterDrafts = <String, String>{};
@@ -141,7 +143,7 @@ class PageSqleditorTab extends GetxController {
       text: '${input.text}$separator$sql',
       selection: TextSelection(baseOffset: start, extentOffset: start + sql.length),
     );
-    suggestions.clear();
+    dismissSuggestions();
     focusNode.requestFocus();
   }
 
@@ -175,7 +177,7 @@ class PageSqleditorTab extends GetxController {
         selection: selected ? TextSelection(baseOffset: start, extentOffset: start + formatted.length)
             : TextSelection.collapsed(offset: value.selection.isValid ? value.selection.extentOffset.clamp(0, formatted.length) : formatted.length),
       );
-      suggestions.clear();
+      dismissSuggestions();
       queryError.value = '';
       focusNode.requestFocus();
     } catch (_) {
@@ -311,14 +313,28 @@ class PageSqleditorTab extends GetxController {
     source.value = value;
     _schema = {};
     input.value = _drafts[value] ?? TextEditingValue.empty;
-    suggestions.clear();
+    dismissSuggestions();
     unawaited(refreshSchema());
   }
 
-  void _updateSuggestions() {
-    revision.value++;
+  void dismissSuggestions() {
     suggestions.clear();
-    selectedSuggestion.value = 0;
+    completionPopup.close(retainFocus: true);
+  }
+
+  void _updateSuggestions({bool force = false}) {
+    revision.value++;
+    _buildSuggestions(force: force);
+    completionPopup.refresh();
+    if (suggestions.isEmpty) {
+      completionPopup.close(retainFocus: true);
+    } else if (focusNode.hasFocus) {
+      completionPopup.open(gainFocus: false);
+    }
+  }
+
+  void _buildSuggestions({bool force = false}) {
+    suggestions.clear();
     final value = input.value;
     if (!value.selection.isValid || !value.selection.isCollapsed || !value.composing.isCollapsed) return;
     final cursor = value.selection.extentOffset;
@@ -369,14 +385,47 @@ class PageSqleditorTab extends GetxController {
       candidates = _schema.keys;
     } else {
       final columnContext = RegExp(r'(?:\b(?:SELECT|WHERE|ON|AND|OR|BY|SET)|,)\s*$', caseSensitive: false).hasMatch(context);
-      if (word.isEmpty && (!columnContext || referenced.isEmpty)) return;
+      if (!force && word.isEmpty && (!columnContext || referenced.isEmpty)) return;
       candidates = [
         for (final table in referenced) ..._schema[table]!,
         if (referenced.isEmpty) ...[..._schema.keys, ..._schema.values.expand((columns) => columns)],
-        if (word.isNotEmpty) ...keywords,
+        if (force || word.isNotEmpty) ...keywords,
       ];
     }
-    suggestions.assignAll(candidates.where((item) => item.toLowerCase().startsWith(word) && item.toLowerCase() != word).toSet());
+    final matches = <({String name, List<int> positions, int rank})>[];
+    for (final name in candidates.toSet()) {
+      final lower = name.toLowerCase();
+      if (lower == word || keywords.contains(name) && !lower.startsWith(word)) continue;
+      final positions = completionMatch(name, word);
+      if (positions == null) continue;
+      matches.add((name: name, positions: positions, rank: lower.startsWith(word) ? 0 : lower.contains(word) ? 1 : 2));
+    }
+    if (word.isNotEmpty) matches.sort((a, b) {
+      final rank = a.rank.compareTo(b.rank);
+      if (rank != 0) return rank;
+      final gaps = (a.positions.last - a.positions.first).compareTo(b.positions.last - b.positions.first);
+      if (gaps != 0) return gaps;
+      final length = a.name.length.compareTo(b.name.length);
+      return length != 0 ? length : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    suggestions.assignAll(matches.map((match) => match.name));
+  }
+
+  static List<int>? completionMatch(String name, String query) {
+    final text = name.toLowerCase();
+    final word = query.toLowerCase();
+    if (word.isEmpty) return [];
+    final start = text.indexOf(word);
+    if (start >= 0) return List.generate(word.length, (index) => start + index);
+    final positions = <int>[];
+    var cursor = 0;
+    for (final character in word.split('')) {
+      final index = text.indexOf(character, cursor);
+      if (index < 0) return null;
+      positions.add(index);
+      cursor = index + 1;
+    }
+    return positions;
   }
 
   static Future<Map<String, List<String>>> readSchema(Database? db) async {
@@ -424,19 +473,27 @@ class PageSqleditorTab extends GetxController {
       text: input.text.replaceRange(_start, _end, completion),
       selection: TextSelection.collapsed(offset: _start + completion.length),
     );
-    suggestions.clear();
+    dismissSuggestions();
     focusNode.requestFocus();
   }
 
   KeyEventResult onKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent || suggestions.isEmpty || !input.value.composing.isCollapsed) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent || !input.value.composing.isCollapsed) return KeyEventResult.ignored;
+    if (event.logicalKey == LogicalKeyboardKey.space && HardwareKeyboard.instance.isControlPressed
+        && !HardwareKeyboard.instance.isMetaPressed && !HardwareKeyboard.instance.isAltPressed && !HardwareKeyboard.instance.isShiftPressed) {
+      _updateSuggestions(force: true);
+      return KeyEventResult.handled;
+    }
+    if (suggestions.isEmpty || !completionPopup.isOpen) return KeyEventResult.ignored;
     if (HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isAltPressed || HardwareKeyboard.instance.isShiftPressed) return KeyEventResult.ignored;
     if (event.logicalKey == LogicalKeyboardKey.escape) {
-      suggestions.clear();
+      dismissSuggestions();
     } else if (event.logicalKey == LogicalKeyboardKey.arrowDown || event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      selectedSuggestion.value = (selectedSuggestion.value + (event.logicalKey == LogicalKeyboardKey.arrowDown ? 1 : -1)) % suggestions.length;
-    } else if (event.logicalKey == LogicalKeyboardKey.tab) {
-      complete(suggestions[selectedSuggestion.value]);
+      final delta = (event.logicalKey == LogicalKeyboardKey.arrowDown ? 1 : -1)
+          * (completionPopup.effectiveDirection == VerticalDirection.down ? 1 : -1);
+      completionPopup.highlighted = ((completionPopup.highlighted ?? (delta > 0 ? -1 : 0)) + delta) % suggestions.length;
+    } else if (event.logicalKey == LogicalKeyboardKey.tab || event.logicalKey == LogicalKeyboardKey.enter) {
+      complete(suggestions[(completionPopup.highlighted ?? 0).clamp(0, suggestions.length - 1)]);
     } else {
       return KeyEventResult.ignored;
     }
@@ -448,6 +505,7 @@ class PageSqleditorTab extends GetxController {
     _queryToken?.cancel();
     _aiToken?.cancel();
     api?.close();
+    completionPopup.dispose();
     parameters.dispose();
     input.dispose();
     aiPrompt.dispose();

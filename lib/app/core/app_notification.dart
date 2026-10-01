@@ -29,7 +29,10 @@ mixin AppNotification {
   static Future<void> _initialize() async {
 
     const initializationSettings = InitializationSettings(
-      macOS: DarwinInitializationSettings(),
+      macOS: DarwinInitializationSettings(
+        requestBadgePermission: false,
+        defaultPresentBadge: false,
+      ),
     );
 
     await _plugin.initialize(
@@ -54,7 +57,7 @@ mixin AppNotification {
 
   static Future<void> show(NotificationModel model) async {
     const notificationDetails = NotificationDetails(
-      macOS: DarwinNotificationDetails(),
+      macOS: DarwinNotificationDetails(presentBadge: false, badgeNumber: 0),
     );
 
     await initialize();

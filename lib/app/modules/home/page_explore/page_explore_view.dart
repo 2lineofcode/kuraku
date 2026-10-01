@@ -24,7 +24,12 @@ class PageExploreView extends GetView<PageExploreController> {
   @override
   Widget build(BuildContext context) {
     AppColor.dependOn(context);
-    return Column(children: [
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyN, meta: true, includeRepeats: false): controller.addTab,
+        const SingleActivator(LogicalKeyboardKey.keyW, meta: true, includeRepeats: false): () => controller.closeTab(controller.activeTabIndex.value),
+      },
+      child: Focus(autofocus: true, child: Column(children: [
       Obx(() => SearchTabBar(
         tabs: controller.tabs.map((tab) => (title: tab.title, isLoading: tab.isLoading.value || tab.isLoadingSelection.value || tab.isLoadingR18.value)).toList(),
         activeIndex: controller.activeTabIndex.value,
@@ -38,7 +43,8 @@ class PageExploreView extends GetView<PageExploreController> {
         final tab = controller.activeTab;
         return PageExploreTabView(key: ValueKey(tab.id), controller: tab);
       })),
-    ]);
+    ])),
+    );
   }
 }
 

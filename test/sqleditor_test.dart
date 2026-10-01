@@ -1,13 +1,19 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:get/get.dart';
 
+import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_tab.dart';
 import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_view.dart';
+import 'package:javit/app/modules/widgets/widget_thumbnail.dart';
 import 'package:javit/app/utils/chat_service.dart';
 
 class _SqlApi extends ChatService {
@@ -37,7 +43,8 @@ void main() {
 
     await tester.enterText(editor, 'SEL');
     await tester.pump();
-    await tester.tap(find.widgetWithText(InputChip, 'SELECT'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('SELECT', findRichText: true).last);
     await tester.pump();
     expect(controller.input.text, 'SELECT');
 
@@ -70,6 +77,99 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.binding.setSurfaceSize(null);
     Get.reset();
+  });
+
+  testWidgets('SQL autocomplete refreshes cursor and schema context and supports keyboard dismissal', (tester) async {
+    addTearDown(Get.reset);
+    var schema = {'videos': ['id', 'title', 'video_code']};
+    final controller = Get.put(PageSqleditorTab(sources: {'javit.db': '/javit.db'}, loadSchema: (_) async => schema));
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageSqleditorTabView(controller: controller))));
+    await tester.pumpAndSettle();
+    final editor = find.byType(TextField);
+    await tester.enterText(editor, 'SELECT v.t FROM videos v;');
+    controller.input.selection = const TextSelection.collapsed(offset: 10);
+    await tester.pumpAndSettle();
+    expect(find.byType(TypeAheadField<String>), findsOneWidget);
+    expect(find.text('title', findRichText: true), findsOneWidget);
+    final popup = tester.getRect(find.byKey(const ValueKey('sql-completion-popup')));
+    final editable = tester.state<EditableTextState>(find.descendant(of: editor, matching: find.byType(EditableText)));
+    final caret = editable.renderEditable.getLocalRectForCaret(controller.input.selection.extent);
+    final caretPosition = editable.renderEditable.localToGlobal(caret.bottomLeft);
+    expect(popup.top, closeTo(caretPosition.dy + 2, 1));
+    expect(popup.left, closeTo(caretPosition.dx, 1));
+    expect(popup.width, lessThanOrEqualTo(360));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(controller.input.text, 'SELECT v.title FROM videos v;');
+    expect(controller.focusNode.hasFocus, isTrue);
+    expect(controller.completionPopup.isOpen, isFalse);
+
+    await tester.enterText(editor, 'SELECT * FROM ');
+    await tester.pumpAndSettle();
+    expect(find.text('videos', findRichText: true), findsOneWidget);
+    schema = {'derived_video': ['dvd_id']};
+    await controller.refreshSchema();
+    await tester.pumpAndSettle();
+    expect(find.text('videos', findRichText: true), findsNothing);
+    expect(find.text('derived_video', findRichText: true), findsOneWidget);
+
+    await tester.enterText(editor, '');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(controller.suggestions, contains('SELECT'));
+    expect(controller.completionPopup.isOpen, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(controller.completionPopup.isOpen, isFalse);
+    expect(controller.focusNode.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(controller.input.text, isEmpty);
+
+    await tester.enterText(editor, "SELECT 'ti");
+    await tester.pumpAndSettle();
+    expect(controller.completionPopup.isOpen, isFalse);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    Get.reset();
+  });
+
+  testWidgets('SQL popup follows multiline caret and scroll and stays inside a narrow editor', (tester) async {
+    addTearDown(Get.reset);
+    final controller = Get.put(PageSqleditorTab(sources: {'javit.db': '/javit.db'},
+      loadSchema: (_) async => {'videos': ['id', 'title'], 'derived_video': ['dvd_id']}));
+    await tester.binding.setSurfaceSize(const Size(420, 520));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageSqleditorTabView(controller: controller))));
+    await tester.pumpAndSettle();
+    final editor = find.byType(TextField);
+    final popupFinder = find.byKey(const ValueKey('sql-completion-popup'));
+    await tester.enterText(editor, 'SELECT * FROM videos v;\nSELECT v.t FROM videos v;');
+    controller.input.selection = const TextSelection.collapsed(offset: 33);
+    await tester.pumpAndSettle();
+    final editable = tester.state<EditableTextState>(find.descendant(of: editor, matching: find.byType(EditableText)));
+    final caret = editable.renderEditable.getLocalRectForCaret(controller.input.selection.extent);
+    final caretPosition = editable.renderEditable.localToGlobal(caret.bottomLeft);
+    expect(tester.getRect(popupFinder).top, closeTo(caretPosition.dy + 2, 1));
+    expect(tester.getRect(popupFinder).right, lessThanOrEqualTo(tester.getRect(editor).right + 1));
+
+    await tester.enterText(editor, '${'-- comment\n' * 40}SELECT * FROM de');
+    await tester.pumpAndSettle();
+    expect(find.text('derived_video', findRichText: true), findsOneWidget);
+    final scroll = tester.widget<TextField>(editor).scrollController!;
+    expect(scroll.offset, greaterThan(0));
+    final bottom = scroll.offset;
+    scroll.jumpTo(0);
+    await tester.pumpAndSettle();
+    expect(popupFinder, findsNothing);
+    scroll.jumpTo(bottom);
+    await tester.pumpAndSettle();
+    expect(popupFinder, findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('CRUD snippets append and AI prompt stays in the frontend session', (tester) async {
@@ -295,6 +395,82 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.binding.setSurfaceSize(null);
     Get.reset();
+  });
+
+  testWidgets('Results use one horizontal scroll even over long selectable cell values', (tester) async {
+    addTearDown(Get.reset);
+    final controller = Get.put(PageSqleditorTab(sources: {'javit.db': '/javit.db'}));
+    const longValue = '4d06-8f52-7a5b0b2f1a76-very-long-value';
+    controller.result.value = {
+      'columns': ['id', 'video_id', 'video_code', 'watch_count'],
+      'rows': List.generate(30, (index) => [longValue, 'video-$index', 'CODE-$index', index]),
+      'elapsed_ms': 1,
+    };
+    await tester.binding.setSurfaceSize(const Size(420, 520));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageSqleditorTabView(controller: controller))));
+    await tester.pumpAndSettle();
+    final table = find.byKey(const ValueKey('sql-results-table'));
+    final scrollables = find.descendant(of: table, matching: find.byType(Scrollable));
+    final horizontal = scrollables.evaluate().where((element) => (element.widget as Scrollable).axis == Axis.horizontal).single;
+    final vertical = scrollables.evaluate().where((element) => (element.widget as Scrollable).axis == Axis.vertical).single;
+    final horizontalState = (horizontal as StatefulElement).state as ScrollableState;
+    final verticalState = (vertical as StatefulElement).state as ScrollableState;
+    expect(find.descendant(of: table, matching: find.byType(SelectableText)), findsNothing);
+    expect(tester.widget<Text>(find.text(longValue).first).overflow, TextOverflow.ellipsis);
+    expect(find.byTooltip(longValue), findsWidgets);
+    final point = tester.getCenter(find.text(longValue).first);
+    final headerX = tester.getTopLeft(find.text('id')).dx;
+    await tester.sendEventToBinding(PointerScrollEvent(position: point, scrollDelta: const Offset(100, 0)));
+    await tester.pumpAndSettle();
+    expect(horizontalState.position.pixels, 100);
+    expect(tester.getTopLeft(find.text('id')).dx, closeTo(headerX - 100, 1));
+    await tester.sendEventToBinding(PointerScrollEvent(position: point, scrollDelta: const Offset(0, 60)));
+    await tester.pumpAndSettle();
+    expect(verticalState.position.pixels, 60);
+    expect(horizontalState.position.pixels, 100);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Jacket thumbnail previews lead results and handle empty and invalid URLs', (tester) async {
+    addTearDown(Get.reset);
+    await tester.binding.setSurfaceSize(const Size(800, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final controller = Get.put(PageSqleditorTab(sources: {'javit.db': '/javit.db'}));
+    controller.result.value = {
+      'columns': ['dvd_id', 'jacket_thumb_url'],
+      'rows': [['CODE-1', null], ['CODE-2', ''], ['CODE-3', 'not-a-url']],
+      'elapsed_ms': 1,
+    };
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageSqleditorTabView(controller: controller))));
+    await tester.pumpAndSettle();
+    expect(find.text('Thumbnail'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('Thumbnail')).dx, lessThan(tester.getTopLeft(find.text('dvd_id')).dx));
+    expect(find.byIcon(Icons.image_not_supported_outlined), findsNWidgets(3));
+    expect(find.byType(CachedNetworkImage), findsNothing);
+    expect(find.widgetWithText(TextButton, 'CODE-1'), findsOneWidget);
+    final table = find.byKey(const ValueKey('sql-results-table'));
+    expect(tester.widget<ListView>(find.descendant(of: table, matching: find.byType(ListView))).itemExtent, 64);
+    final folder = Directory.systemTemp.createTempSync('javit-sql-thumbnail-');
+    addTearDown(() => folder.deleteSync(recursive: true));
+    Get.put(AppSettingService()..appPath = folder.path);
+    controller.result.value = {
+      'columns': ['jacket_thumb_url'],
+      'rows': [['https://pics.dmm.co.jp/digital/video/test/testps.jpg'], ['digital/video/test/testps.jpg']],
+      'elapsed_ms': 1,
+    };
+    await tester.pump();
+    final thumbnails = tester.widgetList<ExThumbnail>(find.byType(ExThumbnail)).toList();
+    expect(thumbnails, hasLength(2));
+    expect(thumbnails.every((image) => image.imageUrl == 'digital/video/test/testps.jpg' && image.withProxy == true), isTrue);
+    expect(tester.widgetList<CachedNetworkImage>(find.byType(CachedNetworkImage)).every((image) => !image.imageUrl.startsWith('https://pics.dmm.co.jp/')), isTrue);
+    controller.result.value = {'columns': ['id'], 'rows': [[1]], 'elapsed_ms': 1};
+    await tester.pumpAndSettle();
+    expect(find.text('Thumbnail'), findsNothing);
+    expect(tester.widget<ListView>(find.descendant(of: table, matching: find.byType(ListView))).itemExtent, 30);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('Custom snippets save selection, reload, and preserve the editor draft', (tester) async {

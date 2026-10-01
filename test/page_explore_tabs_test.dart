@@ -226,7 +226,7 @@ void main() {
     expect(first.isLoading.value, isFalse);
   });
 
-  testWidgets('Explore tab controls add, switch and close tabs', (tester) async {
+  testWidgets('Explore tab controls and shortcuts add, switch and close tabs', (tester) async {
     final controller = Get.put<PageExploreController>(_Controller());
     await tester.pumpWidget(const MaterialApp(home: Scaffold(body: PageExploreView())));
     await tester.pumpAndSettle();
@@ -240,6 +240,26 @@ void main() {
     await tester.tap(find.byTooltip('Close tab').first);
     await tester.pumpAndSettle();
     expect(controller.tabs.length, 1);
+    final remaining = controller.activeTab;
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyN);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pumpAndSettle();
+    expect(controller.tabs.length, 2);
+    expect(controller.activeTabIndex.value, 1);
+    expect(controller.activeTab.fnSearchLeft.hasFocus, isTrue);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyW);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pumpAndSettle();
+    expect(controller.tabs.length, 1);
+    expect(controller.activeTab, same(remaining));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyW);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pumpAndSettle();
+    expect(controller.tabs.length, 1);
+    expect(controller.activeTab, isNot(same(remaining)));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });

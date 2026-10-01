@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:get/get.dart';
 
 import '../../../core/app_color.dart';
@@ -9,6 +10,7 @@ import '../../../core/app_logging.dart';
 import '../../../utils/helper_loading.dart';
 import '../../../utils/helper_opener.dart';
 import '../../widgets/widget_search_tab_bar.dart';
+import '../../widgets/widget_thumbnail.dart';
 import 'page_sqleditor_controller.dart';
 import 'page_sqleditor_tab.dart';
 
@@ -17,7 +19,8 @@ class PageSqleditorView extends GetView<PageSqleditorController> {
 
   @override
   Widget build(BuildContext context) => Column(children: [
-    Padding(padding: const EdgeInsets.only(bottom: 8), child: Obx(() => SearchTabBar(
+    Obx(() => controller.activeTab.resultsExpanded.value ? const SizedBox.shrink() : Padding(
+      padding: const EdgeInsets.only(bottom: 8), child: SearchTabBar(
       tabs: controller.tabs.map((tab) => (title: tab.title, isLoading: tab.running.value || tab.generating.value)).toList(),
       activeIndex: controller.activeTabIndex.value,
       scrollController: controller.tabScrollController,
@@ -44,7 +47,7 @@ class PageSqleditorTabView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     AppColor.dependOn(context);
-    return Column(
+    return Obx(() => controller.resultsExpanded.value ? _results() : Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SizedBox(
@@ -156,49 +159,7 @@ class PageSqleditorTabView extends StatelessWidget {
                 bindings: {
                   const SingleActivator(LogicalKeyboardKey.enter, meta: true, includeRepeats: false): () => _runQuery(context),
                 },
-                child: Focus(
-                  onKeyEvent: controller.onKeyEvent,
-                  child: TextField(
-                    controller: controller.input,
-                    focusNode: controller.focusNode,
-                    expands: true,
-                    minLines: null,
-                    maxLines: null,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    smartDashesType: SmartDashesType.disabled,
-                    smartQuotesType: SmartQuotesType.disabled,
-                    textAlignVertical: TextAlignVertical.top,
-                    keyboardType: TextInputType.multiline,
-                    style: TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.45, color: AppColor.text),
-                    decoration: const InputDecoration(
-                      hintText: 'Write a SQL query…',
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.all(10),
-                    ),
-                  ),
-                ),
-              )),
-              Obx(() => controller.suggestions.isEmpty ? const SizedBox.shrink() : Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                color: AppColor.container,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(children: [
-                    for (var index = 0; index < controller.suggestions.length; index++)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: InputChip(
-                          visualDensity: VisualDensity.compact,
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          label: Text(controller.suggestions[index], style: const TextStyle(fontFamily: 'monospace', fontSize: 11)),
-                          selected: index == controller.selectedSuggestion.value,
-                          showCheckmark: false,
-                          onPressed: () => controller.complete(controller.suggestions[index]),
-                        ),
-                      ),
-                  ]),
-                ),
+                child: _SqlQueryInput(controller: controller),
               )),
             ]),
           ),
@@ -209,13 +170,13 @@ class PageSqleditorTabView extends StatelessWidget {
           final value = controller.input.value;
           final cursor = value.selection.isValid ? value.selection.extentOffset : 0;
           final before = value.text.substring(0, cursor);
-          return Text('Ln ${'\n'.allMatches(before).length + 1}, Col ${cursor - before.lastIndexOf('\n')}  ·  ↑ ↓ select · Tab complete · Esc dismiss',
+          return Text('Ln ${'\n'.allMatches(before).length + 1}, Col ${cursor - before.lastIndexOf('\n')}  ·  Ctrl + Space suggest · ↑ ↓ select · Tab / Enter complete · Esc dismiss',
             style: TextStyle(fontSize: 10, color: AppColor.muted));
         }),
         const SizedBox(height: 8),
         Expanded(flex: 2, child: _results()),
       ],
-    );
+    ));
   }
 
   void _runQuery(BuildContext context) {
@@ -259,6 +220,8 @@ class PageSqleditorTabView extends StatelessWidget {
     final result = controller.result.value;
     final columns = (result?['columns'] as List?) ?? [];
     final rows = (result?['rows'] as List?) ?? [];
+    final thumbnailColumn = columns.indexWhere((column) => '$column'.trim().toLowerCase() == 'jacket_thumb_url');
+    final hasThumbnail = thumbnailColumn >= 0;
     final message = controller.running.value ? controller.committing.value ? 'Saving changes…' : 'Running query…'
         : controller.queryError.value.isNotEmpty ? controller.queryError.value
         : result == null ? 'Run a query to see results.' : result['write'] == true ? '${result['affected_rows']} row(s) changed.' : 'No rows returned.';
@@ -272,26 +235,56 @@ class PageSqleditorTabView extends StatelessWidget {
           Expanded(child: Text(result == null ? ''
               : '${controller.resultSource.value} · ${result['write'] == true ? '${result['affected_rows']} changed · ' : ''}${rows.length} rows · ${result['elapsed_ms']} ms${result['truncated'] == true ? ' · truncated' : ''}',
             maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: AppColor.muted))),
+          IconButton(
+            tooltip: controller.resultsExpanded.value ? 'Restore query editor' : 'Expand results',
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+            padding: EdgeInsets.zero,
+            icon: Icon(controller.resultsExpanded.value ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, size: 16),
+            onPressed: () {
+              controller.dismissSuggestions();
+              controller.focusNode.unfocus();
+              controller.resultsExpanded.toggle();
+            },
+          ),
         ])),
         Expanded(child: result == null || rows.isEmpty || columns.isEmpty
             ? Center(child: SingleChildScrollView(padding: const EdgeInsets.all(8), child: SelectableText(message, textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 11, color: controller.queryError.value.isEmpty ? AppColor.muted : Get.theme.colorScheme.error))))
-            : LayoutBuilder(builder: (context, constraints) => SingleChildScrollView(
+            : SelectionArea(key: const ValueKey('sql-results-table'), child: LayoutBuilder(builder: (context, constraints) => SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                child: SizedBox(width: columns.length * 160.0, height: constraints.maxHeight, child: Column(children: [
+                child: SizedBox(width: columns.length * 160.0 + (hasThumbnail ? 96 : 0), height: constraints.maxHeight, child: Column(children: [
                   Container(color: AppColor.container, height: 28, child: Row(children: [
+                    if (hasThumbnail) const SizedBox(width: 96, child: Padding(padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('Thumbnail', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)))),
                     for (final column in columns) SizedBox(width: 160, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: Text('$column', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)))),
                   ])),
-                  Expanded(child: ListView.builder(itemCount: rows.length, itemExtent: 30, itemBuilder: (context, index) => Row(children: [
+                  Expanded(child: ListView.builder(itemCount: rows.length, itemExtent: hasThumbnail ? 64 : 30, itemBuilder: (context, index) => Row(children: [
+                    if (hasThumbnail) _resultThumbnail(context, rows[index][thumbnailColumn]),
                     for (var column = 0; column < columns.length; column++) SizedBox(width: 160, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: _resultCell(context, '${columns[column]}', rows[index][column]))),
                   ]))),
                 ])),
-              ))),
+              )))),
       ]),
     );
   });
+
+  Widget _resultThumbnail(BuildContext context, dynamic value) {
+    var url = value is String ? value.trim() : '';
+    final uri = Uri.tryParse(url);
+    if (uri?.host == 'pics.dmm.co.jp') url = uri!.path.replaceFirst(RegExp(r'^/'), '');
+    final valid = uri != null && (['http', 'https'].contains(uri.scheme) && uri.hasAuthority
+        || uri.scheme.isEmpty && uri.host.isEmpty && url.contains('/') && !url.startsWith('/'));
+    final fallback = Icon(Icons.image_not_supported_outlined, size: 18, color: AppColor.muted);
+    return SizedBox(width: 96, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: ClipRRect(borderRadius: BorderRadius.circular(4), child: SizedBox(height: 56,
+        child: !valid ? Center(child: fallback)
+            : ExThumbnail(imageUrl: url, width: 80, height: 56, iconSize: 18, fitUrl: BoxFit.contain),
+      )),
+    ));
+  }
 
   Widget _resultCell(BuildContext context, String column, dynamic value) {
     final text = value == null ? 'NULL' : '$value';
@@ -310,8 +303,15 @@ class PageSqleditorTabView extends StatelessWidget {
         child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'monospace', fontSize: 11, decoration: TextDecoration.underline)),
       );
     }
-    return SelectableText(text, maxLines: 1,
-      style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: value == null ? AppColor.muted : AppColor.text));
+    final style = TextStyle(fontFamily: 'monospace', fontSize: 11, color: value == null ? AppColor.muted : AppColor.text);
+    return LayoutBuilder(builder: (context, constraints) {
+      final painter = TextPainter(text: TextSpan(text: text, style: style), maxLines: 1,
+        textDirection: Directionality.of(context), textScaler: MediaQuery.textScalerOf(context))..layout(maxWidth: constraints.maxWidth);
+      final truncated = painter.didExceedMaxLines;
+      painter.dispose();
+      final cell = Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
+      return truncated ? Tooltip(message: text, child: cell) : cell;
+    });
   }
 
   Future<void> _showSnippets(BuildContext context, {bool showSaved = false}) async {
@@ -583,4 +583,132 @@ class PageSqleditorTabView extends StatelessWidget {
     )).whenComplete(controller.stopGeneration);
   }
 
+}
+
+class _SqlQueryInput extends StatefulWidget {
+  const _SqlQueryInput({required this.controller});
+
+  final PageSqleditorTab controller;
+
+  @override
+  State<_SqlQueryInput> createState() => _SqlQueryInputState();
+}
+
+class _SqlQueryInputState extends State<_SqlQueryInput> {
+  final _stackKey = GlobalKey();
+  final _scroll = ScrollController();
+  Rect? _caret;
+  bool _scheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.input.addListener(_schedulePosition);
+    widget.controller.focusNode.addListener(_schedulePosition);
+    _scroll.addListener(_schedulePosition);
+  }
+
+  void _schedulePosition() {
+    if (_scheduled) return;
+    _scheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduled = false;
+      if (!mounted) return;
+      final editable = widget.controller.focusNode.context?.findAncestorStateOfType<EditableTextState>();
+      final render = editable?.renderEditable;
+      final stack = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+      final selection = widget.controller.input.selection;
+      Rect? caret;
+      if (render != null && render.hasSize && stack != null && stack.hasSize && selection.isValid) {
+        final local = render.getLocalRectForCaret(selection.extent);
+        if (local.overlaps(Offset.zero & render.size)) {
+          caret = local.shift(render.localToGlobal(Offset.zero, ancestor: stack));
+        }
+      }
+      if (_caret != caret) setState(() => _caret = caret);
+    });
+  }
+
+  @override
+  void dispose() {
+    widget.controller.input.removeListener(_schedulePosition);
+    widget.controller.focusNode.removeListener(_schedulePosition);
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(builder: (context, constraints) {
+    _schedulePosition();
+    final controller = widget.controller;
+    final width = constraints.maxWidth.clamp(0.0, 360.0);
+    return Stack(key: _stackKey, children: [
+      Positioned.fill(child: Focus(
+        onKeyEvent: controller.onKeyEvent,
+        child: TextField(
+          controller: controller.input,
+          focusNode: controller.focusNode,
+          scrollController: _scroll,
+          expands: true, minLines: null, maxLines: null,
+          autocorrect: false, enableSuggestions: false,
+          smartDashesType: SmartDashesType.disabled, smartQuotesType: SmartQuotesType.disabled,
+          textAlignVertical: TextAlignVertical.top, keyboardType: TextInputType.multiline,
+          style: TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.45, color: AppColor.text),
+          decoration: const InputDecoration(hintText: 'Write a SQL query…', border: InputBorder.none, contentPadding: EdgeInsets.all(10)),
+        ),
+      )),
+      if (_caret != null) Positioned(
+        left: _caret!.left.clamp(0.0, constraints.maxWidth - width),
+        top: _caret!.top,
+        width: width,
+        height: _caret!.height,
+        child: TypeAheadField<String>(
+          controller: controller.input,
+          focusNode: controller.focusNode,
+          suggestionsController: controller.completionPopup,
+          debounceDuration: Duration.zero,
+          animationDuration: Duration.zero,
+          transitionBuilder: (context, animation, child) => child,
+          hideOnEmpty: true, hideOnLoading: true, retainOnLoading: false,
+          offset: const Offset(0, 2),
+          constraints: const BoxConstraints(maxHeight: 180),
+          suggestionsCallback: (_) {
+            if (controller.suggestions.isEmpty) {
+              controller.completionPopup.close(retainFocus: true);
+              return null;
+            }
+            return controller.suggestions.toList();
+          },
+          onSelected: controller.complete,
+          builder: (_, input, focusNode) => const SizedBox.expand(),
+          decorationBuilder: (context, child) => Material(
+            key: const ValueKey('sql-completion-popup'),
+            color: AppColor.panel, elevation: 4, clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4), side: BorderSide(color: AppColor.border)),
+            child: child,
+          ),
+          itemBuilder: (context, suggestion) {
+            final selection = controller.input.selection;
+            final before = selection.isValid ? controller.input.text.substring(0, selection.extentOffset) : '';
+            final prefix = RegExp(r'[A-Za-z_][A-Za-z_0-9]*$').stringMatch(before) ?? '';
+            final matched = PageSqleditorTab.completionMatch(suggestion, prefix)?.toSet() ?? <int>{};
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(children: [
+                Icon(PageSqleditorTab.keywords.contains(suggestion) ? Icons.code_rounded
+                    : controller.schemaTables.contains(suggestion) ? Icons.table_chart_outlined : Icons.view_column_outlined,
+                  size: 14, color: AppColor.muted),
+                const SizedBox(width: 6),
+                Expanded(child: Text.rich(TextSpan(children: [
+                  for (var index = 0; index < suggestion.length; index++)
+                    TextSpan(text: suggestion[index], style: matched.contains(index)
+                        ? TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600) : null),
+                ]), style: TextStyle(fontFamily: 'monospace', fontSize: 12, color: AppColor.text))),
+              ]),
+            );
+          },
+        ),
+      ),
+    ]);
+  });
 }

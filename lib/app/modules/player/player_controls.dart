@@ -394,7 +394,10 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
               PopupMenuButton<String>(
                 tooltip: 'Subtitles',
-                icon: const Icon(Icons.subtitles_outlined, size: 18, color: Colors.white),
+                child: Container(
+                  decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
+                  child: Icon(Icons.subtitles_outlined, size: 14, color: Colors.white).p8(),
+                ),
                 onSelected: (value) async {
                   if (value == 'load') {
                     await widget.controller.pickSubtitle();

@@ -79,6 +79,33 @@ void main() {
     controller.onClose();
   });
 
+  test('Autocomplete ranks prefix, substring and abbreviated identifier matches', () async {
+    final controller = PageSqleditorTab(sources: {'javit.db': '/javit.db'}, loadSchema: (_) async => {
+      'derived_video': ['id', 'video_code'], 'videos': ['id'], 'derived_actor': ['id'],
+    });
+    controller.onInit();
+    addTearDown(controller.onClose);
+    await controller.refreshSchema();
+    void type(String sql, [int? cursor]) => controller.input.value = TextEditingValue(
+      text: sql, selection: TextSelection.collapsed(offset: cursor ?? sql.length));
+
+    type('SELECT * FROM vid');
+    expect(controller.suggestions, ['videos', 'derived_video']);
+    type('SELECT * FROM DERVID');
+    expect(controller.suggestions, ['derived_video']);
+    controller.complete('derived_video');
+    expect(controller.input.text, 'SELECT * FROM derived_video');
+    type('SELECT v.vidcod FROM derived_video v', 15);
+    expect(controller.suggestions, ['video_code']);
+    controller.complete('video_code');
+    expect(controller.input.text, 'SELECT v.video_code FROM derived_video v');
+    type('SELECT * FROM zzzz');
+    expect(controller.suggestions, isEmpty);
+    expect(PageSqleditorTab.completionMatch('derived_video', 'vid'), [8, 9, 10]);
+    expect(PageSqleditorTab.completionMatch('derived_video', 'dervid'), [0, 1, 2, 4, 9, 10]);
+    expect(PageSqleditorTab.completionMatch('derived_video', ''), isEmpty);
+  });
+
   test('Source switches discard stale schema; failed metadata loads can retry', () async {
     final pending = <Completer<Map<String, List<String>>>>[];
     final controller = PageSqleditorTab(sources: {'javit.db': '/javit.db', 'r18*.db': '/r18.db'}, loadSchema: (_) {

@@ -10,6 +10,32 @@ import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_controller.
 import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_view.dart';
 
 void main() {
+  testWidgets('Results expand to fill the page and restore the query and tabs', (tester) async {
+    addTearDown(Get.reset);
+    final controller = Get.put(PageSqleditorController(sources: {'javit.db': '/javit.db'}));
+    final tab = controller.activeTab;
+    tab.input.text = 'SELECT 1;';
+    tab.result.value = {'columns': ['value'], 'rows': [[1]], 'elapsed_ms': 1};
+    await tester.pumpWidget(GetMaterialApp(home: const Scaffold(body: PageSqleditorView())));
+    await tester.pumpAndSettle();
+    final normalHeight = tester.getSize(find.byKey(const ValueKey('sql-results-table'))).height;
+    expect(find.byTooltip('New SQL tab'), findsOneWidget);
+    await tester.tap(find.byTooltip('Expand results'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsNothing);
+    expect(find.byTooltip('New SQL tab'), findsNothing);
+    expect(tester.getSize(find.byKey(const ValueKey('sql-results-table'))).height, greaterThan(normalHeight));
+    expect(find.text('value'), findsOneWidget);
+    await tester.tap(find.byTooltip('Restore query editor'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.byTooltip('New SQL tab'), findsOneWidget);
+    expect(tab.input.text, 'SELECT 1;');
+    expect(find.text('value'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('SQL tabs isolate late results and restore drafts without executing SQL', (tester) async {
     var stored = <String, dynamic>{};
     var requests = 0;
