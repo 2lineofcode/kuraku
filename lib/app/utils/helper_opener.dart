@@ -10,9 +10,9 @@ import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:process_run/process_run.dart' as cmd;
-import 'package:process_run/process_run.dart' as shell;
+// import 'package:process_run/process_run.dart' as shell;
 import 'package:uicons_pro/uicons_pro.dart';
-import 'package:url_launcher/url_launcher_string.dart';
+// import 'package:url_launcher/url_launcher_string.dart';
 import 'package:video_player/video_player.dart';
 import 'package:zoom_hover_pinch_image/zoom_hover_pinch_image.dart';
 
@@ -29,6 +29,7 @@ import '../data/models/__javit_search_entity.dart';
 import '../data/models/videos_entity.dart';
 import '../modules/home/home_controller.dart';
 import '../modules/home/home_panel/home_panel_video_info.dart';
+import '../modules/home/page_download/page_download_controller.dart';
 import '../modules/home/page_explore/page_explore_controller.dart';
 import '../modules/home/page_home/page_home_controller.dart';
 import '../modules/home/page_tools/page_tools_controller.dart';
@@ -246,35 +247,39 @@ mixin HelperOpener {
                           await Overlayment.dismissLast();
 
                           final searchEngine = AppPref.getDefaultSearchEngine();
+                          late String url;
                           switch (searchEngine.toLowerCase()) {
                             case 'njav':
                               // await launchUrlString('${Env.njavUrl}/${video.videoCode}');
-                              var url = '${Env.njavUrl}/${video.videoCode}'.replaceAll('/en/search', '');
+                              url = '${Env.njavUrl}/en/${video.videoCode}'.replaceAll('/en/search', '');
                               url += '-uncensored-leak';
-                              await shell.run('open downie://XUOpenURL?url=$url');
+                              // await shell.run('open downie://XUOpenURL?url=$url');
                               break;
                             case 'missav':
                               // await launchUrlString('${Env.missavUrl}/${video.videoCode}');
-                              var url = '${Env.missavUrl}/${video.videoCode}'.replaceAll('/en/search', '');
+                              url = '${Env.missavUrl}/en/${video.videoCode}'.replaceAll('/en/search', '');
                               url += '-uncensored-leak';
-                              await shell.run('open downie://XUOpenURL?url=$url');
+                              // await shell.run('open downie://XUOpenURL?url=$url');
                               break;
                             case 'javmost':
-                              var url = '${Env.javmostUrl}/${video.videoCode}'.replaceAll('/search', '');
-                              await shell.run('open downie://XUOpenURL?url=$url');
+                              url = '${Env.javmostUrl}/${video.videoCode}'.replaceAll('/search', '');
+                              // await shell.run('open downie://XUOpenURL?url=$url');
                               break;
                             case 'sextb':
-                              var url = '${Env.sextbUrl}/${video.videoCode}'.replaceAll('/search', '');
-                              await shell.run('open downie://XUOpenURL?url=$url');
+                              url = '${Env.sextbUrl}/${video.videoCode}'.replaceAll('/search', '');
+                              // await shell.run('open downie://XUOpenURL?url=$url');
                               break;
                             case 'javguru':
-                              var url = '${Env.javguruUrl}/?s=${video.videoCode}';
-                              await shell.run('open downie://XUOpenURL?url=$url');
+                              url = '${Env.javguruUrl}/?s=${video.videoCode}';
+                              // await shell.run('open downie://XUOpenURL?url=$url');
                               break;
                             default:
-                              await launchUrlString('${Env.njavUrl}/${video.videoCode}');
+                              url = '${Env.njavUrl}/${video.videoCode}';
+                              // await launchUrlString(url);
                               break;
                           }
+
+                          Get.find<PageDownloadController>().downloadWebsite(url);
 
                           try {
                             item['is_clicked'] = true;

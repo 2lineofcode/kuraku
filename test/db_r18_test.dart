@@ -99,7 +99,7 @@ void main() {
       final video = await DBR18.getVideo('ABP-001');
       expect(video!['video_code'], 'ABP-001');
       expect(database.rawCalls.last.args, ['ABP-001']);
-      expect(database.rawCalls.last.sql, contains('v.dvd_id = ?'));
+      expect(database.rawCalls.last.sql, contains('v.video_code = ?'));
       expect(database.rawCalls.last.sql, contains('LEFT JOIN machine_translation t'));
     });
 
@@ -163,16 +163,16 @@ void main() {
   });
 
   group('search and filters', () {
-    test('search binds the query three times, then filters, blacklist and paging', () async {
+    test('search binds canonical and compact queries, then filters, blacklist and paging', () async {
       database = attach();
 
       await DBR18.search('school', page: 3, perPage: 20);
 
       final call = database.rawCalls.single;
-      expect(call.args.take(3), ['%school%', '%school%', '%school%']);
+      expect(call.args.take(5), List.filled(5, '%school%'));
       expect(call.args.last, 40, reason: 'offset = (page - 1) * perPage');
       expect(call.args[call.args.length - 2], 20);
-      expect(call.sql, contains('GROUP BY v.dvd_id'));
+      expect(call.sql, contains('GROUP BY v.video_code'));
       expect(call.sql, contains('ORDER BY v.release_date DESC'));
       expect(call.sql, contains('LIMIT ? OFFSET ?'));
     });
@@ -209,7 +209,7 @@ void main() {
       );
 
       final call = database.rawCalls.single;
-      expect(call.sql, contains('v.dvd_id LIKE ?'));
+      expect(call.sql, contains('v.video_code LIKE ?'));
       expect(call.sql, contains('EXISTS ('));
       expect(call.sql, contains('da2.name_romaji LIKE ? OR da2.name_kana LIKE ? OR da2.name_kanji LIKE ?'));
       expect(call.sql, contains('dc2.name_en IN (?, ?)'));
@@ -218,7 +218,7 @@ void main() {
       expect(call.sql, contains('v.runtime_mins >= ?'));
       expect(call.sql, contains('v.runtime_mins <= ?'));
       expect(call.sql, isNot(contains('HAVING COUNT(DISTINCT dc2.name_en)')));
-      expect(call.args.take(10), ['%ABP%', '%Yua%', '%Yua%', '%Yua%', 'Drama', 'Cosplay', 2020, 2024, 60, 180]);
+      expect(call.args.take(12), ['%ABP%', '%ABP%', '%ABP%', '%Yua%', '%Yua%', '%Yua%', 'Drama', 'Cosplay', 2020, 2024, 60, 180]);
     });
 
     test('matchAllCategories adds the distinct category count to the clause', () async {
@@ -236,9 +236,9 @@ void main() {
 
       expect(await DBR18.getByFilterCount(), 5);
       final call = database.rawCalls.single;
-      expect(call.sql, isNot(contains('v.dvd_id LIKE ?')));
+      expect(call.sql, isNot(contains('v.video_code LIKE ?')));
       expect(call.sql, isNot(contains('EXISTS (')));
-      expect(call.sql, contains('COUNT(DISTINCT v.dvd_id) AS total'));
+      expect(call.sql, contains('COUNT(DISTINCT v.video_code) AS total'));
       expect(call.args, isNotEmpty, reason: 'the blacklist is always applied');
       expect(call.args.every((arg) => arg is String), isTrue);
     });
@@ -275,7 +275,7 @@ void main() {
       expect(blacklist, contains('PB%'));
       expect(blacklist, contains('%BOD'));
       expect(blacklist, contains('%DL'));
-      expect(database.rawCalls.single.sql.split('v.dvd_id NOT LIKE ?').length - 1, blacklist.length);
+      expect(database.rawCalls.single.sql.split('v.video_code NOT LIKE ?').length - 1, blacklist.length);
 
       for (final call in [() => DBR18.getSearchCount('x'), () => DBR18.getByFilter(), () => DBR18.getAllVideosByYear('2026'), () => DBR18.getCountAllVideosByYear('2026')]) {
         database.rawCalls.clear();
@@ -316,11 +316,12 @@ void main() {
       expect(database.rawCalls.last.args.sublist(database.rawCalls.last.args.length - 2), [25, 50]);
     });
 
-    test('category browsing counts without the blacklist but lists with it', () async {
+    test('category browsing counts and lists with matching blacklist', () async {
       database = attach(rawRows: [{'total': 4}]);
 
       expect(await DBR18.getCountAllVideosByCategory('Drama'), 4);
-      expect(database.rawCalls.last.args, ['Drama']);
+      expect(database.rawCalls.last.args.first, 'Drama');
+      expect(_blacklistArgs(database.rawCalls.last.args), contains('TK%'));
 
       await DBR18.getAllVideosByCategory('Drama');
       expect(database.rawCalls.last.args.first, 'Drama');

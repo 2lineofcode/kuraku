@@ -88,6 +88,12 @@ mixin AppPref {
   static String getSemanticSearchModel() => _pref.read(_kSemanticSearchModel) ?? 'local-hash-v2';
 
   // ** [download]
+  static Map<String, dynamic> getDownloadOptions() {
+    final value = _pref.read('_kDownloadOptions');
+    return value is Map<String, dynamic> ? value : {};
+  }
+  static Future<void> setDownloadOptions(Map<String, dynamic> value) => _pref.write('_kDownloadOptions', value);
+
   static String getDownloadPath() => _pref.read(_kDownloadPath) ?? '';
   static void setDownloadPath(String value) => _pref.write(_kDownloadPath, value);
 

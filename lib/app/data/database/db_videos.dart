@@ -49,29 +49,7 @@ mixin DBVideos {
       video.createdAt = DateTime.now().toStringEx();
       video.updatedAt = DateTime.now().toStringEx();
 
-      // decensored fix `category`// Decensor and format data
-      if (video.category != null) {
-        for (int j = 0; j < video.category!.length; j++) {
-          final dec = HelperDecensor.decensor(video.category![j].category);
-          video.category![j].category = dec;
-        }
-      }
-
-      // decensored fix `series`
-      if (video.series.isNotEmptyAndNotNull) {
-        final dec = HelperDecensor.decensor(video.series);
-        video.series = dec;
-      }
-
-      // actress
-      if (video.actress != null) {
-        for (int j = 0; j < video.actress!.length; j++) {
-          if (video.actress![j].nameRomaji == '') {
-            video.actress![j].nameRomaji = video.actress![j].imageUrl;
-          }
-          video.actress![j].nameRomaji = HelperMisc.formatActressName(video.actress![j].nameRomaji ?? '');
-        }
-      }
+      _normalizeMetadata(video);
 
       // Check validation
       final isOK = await _validation(video);
@@ -87,6 +65,53 @@ mixin DBVideos {
       });
       AppLog.logD('bulkAdd: ${videosToInsert.length} videos');
     }
+  }
+
+  static void _normalizeMetadata(Videos video) {
+    // decensored fix `category`// Decensor and format data
+    if (video.category != null) {
+      for (int j = 0; j < video.category!.length; j++) {
+        final dec = HelperDecensor.decensor(video.category![j].category);
+        video.category![j].category = dec;
+      }
+    }
+
+    // decensored fix `series`
+    if (video.series.isNotEmptyAndNotNull) {
+      final dec = HelperDecensor.decensor(video.series);
+      video.series = dec;
+    }
+
+    // actress
+    if (video.actress != null) {
+      for (int j = 0; j < video.actress!.length; j++) {
+        if (video.actress![j].nameRomaji == '') {
+          video.actress![j].nameRomaji = video.actress![j].imageUrl;
+        }
+        video.actress![j].nameRomaji = HelperMisc.formatActressName(video.actress![j].nameRomaji ?? '');
+      }
+    }
+  }
+
+  static Future<int> updateMetadata(Videos video, Videos metadata) async {
+    _normalizeMetadata(metadata);
+    const columns = {
+      'video_code', 'title', 'title_ja', 'fan_art', 'poster', 'trailer',
+      'actress', 'category', 'release_date', 'release_date_formated',
+      'duration', 'duration_formated', 'studio', 'label', 'director',
+      'series', 'screenshot', 'site',
+    };
+    final values = metadata.toJson()..removeWhere((key, value) => !columns.contains(key)
+        || value == null || value == '' || value == 'null' || value == '[]'
+        || (value is String && value.trim().isEmpty));
+    if ((metadata.duration ?? 0) <= 0) {
+      values.remove('duration');
+      values.remove('duration_formated');
+    }
+    if (values.isEmpty) return 0;
+    values['updated_at'] = DateTime.now().toStringEx();
+    return _db.update(_tableName, values,
+      where: 'id = ? AND video_path = ?', whereArgs: [video.id, video.videoPath]);
   }
 
   static Future<void> update(Videos videos) async {

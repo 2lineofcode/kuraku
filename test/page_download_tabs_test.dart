@@ -29,6 +29,14 @@ class _Preferences implements GetSecureStorage {
 class _Controller extends PageDownloadController {
   @override
   PageDownloadSearchTab createTab(int id) => _SearchTab(id);
+  @override
+  Future<void> loadDownloadHistory() async {}
+}
+
+class _DownloadController extends _Controller {
+  int starts = 0;
+  @override
+  Future<void> startDownload() async { starts++; }
 }
 
 class _SearchTab extends PageDownloadSearchTab {
@@ -414,6 +422,154 @@ void main() {
     await closing;
     expect(first.videos, isEmpty);
     await tester.pump();
+  });
+
+  testWidgets('Download options persist without starting a job and completion clears only job state', (tester) async {
+    final controller = Get.put<PageDownloadController>(_Controller());
+    controller.mode.value = 'hls';
+    controller.headless.value = true;
+    controller.allowPopups.value = true;
+    controller.tecDirectory.text = '/tmp/videos';
+    controller.tecConcurrency.text = '12';
+    controller.tecRetries.text = '5';
+    controller.tecTimeout.text = '60';
+    controller.tecReferer.text = 'https://example.com/';
+    controller.tecUserAgent.text = 'Custom agent';
+    controller.tecCaptureDuration.text = '45';
+    controller.tecPlaySelector.text = '.play-button';
+    controller.tecUrl.text = 'https://example.com/video';
+    controller.tecFilename.text = 'movie.mp4';
+    await tester.pump(const Duration(milliseconds: 300));
+    final saved = AppPref.getDownloadOptions();
+    expect(saved, {
+      'mode': 'hls', 'headless': true, 'allow_popups': true, 'directory': '/tmp/videos',
+      'concurrency': '12', 'retries': '5', 'timeout': '60', 'referer': 'https://example.com/',
+      'user_agent': 'Custom agent', 'capture_duration': '45', 'play_selector': '.play-button',
+    });
+    controller.job.status = 'Failed';
+    controller.clearCompletedDownload();
+    expect(controller.tecUrl.text, 'https://example.com/video');
+    expect(controller.tecFilename.text, 'movie.mp4');
+    controller.job.status = 'Completed';
+    controller.job.outputPath = '/tmp/videos/movie.mp4';
+    controller.job.progressText = 'Downloading: 100%';
+    controller.job.logs.add('Finished');
+    controller.clearCompletedDownload();
+    expect(controller.tecUrl.text, '');
+    expect(controller.tecFilename.text, '');
+    expect(controller.job.status, 'Ready');
+    expect(controller.job.logs, isEmpty);
+    expect(controller.job.outputPath, '');
+    expect(controller.downloadStdout.value, '');
+    expect(controller.requestFromForm().concurrency, 12);
+    expect(controller.tecDirectory.text, '/tmp/videos');
+    await Get.delete<PageDownloadController>();
+    final restored = Get.put<PageDownloadController>(_Controller());
+    final request = restored.requestFromForm();
+    expect(request.mode, 'hls');
+    expect(request.directory, '/tmp/videos');
+    expect(request.concurrency, 12);
+    expect(request.retries, 5);
+    expect(request.timeout, 60);
+    expect(request.referer, 'https://example.com/');
+    expect(request.userAgent, 'Custom agent');
+    expect(request.captureDuration, 45);
+    expect(request.playSelector, '.play-button');
+    expect(request.headless, isTrue);
+    expect(request.allowPopups, isTrue);
+    expect(restored.tecUrl.text, '');
+    expect(restored.tecFilename.text, '');
+    expect(restored.job.running, isFalse);
+    restored.tecRetries.text = '7';
+    await Get.delete<PageDownloadController>();
+    expect(AppPref.getDownloadOptions()['retries'], '7');
+  });
+
+  testWidgets('Website button starts extraction and preserves an active download', (tester) async {
+    final controller = Get.put<PageDownloadController>(_DownloadController()) as _DownloadController;
+    await tester.pumpWidget(const GetMaterialApp(home: Scaffold(body: PageDownloadView())));
+    await tester.pumpAndSettle();
+    controller.mode.value = 'file';
+    controller.tecReferer.text = 'https://old.example.com/';
+    controller.tecFilename.text = 'old.mp4';
+    controller.headless.value = true;
+    controller.downloadWebsite('https://example.com/video');
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(controller.starts, 1);
+    expect(controller.requestFromForm().url, 'https://example.com/video');
+    expect(controller.mode.value, 'extract');
+    expect(controller.headless.value, isTrue);
+    expect(controller.tecReferer.text, 'https://old.example.com/');
+    expect(controller.tecFilename.text, '');
+    controller.job.running = true;
+    controller.downloadWebsite('https://example.com/other');
+    await tester.pump();
+    expect(controller.starts, 1);
+    expect(controller.tecUrl.text, 'https://example.com/video');
+    expect(controller.formError.value, contains('already active'));
+    expect(find.byType(Dialog), findsOneWidget);
+    controller.job.running = false;
+    await tester.tap(find.byTooltip('Close download dialog'));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Download opens a compact dialog, keeps drafts and continues when closed', (tester) async {
+    tester.view.physicalSize = const Size(700, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = Get.put<PageDownloadController>(_Controller());
+    await tester.pumpWidget(const GetMaterialApp(home: Scaffold(body: PageDownloadView())));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('New search tab'), findsOneWidget);
+    expect(find.text('Catalog'), findsNothing);
+    expect(find.byType(Dialog), findsNothing);
+    await tester.tap(find.byTooltip('New download'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.text('Capture'), findsOneWidget);
+    final dialogBody = find.byWidgetPredicate((widget) => widget is ConstrainedBox && widget.constraints.maxWidth == 460);
+    expect(tester.getSize(dialogBody).height, lessThan(360));
+    controller.tecUrl.text = 'https://example.com/watch';
+    controller.tecFilename.text = 'My movie.mp4';
+    await controller.openDialogDownload();
+    expect(find.byType(Dialog), findsOneWidget);
+    await tester.tap(find.text('Options'));
+    await tester.pumpAndSettle();
+    expect(find.text('Workers (1–64)'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('Close download dialog'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
+    await tester.tap(find.byTooltip('New download'));
+    await tester.pumpAndSettle();
+    expect(find.text('https://example.com/watch'), findsOneWidget);
+    expect(find.text('My movie.mp4'), findsOneWidget);
+    controller.job.running = true;
+    controller.job.acceptLine('[1] [HLS] https://cdn.example.com/video/master.m3u8');
+    controller.job.acceptLine('[2] [DASH (unsupported)] https://cdn.example.com/video/manifest.mpd');
+    await tester.pump();
+    expect(find.text('[1] HLS'), findsOneWidget);
+    expect(tester.widget<IconButton>(find.byWidgetPredicate((widget) => widget is IconButton && widget.tooltip == 'Download this media')).onPressed, isNotNull);
+    expect(tester.widget<IconButton>(find.byWidgetPredicate((widget) => widget is IconButton && widget.tooltip == 'Unsupported stream')).onPressed, isNull);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('Close download dialog'));
+    await tester.pumpAndSettle();
+    expect(controller.job.running, isTrue);
+    expect(controller.job.cancelled, isFalse);
+    controller.job.running = false;
+    await tester.tap(find.byTooltip('Download history'));
+    await tester.pumpAndSettle();
+    expect(find.text('Downloads'), findsOneWidget);
+    await tester.tap(find.descendant(of: find.byType(Dialog), matching: find.byTooltip('New download')));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.text('My movie.mp4'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('Close download dialog'));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('Download tab controls preserve drafts and keep one tab without touching download state', (tester) async {

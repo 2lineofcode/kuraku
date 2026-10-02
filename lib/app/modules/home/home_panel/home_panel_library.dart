@@ -15,6 +15,7 @@ import 'package:video_compress/video_compress.dart';
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/const.dart';
+import '../../../data/database/_init_db.dart';
 import '../../../data/database/db_library.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
@@ -33,6 +34,7 @@ mixin HomePanelLibrary {
   static final Map<String, Timer> _libraryWatchDebounce = {};
   static final Set<String> _libraryRescanInProgress = {};
   static const Duration _watchDebounce = Duration(seconds: 3);
+  static bool _repairInProgress = false;
   static bool fileDragInProgress = false;
   static bool get canStartFileDrag => !fileDragInProgress && _libraryRescanInProgress.isEmpty;
 
@@ -181,6 +183,14 @@ mixin HomePanelLibrary {
                 onPressed: () {
                   Overlayment.dismissLast();
                   doRescanAllVideoFromLibrary(library, recoverVideoCodes: true);
+                },
+              ),
+              IconButton(
+                icon: Icon(UIconsPro.regularRounded.edit, size: 13),
+                tooltip: 'Repair Metadata from R18',
+                onPressed: () async {
+                  await Overlayment.dismissLast();
+                  await _repairAllMetadata(library);
                 },
               ),
               IconButton(
@@ -465,10 +475,60 @@ mixin HomePanelLibrary {
     }
   }
 
+  static Future<void> _repairAllMetadata(List<Library> libraries) async {
+    if (_repairInProgress) return;
+    if (Get.find<DBService>().dbR18 == null) {
+      await HelperToast.warn('R18 database is unavailable. Download it from Settings first.');
+      return;
+    }
+    _repairInProgress = true;
+    var updated = 0;
+    var skipped = 0;
+    var failed = 0;
+    try {
+      final roots = libraries.map((library) => library.rootFolder).toSet();
+      final videos = (await DBVideos.getAll()).where((video) => roots.contains(video.rootPath)).toList();
+      _controller.change(200, status: RxStatus.loading());
+      for (var i = 0; i < videos.length; i++) {
+        _controller.footerText.value = 'Repairing metadata from R18...';
+        _controller.loadingText.value = 'Progress: ${i + 1} of ${videos.length}';
+        try {
+          if (await repairVideoMetadata(videos[i])) {
+            updated++;
+          } else {
+            skipped++;
+          }
+        } catch (e) {
+          failed++;
+          AppLog.logE('[RepairMetadata] ${videos[i].videoPath}: $e');
+        }
+      }
+      await _controller.onRefreshAllContent();
+      await Get.forceAppUpdate();
+      await HelperToast.info('Metadata • $updated updated • $skipped skipped • $failed failed');
+    } catch (e) {
+      await HelperToast.error('Metadata repair failed: $e');
+    } finally {
+      _repairInProgress = false;
+      _controller.change(200, status: RxStatus.success());
+      await _controller.updateFooterSummary();
+    }
+  }
+
+  @visibleForTesting
+  static Future<bool> repairVideoMetadata(Videos video) async {
+    final code = HelperMisc.resolveVideoCode(videoCode: video.videoCode, videoPath: video.videoPath, title: video.title);
+    if (code.isEmpty) return false;
+    final metadata = await processVideo(video.videoPath ?? '', video.rootPath, code: code, metadataOnly: true);
+    if (metadata == null) return false;
+    return await DBVideos.updateMetadata(video, metadata) > 0;
+  }
+
   // ** PROCESS VIDEO
   @visibleForTesting
-  static Future<Videos?> processVideo(String videoPath, String? rootFolder) async {
-    final videoCode = videoPath.getFileName().getVideoCode();
+  static Future<Videos?> processVideo(String videoPath, String? rootFolder, {String? code, bool metadataOnly = false}) async {
+    final videoCode = code ?? videoPath.getFileName().getVideoCode();
+    if (metadataOnly && videoCode.isEmpty) return null;
 
     // case: detect as JAV
     if (videoCode.isNotEmpty) {
@@ -486,6 +546,7 @@ mixin HomePanelLibrary {
 
       // case: detect as JAV but no data in R18
       if (dataVideo == null) {
+        if (metadataOnly) return null;
         final newVideo = Videos();
         newVideo.videoCode = videoCode;
         newVideo.rootPath = rootFolder ?? '';
@@ -505,10 +566,11 @@ mixin HomePanelLibrary {
       newVideo.category = dataCategory.map((e) => VideoCategory.fromJson(e)).toList();
       newVideo.actress = dataActress.map((e) => VideoActress.fromJson(e)).toList();
       newVideo.durationFormated = HelperMisc.durationFormatDB(newVideo.duration ?? 0);
-      newVideo.releaseDateFormated = newVideo.releaseDate?.reformatDate(from: kYMd, to: kMdY);
+      newVideo.releaseDateFormated = newVideo.releaseDate.isNotEmptyAndNotNull
+          ? newVideo.releaseDate!.reformatDate(from: kYMd, to: kMdY) : '';
       newVideo.director = dataDirector?['name_romaji'] ?? '';
-      newVideo.fanArt = '${dataVideo['fan_art']}';
-      newVideo.poster = '${dataVideo['poster']}';
+      newVideo.fanArt = dataVideo['fan_art'] ?? '';
+      newVideo.poster = dataVideo['poster'] ?? '';
 
       // logic for screenshot
       if (dataVideo['sslast'] != null && dataVideo['ssfirst'] != null) {
@@ -525,9 +587,11 @@ mixin HomePanelLibrary {
         }
       }
 
-      final file = File(videoPath);
-      if (file.existsSync()) newVideo.filesize = file.lengthSync();
-      if (!HelperMisc.isExternalDrive(newVideo.videoPath)) await _getVideoResolution(newVideo);
+      if (!metadataOnly) {
+        final file = File(videoPath);
+        if (file.existsSync()) newVideo.filesize = file.lengthSync();
+        if (!HelperMisc.isExternalDrive(newVideo.videoPath)) await _getVideoResolution(newVideo);
+      }
 
       return newVideo;
     } 

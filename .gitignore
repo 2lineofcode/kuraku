@@ -50,6 +50,7 @@ app.*.map.json
 .firebase/**
 *.lock
 *.sql
+!assets/r18_video_codes.sql
 supabase/**
 devtools_options.yaml
 macos/Flutter/GeneratedPluginRegistrant.swift

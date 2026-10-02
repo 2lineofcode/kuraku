@@ -1,27 +1,23 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
-import 'package:ex_kit/ex.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:overlayment/overlayment.dart';
-import 'package:process_run/process_run.dart' as shell;
-import 'package:process_run/stdio.dart';
-import 'package:uicons_pro/uicons_pro.dart';
+import 'package:path/path.dart' as p;
 
-import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_notification.dart';
 import '../../../core/app_pref.dart';
 import '../../../core/app_setting.dart';
+import '../../../data/database/_init_db.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/models/activity_entity.dart';
 import '../../../utils/helper_misc.dart';
-import '../../../utils/helper_opener.dart';
-import '../../../utils/helper_toast.dart';
 import '../home_controller.dart';
+import 'page_download_dialog.dart';
+import 'page_download_job.dart';
 import 'page_download_search_tab.dart';
 
 class PageDownloadController extends GetxController {
@@ -33,12 +29,21 @@ class PageDownloadController extends GetxController {
 
   final downloadStdout = ''.obs;
   final currentProcessDownload = Rx<Process?>(null);
-  final retryCount = 0.obs;
   final appSetting = Get.find<AppSettingService>();
 
   @override
   void onInit() {
     super.onInit();
+    final options = AppPref.getDownloadOptions();
+    for (final entry in _downloadOptionFields.entries) {
+      final value = options[entry.key];
+      if (value is String || value is num) entry.value.text = '$value';
+      entry.value.addListener(_scheduleDownloadPreferenceSave);
+    }
+    if (['extract', 'auto', 'hls', 'file', 'youtube'].contains(options['mode'])) mode.value = options['mode'];
+    headless.value = options['headless'] == true;
+    allowPopups.value = options['allow_popups'] == true;
+    _downloadPreferenceWorker = everAll([mode, headless, allowPopups], (_) => _scheduleDownloadPreferenceSave());
     final saved = AppPref.getDownloadTabs();
     final entries = saved['tabs'];
     if (entries is List) {
@@ -108,6 +113,14 @@ class PageDownloadController extends GetxController {
   @override
   void onClose() {
     _saveTabs();
+    _downloadPreferenceTimer?.cancel();
+    _downloadPreferenceWorker?.dispose();
+    unawaited(_saveDownloadPreferences());
+    job.cancel();
+    for (final field in [tecUrl, tecDirectory, tecFilename, tecConcurrency, tecRetries, tecTimeout, tecReferer, tecUserAgent, tecCaptureDuration, tecPlaySelector]) {
+      field.dispose();
+    }
+    fnDownloadUrl.dispose();
     tabScrollController.dispose();
     for (final tab in tabs) {
       tab.dispose();
@@ -115,409 +128,254 @@ class PageDownloadController extends GetxController {
     super.onClose();
   }
 
-  // ~ Download ────────────────────────────────────────────────────────────────
-  Future<void> openDownloadLog() async {
-    Get.back();
-    final data = await DBActivity.getDownloadLogs(
-      orderBy: 'updated_at DESC',
-      groupBy: 'json_extract(content, "\$.filename")',
-    );
-    await Overlayment.show(
-        context: Get.context,
-        OverPanel(
-          alignment: Alignment.center,
-          width: 550,
-          height: Get.height * 0.5,
-          backgroundSettings: BackgroundSettings(blur: 5, color: Colors.transparent),
-          animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-          color: AppColor.panel,
-          child: VStack([
-            'Downloads'.text.bold.make().pOnly(bottom: 12),
+  bool _downloadDialogOpen = false;
+  bool _historyDialogOpen = false;
+  final jobRevision = 0.obs;
+  late final PageDownloadJob job = PageDownloadJob(onChanged: () {
+    if (isClosed) return;
+    jobRevision.value++;
+    downloadStdout.value = job.status == 'Ready' ? '' : job.running && job.progressText.isNotEmpty ? job.progressText : job.status;
+    currentProcessDownload.value = job.process;
+    if (Get.isRegistered<HomeController>() && downloadStdout.value.isNotEmpty) Get.find<HomeController>().footerText.value = downloadStdout.value;
+  });
+  final history = <Activity>[].obs;
+  final formError = ''.obs;
+  final mode = 'extract'.obs;
+  final headless = false.obs;
+  final allowPopups = false.obs;
+  final tecUrl = TextEditingController();
+  final tecDirectory = TextEditingController(text: AppPref.getDownloadPath());
+  final tecFilename = TextEditingController();
+  final tecConcurrency = TextEditingController(text: AppPref.getDownloadWorker().clamp(1, 64).toString());
+  final tecRetries = TextEditingController(text: '3');
+  final tecTimeout = TextEditingController(text: '30');
+  final tecReferer = TextEditingController();
+  final tecUserAgent = TextEditingController();
+  final tecCaptureDuration = TextEditingController(text: '20');
+  final tecPlaySelector = TextEditingController();
+  final fnDownloadUrl = FocusNode();
 
-            // ** actions
-            HStack(
-              [
-                ExButtonElevated(
-                  height: 38,
-                  backgroundColor: AppColor.selected,
-                  child: HStack(
-                    [Icon(UIconsPro.regularRounded.plus, size: 11)],
-                  ),
-                  onPressed: () {
-                    Overlayment.dismissLast();
-                    openDialogDownload();
-                  },
-                ).pOnly(right: 6),
-                ExButtonElevated(
-                    height: 38,
-                    child: HStack([
-                      Icon(UIconsPro.regularRounded.progress_complete, size: 11, color: Vx.amber300).pOnly(right: 8),
-                      'Clear Complete Task'.text.size(11).minFontSize(11).amber300.make(),
-                    ]),
-                    onPressed: () async {
-                      await DBActivity.deleteAll(where: 'type = ? AND content LIKE ?', whereArgs: [kActivityTypeDownload, '%finish%']);
-                      await Overlayment.dismissLast();
-                      await openDownloadLog();
-                    }).pOnly(right: 8),
-                ExButtonElevated(
-                  height: 38,
-                  child: HStack([
-                    Icon(UIconsPro.regularRounded.trash, size: 11, color: Vx.red300).pOnly(right: 8),
-                    'Clear All Download Log'.text.size(11).minFontSize(11).red300.make(),
-                  ]),
-                  onPressed: () {
-                    Overlayment.dismissLast();
-                    ExAlert.adaptive(title: Text('Are you sure?', style: TextStyle(fontSize: 14)), content: Text('Clear all download log?', style: TextStyle(fontSize: 12)).pOnly(top: 8), actions: [
-                      CupertinoDialogAction(
-                        child: Text('Yes', style: TextStyle(color: Vx.red500, fontSize: 13)),
-                        onPressed: () async {
-                          await DBActivity.deleteAll(where: 'type = ?', whereArgs: [kActivityTypeDownload]);
-                          await openDownloadLog();
-                        },
-                      ),
-                      CupertinoDialogAction(
-                        child: Text('No', style: TextStyle(fontSize: 13)),
-                        onPressed: () async {
-                          Get.back();
-                          await openDownloadLog();
-                        },
-                      ),
-                    ]);
-                  },
-                ),
-              ],
-            ).pOnly(bottom: 12),
+  Timer? _downloadPreferenceTimer;
+  Worker? _downloadPreferenceWorker;
+  late final _downloadOptionFields = <String, TextEditingController>{
+    'directory': tecDirectory, 'concurrency': tecConcurrency, 'retries': tecRetries,
+    'timeout': tecTimeout, 'referer': tecReferer, 'user_agent': tecUserAgent,
+    'capture_duration': tecCaptureDuration, 'play_selector': tecPlaySelector,
+  };
 
-            // ** body
-            data.isEmpty
-                ? ExUiErrorOrEmpty(
-                    illustration: Icon(UIconsPro.regularRounded.empty_set, size: 32),
-                    title: 'No Data Download Log',
-                    message: 'Add some by click `+` button',
-                    bgColor: AppColor.container,
-                  ).expand()
-                : Expanded(
-                    child: Table(
-                      border: TableBorder.all(color: AppColor.border),
-                      columnWidths: const {
-                        0: FlexColumnWidth(2),
-                        1: FlexColumnWidth(3),
-                        2: FlexColumnWidth(1),
-                        3: FlexColumnWidth(1),
-                        4: FlexColumnWidth(1),
-                      },
-                      children: [
-                        TableRow(
-                          decoration: BoxDecoration(color: AppColor.container),
-                          children: [
-                            'Name'.text.size(11).minFontSize(11).bold.make().p8(),
-                            'Url'.text.size(11).minFontSize(11).bold.make().p8(),
-                            'Status'.text.size(11).minFontSize(11).bold.make().p8(),
-                            'Added'.text.size(11).minFontSize(11).bold.make().p8(),
-                            'DL Time'.text.size(11).minFontSize(11).bold.make().p8(),
-                            'Action'.text.size(11).minFontSize(11).bold.make().p8(),
-                          ],
-                        ),
+  void _scheduleDownloadPreferenceSave() {
+    _downloadPreferenceTimer?.cancel();
+    _downloadPreferenceTimer = Timer(const Duration(milliseconds: 250), () => unawaited(_saveDownloadPreferences()));
+  }
 
-                        // items
-                        ...List.generate(
-                          data.length,
-                          (index) {
-                            final item = data[index];
-                            final jsonData = jsonDecode(item.content ?? '');
-                            final dt1 = DateTime.parse(item.createdAt ?? '');
-                            final dt2 = DateTime.parse(item.updatedAt ?? '');
-                            final diff = dt2.difference(dt1);
-                            final totalSeconds = diff.inSeconds;
-                            final finishTime = totalSeconds > 0 ? '${(totalSeconds ~/ 60).toString().padLeft(2, '0')}:${(totalSeconds % 60).toString().padLeft(2, '0')}' : '';
-                            final statusIcon = () {
-                              switch (jsonData['ev']) {
-                                case 'finish': return '✅';
-                                case 'failed': return '❌';
-                                default: return '🏃🏻';
-                              }
-                            }();
+  Future<void> _saveDownloadPreferences() => AppPref.setDownloadOptions({
+    for (final entry in _downloadOptionFields.entries) entry.key: entry.value.text,
+    'mode': mode.value, 'headless': headless.value, 'allow_popups': allowPopups.value,
+  }).catchError((Object error) {
+    AppLog.logW('Saving download options failed: $error');
+  });
 
-                            var createdAt = item.createdAt?.toDateEx();
-                            var addedTime = createdAt != null && createdAt.isSameDay(DateTime.now()) ? '• ${item.createdAt!.reformatDate(to: 'HH:mm')}' : item.createdAt?.reformatDate(to: 'yy/M/d');
+  void clearCompletedDownload() {
+    if (job.running || job.status != 'Completed') return;
+    tecUrl.clear();
+    tecFilename.clear();
+    formError.value = '';
+    job.reset();
+  }
 
-                            return TableRow(
-                              children: [
-                                // -> Filename
-                                HStack(
-                                  [
-                                    Icon(UIconsPro.regularRounded.folder, size: 11).pOnly(left: 8).onInkTap(() {
-                                      HelperOpener.openFilePath('${jsonData['dir']}/${jsonData['filename']}.mp4');
-                                    }),
-                                    '${jsonData['filename']}'.text.size(12).minFontSize(12).maxLines(1).ellipsis.make().p(6).onInkTap(() {
-                                      HelperMisc.copyToClipboard(jsonData['filename'], showToast: true);
-                                    }).expand(),
-                                  ],
-                                ),
-                                // -> URL
-                                '${jsonData['url']}'.text.size(12).minFontSize(12).maxLines(1).ellipsis.make().p(6).onInkTap(() {
-                                  HelperMisc.copyToClipboard(jsonData['url'], showToast: true);
-                                }),
-                                // -> Status
-                                '$statusIcon'.text.size(12).minFontSize(12).maxLines(1).ellipsis.makeCentered().p(6).tooltip('${jsonData['ev']}'),
-                                // -> Added Time
-                                '$addedTime'.text.size(12).minFontSize(12).make().p(6).tooltip('${item.createdAt?.reformatDate(to: 'yy/M/d HH:mm:ss')}'),
-                                // -> Finish Time
-                                '$finishTime'.text.size(12).minFontSize(12).make().p(6).tooltip(HelperMisc.durationFormatFFmpeg(totalSeconds)),
-                                // -> Action
-                                HStack([
-                                  if (statusIcon == '❌') ...[
-                                    Icon(UIconsPro.regularRounded.rotate_left, size: 12).p4().onInkTap(() async {
-                                      await startProcessDownload(jsonData['url'], jsonData['dir'], jsonData['filename'], worker: 1);
-                                      await Overlayment.dismissLast();
-                                    }),
-                                  ],
-                                  Icon(UIconsPro.regularRounded.trash, size: 12).p4().tooltip('delete log').onInkTap(() async {
-                                    await DBActivity.deleteDownloadLogByFilename(jsonData['filename']);
-                                    await Overlayment.dismissLast();
-                                    await openDownloadLog();
-                                  }),
-                                ]).centered().p(6),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
-                    ).scrollVertical(),
-                  ),
-          ]).p12(),
-        ));
+  @override
+  void onReady() {
+    super.onReady();
+    if (Get.isRegistered<DBService>()) unawaited(loadDownloadHistory());
   }
 
   Future<void> openDialogDownload() async {
-    final tecChunk = TextEditingController(text: AppPref.getDownloadWorker().toString());
-    final tecUrl = TextEditingController();
-    final tecDir = TextEditingController();
-    final fnUrl = FocusNode();
-    final tecFilename = TextEditingController(text: activeTab.tecSearch.text);
-
-    tecDir.text = AppPref.getDownloadPath();
-    fnUrl.requestFocus();
-
-    final isRawUrl = false.obs;
-
-    ExAlert.adaptive(
-      isDismissible: true,
-      title: Text('Download', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.left).pOnly(bottom: 16),
-      content: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: 160),
-        child: VStack(
-          [
-            HStack(
-              [
-                CupertinoTextField(
-                  readOnly: true,
-                  controller: tecDir,
-                  placeholder: 'Save To...',
-                  prefix: Icon(UIconsPro.regularRounded.folder, size: 13).pOnly(left: 8),
-                  placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
-                  style: TextStyle(fontSize: 13, color: Vx.neutral500),
-                  onTap: () async {
-                    await FilePicker.getDirectoryPath(initialDirectory: tecDir.text).then((dir) {
-                      if (dir != null) {
-                        AppPref.setDownloadPath(dir);
-                        tecDir.text = dir;
-                      }
-                    });
-                  },
-                ).expand(),
-                6.widthBox,
-                CupertinoTextField(
-                  controller: tecChunk,
-                  placeholder: 'Chunk',
-                  prefix: Icon(UIconsPro.regularRounded.download, size: 13).pOnly(left: 8),
-                  placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
-                  style: TextStyle(fontSize: 13, color: AppColor.text),
-                  onChanged: (s) => AppPref.setDownloadWorker(s.toInt() ?? 1),
-                ).w(90),
-              ],
-            ).pOnly(bottom: 12),
-            CupertinoTextField(
-              controller: tecUrl,
-              focusNode: fnUrl,
-              prefix: Icon(UIconsPro.regularRounded.link, size: 13).pOnly(left: 8),
-              placeholder: 'Url',
-              style: TextStyle(fontSize: 12, color: AppColor.text),
-              onChanged: (value) {
-                tecFilename.text = value.split('/').last;
-              },
-            ).pOnly(bottom: 12),
-            CupertinoTextField(
-              controller: tecFilename,
-              prefix: Icon(UIconsPro.regularRounded.hastag, size: 13).pOnly(left: 8),
-              placeholder: 'Filename',
-              style: TextStyle(fontSize: 12, color: AppColor.text),
-              onSubmitted: (value) async {
-                await startProcessDownload(tecUrl.text, tecDir.text, tecFilename.text, isRawUrl: isRawUrl.value);
-              },
-            ).pOnly(bottom: 12),
-
-            // RadioListTile
-            Material(
-              color: Colors.transparent,
-              child: Transform.translate(
-                offset: Offset(-0, -0),
-                child: HStack([
-                  Obx(
-                    () => Checkbox.adaptive(
-                      value: isRawUrl.value,
-                      onChanged: (s) => isRawUrl.value = s ?? false,
-                    ),
-                  ),
-                  Text('Raw Url', style: TextStyle(fontSize: 12, color: AppColor.text)).pOnly(left: 8),
-                ]).wFull(Get.context!).onInkTap(() => isRawUrl.value = !isRawUrl.value),
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        CupertinoDialogAction(
-          child: Text('Open Log', style: TextStyle(fontSize: 12, color: AppColor.text)),
-          onPressed: () async => await openDownloadLog(),
-        ),
-        CupertinoDialogAction(
-          child: Text('Start Download', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-          onPressed: () async {
-            await startProcessDownload(tecUrl.text, tecDir.text, tecFilename.text, isRawUrl: isRawUrl.value);
-          },
-        ),
-      ],
-    );
+    if (_downloadDialogOpen || isClosed) return;
+    _downloadDialogOpen = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!isClosed && _downloadDialogOpen && !job.running) fnDownloadUrl.requestFocus();
+    });
+    try {
+      await Get.dialog<void>(PageDownloadDialog(controller: this));
+    } finally {
+      _downloadDialogOpen = false;
+    }
   }
 
-  Future<void> startProcessDownload(String url, String dir, String filename, {int? worker, bool? isRawUrl = false}) async {
-    if (url.isEmpty || dir.isEmpty || filename.isEmpty) {
-      await HelperToast.warn('Please fill all fields');
+  void downloadWebsite(String url) {
+    if (isClosed) return;
+    if (job.running) {
+      formError.value = 'A download is already active. Cancel it before starting another.';
+      unawaited(openDialogDownload());
       return;
     }
+    mode.value = 'extract';
+    tecUrl.text = url;
+    tecFilename.clear();
+    formError.value = '';
+    unawaited(openDialogDownload());
+    unawaited(startDownload());
+  }
 
-    final sanitizedFilename = filename.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-    final safeFilename = sanitizedFilename.trim().substring(0, sanitizedFilename.length.clamp(0, 100));
-
+  Future<void> openDownloadLog() async {
+    if (_historyDialogOpen || isClosed) return;
+    _historyDialogOpen = true;
     try {
-      Get.back();
+      await loadDownloadHistory();
+      if (!isClosed) await Get.dialog<void>(PageDownloadHistoryDialog(controller: this));
+    } finally {
+      _historyDialogOpen = false;
+    }
+  }
 
-      try {
-        await shell.run('chmod +x "${appSetting.appPath}/javit_dl"');
-      } catch (e) {
-        await HelperToast.error('${e.toString()}');
+  Future<void> loadDownloadHistory() async {
+    try {
+      history.assignAll(await DBActivity.getDownloadLogs());
+    } catch (e) {
+      AppLog.logW('Loading download history failed: $e');
+    }
+  }
+
+  Future<void> pickDownloadDirectory() async {
+    final directory = await FilePicker.getDirectoryPath(initialDirectory: tecDirectory.text.isEmpty ? null : tecDirectory.text);
+    if (directory == null || isClosed) return;
+    tecDirectory.text = directory;
+    AppPref.setDownloadPath(directory);
+  }
+
+  DownloadRequest requestFromForm() => DownloadRequest(
+    url: tecUrl.text.trim(), directory: tecDirectory.text.trim(), filename: tecFilename.text.trim(), mode: mode.value,
+    concurrency: int.tryParse(tecConcurrency.text) ?? 0, retries: int.tryParse(tecRetries.text) ?? -1,
+    timeout: int.tryParse(tecTimeout.text) ?? 0, referer: tecReferer.text.trim(), userAgent: tecUserAgent.text.trim(),
+    headless: headless.value, captureDuration: int.tryParse(tecCaptureDuration.text) ?? 0,
+    playSelector: tecPlaySelector.text.trim(), allowPopups: allowPopups.value,
+  );
+
+  Future<void> startDownload() async {
+    if (job.running) return;
+    final request = requestFromForm();
+    formError.value = '';
+    try {
+      request.validate();
+      AppPref.setDownloadPath(request.directory);
+      AppPref.setDownloadWorker(request.concurrency);
+    } catch (e) {
+      formError.value = '$e';
+      return;
+    }
+    Activity? activity;
+    String? completedOutput;
+    // Reserve the job while preparing the binary and history entry.
+    job.cancelled = false;
+    job.outputPath = job.error = '';
+    job.status = 'Starting';
+    job.running = true;
+    jobRevision.value++;
+    try {
+      final binary = p.join(appSetting.appPath, 'javit_dl');
+      if (!await File(binary).exists()) throw StateError('Downloader binary is missing. Restart JavIt to restore it.');
+      if (!Platform.isWindows) {
+        final result = await Process.run('/bin/chmod', ['+x', binary]);
+        if (result.exitCode != 0) throw StateError('Cannot make downloader executable: ${result.stderr}');
+      }
+      if (job.cancelled || isClosed) {
+        job.status = 'Cancelled';
         return;
       }
-
-      // log to activity
-      await DBActivity.addDownloadLog(Activity(type: kActivityTypeDownload, content: genJsonFormat('start', url, dir, filename)));
-
-      // legacy env PATH (macOS only)
-      const homebrewPath = '/opt/homebrew/bin';
-      final currentPath = Platform.environment['PATH'] ?? '/usr/bin:/bin:/usr/sbin:/sbin';
-      final envPath = '$homebrewPath:$currentPath';
-
-      final execPath = '${appSetting.appPath}/javit_dl';
-      final execArgs = [
-        '-u', '"$url"',
-        '-o', '"$dir/$safeFilename"',
-        '-tf', '"${appSetting.appPath}/.dl_tmp"',
-        '-r', '5',
-        '-c', '${worker ?? AppPref.getDownloadWorker()}',
-        '-auto',
-        if (isRawUrl == true) '-rawurl',
-      ];
-
-      await shell.run('$execPath ${execArgs.join(' ')}', 
-        workingDirectory: appSetting.appPath,
-        runInShell: true,
-        commandVerbose: false,
-        verbose: false,
-        environment: {'PATH': envPath},
-        onProcess: (process) async {
-          currentProcessDownload.value = process;
-          // listen stdout
-          process.outLines.listen((s) {
-            downloadStdout.value = s;
-            Get.find<HomeController>().footerText.value = s;
-          }).onError((e) {
-            AppLog.logE('listen stdout e -> $e');
-            downloadStdout.value = '$e';
-          });
-
-          await process.exitCode.then((code) async {
-            if (code == 1) {
-              downloadStdout.value = 'Download Failed 🔴';
-
-              await Get.find<HomeController>().updateFooterSummary();
-              await HelperToast.error('Download Failed 🔴');
-              
-              final currentActivity = await DBActivity.getDownloadLogByFilename(safeFilename);
-              await DBActivity.updateDownloadLog(id: currentActivity?.id ?? '', content: genJsonFormat('failed', url, dir, safeFilename));
-              await HelperMisc.playSoundDownloadComplate();
-            }
-
-            if (code == 0) {
-              downloadStdout.value = 'Download Finished ✅';
-              await Get.find<HomeController>().updateFooterSummary();
-
-              await HelperToast.success('Download Finished ✅');
-
-              final currentActivity = await DBActivity.getDownloadLogByFilename(safeFilename);
-              await DBActivity.updateDownloadLog(id: currentActivity?.id ?? '', content: genJsonFormat('finish', url, dir, safeFilename));
-              await HelperMisc.playSoundDownloadComplate();
-
-              // create notification
-              final notificationModel = NotificationModel(
-                title: '$safeFilename',
-                body: 'Download Finished. Click to see details',
-                payload: '$dir/$safeFilename.mp4',
-              );
-
-              await AppNotification.show(notificationModel);
-              AppNotification.registerNotificationTapHandler((v) {
-                print('payload: $v');
-              });
-            }
-
-            process.kill();
-          });
-
-          // listen stderr
-          // process.errLines.listen((s) => AppLog.logE('process.errLines e -> $s'));
-        },
-      );
-
-      if (currentProcessDownload.value != null) {
-        if (await currentProcessDownload.value?.exitCode == 0) {
-          downloadStdout.value = '';
+      activity = await DBActivity.addDownloadLog(Activity(content: _downloadContent(request, 'start')));
+      if (job.cancelled || isClosed) {
+        job.status = 'Cancelled';
+        if (activity?.id != null) await DBActivity.updateDownloadLog(id: activity!.id!, content: _downloadContent(request, 'cancelled'));
+        return;
+      }
+      job.running = false;
+      await job.start(request, binary: binary, cache: p.join(appSetting.appPath, '.dl_tmp'), environment: {
+        'PATH': '/opt/homebrew/bin:/usr/local/bin:${Platform.environment['PATH'] ?? '/usr/bin:/bin:/usr/sbin:/sbin'}',
+      });
+      if (job.status == 'Completed') completedOutput = job.outputPath;
+      if (activity?.id != null) {
+        try {
+          await DBActivity.updateDownloadLog(id: activity!.id!, content: _downloadContent(request, job.status == 'Completed' ? 'finish' : job.status == 'Cancelled' ? 'cancelled' : 'failed'));
+        } catch (e) {
+          formError.value = 'Download result: ${job.status}. Saving history failed: $e';
+          AppLog.logW(formError.value);
         }
       }
     } catch (e) {
-      AppLog.logE('startProcessDownload e -> $e');
-    }
-  }
-
-  Future<void> killProcessDownload() async {
-    try {
-      currentProcessDownload.value?.kill(ProcessSignal.sigkill);
+      job.status = 'Failed';
+      job.error = '$e';
+      if (activity?.id != null) {
+        try {
+          await DBActivity.updateDownloadLog(id: activity!.id!, content: _downloadContent(request, 'failed'));
+        } catch (historyError) {
+          AppLog.logW('Saving download result failed: $historyError');
+        }
+      }
+    } finally {
+      job.running = false;
       currentProcessDownload.value = null;
-      downloadStdout.value = '';
-
-      await Get.find<HomeController>().updateFooterSummary();
-    } catch (e) {
-      AppLog.logD('killProcessDownload e -> $e');
+      if (!isClosed) clearCompletedDownload();
+      jobRevision.value++;
+      await loadDownloadHistory();
+      if (!job.running && Get.isRegistered<HomeController>()) await Get.find<HomeController>().updateFooterSummary();
+    }
+    if (completedOutput != null) {
+      try {
+        await HelperMisc.playSoundDownloadComplate();
+        await AppNotification.show(NotificationModel(title: p.basename(completedOutput), body: 'Download finished', payload: completedOutput));
+      } catch (e) {
+        AppLog.logW('Download notification failed: $e');
+      }
     }
   }
 
-  String genJsonFormat(String ev, String url, String dir, String filename, {String? error}) {
-    final o = {}.obs;
-    o['ev'] = ev;
-    o['url'] = url;
-    o['dir'] = dir;
-    o['filename'] = filename;
-    o['error'] = error ?? '';
-    return jsonEncode(o);
+  String _downloadContent(DownloadRequest request, String status) => jsonEncode({
+    'ev': status, 'url': request.url, 'dir': request.directory, 'filename': request.filename,
+    'mode': request.mode, 'output_path': job.outputPath, 'error': job.error, 'exit_code': job.exitCode,
+    'concurrency': request.concurrency, 'retries': request.retries, 'timeout': request.timeout,
+    'referer': request.referer, 'user_agent': request.userAgent, 'headless': request.headless,
+    'capture_duration': request.captureDuration, 'play_selector': request.playSelector, 'allow_popups': request.allowPopups,
+  });
+
+  Map<String, dynamic> historyContent(Activity activity) {
+    try {
+      final value = jsonDecode(activity.content ?? '{}');
+      return value is Map<String, dynamic> ? value : {};
+    } catch (_) {
+      return {};
+    }
   }
+
+  void restoreDownload(Activity activity) {
+    if (job.running) return;
+    final data = historyContent(activity);
+    tecUrl.text = data['url'] as String? ?? '';
+    tecDirectory.text = data['dir'] as String? ?? '';
+    tecFilename.text = data['filename'] as String? ?? '';
+    mode.value = data['mode'] as String? ?? 'extract';
+    tecConcurrency.text = '${data['concurrency'] ?? 8}';
+    tecRetries.text = '${data['retries'] ?? 3}';
+    tecTimeout.text = '${data['timeout'] ?? 30}';
+    tecReferer.text = data['referer'] as String? ?? '';
+    tecUserAgent.text = data['user_agent'] as String? ?? '';
+    headless.value = data['headless'] == true;
+    allowPopups.value = data['allow_popups'] == true;
+    tecCaptureDuration.text = '${data['capture_duration'] ?? 20}';
+    tecPlaySelector.text = data['play_selector'] as String? ?? '';
+    formError.value = '';
+  }
+
+  Future<void> revealOutput(String path) async {
+    if (path.isEmpty) return;
+    if (Platform.isMacOS) await Process.run('/usr/bin/open', ['-R', path]);
+    else if (Platform.isWindows) await Process.run('explorer.exe', ['/select,', path]);
+    else await Process.run('xdg-open', [p.dirname(path)]);
+  }
+
+  Future<void> deleteDownloadHistory(Activity activity) async {
+    await DBActivity.deleteAll(where: 'id = ? AND type = ?', whereArgs: [activity.id, kActivityTypeDownload]);
+    await loadDownloadHistory();
+  }
+
+  Future<void> killProcessDownload() async => job.cancel();
 }

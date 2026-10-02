@@ -24,11 +24,11 @@ class PageDownloadView extends GetView<PageDownloadController> {
   Widget build(BuildContext context) {
     AppColor.dependOn(context);
     return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyN, meta: true, includeRepeats: false): controller.addTab,
-        const SingleActivator(LogicalKeyboardKey.keyW, meta: true, includeRepeats: false): () => controller.closeTab(controller.activeTabIndex.value),
-      },
-      child: Focus(autofocus: true, child: Column(children: [
+    bindings: {
+      const SingleActivator(LogicalKeyboardKey.keyN, meta: true, includeRepeats: false): controller.addTab,
+      const SingleActivator(LogicalKeyboardKey.keyW, meta: true, includeRepeats: false): () => controller.closeTab(controller.activeTabIndex.value),
+    },
+    child: Focus(autofocus: true, child: Column(children: [
       Obx(() => SearchTabBar(
         tabs: controller.tabs.map((tab) => (title: tab.title.value, isLoading: tab.isLoading.value)).toList(),
         activeIndex: controller.activeTabIndex.value,
@@ -44,7 +44,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
       Obx(() => controller.downloadStdout.value.isNotEmpty
           ? HStack([
               '${controller.downloadStdout}'.text.size(11).minFontSize(11).maxLines(1).make().expand(),
-              ExButtonText(label: 'Cancel / Close', labelSize: 12, onPressed: controller.killProcessDownload),
+              ExButtonText(label: 'Show download', labelSize: 12, onPressed: controller.openDialogDownload),
             ]).pOnly(top: 12)
           : 0.heightBox),
     ])),
@@ -142,6 +142,12 @@ class PageDownloadSearchView extends StatelessWidget {
             ]),
           ),
           IconButton(
+            tooltip: 'New download',
+            icon: Icon(UIconsPro.regularRounded.plus, size: 14),
+            onPressed: () => Get.find<PageDownloadController>().openDialogDownload(),
+          ),
+          IconButton(
+            tooltip: 'Download history',
             icon: Icon(UIconsPro.regularRounded.arrow_small_down, size: 18),
             onPressed: () => Get.find<PageDownloadController>().openDownloadLog(),
           ).pOnly(left: 0),

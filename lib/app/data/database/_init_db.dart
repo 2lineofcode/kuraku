@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ex_kit/ex.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:glob/glob.dart';
 import 'package:glob/list_local_fs.dart';
@@ -81,6 +82,7 @@ class DBService extends GetxService {
         onConfigure: _onConfigure,
         singleInstance: true,
         onOpen: (db) async {
+          await prepareR18VideoCodes(db);
           AppLog.logD('== R18 Database (r18.db) opened (version: ${await db.getVersion()}) ==');
         },
       );
@@ -88,6 +90,20 @@ class DBService extends GetxService {
       AppLog.logW('R18 database file missing: $path');
       return null;
     }
+  }
+
+  static Future<void> prepareR18VideoCodes(Database db) async {
+    final columns = await db.rawQuery('PRAGMA table_info(derived_video)');
+    if (columns.any((column) => column['name'] == 'video_code')) return;
+
+    final script = await rootBundle.loadString('assets/r18_video_codes.sql');
+    AppLog.logD('Preparing R18 video codes');
+    await db.transaction((txn) async {
+      for (final statement in script.split(';')) {
+        if (statement.trim().isNotEmpty) await txn.execute(statement);
+      }
+    });
+    AppLog.logD('R18 video codes ready');
   }
 
   Future<void> _onConfigure(Database db) async {

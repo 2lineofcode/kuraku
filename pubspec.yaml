@@ -1,7 +1,7 @@
 name: javit
 description: "A new Flutter project."
 publish_to: "none"
-version: 1.0.0+20261001.46
+version: 1.0.0+20261001.47
 
 environment:
   sdk: ^3.5.3
@@ -81,6 +81,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/r18_to_javit.py
+    - assets/r18_video_codes.sql
     - assets/semantic_worker.py
     - assets/chat_knowledge.py
     - assets/sql_editor.py

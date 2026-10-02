@@ -111,13 +111,13 @@ class AppSettingService extends GetxService {
 
   //
   Future<void> exposeExternalFiles() async {
-    final assetFiles = ['r18_to_javit.py', 'semantic_worker.py', 'javit_dl'];
+    final assetFiles = ['r18_to_javit.py', 'r18_video_codes.sql', 'semantic_worker.py'];
 
     for (final fileName in assetFiles) {
       final filePath = '$appPath/$fileName';
       final file = File(filePath);
 
-      if (await file.exists()) continue;
+      if (await file.exists() && fileName != 'r18_to_javit.py' && fileName != 'r18_video_codes.sql') continue;
 
       try {
         final byteData = await rootBundle.load('assets/$fileName');
@@ -132,12 +132,46 @@ class AppSettingService extends GetxService {
       }
     }
 
+    final executableDir = dirname(Platform.resolvedExecutable);
+    final assetPath = Platform.isMacOS
+        ? join(dirname(executableDir), 'Frameworks', 'App.framework', 'Resources', 'flutter_assets', 'assets', 'javit_dl')
+        : join(executableDir, 'data', 'flutter_assets', 'assets', 'javit_dl');
+    try {
+      await syncDownloadBinary(File(assetPath));
+    } catch (e) {
+      AppLog.logE('Failed expose asset file (javit_dl): $e');
+    }
+
     // create file
     final file = File('$appPath/javit.dio');
     if (!await file.exists()) {
       await file.create(recursive: true);
     }
 
+  }
+
+  Future<bool> syncDownloadBinary(File asset) async {
+    final source = await asset.stat();
+    if (source.type != FileSystemEntityType.file || source.size == 0) throw FileSystemException('Bundled downloader is missing or empty', asset.path);
+    final target = File(join(appPath, 'javit_dl'));
+    final targetType = await FileSystemEntity.type(target.path, followLinks: false);
+    if (targetType != FileSystemEntityType.file && targetType != FileSystemEntityType.notFound) throw FileSystemException('Downloader path is not a regular file', target.path);
+    final installed = await target.stat();
+    const key = '_kDownloadBinaryStamp';
+    // ponytail: metadata fingerprint; use content hashes if bundles preserve timestamps across updates.
+    final assetStamp = '${source.size}:${source.modified.microsecondsSinceEpoch}';
+    if (installed.size == source.size && pref.read<String>(key) == '$assetStamp:${installed.modified.microsecondsSinceEpoch}') return false;
+
+    final staging = await Directory(appPath).createTemp('.javit_dl-');
+    final temporary = File(join(staging.path, 'javit_dl'));
+    try {
+      await asset.copy(temporary.path);
+      await temporary.rename(target.path);
+      await pref.write(key, '$assetStamp:${(await target.stat()).modified.microsecondsSinceEpoch}');
+    } finally {
+      await staging.delete(recursive: true);
+    }
+    return true;
   }
 
 

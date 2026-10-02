@@ -9,33 +9,26 @@ from pathlib import Path
 
 
 SCRIPT_NAME = "r18_to_javit"
-SCRIPT_VERSION = "1.2.0"
-SCRIPT_UPDATED_AT = "2026-09-29"
+SCRIPT_VERSION = "1.3.0"
+SCRIPT_UPDATED_AT = "2026-10-01"
+
+
+def create_video_codes(conn):
+    if any(row[1] == 'video_code' for row in conn.execute('PRAGMA table_info(derived_video)')):
+        return
+    script = Path(__file__).with_name('r18_video_codes.sql').read_text()
+    with conn:
+        if not conn.in_transaction:
+            conn.execute('BEGIN')
+        for statement in script.split(';'):
+            if statement.strip():
+                conn.execute(statement)
 
 
 def create_catalog_indexes(conn):
-    # Keep eligibility identical to DBR18._advancedVideos.
-    prefix = "substr(dvd_id, 1, instr(dvd_id, '-') - 1)"
-    tail = "substr(dvd_id, instr(dvd_id, '-') + 1)"
-    serial = f"CASE WHEN instr({tail}, '-') = 0 THEN {tail} ELSE substr({tail}, 1, instr({tail}, '-') - 1) END"
-    suffix = f"CASE WHEN instr({tail}, '-') = 0 THEN 'x' ELSE substr({tail}, instr({tail}, '-') + 1) END"
-    predicate = f"""
-      length({prefix}) >= 2 AND {prefix} NOT GLOB '*[^A-Za-z]*'
-      AND length(ltrim(({serial}), 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz')) BETWEEN 2 AND 5
-      AND ltrim(({serial}), 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') NOT GLOB '*[^0-9]*'
-      AND ({suffix}) != '' AND ({suffix}) NOT GLOB '*[^A-Za-z0-9]*'
-    """
-    prefixes = ['TK', '7', '9', 'K9', 'FTKT', 'GOOE', 'JTKT', 'GTKT', 'DDMP', 'DMPXA', 'USTD', 'VWBS', 'HPXR', 'VWAS', 'TCBD', 'DAXA', 'TWUSS', 'PJXF', 'KKC', 'GNXF', 'JAXA', 'UHB', 'BPUH', 'GNXT', 'ZTKT', 'PB', 'D1', 'D2', 'D3', 'DK', 'BCQA', 'ANRS', 'SPUF', 'ANRM']
-    suffixes = ['BOD', 'DOD', 'Ta', 'Tb', 'Tc', 'Td', 'Te', 'TK', 'TK1', 'TK2', 'TK3', 'EC', '4D', '5D', 'DL']
-    for pattern in [value + '%' for value in prefixes] + ['%' + value for value in suffixes]:
-        predicate += f" AND dvd_id NOT LIKE '{pattern}'"
-    indexes = {
-        'idx_dv_advanced_catalog': f"ON derived_video(series_id, dvd_id, release_date, content_id) WHERE {predicate}",
-        'idx_dvc_content_category': 'ON derived_video_category(content_id, category_id)',
-    }
-    for name, definition in indexes.items():
-        conn.execute(f'CREATE INDEX IF NOT EXISTS {name} {definition}')
-    conn.execute('ANALYZE idx_dv_advanced_catalog')
+    create_video_codes(conn)
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_dvc_content_category ON derived_video_category(content_id, category_id)')
+    conn.execute('ANALYZE idx_dv_advanced_codes')
     conn.execute('ANALYZE derived_video_category')
 
 

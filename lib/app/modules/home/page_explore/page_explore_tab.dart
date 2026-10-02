@@ -378,7 +378,7 @@ class PageExploreTab {
     switch (menu) {
       case kActress:
         localVideos = DBVideos.getAllLike('actress', item.id.toString());
-        r18Count = DBR18.getCountAllVideosByActress(item.id!);
+        r18Count = DBR18.getCountAllVideosByActress(item.id!, singleActressMode: singleActressMode.value);
         break;
       case kCategory:
         localVideos = DBVideos.getAllLike('category', item.name!, jsonObject: 'category');
@@ -528,7 +528,7 @@ class PageExploreTab {
   Future<void> onSectionLocalTap() async => rightListViewMode.value = kLocal;
 
   Future<void> onSectionR18Tap() async {
-    if (isClosed || rightListR18TotalVideo.value == 0) return;
+    if (isClosed) return;
     final request = ++_r18Request;
     rightListViewMode.value = kR18;
     currentPage.value = 1;
@@ -556,6 +556,11 @@ class PageExploreTab {
     final isSingleActress = singleActressMode.value;
 
     try {
+      if (!isLoadMore && menu == kActress) {
+        final count = await DBR18.getCountAllVideosByActress(selected.id ?? 0, singleActressMode: isSingleActress);
+        if (request != _r18Request || isClosed) return;
+        rightListR18TotalVideo.value = count;
+      }
       final List<Map<String, dynamic>> r18videos;
       switch (menu) {
         case kActress: r18videos = await DBR18.getAllVideosByActress(selected.id ?? 0, singleActressMode: isSingleActress, page: page, perPage: _perPage + 1); break;
