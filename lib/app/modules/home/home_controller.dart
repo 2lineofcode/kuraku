@@ -40,7 +40,7 @@ class HomeController extends GetxController with StateMixin {
     {'icon': UIconsPro.regularRounded.book_alt, 'name': kMenuExplore},
     {'icon': UIconsPro.regularRounded.display_arrow_down, 'name': kMenuDownload},
     {'icon': UIconsPro.regularRounded.customization, 'name': kMenuTools},
-    {'icon': UIconsPro.regularRounded.operating_system_upgrade, 'name': kMenuSetting},
+    {'icon': UIconsPro.regularRounded.settings, 'name': kMenuSetting},
   ];
   final currentMenuSelected = kMenuHome.obs;
   final tecTopNavSearch = TextEditingController();

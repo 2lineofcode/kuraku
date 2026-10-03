@@ -189,16 +189,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                             ).pOnly(right: 12),
                           ],
                         ).pOnly(bottom: 8),
-                        HStack([
-                          'Dark Mode'.text.size(12).make().pOnly(right: 12).w(90),
-                          Obx(() => Transform.scale(
-                            scale: 0.7,
-                            child: Switch.adaptive(
-                              value: controller.appDarkMode.value,
-                              onChanged: controller.setDarkMode,
-                            ),
-                          )).pOnly(right: 12),
-                        ]).pOnly(bottom: 8),
+                        buildThemeSetting().pOnly(bottom: 8),
                         HStack(
                           [
                             'Default Player'.text.size(12).make().pOnly(right: 12).w(100),
@@ -586,6 +577,31 @@ class PageSettingsView extends GetView<PageSettingsController> {
       ],
     );
   }
+  Widget buildThemeSetting() => HStack([
+    'Theme'.text.size(12).make().pOnly(right: 12).w(100),
+    Obx(() => Container(
+      decoration: ExDecorator.box(borderColor: AppColor.border, fillColor: AppColor.container, borderRadius: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: DropdownButtonHideUnderline(child: DropdownButton<AppTheme>(
+        value: controller.appTheme.value,
+        isExpanded: true,
+        isDense: true,
+        menuWidth: 300,
+        dropdownColor: AppColor.container,
+        style: TextStyle(fontSize: 12, color: AppColor.text),
+        selectedItemBuilder: (_) => AppTheme.values.map((theme) => Row(children: [
+          Icon(CupertinoIcons.circle_lefthalf_fill, size: 16).pOnly(right: 8),
+          Expanded(child: Text(theme.label, overflow: TextOverflow.ellipsis)),
+        ])).toList(),
+        items: AppTheme.values.map((theme) => DropdownMenuItem(
+          value: theme,
+          child: Text(theme == AppTheme.schedule ? 'Auto Schedule (06-17 light | 17-06 dark)' : theme.label, style: const TextStyle(fontSize: 12)),
+        )).toList(),
+        onChanged: (theme) { if (theme != null) controller.setTheme(theme); },
+      )),
+    )).expand(),
+  ]);
+
   Widget buildVisualSearchSettings() => Container(
     decoration: ExDecorator.box(borderColor: AppColor.border),
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

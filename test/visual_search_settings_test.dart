@@ -21,6 +21,8 @@ class _Preferences implements GetSecureStorage {
   @override
   Future<void> write(String key, dynamic value) async { values[key] = value; }
   @override
+  void writeInMemory(String key, dynamic value) { values[key] = value; }
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
@@ -50,21 +52,21 @@ void main() {
       });
     }
     final boundary = GlobalKey();
-    await tester.pumpWidget(GetMaterialApp(themeMode: AppPref.getAppDarkMode() ? ThemeMode.dark : ThemeMode.light, darkTheme: ThemeData.dark(), theme: ThemeData.light().copyWith(textTheme: ThemeData.light().textTheme.apply(fontFamily: fontPath.isEmpty ? null : 'VisualQA')), home: Scaffold(
+    await tester.pumpWidget(GetMaterialApp(themeMode: AppPref.getAppTheme().resolve(), darkTheme: ThemeData.dark(), theme: ThemeData.light().copyWith(textTheme: ThemeData.light().textTheme.apply(fontFamily: fontPath.isEmpty ? null : 'VisualQA')), home: Scaffold(
       body: RepaintBoundary(key: boundary, child: SingleChildScrollView(
         child: const PageSettingsView().buildVisualSearchSettings(),
       )),
     )));
-    expect(controller.appDarkMode.value, isTrue);
+    expect(controller.appTheme.value, AppTheme.dark);
     expect(Get.isDarkMode, isTrue);
-    await controller.setDarkMode(false);
+    await controller.setTheme(AppTheme.light);
     await tester.pumpAndSettle();
     expect(Get.isDarkMode, isFalse);
-    expect(AppPref.getAppDarkMode(), isFalse);
+    expect(AppPref.getAppTheme(), AppTheme.light);
     final recreated = _Settings();
-    expect(recreated.appDarkMode.value, isFalse);
+    expect(recreated.appTheme.value, AppTheme.light);
     recreated.onClose();
-    await controller.setDarkMode(true);
+    await controller.setTheme(AppTheme.dark);
     await tester.pumpAndSettle();
     expect(Get.isDarkMode, isTrue);
     expect(find.text('Set up'), findsOneWidget);

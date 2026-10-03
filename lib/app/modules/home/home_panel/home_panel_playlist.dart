@@ -7,7 +7,6 @@ import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
-import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
@@ -272,7 +271,7 @@ mixin HomePanelPlaylist {
             color: AppColor.selected,
             child: MediaStack([
               ExThumbnail(
-                imageUrl: '${Env.imgUrl}${AppPref.getFavoriteCoverURL()}',
+                imageUrl: AppPref.getFavoriteCoverURL(),
                 width: 300,
                 height: 150,
                 fitUrl: BoxFit.cover,

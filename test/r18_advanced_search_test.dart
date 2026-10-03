@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -186,9 +187,66 @@ void main() {
     ]);
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: const PageToolsView())));
     await tester.pumpAndSettle();
-    expect(find.text('English name', findRichText: true), findsOneWidget);
-    expect(find.text('日本語', findRichText: true), findsOneWidget);
-    expect(find.text('12 videos · 2026-01-01', findRichText: true), findsOneWidget);
+    // FlutterListView leaves debugVisitOnstageChildren empty; verify actual hit testing instead.
+    expect(find.text('English name', skipOffstage: false).hitTestable(), findsOneWidget);
+    expect(find.text('日本語', skipOffstage: false).hitTestable(), findsOneWidget);
+    expect(find.text('12 videos · 2026-01-01', skipOffstage: false).hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('large catalog scrollbar jumps build only viewport rows and keep bilingual rows visible', (tester) async {
+    final controller = Get.put<PageToolsController>(_Tools());
+    controller.currentMenuSelected.value = kAdvanceSearch;
+    controller.leftList.assignAll(List.generate(68721, (index) => {
+      'id': index, 'name_en': 'Series $index', 'name_ja': '日本語 $index',
+      'video_count': 12, 'max_release_date': '2026-01-01',
+    }));
+    tester.view.physicalSize = const Size(800, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var rowBuilds = 0;
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      previous?.call(element, builtOnce);
+      if (element.widget is InkWell) rowBuilds++;
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+    await tester.pumpWidget(GetMaterialApp(
+      theme: ThemeData(platform: TargetPlatform.macOS),
+      home: Scaffold(body: const PageToolsView()),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Series 0', skipOffstage: false).hitTestable(), findsOneWidget);
+    expect(rowBuilds, lessThan(100));
+    final scroll = controller.leftListScrollController.value;
+    for (final fraction in [0.95, 0.1, 1.0, 0.0]) {
+      rowBuilds = 0;
+      scroll.jumpTo(scroll.position.maxScrollExtent * fraction);
+      await tester.pumpAndSettle();
+      expect(rowBuilds, lessThan(100), reason: 'A scrollbar jump must not build intervening catalog rows');
+      expect(find.byType(InkWell, skipOffstage: false).evaluate().length, lessThan(100));
+      expect(tester.takeException(), isNull);
+    }
+    expect(find.text('Series 0', skipOffstage: false).hitTestable(), findsOneWidget);
+    scroll.jumpTo(1);
+    await tester.pump();
+    final listRect = tester.getRect(find.byWidgetPredicate((widget) => widget is ScrollView && widget.controller == scroll));
+    rowBuilds = 0;
+    await tester.dragFrom(Offset(listRect.right - 4, listRect.top + 10), Offset(0, listRect.height * .85), kind: PointerDeviceKind.mouse);
+    await tester.pumpAndSettle();
+    expect(scroll.offset, greaterThan(scroll.position.maxScrollExtent * .8));
+    expect(rowBuilds, lessThan(100));
+    expect(tester.takeException(), isNull);
+    scroll.jumpTo(0);
+    await tester.pumpAndSettle();
+    controller.leftList.assignAll([
+      {'id': 999999, 'name_en': 'Filtered result', 'name_ja': '日本語', 'video_count': 1, 'max_release_date': null},
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text('Filtered result', skipOffstage: false).hitTestable(), findsOneWidget);
+    expect(find.text('Series 0', skipOffstage: false), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -223,5 +281,130 @@ void main() {
     expect(controller.rightListFiltered.single['video_code'], 'ABC-123');
     expect(controller.rightListFiltered.single['is_released'], isNull);
     expect(controller.leftListSelectedId.value, '2');
+  });
+
+  test('result search, release, library and duration filters combine and reset without losing selection', () async {
+    final controller = PageToolsController();
+    addTearDown(controller.onClose);
+    controller.leftListSelectedId.value = '1';
+    controller.rightList.assignAll([
+      {'video_code': 'ABC-123', 'title': 'First title', 'release_date': '2020-01-01', 'is_released': true, 'match': true, 'duration': 120},
+      {'video_code': 'ABC-124', 'title': 'Second title', 'release_date': '2021-01-01', 'is_released': true, 'match': false, 'duration': 30},
+      {'video_code': 'ABC-125', 'title': 'Future title', 'release_date': '2099-01-01', 'is_released': false, 'match': false, 'duration': 90},
+      {'video_code': 'ABC-126', 'title': 'Undated', 'release_date': null, 'is_released': null, 'match': false},
+    ]);
+    await controller.applyAdvancedFilters();
+    expect(controller.rightListFiltered.map((item) => item['video_code']), ['ABC-124', 'ABC-123', 'ABC-125', 'ABC-126']);
+    controller.resultQuery.value = 'FIRST';
+    controller.releaseFilter.value = 'released';
+    controller.libraryFilter.value = 'owned';
+    controller.filter.durationMin.value = 60;
+    await controller.applyAdvancedFilters();
+    expect(controller.rightListFiltered.single['video_code'], 'ABC-123');
+    expect(controller.hasAdvancedFilters, isTrue);
+    controller.resultQuery.value = 'abc-123';
+    await controller.applyAdvancedFilters();
+    expect(controller.rightListFiltered, hasLength(1));
+    controller.libraryFilter.value = 'missing';
+    await controller.applyAdvancedFilters();
+    expect(controller.rightListFiltered, isEmpty);
+    await controller.clearAdvancedFilters();
+    expect(controller.hasAdvancedFilters, isFalse);
+    expect(controller.leftListSelectedId.value, '1');
+    expect(controller.rightListFiltered, hasLength(4));
+    controller.releaseFilter.value = 'upcoming';
+    await controller.applyAdvancedFilters();
+    expect(controller.rightListFiltered.single['video_code'], 'ABC-125');
+    controller.releaseFilter.value = 'all';
+    controller.resultSort.value = 'oldest';
+    await controller.applyAdvancedFilters();
+    expect(controller.rightListFiltered.map((item) => item['video_code']), ['ABC-123', 'ABC-124', 'ABC-125', 'ABC-126']);
+  });
+
+  testWidgets('live group search waits for typing to stop and cancels pending work on a group change', (tester) async {
+    final controller = PageToolsController();
+    addTearDown(controller.onClose);
+    var requests = 0;
+    database.run = (sql, args) async {
+      requests++;
+      return [{'id': 1, 'name_en': 'English', 'search_text': 'English 日本語'}];
+    };
+    controller.searchAdvancedGroups('eng');
+    await tester.pump(const Duration(milliseconds: 100));
+    controller.searchAdvancedGroups('日本語');
+    await tester.pump(const Duration(milliseconds: 249));
+    expect(requests, 0);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(requests, 1);
+    expect(controller.leftList.single['id'], 1);
+    controller.searchAdvancedGroups('missing');
+    await controller.filterByCategories();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(controller.currentFilterBy.value, 'Category');
+    expect(controller.leftList.single['id'], 1);
+    controller.searchAdvancedGroups('missing');
+    await controller.onReset();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(controller.leftList, isEmpty);
+  });
+
+  testWidgets('advanced results fit desktop widths in both themes and expose clear status and controls', (tester) async {
+    final controller = Get.put<PageToolsController>(_Tools());
+    controller.currentMenuSelected.value = kAdvanceSearch;
+    controller.leftListSelected.value = 'A selected series with a long name';
+    controller.leftListSelectedId.value = '1';
+    controller.rightList.assignAll([
+      {'video_code': 'ABC-123', 'title': 'A long title that should wrap safely in a narrow card', 'fan_art': '', 'release_date': '2020-01-01', 'is_released': true, 'match': true, 'duration': 120},
+      {'video_code': 'ABC-124', 'title': 'Upcoming title', 'fan_art': '', 'release_date': '2099-01-01', 'is_released': false, 'match': false, 'duration': 90},
+    ]);
+    await controller.applyAdvancedFilters();
+    controller.change(200, status: RxStatus.success());
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    for (final width in [700.0, 1000.0]) {
+      tester.view.physicalSize = Size(width, 700);
+      await tester.pumpWidget(GetMaterialApp(
+        theme: ThemeData.light(), darkTheme: ThemeData.dark(),
+        home: Scaffold(body: const PageToolsView()),
+      ));
+      for (final theme in [ThemeMode.light, ThemeMode.dark]) {
+        Get.changeThemeMode(theme);
+        await tester.pumpAndSettle();
+        expect(find.text('2 of 2 videos'), findsOneWidget);
+        expect(find.text('In Library'), findsOneWidget);
+        expect(find.text('Upcoming'), findsOneWidget);
+        expect(find.byTooltip('Open trailer'), findsNWidgets(2));
+        expect(tester.takeException(), isNull);
+      }
+    }
+    final search = find.byWidgetPredicate((widget) => widget is EditableText && widget.controller == controller.tecResultSearch);
+    await tester.enterText(search, 'upcoming');
+    await tester.pumpAndSettle();
+    expect(find.text('1 of 2 videos'), findsOneWidget);
+    await tester.tap(find.text('Clear'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 of 2 videos'), findsOneWidget);
+    await tester.tap(find.byTooltip('Release'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Upcoming').last);
+    await tester.pumpAndSettle();
+    expect(find.text('1 of 2 videos'), findsOneWidget);
+    await tester.tap(find.byTooltip('More filters: video code, year and duration'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('filter-duration-min')), '100');
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(find.text('0 of 2 videos'), findsOneWidget);
+    await tester.tap(find.byTooltip('More filters: video code, year and duration'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reset'));
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(controller.releaseFilter.value, 'upcoming');
+    expect(find.text('1 of 2 videos'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }

@@ -1,7 +1,29 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../data/models/videos_entity.dart';
 import 'app_setting.dart';
+
+enum AppTheme {
+  system('System'),
+  schedule('Auto Schedule'),
+  dark('Dark'),
+  light('Light');
+
+  const AppTheme(this.label);
+  final String label;
+
+  ThemeMode resolve([DateTime? now]) {
+    switch (this) {
+      case system: return ThemeMode.system;
+      case dark: return ThemeMode.dark;
+      case light: return ThemeMode.light;
+      case schedule:
+        final hour = (now ?? DateTime.now()).hour;
+        return hour >= 6 && hour < 17 ? ThemeMode.light : ThemeMode.dark;
+    }
+  }
+}
 
 mixin AppPref {
   static final _pref = Get.find<AppSettingService>().pref;
@@ -39,8 +61,20 @@ mixin AppPref {
   static bool getAppHideSideMenu() => _pref.read(_kAppHideSideMenu) ?? false;
   static void setAppHideSideMenu(bool value) => _pref.write(_kAppHideSideMenu, value);
 
-  static bool getAppDarkMode() => _pref.read<bool>('_kAppDarkMode') ?? true;
-  static Future<void> setAppDarkMode(bool value) => _pref.write('_kAppDarkMode', value);
+  static AppTheme getAppTheme() {
+    final stored = _pref.read<String>('_kAppTheme');
+    return AppTheme.values.firstWhere((theme) => theme.name == stored,
+      orElse: () => (_pref.read<bool>('_kAppDarkMode') ?? true) ? AppTheme.dark : AppTheme.light);
+  }
+  static Future<void> setAppTheme(AppTheme value) async {
+    final previous = _pref.read<String>('_kAppTheme');
+    try {
+      await _pref.write('_kAppTheme', value.name);
+    } catch (_) {
+      _pref.writeInMemory('_kAppTheme', previous);
+      rethrow;
+    }
+  }
 
   static int getAppMaxColi() => _pref.read(_kAppMaxColi) ?? 2;
   static Future<void> setAppMaxColi(int value) async {

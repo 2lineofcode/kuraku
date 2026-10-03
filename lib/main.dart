@@ -93,7 +93,10 @@ class _JavItState extends State<JavIt> with WindowListener {
     super.initState();
     windowManager.addListener(this);
     windowManager.setPreventClose(true);
-    _lifecycle = AppLifecycleListener(onExitRequested: () async => await _flushBeforeExit() ? AppExitResponse.exit : AppExitResponse.cancel);
+    _lifecycle = AppLifecycleListener(
+      onResume: Get.find<AppSettingService>().refreshTheme,
+      onExitRequested: () async => await _flushBeforeExit() ? AppExitResponse.exit : AppExitResponse.cancel,
+    );
   }
 
   @override
@@ -110,7 +113,7 @@ class _JavItState extends State<JavIt> with WindowListener {
         enableLog: Env.logLvl == 'debug' ? true : false,
         title: Env.appName,
         initialRoute: AppPages.INITIAL,
-        themeMode: AppPref.getAppDarkMode() ? ThemeMode.dark : ThemeMode.light,
+        themeMode: AppPref.getAppTheme().resolve(),
         theme: ThemeData.light(useMaterial3: true),
         darkTheme: ThemeData.dark(useMaterial3: true).copyWith(
           textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: Vx.blue300)),
@@ -119,11 +122,17 @@ class _JavItState extends State<JavIt> with WindowListener {
         defaultTransition: Transition.fadeIn,
         debugShowCheckedModeBanner: false,
         onReady: () {
+          Get.find<AppSettingService>().refreshTheme();
           unawaited(_initializeNotifications());
           unawaited(_checkApplicationIsReady());
         },
       ),
     );
+  }
+
+  @override
+  void onWindowFocus() {
+    Get.find<AppSettingService>().refreshTheme();
   }
 
   @override

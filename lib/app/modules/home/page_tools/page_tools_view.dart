@@ -2,7 +2,7 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_popup/flutter_popup.dart';
+import 'package:flutter_list_view/flutter_list_view.dart';
 import 'package:get/get.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
@@ -34,7 +34,7 @@ class PageToolsView extends GetView<PageToolsController> {
             case kTopLargeFile: return uiTopLargeFileSize().expand();
             case kDuplicate: return uiDuplicateVideo().expand();
             case kTodo: return uiTODO().expand();
-            case kAdvanceSearch: return uiAdvanceSearch().expand();
+            case kAdvanceSearch: return uiAdvanceSearch(context).expand();
             default: return Container();
           }
         })
@@ -524,9 +524,9 @@ class PageToolsView extends GetView<PageToolsController> {
     ).centered();
   }
 
-  Widget uiAdvanceSearch() {
+  Widget uiAdvanceSearch(BuildContext context) {
     return HStack([
-      _buildLeftPart().pOnly(right: 12),
+      _buildLeftPart(context).pOnly(right: 12),
       _buildRightPart().expand(),
     ]).pOnly(left: 8);
   }
@@ -559,7 +559,8 @@ class PageToolsView extends GetView<PageToolsController> {
     );
   }
 
-  Widget _buildLeftPart() {
+  Widget _buildLeftPart(BuildContext context) {
+    final rowHeight = 84 * MediaQuery.textScalerOf(context).scale(12) / 12;
     return Container(
       width: 220,
       height: Get.height,
@@ -569,40 +570,25 @@ class PageToolsView extends GetView<PageToolsController> {
 
           // filter by
           HStack([
-            'Filter by: (${controller.leftList.length})'.text.size(11).minFontSize(11).maxLines(1).ellipsis.make().expand(),
-            Obx(
-              () => CustomPopup(
-                content: VStack([
-                  // Actress
-                  '${controller.currentFilterBy.value == kActress ? '◉' : '◎'} $kActress'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
-                    controller.currentFilterBy.value = kActress;
-                    Get.back();
-                    await controller.filterByActress();
-                  }),
-
-                  // Series
-                  '${controller.currentFilterBy.value == kSeries ? '◉' : '◎'} $kSeries'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
-                    controller.currentFilterBy.value = kSeries;
-                    Get.back();
-                    await controller.filterBySeries();
-                  }),
-
-                  // Category
-                  '${controller.currentFilterBy.value == kCategory ? '◉' : '◎'} $kCategory'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
-                    controller.currentFilterBy.value = kCategory;
-                    Get.back();
-                    await controller.filterByCategories();
-                  }),
-
-                  // Year
-                  '${controller.currentFilterBy.value == kYear ? '◉' : '◎'} $kYear'.text.minFontSize(11).size(11).black.make().p(4).onInkTap(() async {
-                    controller.currentFilterBy.value = kYear;
-                    Get.back();
-                    await controller.filterByYear();
-                  }),
-                ]),
-                child: controller.currentFilterBy.value.text.minFontSize(11).size(11).make().pSymmetric(h: 8).box.color(AppColor.selected).make().cornerRadius(4),
-              ),
+            'Browse'.text.size(12).bold.make().expand(),
+            PopupMenuButton<String>(
+              tooltip: 'Browse catalog by',
+              initialValue: controller.currentFilterBy.value,
+              onSelected: (kind) {
+                switch (kind) {
+                  case kActress: controller.filterByActress(); break;
+                  case kSeries: controller.filterBySeries(); break;
+                  case kCategory: controller.filterByCategories(); break;
+                  case kYear: controller.filterByYear(); break;
+                }
+              },
+              itemBuilder: (_) => [for (final kind in [kActress, kSeries, kCategory, kYear])
+                PopupMenuItem(value: kind, child: Text(kind, style: const TextStyle(fontSize: 12))),
+              ],
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(controller.currentFilterBy.value, style: const TextStyle(fontSize: 11)),
+                const Icon(Icons.expand_more, size: 16),
+              ]).pSymmetric(h: 8, v: 4).box.color(AppColor.selected).make().cornerRadius(4),
             ),
           ]),
 
@@ -610,15 +596,20 @@ class PageToolsView extends GetView<PageToolsController> {
           CupertinoTextField(
             controller: controller.tecFilterSearchLeft,
             focusNode: controller.fnFilterSearchLeft,
-            placeholder: 'Search (${controller.leftList.length})...',
+            placeholder: 'Search ${controller.currentFilterBy.value.toLowerCase()}...',
             style: TextStyle(color: AppColor.text, fontSize: 12),
             clearButtonMode: OverlayVisibilityMode.editing,
             prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+            onChanged: controller.searchAdvancedGroups,
             onSubmitted: (s) async => await controller.onLeftListDoSearch(s),
-          ).pSymmetric(v: 16),
+          ).pSymmetric(v: 12),
+          '${controller.leftList.length} items · ↑ ↓ to browse'.text.size(10).color(AppColor.muted).make().pOnly(bottom: 8),
           
           if (controller.leftListLoading.value) const LinearProgressIndicator(minHeight: 2),
-          if (controller.leftListError.value.isNotEmpty) controller.leftListError.value.text.size(11).make().p8(),
+          if (controller.leftListError.value.isNotEmpty) Column(children: [
+            Text(controller.leftListError.value, style: const TextStyle(fontSize: 11)),
+            TextButton(onPressed: () => controller.onLeftListDoSearch(controller.tecFilterSearchLeft.text), child: const Text('Retry')),
+          ]),
           if (!controller.leftListLoading.value && controller.leftListError.value.isEmpty && controller.leftList.isEmpty)
             'No matching items'.text.size(11).color(AppColor.muted).make().p8(),
           // list
@@ -636,14 +627,16 @@ class PageToolsView extends GetView<PageToolsController> {
                   }
                 }
               },
-              child: ListView.builder(
+              child: FlutterListView(
                 controller: controller.leftListScrollController.value,
-                itemCount: controller.leftList.length,
-                itemBuilder: (context, index) {
+                delegate: FlutterListViewDelegate((context, index) {
                     final item = controller.leftList[index];
-                    return VStack(
-                      [
-                        Obx(
+                    return SizedBox(
+                      height: rowHeight,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                        Expanded(child: Obx(
                           () {
                             final isSelected = '${item['id']}' == controller.leftListSelectedId.value;
                             final isHovered = index == controller.leftListHoveredIndex.value;
@@ -652,22 +645,29 @@ class PageToolsView extends GetView<PageToolsController> {
                               onExit: (_) => controller.leftListHoveredIndex.value = -1,
                               child: InkWell(
                                 onTap: () async => await controller.onLeftListTap(item, index),
-                                child: VStack([
-                                  '${HelperDecensor.decensor(item['name_en'])}'.text.size(11).minFontSize(11).maxLines(2).ellipsis.make(),
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                                  Text(HelperDecensor.decensor(item['name_en']), style: const TextStyle(fontSize: 11), maxLines: 2, overflow: TextOverflow.ellipsis),
                                   if ((item['name_ja'] ?? '').toString().trim().isNotEmpty && item['name_ja'] != item['name_en'])
-                                    '${item['name_ja']}'.text.size(10).color(AppColor.muted).maxLines(1).ellipsis.make(),
-                                  '${item['video_count']} videos · ${item['max_release_date'] ?? 'Date unknown'}'.text.size(9).color(AppColor.muted).make(),
+                                    Text('${item['name_ja']}', style: TextStyle(fontSize: 10, color: AppColor.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  Text('${item['video_count']} videos · ${item['max_release_date'] ?? 'Date unknown'}', style: TextStyle(fontSize: 9, color: AppColor.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
                                 ]).w(double.infinity).p4(),
                               )
                                   .color(isSelected ? AppColor.selected : isHovered ? AppColor.border : Colors.transparent)
                                   .cornerRadius(8),
                             );
                           },
-                        ),
-                        Divider(color: AppColor.border, thickness: 0.5),
+                        )),
+                        Divider(color: AppColor.border, thickness: 0.5, height: 8),
                       ],
+                      ),
                     );
                 },
+                  childCount: controller.leftList.length,
+                  onItemKey: (index) => '${controller.currentFilterBy.value}:${controller.leftList[index]['id']}',
+                  onItemHeight: (_) => rowHeight,
+                  preferItemHeight: rowHeight,
+                  disableCacheItems: true,
+                ),
               ),
             ),
           ).expand(),
@@ -683,7 +683,7 @@ class PageToolsView extends GetView<PageToolsController> {
         decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
         child: ExUiErrorOrEmpty(
           illustration: Icon(CupertinoIcons.chevron_left_2, size: 64).pOnly(bottom: 12),
-          message: 'Please select left area first',
+          message: 'Choose an actress, series, category or year to browse the R18 catalog.',
         ),
       );
     }
@@ -691,25 +691,24 @@ class PageToolsView extends GetView<PageToolsController> {
     return Container(
       decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
       child: controller.obx(
-        (state) => VStack(
+        (state) => Obx(() => VStack(
           [
             // header
             HStack([
-              // 1
-              CustomPopup(
-                content: '${controller.leftListSelected}'.text.size(11).black.make().constrainedBox(BoxConstraints(maxWidth: 300)),
-                child: HStack([
-                  Icon(UIconsPro.solidRounded.info, size: 12).pOnly(right: 8),
-                  'Result (${controller.rightListFiltered.length})'.text.minFontSize(11).size(11).make(),
-                ]),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(HelperDecensor.decensor(controller.leftListSelected.value), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text('${controller.rightListFiltered.length} of ${controller.rightList.length} videos', style: TextStyle(fontSize: 10, color: AppColor.muted)),
+              ])),
+              if (controller.hasAdvancedFilters) TextButton(
+                onPressed: controller.clearAdvancedFilters,
+                child: const Text('Clear', style: TextStyle(fontSize: 11)),
               ),
-
-              Spacer(),
 
               // 2
               Obx(
                 () => ZStack([
                   IconButton(
+                    tooltip: 'More filters: video code, year and duration',
                     icon: Icon(
                       controller.filter.isFiltered.isTrue ? UIconsPro.boldRounded.filter_list : UIconsPro.regularRounded.filter_list,
                       size: controller.filter.isFiltered.isTrue ? 16 : 14,
@@ -719,6 +718,22 @@ class PageToolsView extends GetView<PageToolsController> {
                   controller.filter.isFiltered.isTrue ? Container(height: 6, width: 6, color: Vx.red500).cornerRadius(90).positioned(right: 8, top: 8) : 0.heightBox,
                 ]),
               ),
+            ]).pOnly(bottom: 8),
+            CupertinoTextField(
+              controller: controller.tecResultSearch,
+              placeholder: 'Search video code or title...',
+              style: TextStyle(fontSize: 12, color: AppColor.text),
+              clearButtonMode: OverlayVisibilityMode.editing,
+              prefix: Icon(Icons.search, size: 16, color: AppColor.muted).pOnly(left: 8),
+              onChanged: (value) {
+                controller.resultQuery.value = value;
+                controller.applyAdvancedFilters();
+              },
+            ).pOnly(bottom: 8),
+            Wrap(spacing: 8, runSpacing: 4, children: [
+              _advancedOption('Release', controller.releaseFilter.value, {'all': 'All dates', 'released': 'Released', 'upcoming': 'Upcoming'}, (value) => controller.releaseFilter.value = value),
+              _advancedOption('Library', controller.libraryFilter.value, {'all': 'All videos', 'owned': 'In Library', 'missing': 'Not in Library'}, (value) => controller.libraryFilter.value = value),
+              _advancedOption('Sort', controller.resultSort.value, {'newest': 'Newest released', 'oldest': 'Oldest', 'code': 'Video code'}, (value) => controller.resultSort.value = value),
             ]).pOnly(bottom: 12),
 
             // list video
@@ -727,7 +742,7 @@ class PageToolsView extends GetView<PageToolsController> {
                 : _buildVideoList()).expand(),
 
           ],
-        ).p12(),
+        ).p12()),
         onLoading: ExUiLoading(message: 'Loading...'.text.size(11).minFontSize(11).makeCentered()),
         onError: (error) => Center(child: Text(error ?? 'Could not load videos')),
         onEmpty: ExUiErrorOrEmpty(
@@ -739,90 +754,93 @@ class PageToolsView extends GetView<PageToolsController> {
     );
   }
 
+  Widget _advancedOption(String label, String selected, Map<String, String> options, void Function(String) onSelected) {
+    return PopupMenuButton<String>(
+      tooltip: label,
+      initialValue: selected,
+      onSelected: (value) {
+        onSelected(value);
+        controller.applyAdvancedFilters();
+      },
+      itemBuilder: (_) => options.entries.map((item) => PopupMenuItem(
+        value: item.key, child: Text(item.value, style: const TextStyle(fontSize: 12)),
+      )).toList(),
+      child: Container(
+        decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(options[selected]!, style: const TextStyle(fontSize: 11)),
+          const Icon(Icons.expand_more, size: 14),
+        ]),
+      ),
+    );
+  }
+
   Widget _buildVideoList() {
     return GridView.builder(
-      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+      key: ValueKey(controller.leftListSelectedId.value),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 300,
         mainAxisExtent: 200,
-        mainAxisSpacing: 8,
+        mainAxisSpacing: 12,
         crossAxisSpacing: 8,
-        childAspectRatio: 300 / 200,
       ),
       itemCount: controller.rightListFiltered.length,
       itemBuilder: (context, i) {
         final item = controller.rightListFiltered[i];
-        return MediaStack(
-          [
+        final date = DateTime.tryParse('${item['release_date'] ?? ''}')?.toIso8601String().substring(0, 10) ?? 'Date unknown';
+        return LayoutBuilder(builder: (context, constraints) => ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: MediaStack([
             ExThumbnail(
               imageUrl: item['fan_art'] ?? '',
               videoCode: item['video_code'],
-              width: 300,
+              width: constraints.maxWidth,
               height: 200,
-            ).wh(300, 200).cornerRadius(8),
-
-            // ** match (already have )
-            _buildOverlayContainer(
-              color: Colors.green.withAlpha(100),
-              isVisible: item['match'] == true,
+              fitUrl: BoxFit.cover,
             ),
-
-            // ** is_released (false)
-            _buildOverlayContainer(
-              color: Colors.red.withAlpha(70),
-              isVisible: item['is_released'] == false,
-            ),
-
-            // ** has Clicked
-            GetBuilder(
-              init: HomeController(),
-              builder: (controller) {
-                return _buildOverlayContainer(
-                  color: Colors.blue.withAlpha(100),
-                  isVisible: item['is_clicked'] == true,
-                );
-              },
-            ),
-
-            Container(
+            Positioned(bottom: 0, left: 0, right: 0, child: Container(
               color: AppColor.black180,
-              width: 300,
-              height: item['title'] != null && item['title'] != '' ? 63 : 33,
-              child: VStack([
-                '${item['video_code']}'.text.bold.size(12).ellipsis.make().onInkTap(() {
+              padding: const EdgeInsets.all(8),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${item['video_code']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)).onInkTap(() {
                   HelperMisc.copyToClipboard(item['video_code'], showToast: true);
-                }),
-                '${HelperDecensor.decensor(item['title'])}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240).hide(isVisible: item['title'] != null && item['title'] != ''),
-              ]).p8(),
-            ).positioned(bottom: 0, left: 0, right: 0),
-
-            Container(
-              color: AppColor.black180,
-              child: HStack([
-                Icon(UIconsPro.solidRounded.calendar, size: 10).pOnly(right: 5),
-                (DateTime.tryParse('${item['release_date'] ?? ''}')?.toIso8601String().substring(0, 10) ?? 'Date unknown').text.size(10).minFontSize(10).align(TextAlign.center).ellipsis.make(),
-              ]).p4(),
-            ).cornerRadius(8).p2().positioned(left: 0),
-
-            // ** open trailer
-            Icon(UIconsPro.regularRounded.play, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
-              HelperOpener.openTrailer(item);
-            }).positioned(right: 8, top: 4),
-
-            // ** open screenshot
-            Icon(UIconsPro.regularRounded.picture, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
-              HelperOpener.openScreenshot(item);
-            }).positioned(right: 8, top: 36),
-          ],
-        ).onInkTap(() async => await HelperOpener.openVideoInfo(item)).pOnly(bottom: 12);
+                }).tooltip('Copy video code'),
+                if ('${item['title'] ?? ''}'.trim().isNotEmpty)
+                  Text(HelperDecensor.decensor(item['title']), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10)),
+              ]),
+            )),
+            Positioned(top: 6, left: 6, child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: (constraints.maxWidth - 48).clamp(0, double.infinity)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(date, style: const TextStyle(fontSize: 10)).p4().color(AppColor.black180).cornerRadius(4),
+                if (item['is_released'] == false)
+                  const Text('Upcoming', style: TextStyle(fontSize: 10)).p4().color(Colors.brown.shade800).cornerRadius(4).pOnly(top: 4),
+                if (item['match'] == true)
+                  const Text('In Library', style: TextStyle(fontSize: 10)).p4().color(Colors.green.shade800).cornerRadius(4).pOnly(top: 4),
+                if (Get.isRegistered<HomeController>()) GetBuilder<HomeController>(builder: (_) => item['is_clicked'] == true
+                    ? const Text('Requested', style: TextStyle(fontSize: 10)).p4().color(Colors.blue.shade800).cornerRadius(4).pOnly(top: 4)
+                    : const SizedBox.shrink()),
+              ]),
+            )),
+            Positioned(right: 6, top: 6, child: Column(children: [
+              IconButton(
+                tooltip: 'Open trailer',
+                style: IconButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                icon: const Icon(Icons.play_arrow_outlined, size: 16),
+                onPressed: () => HelperOpener.openTrailer(item),
+              ),
+              const SizedBox(height: 4),
+              IconButton(
+                tooltip: 'Open screenshots',
+                style: IconButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                icon: const Icon(Icons.photo_outlined, size: 16),
+                onPressed: () => HelperOpener.openScreenshot(item),
+              ),
+            ])),
+          ]).onInkTap(() async => await HelperOpener.openVideoInfo(item)),
+        ));
       },
     );
-  }
-
-  Widget _buildOverlayContainer({required Color color, required bool isVisible}) {
-    return Container(
-      color: color,
-      width: 300,
-      height: 200,
-    ).hide(isVisible: isVisible);
   }
 }

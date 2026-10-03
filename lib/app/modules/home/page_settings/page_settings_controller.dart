@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_run/process_run.dart' as shell;
@@ -56,7 +55,7 @@ class PageSettingsController extends GetxController {
 
   // **
   final appMiniMode = false.obs;
-  final appDarkMode = AppPref.getAppDarkMode().obs;
+  final appTheme = AppPref.getAppTheme().obs;
 
 
   // ** storage
@@ -76,11 +75,11 @@ class PageSettingsController extends GetxController {
     await onRefresh();
   }
 
-  Future<void> setDarkMode(bool value) async {
+  Future<void> setTheme(AppTheme value) async {
     try {
-      await AppPref.setAppDarkMode(value);
-      appDarkMode.value = value;
-      Get.changeThemeMode(value ? ThemeMode.dark : ThemeMode.light);
+      await AppPref.setAppTheme(value);
+      appTheme.value = value;
+      appSetting.refreshTheme();
     } catch (e) {
       AppLog.logE('Could not save theme: $e');
       await HelperToast.error('Could not save appearance. Please retry.');

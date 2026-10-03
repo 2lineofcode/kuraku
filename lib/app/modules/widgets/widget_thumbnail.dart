@@ -173,6 +173,7 @@ class _ExThumbnailC extends GetxController {
 
   // ---- public API
   Future<Uint8List?> getThumbnail(String videopath, {int? position}) {
+    if (videopath.trim().isEmpty) return Future.value(null);
     final rawPos = position ?? 90;
     final pos = rawPos == 90 ? 90 : _normalizePreviewPosition(rawPos);
     final key = '$videopath#$pos';

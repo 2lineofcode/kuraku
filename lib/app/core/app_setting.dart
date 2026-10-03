@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:ex_kit/ex.dart';
@@ -28,6 +29,18 @@ import 'app_pref.dart';
 class AppSettingService extends GetxService {
   late String appPath;
   late GetSecureStorage pref;
+  Timer? _themeTimer;
+
+  void refreshTheme() {
+    _themeTimer?.cancel();
+    final theme = AppPref.getAppTheme();
+    final now = DateTime.now();
+    final mode = theme.resolve(now);
+    if (Get.rootController.themeMode != mode) Get.changeThemeMode(mode);
+    if (theme != AppTheme.schedule) return;
+    final next = DateTime(now.year, now.month, now.day + (now.hour >= 17 ? 1 : 0), now.hour < 6 || now.hour >= 17 ? 6 : 17);
+    _themeTimer = Timer(next.difference(now), refreshTheme);
+  }
 
   Future<AppSettingService> init() async {
     final directory = await getApplicationDocumentsDirectory();
@@ -189,6 +202,7 @@ class AppSettingService extends GetxService {
 
   @override
   void onClose() {
+    _themeTimer?.cancel();
     LocalSemanticWorker.cancelSetup();
     LocalSemanticWorker.stop();
     HardwareKeyboard.instance.removeHandler(_handleSearchShortcut);

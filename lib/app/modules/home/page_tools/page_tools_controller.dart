@@ -5,6 +5,7 @@ import 'package:ex_kit/ex.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/media_information_session.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_list_view/flutter_list_view.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
@@ -58,13 +59,14 @@ class PageToolsController extends GetxController with StateMixin {
   final fnFilterSearchLeft = FocusNode();
 
   final leftList = <Map<String, dynamic>>[].obs;
-  final leftListScrollController = ScrollController().obs;
+  final leftListScrollController = FlutterListViewController().obs;
   final leftListSelected = ''.obs;
   final leftListSelectedId = ''.obs;
   final leftListLoading = false.obs;
   final leftListError = ''.obs;
   int _leftRequest = 0;
   int _selectionRequest = 0;
+  Timer? _groupSearchTimer;
   final leftListHoveredIndex = (-1).obs;
   final leftListSelectedIndex = 0.obs;
   final leftListFocusNode = FocusNode();
@@ -73,6 +75,13 @@ class PageToolsController extends GetxController with StateMixin {
   final rightList = <Map<String, dynamic>>[].obs;
   final rightListFiltered = <Map<String, dynamic>>[].obs;
   final filter = VideoFilterState();
+  final tecResultSearch = TextEditingController();
+  final resultQuery = ''.obs;
+  final releaseFilter = 'all'.obs;
+  final libraryFilter = 'all'.obs;
+  final resultSort = 'newest'.obs;
+
+  bool get hasAdvancedFilters => resultQuery.value.isNotEmpty || releaseFilter.value != 'all' || libraryFilter.value != 'all' || filter.isFiltered.value;
 
   @override
   Future<void> onInit() async {
@@ -94,6 +103,8 @@ class PageToolsController extends GetxController with StateMixin {
 
   @override
   void onClose() {
+    _groupSearchTimer?.cancel();
+    tecResultSearch.dispose();
     _leftRequest++;
     _selectionRequest++;
     stopQualityScan();
@@ -117,6 +128,7 @@ class PageToolsController extends GetxController with StateMixin {
   }
 
   Future<void> onReset() async {
+    _groupSearchTimer?.cancel();
     _leftRequest++;
     _selectionRequest++;
     leftListSelectedId.value = '';
@@ -138,6 +150,11 @@ class PageToolsController extends GetxController with StateMixin {
     rightList.value = [];
     rightListFiltered.value = [];
     filter.reset();
+    tecResultSearch.clear();
+    resultQuery.value = '';
+    releaseFilter.value = 'all';
+    libraryFilter.value = 'all';
+    resultSort.value = 'newest';
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -393,10 +410,11 @@ class PageToolsController extends GetxController with StateMixin {
   Future<void> filterByYear({String? q}) => _loadAdvancedGroups(kYear, q);
 
   Future<void> _loadAdvancedGroups(String kind, String? q) async {
+    _groupSearchTimer?.cancel();
     final request = ++_leftRequest;
     _selectionRequest++;
     currentFilterBy.value = kind;
-    tecFilterSearchLeft.text = q ?? '';
+    if (tecFilterSearchLeft.text != (q ?? '')) tecFilterSearchLeft.text = q ?? '';
     leftListSelected.value = '';
     leftListSelectedId.value = '';
     leftListSelectedIndex.value = -1;
@@ -445,7 +463,7 @@ class PageToolsController extends GetxController with StateMixin {
           'is_released': released == null ? null : !released.isAfter(now),
         };
       }));
-      await _applyFilter();
+      await applyAdvancedFilters();
       change(200, status: RxStatus.success());
     } catch (e) {
       if (!isClosed && request == _selectionRequest) change(0, status: RxStatus.error('Could not load videos. Please retry.'));
@@ -486,6 +504,11 @@ class PageToolsController extends GetxController with StateMixin {
     if (leftListScrollController.value.hasClients) leftListScrollController.value.jumpTo(0);
   }
 
+  void searchAdvancedGroups(String q) {
+    _groupSearchTimer?.cancel();
+    _groupSearchTimer = Timer(const Duration(milliseconds: 250), () => onLeftListDoSearch(q));
+  }
+
 
   // ~ Filters ────────────────────────────────────────────────────────────────
   final _filterAdapter = VideoFilterAdapter<Map<String, dynamic>>(
@@ -496,9 +519,32 @@ class PageToolsController extends GetxController with StateMixin {
     durationMinutes: (video) => num.tryParse('${video['duration'] ?? video['runtime_mins'] ?? ''}'),
   );
 
-  Future<void> _applyFilter() async {
-    final filtered = filter.apply(rightList.toList(), _filterAdapter);
+  Future<void> applyAdvancedFilters() async {
+    final query = resultQuery.value.trim().toLowerCase();
+    final filtered = filter.apply(rightList.toList(), _filterAdapter).where((video) {
+      return (query.isEmpty || '${video['video_code']} ${video['title'] ?? ''}'.toLowerCase().contains(query))
+          && (releaseFilter.value == 'all' || (releaseFilter.value == 'released' ? video['is_released'] == true : video['is_released'] == false))
+          && (libraryFilter.value == 'all' || (libraryFilter.value == 'owned' ? video['match'] == true : video['match'] != true));
+    }).toList();
+    filtered.sort((a, b) {
+      if (resultSort.value == 'code') return '${a['video_code']}'.compareTo('${b['video_code']}');
+      final aDate = DateTime.tryParse('${a['release_date'] ?? ''}');
+      final bDate = DateTime.tryParse('${b['release_date'] ?? ''}');
+      if (aDate == null || bDate == null) return aDate == bDate ? 0 : aDate == null ? 1 : -1;
+      if (resultSort.value == 'newest' && (a['is_released'] == false) != (b['is_released'] == false)) return a['is_released'] == false ? 1 : -1;
+      final order = aDate.compareTo(bDate);
+      return order == 0 ? '${a['video_code']}'.compareTo('${b['video_code']}') : resultSort.value == 'oldest' ? order : -order;
+    });
     rightListFiltered.value = filtered;
+  }
+
+  Future<void> clearAdvancedFilters() async {
+    tecResultSearch.clear();
+    resultQuery.value = '';
+    releaseFilter.value = 'all';
+    libraryFilter.value = 'all';
+    filter.reset();
+    await applyAdvancedFilters();
   }
 
   Future<void> openDialogFilter() async {
@@ -509,6 +555,10 @@ class PageToolsController extends GetxController with StateMixin {
       adapter: _filterAdapter,
       showCategories: false,
       showActressName: false,
+      applyLocalFilter: false,
+      onReset: applyAdvancedFilters,
+      onApplied: (_) => applyAdvancedFilters(),
+      isAvailable: () => !isClosed,
     );
   }
 }
@@ -517,4 +567,4 @@ class PageToolsController extends GetxController with StateMixin {
 const kDuplicate = 'Duplicate Videos';
 const kTodo = 'Todo';
 const kTopLargeFile = 'Large File';
-const kAdvanceSearch = 'Advance Search (R18)';
+const kAdvanceSearch = 'Advanced Search (R18)';
