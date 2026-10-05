@@ -82,6 +82,9 @@ class _FakeVideoPlayerPlatform with MockPlatformInterfaceMixin implements VideoP
   Widget buildView(int textureId) => const SizedBox.expand();
 
   @override
+  Widget buildViewWithOptions(VideoViewOptions options) => const SizedBox.expand();
+
+  @override
   Stream<VideoEvent> videoEventsFor(int textureId) async* {
     yield VideoEvent(
       eventType: VideoEventType.initialized,
@@ -198,6 +201,7 @@ void main() {
     expect(platform.volume, 0);
     expect(preferences.values['_kPlayerVolume'], isNotNull);
 
+    await videoController.play();
     await tester.sendKeyEvent(LogicalKeyboardKey.bracketRight);
     await tester.pump(const Duration(milliseconds: 100));
     expect(platform.speed, closeTo(1.1, 1e-9));
@@ -207,6 +211,7 @@ void main() {
     expect(platform.speed, closeTo(1.0, 1e-9));
     expect(preferences.values['_kPlayerSpeed'], isNotNull);
 
+    await videoController.pause();
     await tester.pumpAndSettle();
   });
 }

@@ -27,7 +27,7 @@ mixin HomePanelMetadata {
         HStack([
           label.text.size(11).color(AppColor.muted).make(),
           Spacer(),
-          if (labelAction != null) labelAction,
+          ?labelAction,
         ]),
         6.heightBox,
         DecoratedBox(

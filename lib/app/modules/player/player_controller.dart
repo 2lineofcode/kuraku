@@ -301,12 +301,12 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   Future<void> pickSubtitle() async {
     final video = currentVideo.value;
     try {
-      final result = await FilePicker.pickFiles(
+      final result = await FilePicker.pickFile(
         dialogTitle: 'Load subtitle',
         type: FileType.custom,
         allowedExtensions: subtitleExtensions,
       );
-      final path = result?.files.single.path;
+      final path = result?.path;
       if (path != null && !isClosed && identical(currentVideo.value, video)) await loadSubtitle(path);
     } catch (e) {
       AppLog.logW('Failed to open subtitle picker: $e');

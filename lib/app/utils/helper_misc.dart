@@ -294,7 +294,7 @@ extension JavitExtString on String {
     return '${Env.imgUrl}https://pics.dmm.co.jp/mono/actjpgs/$this';
   }
 
-  String genTrailerUrl() => '${Env.vidUrl}$this';
+  String genTrailerUrl() => '${Env.vidUrl}${Uri.encodeComponent(this)}';
 
   // ---
   bool isHasEnSub() => _JavitExtension.__isHasEnSub(this);

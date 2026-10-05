@@ -20,7 +20,6 @@ import 'package:media_kit/src/player/native/core/native_library.dart';
 import 'package:media_kit/src/player/native/utils/native_reference_holder.dart';
 import 'package:process_run/process_run.dart' as shell;
 import 'package:toastification/toastification.dart';
-import 'package:video_player_media_kit/video_player_media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app/core/app_logging.dart';
@@ -49,7 +48,6 @@ Future<void> _initializeApp() async {
   AppLog.logD('Startup window shown: ${sw.elapsedMilliseconds}ms');
   await _cleanupDanglingMediaKitPlayers();
   MediaKit.ensureInitialized();
-  VideoPlayerMediaKit.ensureInitialized(macOS: true);
   await hotKeyManager.unregisterAll();
   await Get.putAsync(() => settings.init(), permanent: true);
   AppLog.logD('Startup settings ready: ${sw.elapsedMilliseconds}ms');

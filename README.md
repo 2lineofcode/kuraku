@@ -100,7 +100,7 @@ Model source: [Xenova's CLIP ONNX conversion](https://huggingface.co/Xenova/clip
 JavIt is currently developed and tested on macOS. Install the following first:
 
 - macOS with Xcode and Command Line Tools
-- Flutter SDK `>=3.44.0` with Dart SDK `>=3.12.0 <4.0.0` for the checked-in dependency lockfile (the app's own Dart constraint is `^3.5.3`)
+- Flutter SDK `>=3.47.0` with Dart SDK `>=3.13.0 <4.0.0`
 - CocoaPods
 - Homebrew
 - Python 3 for R18 import and local chat queries; Python 3.12–3.14 for optional Visual Search
@@ -146,6 +146,10 @@ flutter build macos --release --no-tree-shake-icons
 ```
 
 The app is written to `build/macos/Build/Products/Release/javit.app`. Alternatively, `./publish.sh macos` updates the version in `pubspec.yaml` and `APP_VER` in `.env`, regenerates the environment, refreshes dependencies, and builds the release. Despite its name, the script does not upload or distribute the app.
+
+macOS release and profile builds target Apple Silicon (ARM64), configured in `pubspec.yaml`. To produce a universal build for Intel Macs, set `flutter.config.enable-macos-arm64-only` to `false` before building.
+
+Flutter currently uses Swift Package Manager with CocoaPods fallback for `hotkey_manager_macos`, `irondash_engine_context`, `media_kit_libs_macos_video`, `media_kit_video`, `super_native_extensions`, and `video_compress`. Their published versions do not yet support Swift Package Manager. Keep CocoaPods installed until these plugins migrate; disabling Swift Package Manager does not remove Flutter's compatibility warning. Upgrade these plugins when support becomes available before upgrading to a Flutter release that removes the fallback.
 
 ## Keyboard Shortcuts
 

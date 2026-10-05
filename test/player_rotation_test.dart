@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,6 +16,32 @@ import 'package:javit/app/utils/semantic_search_service.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:overlayment/overlayment.dart';
+// ignore: depend_on_referenced_packages
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+
+class _SubtitlePicker with MockPlatformInterfaceMixin implements FilePickerPlatform {
+  Future<PlatformFile?> result = Future.value(null);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #pickFile) {
+      expect(invocation.namedArguments[#type], FileType.custom);
+      expect(invocation.namedArguments[#allowedExtensions], ['srt', 'vtt', 'ass', 'ssa']);
+      return result;
+    }
+    return super.noSuchMethod(invocation);
+  }
+}
+
+final class _SubtitleFile extends PlatformFile {
+  _SubtitleFile(this.path);
+
+  @override
+  final String path;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class _Preferences implements GetSecureStorage {
   final values = <String, dynamic>{};
@@ -67,6 +94,37 @@ class _Player implements Player {
 }
 
 void main() {
+  test('subtitle picker handles cancellation, selection and a changed video', () async {
+    Get.put(AppSettingService()..pref = _Preferences());
+    addTearDown(Get.reset);
+    final previousPicker = FilePickerPlatform.instance;
+    final picker = _SubtitlePicker();
+    FilePickerPlatform.instance = picker;
+    addTearDown(() => FilePickerPlatform.instance = previousPicker);
+    final directory = Directory.systemTemp.createTempSync('javit-subtitle-picker-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final file = File('${directory.path}/subtitle.srt')..writeAsStringSync('');
+    final player = _Player(_NativePlayer());
+    final controller = PlayerController()..player = player;
+    controller.currentVideo.value = Videos(videoPath: '/movies/video.mp4');
+    controller.isInitialized.value = true;
+    controller.isPlayerVisible.value = true;
+
+    await controller.pickSubtitle();
+    expect(player.subtitles, isEmpty);
+    picker.result = Future.value(_SubtitleFile(file.path));
+    await controller.pickSubtitle();
+    expect(Uri.parse(player.subtitles.single.id).toFilePath(), file.path);
+    final pending = Completer<PlatformFile?>();
+    picker.result = pending.future;
+    final selection = controller.pickSubtitle();
+    controller.currentVideo.value = Videos(videoPath: '/movies/other.mp4');
+    pending.complete(_SubtitleFile(file.path));
+    await selection;
+    expect(player.subtitles, hasLength(1));
+    expect(controller.focusSignal.value, greaterThanOrEqualTo(3));
+  });
+
   test('external subtitles load as file URIs and can be disabled without opening another video', () async {
     Get.put(AppSettingService()..pref = _Preferences());
     addTearDown(Get.reset);

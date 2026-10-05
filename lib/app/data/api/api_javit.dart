@@ -4,12 +4,21 @@ import '../../core/app_network.dart';
 import '../../utils/helper_misc.dart';
 import '../models/__javit_metadata_entity.dart';
 import '../models/__javit_search_entity.dart';
+import 'api_javtrailers.dart';
 
 const kProviderR18 = 'r18';
 const kProviderNJav = 'njav';
 
 mixin ApiJavit {
-  
+  static Future<String> resolveTrailerUrl(String url, {String code = ''}) async {
+    url = url.trim();
+    final host = Uri.tryParse(url)?.host ?? '';
+    if (code.trim().isNotEmpty && (url.isEmpty || host.endsWith('.dmm.co.jp') || host.endsWith('.dmm.com') || host == 'media.javtrailers.com')) {
+      return ApiJavTrailers.getTrailer(code);
+    }
+    return url;
+  }
+
   static Future<JavitMetadata> getMetadata({required String code}) async {
     code = code.trim().toUpperCase();
     if (code.isValidVideoCode() == false) {

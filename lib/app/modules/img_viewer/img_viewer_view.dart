@@ -283,7 +283,7 @@ class ImgViewerView extends GetView<ImgViewerController> {
         width: width,
         height: height,
         fit: fit,
-        errorBuilder: (_, __, ___) => _brokenImage(width, height),
+        errorBuilder: (_, _, _) => _brokenImage(width, height),
       );
     }
 

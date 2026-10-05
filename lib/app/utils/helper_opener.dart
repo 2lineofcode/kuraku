@@ -1,6 +1,5 @@
 import 'dart:math';
 
-import 'package:cached_video_player_plus/cached_video_player_plus.dart';
 import 'package:chewie/chewie.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
@@ -12,17 +11,17 @@ import 'package:overlayment/overlayment.dart';
 import 'package:process_run/process_run.dart' as cmd;
 // import 'package:process_run/process_run.dart' as shell;
 import 'package:uicons_pro/uicons_pro.dart';
-// import 'package:url_launcher/url_launcher_string.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'package:video_player/video_player.dart';
 import 'package:zoom_hover_pinch_image/zoom_hover_pinch_image.dart';
 
 import '../../env.g.dart';
 import '../core/app_color.dart';
 import '../core/app_logging.dart';
-import '../core/app_network.dart';
 import '../core/app_pref.dart';
 import '../core/const.dart';
 import '../data/api/api_javit.dart';
+import '../data/api/api_javtrailers.dart';
 import '../data/database/db_r18.dart';
 import '../data/database/db_videos.dart';
 import '../data/models/__javit_search_entity.dart';
@@ -36,6 +35,7 @@ import '../modules/home/page_tools/page_tools_controller.dart';
 import '../modules/player/player_controller.dart';
 import '../modules/widgets/widget_auto_complate.dart';
 import '../modules/widgets/widget_chiwie_custom.dart';
+import '../modules/widgets/widget_download_method.dart';
 import '../modules/widgets/widget_media_stack.dart';
 import '../modules/widgets/widget_thumbnail.dart';
 import '../routes/app_pages.dart';
@@ -244,6 +244,24 @@ mixin HelperOpener {
                       child: IconButton(
                         icon: Icon(UIconsPro.regularRounded.arrow_square_down, size: 16),
                         onPressed: () async {
+                          WidgetsBinding.instance.scheduleFrame();
+                          final method = await Overlayment.show<String>(
+                            context: Get.context,
+                            OverWindow(
+                              name: 'download-method',
+                              alignment: Alignment.center,
+                              animation: const OverFadeAnimation(durationMilliseconds: 0, reverseDurationMilliseconds: 0),
+                              backgroundSettings: const BackgroundSettings(),
+                              decoration: BoxDecoration(
+                                color: AppColor.panel,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: AppColor.border),
+                                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 24, offset: Offset(0, 8))],
+                              ),
+                              child: DownloadMethodDialog(onSelected: (method) => Overlayment.dismissName('download-method', result: method)),
+                            ),
+                          );
+                          if (method == null) return;
                           await Overlayment.dismissLast();
 
                           final searchEngine = AppPref.getDefaultSearchEngine();
@@ -279,7 +297,18 @@ mixin HelperOpener {
                               break;
                           }
 
-                          Get.find<PageDownloadController>().downloadWebsite(url);
+                          if (method == 'native') {
+                            Get.find<PageDownloadController>().downloadWebsite(url);
+                          } else {
+                            try {
+                              final target = method == 'downie' ? 'downie://XUOpenURL?url=${Uri.encodeComponent(url)}' : url;
+                              final opened = await launchUrlString(target, mode: LaunchMode.externalApplication);
+                              if (!opened) throw StateError('No application could open the URL');
+                            } catch (e) {
+                              await HelperToast.error('Unable to open ${method == 'downie' ? 'Downie' : 'URL'}: $e');
+                              return;
+                            }
+                          }
 
                           try {
                             item['is_clicked'] = true;
@@ -623,147 +652,136 @@ mixin HelperOpener {
     );
   }
 
-  static Future<void> openTrailer(dynamic item) async {
-    late Map<String, dynamic>? dataVideo;
+  static bool _isOpeningTrailer = false;
 
-    // ** -> from download page
-    if (item is JavitSearchResult) {
-      final fixCode = item.videoCode?.getVideoCode() ?? '';
-      dataVideo = await DBR18.getVideo(fixCode);
-    }
-
-    // ** -> from library
-    else if (item is Videos) {
-      final fixCode = HelperMisc.resolveVideoCode(videoCode: item.videoCode, videoPath: item.videoPath, title: item.title);
-      dataVideo = await DBR18.getVideo(fixCode);
-    }
-
-    // ** -> direct from r18
-    else {
-      dataVideo = await DBR18.getVideo(item['video_code']);
-    }
-
-    final video = Videos.fromJson(dataVideo ?? {});
-
-    if (video.videoCode.isNullOrEmpty) {
-      await HelperToast.warn('Invalid video code');
-      return;
-    }
-
-    // AppLog.logD('video -> $video');
-    // return;
-
-    var trailerUrl = '';
-
-    HelperLoading.show();
-    if (video.trailer.isNullOrEmpty) {
-      await ApiJavit.getMetadata(code: video.videoCode ?? '').then((s) {
-        trailerUrl = s.trailer ?? '';
-      }).catchError((e) {
-        trailerUrl = '';
-      });
+  static Future<Videos> resolveTrailerVideo(dynamic item) async {
+    final Videos video;
+    if (item is Videos) {
+      video = Videos(videoCode: HelperMisc.resolveVideoCode(videoCode: item.videoCode, videoPath: item.videoPath, title: item.title), title: item.title, trailer: item.trailer);
+    } else if (item is JavitSearchResult) {
+      video = Videos(videoCode: item.videoCode, title: item.title, trailer: item.trailer);
+    } else if (item is Map) {
+      video = Videos(videoCode: item['video_code']?.toString(), title: item['title']?.toString(), trailer: item['trailer']?.toString());
     } else {
-      trailerUrl = video.trailer ?? '';
+      throw ArgumentError('Unsupported trailer item');
     }
 
-    late final CachedVideoPlayerPlus cachePlayer;
-    trailerUrl = trailerUrl.replaceAll('https://cc3001.dmm.co.jp', 'https://media.javtrailers.com');
-    trailerUrl = trailerUrl.replaceAll('https://cc3001.dmm.com', 'https://media.javtrailers.com');
+    video.videoCode = (video.videoCode ?? '').trim().toUpperCase();
+    video.trailer = (video.trailer ?? '').trim();
+    if (video.trailer!.isNotEmpty || video.videoCode!.isEmpty) return video;
+    final data = await DBR18.getVideo(video.videoCode!);
+    return data == null ? video : Videos.fromJson(data);
+  }
 
-    if (trailerUrl.isNullOrEmpty) {
-      HelperLoading.dismiss();
-      await HelperToast.warn('Trailer not found');
-      return;
-    }
+  static List<String> trailerUrls(String url) {
+    url = url.trim();
+    final uri = Uri.tryParse(url);
+    if (uri == null || !['https', 'http'].contains(uri.scheme) || uri.host.isEmpty || uri.userInfo.isNotEmpty || ['www.dmm.co.jp', 'www.dmm.com'].contains(uri.host)) return [];
+    if (url.startsWith(Env.vidUrl) || uri.host == 'media.javtrailers.com') return [url];
+    return [url, url.genTrailerUrl()];
+  }
 
-    await Api.head('${trailerUrl.genTrailerUrl()}').then((s) {
-      // ** file mode
-      trailerUrl = trailerUrl;
-      AppLog.logD('FILE MODE -> $trailerUrl');
-      video.site = 'file';
-    }).catchError((e) {
-      // ** hls mode
-      String _prefixVidId(String s) {
-        final m = RegExp(r'^(.*?)(\d+)$').firstMatch(s);
-        return m == null ? s : '${m[1]}${m[2]!.padLeft(5, '0')}';
+  static Future<void> openTrailer(dynamic item) async {
+    if (_isOpeningTrailer) return;
+    _isOpeningTrailer = true;
+    VideoPlayerController? player;
+    ChewieController? chewie;
+    var loading = true;
+    var cancelled = false;
+    try {
+      HelperLoading.show(isDismissible: false, cancelCallback: () {
+        cancelled = true;
+        loading = false;
+        HelperLoading.dismiss();
+      });
+      final video = await resolveTrailerVideo(item);
+      if (cancelled) return;
+      video.trailer = await ApiJavit.resolveTrailerUrl(video.trailer ?? '', code: video.videoCode ?? '');
+      if (cancelled) return;
+      final urls = trailerUrls(video.trailer ?? '');
+      if (urls.isEmpty) {
+        throw StateError('Trailer not found or URL is invalid');
       }
 
-      final prefix1 = '${trailerUrl.substring(0, trailerUrl.lastIndexOf('/'))}';
-      final prefix2 = '${prefix1.substring(0, prefix1.lastIndexOf('/'))}/${_prefixVidId(video.id!)}/playlist.m3u8'.replaceAll('litevideo', 'hlsvideo');
-      final prefix = prefix2;
-      trailerUrl = prefix;
-      video.site = 'hls';
-      AppLog.logD('HLS MODE -> $prefix2');
-    });
-
-    final joinUrl = '${trailerUrl.trim().genTrailerUrl()}';
-
-    try {
-      cachePlayer = CachedVideoPlayerPlus.networkUrl(
-        Uri.parse('$joinUrl'),
-        invalidateCacheIfOlderThan: 1.seconds,
-        skipCache: true,
-        videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
+      for (final url in urls) {
+        player = VideoPlayerController.networkUrl(
+          Uri.parse(url),
+          httpHeaders: Uri.parse(url).host == 'media.javtrailers.com' ? ApiJavTrailers.headers : const {},
+          formatHint: Uri.parse(video.trailer!.trim()).path.toLowerCase().endsWith('.m3u8') ? VideoFormat.hls : null,
+          videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
+        );
+        try {
+          await player.initialize().timeout(const Duration(seconds: 20));
+          break;
+        } catch (e) {
+          await player.dispose();
+          player = null;
+          if (cancelled) return;
+          AppLog.logW('Trailer initialization failed (${video.videoCode}, $url): $e');
+          if (url == urls.last) rethrow;
+        }
+      }
+      if (cancelled) return;
+      final controller = player!;
+      await controller.setPlaybackSpeed(1.1);
+      await controller.setVolume(0.1);
+      if (cancelled) return;
+      await controller.play();
+      chewie = ChewieController(
+        videoPlayerController: controller,
+        allowFullScreen: false,
+        showOptions: false,
+        zoomAndPan: true,
+        allowMuting: true,
+        looping: false,
+        customControls: ExChewieCustom(video: video),
       );
 
-      await cachePlayer.initialize().then((_) async {
-        await cachePlayer.controller.play();
-        await cachePlayer.controller.setPlaybackSpeed(1.1);
-        await cachePlayer.controller.setVolume(0.1);
-      });
-    } catch (e) {
-      e as PlatformException;
-      AppLog.logE('open trailer e -> ${e.message}');
-      await HelperToast.warn('${e.message}', duration: 5.seconds);
+      if (cancelled) return;
       HelperLoading.dismiss();
-      return;
+      loading = false;
+      WidgetsBinding.instance.scheduleFrame();
+      await Overlayment.show(
+        context: Get.context,
+        OverPanel(
+          alignment: Alignment.center,
+          width: Get.width * 90 / 100,
+          height: Get.width * 9.0 / 16.0,
+          child: MediaStack(
+            [
+              Chewie(controller: chewie).centered(),
+              Align(
+                alignment: Alignment.topRight,
+                child: Container(
+                  decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
+                  child: Icon(UIconsPro.regularRounded.cross_small).p8(),
+                ).onInkTap(() {
+                  Overlayment.dismissLast();
+                }),
+              ).positioned(right: 8, top: 8, bottom: 0),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      if (loading) {
+        HelperLoading.dismiss();
+        loading = false;
+      }
+      if (!cancelled) {
+        AppLog.logE('Unable to open trailer: $e');
+        final message = e is PlatformException ? e.message ?? e.code : e.toString();
+        await HelperToast.warn('Unable to play trailer: $message', duration: 5.seconds);
+      }
+    } finally {
+      if (loading) HelperLoading.dismiss();
+      chewie?.dispose();
+      try {
+        await player?.dispose();
+      } finally {
+        _isOpeningTrailer = false;
+      }
     }
-
-    final chewie = ChewieController(
-      videoPlayerController: cachePlayer.controller,
-      autoPlay: true,
-      allowFullScreen: false,
-      showOptions: false,
-      zoomAndPan: true,
-      allowMuting: true,
-      autoInitialize: true,
-      looping: false,
-      customControls: ExChewieCustom(video: video),
-    );
-
-    HelperLoading.dismiss();
-
-    WidgetsBinding.instance.scheduleFrame();
-    await Overlayment.show(
-      context: Get.context,
-      OverPanel(
-        alignment: Alignment.center,
-        width: Get.width * 90 / 100,
-        height: Get.width * 9.0 / 16.0,
-        actions: OverlayActions(
-          onClose: (p0) async {
-            await cachePlayer.controller.dispose();
-            chewie.dispose();
-            AppLog.logI('trailer close properly');
-          },
-        ),
-        child: MediaStack(
-          [
-            cachePlayer.isInitialized ? Chewie(controller: chewie).centered() : const CircularProgressIndicator.adaptive(),
-            // '${video.title}'.text.size(11).maxLines(3).ellipsis.minFontSize(11).make().w(Get.width * 70 / 100),
-            Align(
-              alignment: Alignment.topRight,
-              child: Container(
-                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                child: Icon(UIconsPro.regularRounded.cross_small).p8(),
-              ).onInkTap(() {
-                Overlayment.dismissLast();
-              }),
-            ).positioned(right: 8, top: 8, bottom: 0),
-          ],
-        ),
-      ),
-    );
   }
 
   static Future<void> openKeyboardShortcuts() async {
