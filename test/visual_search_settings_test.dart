@@ -117,6 +117,10 @@ void main() {
     await tester.pump();
     expect(find.text('20 indexed • 0 pending'), findsOneWidget);
     expect(find.text('Index'), findsOneWidget);
+    expect(tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Index')).onPressed, isNull);
+    controller.semanticMissingCount.value = 1;
+    await tester.pump();
+    expect(tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Index')).onPressed, isNotNull);
     expect(find.text(controller.semanticStatus.value), findsNothing);
     expect(find.byType(ExpansionTile), findsNothing);
     await tester.tap(find.byTooltip('Visual Search options'));

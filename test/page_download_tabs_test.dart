@@ -334,6 +334,46 @@ void main() {
     expect(tab.filter.apply(rows, adapter).map((video) => video.name), ['SSIS-001', 'SSIS-002', 'SSIS-003']);
     tab.filter.categoriesSelected.clear();
     expect(tab.filter.apply(rows, adapter).length, 5);
+    tab.filter.reset();
+    tab.filter.categoriesSelected.add('D***k');
+    final decensored = tab.onSearch('/new-release');
+    tab.pending.last.complete(JavMostModel(success: true, total: 2, result: [
+      Result(name: 'SSIS-008', genre: 'Drunk', release: '2024-01-01'),
+      Result(name: 'SSIS-009', genre: 'D***k', release: '2024-01-01'),
+    ]));
+    await decensored;
+    expect(tab.videos.map((video) => video.videoCode), ['SSIS-008', 'SSIS-009']);
+    await tester.pump();
+  });
+
+  testWidgets('Download blacklist survives Result Having and incoming pages', (tester) async {
+    final tab = _SearchTab(1);
+    addTearDown(tab.dispose);
+    tab.filter.blacklist.addAll([
+      VideoBlacklistRule(field: VideoBlacklistField.videoCode, pattern: r'^SSIS-001$'),
+      VideoBlacklistRule(field: VideoBlacklistField.title, pattern: '(.*)VR(.*)'),
+    ]);
+    final search = tab.onSearch('/new-release');
+    tab.pending.single.complete(JavMostModel(success: true, total: 3, result: [
+      Result(name: 'SSIS-001', fullName: 'Normal', release: '2024-01-01'),
+      Result(name: 'SSIS-002', fullName: 'A vr video', release: '2024-01-01'),
+      Result(name: 'SSIS-003', fullName: 'Normal', release: '2024-01-01'),
+    ]));
+    await search;
+    expect(tab.allVideos.length, 3);
+    expect(tab.videos.map((video) => video.videoCode), ['SSIS-003']);
+    expect(tab.havingVideos.value, 0);
+    tab.showHavingOnly(true);
+    expect(tab.videos, isEmpty);
+    tab.showHavingOnly(false);
+    expect(tab.videos.map((video) => video.videoCode), ['SSIS-003']);
+    final next = tab.onSearch('/top-weekly');
+    tab.pending.last.complete(result('SSIS-001'));
+    await next;
+    expect(tab.videos, isEmpty);
+    tab.filter.blacklist.clear();
+    tab.showHavingOnly(false);
+    expect(tab.videos.single.videoCode, 'SSIS-001');
     await tester.pump();
   });
 

@@ -288,7 +288,7 @@ class PageSqleditorTabView extends StatelessWidget {
 
   Widget _resultCell(BuildContext context, String column, dynamic value) {
     final text = value == null ? 'NULL' : '$value';
-    if (column.trim().toLowerCase() == 'dvd_id' && value is String && value.trim().isNotEmpty) {
+    if (['dvd_id', 'video_code'].contains(column.trim().toLowerCase()) && value is String && value.trim().isNotEmpty) {
       return TextButton(
         style: TextButton.styleFrom(alignment: Alignment.centerLeft, padding: EdgeInsets.zero,
           minimumSize: const Size(0, 28), tapTargetSize: MaterialTapTargetSize.shrinkWrap),

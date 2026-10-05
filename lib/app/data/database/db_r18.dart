@@ -5,6 +5,8 @@ import 'package:sqflite/sqflite.dart';
 import '../../core/app_logging.dart';
 import '_init_db.dart';
 
+enum ActressMode { all, single, multi }
+
 mixin DBR18 {
   static Database? get _db => Get.find<DBService>().dbR18;
 
@@ -729,7 +731,12 @@ mixin DBR18 {
   // ────────────────────────────────────────────────────────────────
   // ⵌ Actress
   // ────────────────────────────────────────────────────────────────
-  static Future<int> getCountAllVideosByActress(int actressId, {bool singleActressMode = true}) async {
+  static String _actressModeClause(ActressMode mode) {
+    if (mode == ActressMode.all) return '';
+    return 'AND EXISTS (SELECT 1 FROM derived_video_actress dva2 WHERE dva2.content_id = v.content_id GROUP BY dva2.content_id HAVING COUNT(DISTINCT dva2.actress_id) ${mode == ActressMode.single ? '=' : '>'} 1)';
+  }
+
+  static Future<int> getCountAllVideosByActress(int actressId, {ActressMode actressMode = ActressMode.single}) async {
     if (!_isReady()) return 0;
 
     final blacklist = _buildBlacklistClause();
@@ -744,14 +751,14 @@ mixin DBR18 {
         v.video_code IS NOT NULL
         AND da.id = ?
         ${blacklist['sql']}
-        ${singleActressMode ? 'AND EXISTS (SELECT 1 FROM derived_video_actress dva2 WHERE dva2.content_id = v.content_id GROUP BY dva2.content_id HAVING COUNT(dva2.actress_id) = 1)' : ''};
+        ${_actressModeClause(actressMode)};
     ''', [actressId, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosByActress(
     int actressId, {
-    bool singleActressMode = true,
+    ActressMode actressMode = ActressMode.single,
     int page = 1,
     int perPage = 10000,
   }) async {
@@ -780,7 +787,7 @@ mixin DBR18 {
         AND v.video_code IS NOT NULL
         AND da.id = ?
         ${blacklist['sql']}
-        ${singleActressMode ? 'AND EXISTS (SELECT 1 FROM derived_video_actress dva2 WHERE dva2.content_id = v.content_id GROUP BY dva2.content_id HAVING COUNT(dva2.actress_id) = 1)' : ''}
+        ${_actressModeClause(actressMode)}
         
       GROUP BY v.video_code
       ORDER BY

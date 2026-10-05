@@ -305,11 +305,15 @@ class Worker:
         return json.dumps({'path': row.get('video_path'), 'thumbnail': str(thumb),
             'image': [stat.st_size, stat.st_mtime_ns], 'video': [video.st_size, video.st_mtime_ns]}, sort_keys=True)
 
+    def indexed_ids(self):
+        records = self.db.execute("""SELECT e.video_id, e.embedding FROM video_embeddings e JOIN videos v ON v.id=e.video_id
+            WHERE e.model=? AND typeof(e.embedding)='blob' AND length(e.embedding)=2048
+            AND json_extract(CASE WHEN json_valid(e.source_text) THEN e.source_text ELSE '{}' END, '$.path')=v.video_path""", (MODEL,))
+        return {row['video_id'] for row in records if self.valid_vector(row['embedding']) is not None}
+
     def summary(self):
         total = self.db.execute('SELECT count(*) FROM videos').fetchone()[0]
-        indexed = self.db.execute("""SELECT count(*) FROM video_embeddings e JOIN videos v ON v.id=e.video_id
-            WHERE e.model=? AND typeof(e.embedding)='blob' AND length(e.embedding)=2048
-            AND json_valid(e.source_text) AND json_extract(e.source_text, '$.path')=v.video_path""", (MODEL,)).fetchone()[0]
+        indexed = len(self.indexed_ids())
         return {'total': total, 'indexed': indexed, 'pending': max(0, total - indexed)}
 
     @staticmethod
@@ -321,23 +325,13 @@ class Worker:
         return vector if np.isfinite(vector).all() and abs(float(np.linalg.norm(vector)) - 1) < .01 else None
 
     def plan(self, force=False):
-        records = {r['video_id']: r for r in self.db.execute(
-            'SELECT video_id, source_text, model, embedding FROM video_embeddings')}
-        pending, missing, indexed = [], 0, 0
+        indexed = self.indexed_ids()
         rows = [dict(row) for row in self.db.execute('SELECT id, video_path FROM videos ORDER BY updated_at DESC')]
         stems = collections.Counter(Path(row.get('video_path') or '').stem for row in rows)
         self.ambiguous_stems = {stem for stem, count in stems.items() if count > 1}
-        for row in rows:
-            source = self.source(row)
-            if source is None:
-                missing += 1
-            record = records.get(row['id'])
-            valid = record and source is not None and record['model'] == MODEL and record['source_text'] == source and self.valid_vector(record['embedding']) is not None
-            if valid:
-                indexed += 1
-            if force or not valid:
-                pending.append(row['id'])
-        return {'ids': pending, 'indexed': indexed, 'missing_thumbnails': missing, 'total': len(rows)}
+        pending = [row for row in rows if force or row['id'] not in indexed]
+        missing = sum(self.source(row) is None for row in pending)
+        return {'ids': [row['id'] for row in pending], 'indexed': len(indexed), 'missing_thumbnails': missing, 'total': len(rows)}
 
     def index(self, video_id, force=False):
         row = self.db.execute('SELECT id, video_path FROM videos WHERE id = ?', (video_id,)).fetchone()

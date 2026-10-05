@@ -513,6 +513,7 @@ class PageToolsController extends GetxController with StateMixin {
   // ~ Filters ────────────────────────────────────────────────────────────────
   final _filterAdapter = VideoFilterAdapter<Map<String, dynamic>>(
     videoCode: (video) => video['video_code'] ?? '',
+    title: (video) => video['title'],
     actresses: (video) => video['actresses'] ?? <String>[],
     categories: (video) => video['categories'] ?? <String>[],
     releaseDate: (video) => video['release_date'] ?? '',

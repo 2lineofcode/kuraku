@@ -10,6 +10,7 @@ import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/__javit_search_entity.dart';
 import '../../../data/models/__javmost_new_release.dart';
+import '../../../utils/helper_decensor.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
 import 'page_download_helper.dart';
@@ -83,12 +84,14 @@ class PageDownloadSearchTab {
     'yearEnd': filter.currentRange.value.end,
     'durationMin': filter.durationMin.value,
     'durationMax': filter.durationMax.value,
+    'blacklist': filter.blacklistPreferences,
   };
 
   void restorePreferences(Map<String, dynamic> value) {
     tecSearch.text = value['query'] is String ? value['query'] : '';
     havingOnly.value = value['havingOnly'] == true;
     filter.isFiltered.value = value['filtered'] == true;
+    filter.restoreBlacklist(value['blacklist']);
     filter.tecVideoCode.text = value['videoCode'] is String ? value['videoCode'] : '';
     filter.tecActressName.text = value['actress'] is String ? value['actress'] : '';
     filter.tecCategory.text = value['categoryDraft'] is String ? value['categoryDraft'] : '';
@@ -125,7 +128,7 @@ class PageDownloadSearchTab {
       field.addListener(onChanged);
     }
     _preferenceWorker = everAll([
-      havingOnly, filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax,
+      havingOnly, filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax, filter.blacklist,
     ], (_) => onChanged());
   }
 
@@ -428,6 +431,7 @@ class PageDownloadSearchTab {
   // ~ Filters ────────────────────────────────────────────────────────────────
   final _filterAdapter = VideoFilterAdapter<JavitSearchResult>(
     videoCode: (video) => video.videoCode ?? '',
+    title: (video) => video.title,
     actresses: (video) => video.actresses ?? <String>[],
     categories: (video) => video.categories ?? <String>[],
     releaseDate: (video) => video.releaseDate,
@@ -442,10 +446,11 @@ class PageDownloadSearchTab {
   }
 
   void _applyHavingFilter() {
-    havingVideos.value = allVideos.where((video) => video.match == true).length;
+    final visible = filter.applyBlacklist(allVideos.toList(), _filterAdapter);
+    havingVideos.value = visible.where((video) => video.match == true).length;
     videos.value = havingOnly.isTrue
-        ? allVideos.where((video) => video.match == true).toList()
-        : allVideos.toList();
+        ? visible.where((video) => video.match == true).toList()
+        : visible;
   }
 
   Future<void> _loadPage({required bool isLoadMore, required int request, required int page}) async {
@@ -593,7 +598,7 @@ class PageDownloadSearchTab {
     return _filterVideoCode() != null ||
         _filterActressName() != null ||
         (_filterCategories()?.isNotEmpty ?? false) ||
-        _hasCustomYearRange || filter.hasDurationFilter;
+        _hasCustomYearRange || filter.hasDurationFilter || filter.blacklist.isNotEmpty;
   }
 
   Future<Set<String>> loadExistingVideoCodes() async => (await DBVideos.getAll()).map((video) => video.videoCode ?? '').toSet();
@@ -638,7 +643,7 @@ class PageDownloadSearchTab {
 
     final qVideoCode = videoCode?.trim().toLowerCase();
     final qActress = actressName?.trim().toLowerCase();
-    final qCategories = categories?.map((e) => e.trim().toLowerCase()).where((e) => e.isNotEmpty).toList() ?? const <String>[];
+    final qCategories = categories?.map((e) => HelperDecensor.decensor(e).trim().toLowerCase()).where((e) => e.isNotEmpty).toList() ?? const <String>[];
 
     for (final item in items) {
       final rawCode = (item.name ?? '').toString().trim();
@@ -668,7 +673,7 @@ class PageDownloadSearchTab {
       }
 
       if (qCategories.isNotEmpty) {
-        final lowerCategories = categoryList.map((e) => e.toLowerCase()).toSet();
+        final lowerCategories = categoryList.map((e) => HelperDecensor.decensor(e).toLowerCase()).toSet();
         final hasAllCategories = qCategories.every((e) => lowerCategories.contains(e));
         if (hasAllCategories == false) continue;
       }

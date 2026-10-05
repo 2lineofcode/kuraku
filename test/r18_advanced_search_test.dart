@@ -113,6 +113,23 @@ void main() {
   });
   tearDown(Get.reset);
 
+  test('actress cast modes filter real SQL results with matching counts and pagination', () async {
+    for (final mode in ActressMode.values) {
+      final videos = await DBR18.getAllVideosByActress(1, actressMode: mode);
+      final expected = switch (mode) {
+        ActressMode.all => ['ABC-123', 'ABC-125'],
+        ActressMode.single => ['ABC-125'],
+        ActressMode.multi => ['ABC-123'],
+      };
+      expect(videos.map((video) => video['video_code']), expected);
+      expect(await DBR18.getCountAllVideosByActress(1, actressMode: mode), expected.length);
+      expect(await DBR18.getAllVideosByActress(99, actressMode: mode), isEmpty);
+      expect(await DBR18.getCountAllVideosByActress(99, actressMode: mode), 0);
+    }
+    expect((await DBR18.getAllVideosByActress(1, actressMode: ActressMode.all, page: 2, perPage: 1)).single['video_code'], 'ABC-125');
+    expect(await DBR18.getAllVideosByActress(1, actressMode: ActressMode.multi, page: 2, perPage: 1), isEmpty);
+  });
+
   test('bilingual groups use matching eligibility, dates, IDs and include ensemble videos', () async {
     for (final kind in ['Series', 'Category', 'Actress', 'Year']) {
       final groups = await DBR18.getAdvancedSearchGroups(kind);
@@ -171,7 +188,7 @@ void main() {
     expect(await DBR18.getCountAllVideosByCategory('Older'), (await DBR18.getAllVideosByCategory('Older')).length);
     expect(await DBR18.getCountAllVideosByStudio('Studio'), (await DBR18.getAllVideosByStudio('Studio')).length);
     expect(await DBR18.getCountAllVideosByLabel('Label'), (await DBR18.getAllVideosByLabel('Label')).length);
-    expect(await DBR18.getCountAllVideosByActress(1, singleActressMode: false), (await DBR18.getAllVideosByActress(1, singleActressMode: false)).length);
+    expect(await DBR18.getCountAllVideosByActress(1, actressMode: ActressMode.all), (await DBR18.getAllVideosByActress(1, actressMode: ActressMode.all)).length);
     expect(await DBR18.getCountAllVideosBySeries('%'), (await DBR18.getAllVideosBySeries('%')).length);
     expect(await DBR18.getCountAllVideosBySeries('日本語'), (await DBR18.getAllVideosBySeries('日本語')).length);
     expect(await DBR18.getCountAllVideosByDirector('Director'), (await DBR18.getAllVideosByDirector('Director')).length);

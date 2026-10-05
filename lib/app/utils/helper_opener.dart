@@ -909,6 +909,7 @@ mixin HelperOpener {
     state.tecCategory.clear();
     state.categoriesSelected.assignAll(values.categories);
     state.currentRange.value = values.years;
+    state.blacklist.assignAll(values.blacklist);
     state.durationMin.value = values.durationMin;
     state.durationMax.value = values.durationMax;
     state.isFiltered.value = state.hasFilters;
@@ -928,18 +929,46 @@ class VideoFilterAdapter<T> {
     required this.categories,
     required this.releaseDate,
     this.durationMinutes,
+    this.title,
   });
 
   final String Function(T video) videoCode;
+  final String? Function(T video)? title;
   final Iterable<String> Function(T video) actresses;
   final Iterable<String> Function(T video) categories;
   final String? Function(T video) releaseDate;
   final num? Function(T video)? durationMinutes;
 }
 
+enum VideoBlacklistField { videoCode, title }
+
+class VideoBlacklistRule {
+  VideoBlacklistRule({required this.field, required this.pattern}) : regex = RegExp(pattern, caseSensitive: false) {
+    if (pattern.trim().isEmpty) throw const FormatException('Enter a regex pattern.');
+  }
+
+  final VideoBlacklistField field;
+  final String pattern;
+  final RegExp regex;
+
+  Map<String, String> toJson() => {'field': field.name, 'pattern': pattern};
+
+  static VideoBlacklistRule? fromJson(dynamic value) {
+    if (value is! Map || value['pattern'] is! String) return null;
+    final field = VideoBlacklistField.values.firstWhereOrNull((field) => field.name == value['field']);
+    if (field == null) return null;
+    try {
+      return VideoBlacklistRule(field: field, pattern: value['pattern']);
+    } on FormatException {
+      return null;
+    }
+  }
+}
+
 class VideoFilterState {
   VideoFilterState({RxBool? isFiltered}) : isFiltered = isFiltered ?? false.obs;
 
+  final blacklist = <VideoBlacklistRule>[].obs;
   final durationMin = RxnInt();
   final durationMax = RxnInt();
   final RxBool isFiltered;
@@ -972,6 +1001,7 @@ class VideoFilterState {
   }
 
   void reset() {
+    blacklist.clear();
     tecVideoCode.text = '';
     tecActressName.text = '';
     tecCategory.text = '';
@@ -986,27 +1016,40 @@ class VideoFilterState {
 
   bool get hasYearFilter => currentRange.value.start > 2000 || currentRange.value.end < DateTime.now().year;
 
-  bool get hasFilters => tecVideoCode.text.trim().isNotEmpty || tecActressName.text.trim().isNotEmpty || categoriesSelected.isNotEmpty || hasYearFilter || hasDurationFilter;
+  bool get hasFilters => blacklist.isNotEmpty || tecVideoCode.text.trim().isNotEmpty || tecActressName.text.trim().isNotEmpty || categoriesSelected.isNotEmpty || hasYearFilter || hasDurationFilter;
+
+  List<T> applyBlacklist<T>(List<T> allVideos, VideoFilterAdapter<T> adapter) => allVideos.where((video) {
+    return !blacklist.any((rule) => rule.regex.hasMatch(
+      HelperDecensor.decensor(rule.field == VideoBlacklistField.videoCode ? adapter.videoCode(video) : adapter.title?.call(video)),
+    ));
+  }).toList();
+
+  List<Map<String, String>> get blacklistPreferences => blacklist.map((rule) => rule.toJson()).toList();
+
+  void restoreBlacklist(dynamic value) {
+    blacklist.assignAll(value is List ? value.map(VideoBlacklistRule.fromJson).whereType<VideoBlacklistRule>() : <VideoBlacklistRule>[]);
+    if (blacklist.isNotEmpty) isFiltered.value = true;
+  }
 
   List<T> apply<T>(List<T> allVideos, VideoFilterAdapter<T> adapter) {
-    var filteredVideos = allVideos.toList();
+    var filteredVideos = applyBlacklist(allVideos, adapter);
 
     if (tecVideoCode.text.isNotBlank) {
-      final query = tecVideoCode.text.trim().toLowerCase();
-      filteredVideos = filteredVideos.where((video) => adapter.videoCode(video).toLowerCase().contains(query)).toList();
+      final query = HelperDecensor.decensor(tecVideoCode.text).trim().toLowerCase();
+      filteredVideos = filteredVideos.where((video) => HelperDecensor.decensor(adapter.videoCode(video)).toLowerCase().contains(query)).toList();
     }
 
     if (tecActressName.text.isNotBlank) {
-      final query = tecActressName.text.trim().toLowerCase();
+      final query = HelperDecensor.decensor(tecActressName.text).trim().toLowerCase();
       filteredVideos = filteredVideos.where((video) {
-        return adapter.actresses(video).any((name) => name.toLowerCase().contains(query));
+        return adapter.actresses(video).any((name) => HelperDecensor.decensor(name).toLowerCase().contains(query));
       }).toList();
     }
 
     if (categoriesSelected.isNotEmpty) {
-      final selected = categoriesSelected.toSet();
+      final selected = categoriesSelected.map(HelperDecensor.decensor).toSet();
       filteredVideos = filteredVideos.where((video) {
-        return adapter.categories(video).any((category) => category.isNotEmpty && selected.contains(category));
+        return adapter.categories(video).any((category) => category.isNotEmpty && selected.contains(HelperDecensor.decensor(category)));
       }).toList();
     }
 
@@ -1040,7 +1083,7 @@ class VideoFilterState {
   }
 }
 
-typedef _VideoFilterValues = ({String videoCode, String actress, List<String> categories, RangeValues years, int? durationMin, int? durationMax});
+typedef _VideoFilterValues = ({String videoCode, String actress, List<String> categories, List<VideoBlacklistRule> blacklist, RangeValues years, int? durationMin, int? durationMax});
 
 class _VideoFilterDialog extends StatefulWidget {
   const _VideoFilterDialog({required this.state, required this.widthFactor, required this.showVideoCode, required this.showActressName, required this.showCategories, required this.showYears, required this.matchAllCategories});
@@ -1064,11 +1107,16 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
   late final _categories = widget.state.categoriesSelected.toList();
   late final _durationMin = TextEditingController(text: widget.state.durationMin.value?.toString() ?? '');
   late final _durationMax = TextEditingController(text: widget.state.durationMax.value?.toString() ?? '');
+  late final _blacklist = widget.state.blacklist.map((rule) => (
+    field: rule.field, controller: TextEditingController(text: rule.pattern),
+  )).toList();
+  final _blacklistErrors = <TextEditingController, String>{};
   String? _durationError;
   late RangeValues _years = widget.state.currentRange.value;
 
   @override
   void dispose() {
+    for (final rule in _blacklist) { rule.controller.dispose(); }
     _code.dispose();
     _actress.dispose();
     _category.dispose();
@@ -1079,6 +1127,9 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
 
   void _reset() {
     setState(() {
+      for (final rule in _blacklist) { rule.controller.dispose(); }
+      _blacklist.clear();
+      _blacklistErrors.clear();
       _code.clear();
       _actress.clear();
       _category.clear();
@@ -1091,6 +1142,19 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
   }
 
   void _apply() {
+    final rules = <VideoBlacklistRule>[];
+    _blacklistErrors.clear();
+    for (final rule in _blacklist) {
+      try {
+        rules.add(VideoBlacklistRule(field: rule.field, pattern: rule.controller.text));
+      } on FormatException {
+        _blacklistErrors[rule.controller] = rule.controller.text.trim().isEmpty ? 'Enter a regex pattern.' : 'Invalid regex pattern.';
+      }
+    }
+    if (_blacklistErrors.isNotEmpty) {
+      setState(() {});
+      return;
+    }
     final min = int.tryParse(_durationMin.text.trim());
     final max = int.tryParse(_durationMax.text.trim());
     if ((_durationMin.text.trim().isNotEmpty && (min == null || min < 0))
@@ -1100,7 +1164,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
       return;
     }
     Navigator.of(context).pop<_VideoFilterValues>((
-      durationMin: min, durationMax: max,
+      durationMin: min, durationMax: max, blacklist: rules,
       videoCode: widget.showVideoCode ? _code.text.trim() : '',
       actress: widget.showActressName ? _actress.text.trim() : '',
       categories: widget.showCategories ? List<String>.from(_categories) : <String>[],
@@ -1145,10 +1209,11 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
       ExAutoComplate(
         controller: _actress,
         items: widget.state.actresses,
+        displayStringForOption: HelperDecensor.decensor,
         maxHeight: 160,
         emptyText: 'No suggestions. You can still filter by this name.',
         fieldBuilder: (_, controller, focus) => _field(controller, 'Search actress name...', focusNode: focus),
-        onSelected: (name) => _actress.text = name,
+        onSelected: (name) => _actress.text = HelperDecensor.decensor(name),
       ),
     ]);
     return Dialog(
@@ -1222,6 +1287,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                           ExAutoComplate(
                             controller: _category,
                             items: widget.state.categories.where((category) => !_categories.contains(category)).toList(),
+                            displayStringForOption: HelperDecensor.decensor,
                             maxHeight: 160,
                             emptyText: 'No more matching categories.',
                             fieldBuilder: (_, controller, focus) => _field(controller, 'Search and add categories...', focusNode: focus),
@@ -1238,7 +1304,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                               spacing: 6,
                               runSpacing: 4,
                               children: _categories.map((category) => InputChip(
-                                label: Text(category, style: TextStyle(fontSize: 11, color: _accent)),
+                                label: Text(HelperDecensor.decensor(category), style: TextStyle(fontSize: 11, color: _accent)),
                                 backgroundColor: AppColor.selected,
                                 side: BorderSide.none,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
@@ -1252,6 +1318,57 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                       ),
                       const SizedBox(height: 20),
                     ],
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: AppColor.container, borderRadius: BorderRadius.circular(10)),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        Row(children: [
+                          Expanded(child: Text('Blacklist', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),
+                          IconButton(
+                            tooltip: 'Add blacklist rule', visualDensity: VisualDensity.compact,
+                            icon: Icon(Icons.add, size: 18, color: _accent),
+                            onPressed: () => setState(() => _blacklist.add((field: VideoBlacklistField.videoCode, controller: TextEditingController()))),
+                          ),
+                        ]),
+                        Text('Hide matches · Regex · Case-insensitive', style: TextStyle(fontSize: 10, color: _muted)),
+                        if (_blacklist.isEmpty) Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Text('No rules. Add one with +.', style: TextStyle(fontSize: 11, color: _muted)),
+                        ),
+                        for (var i = 0; i < _blacklist.length; i++) Padding(
+                          key: ObjectKey(_blacklist[i].controller),
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                            Row(children: [
+                              SizedBox(width: 100, child: DropdownButtonHideUnderline(child: DropdownButton<VideoBlacklistField>(
+                                value: _blacklist[i].field, isExpanded: true, isDense: true,
+                                dropdownColor: AppColor.panel,
+                                style: TextStyle(fontSize: 11, color: AppColor.text),
+                                items: const {VideoBlacklistField.videoCode: 'Video Code', VideoBlacklistField.title: 'Title'}.entries
+                                    .map((entry) => DropdownMenuItem(value: entry.key, child: Text(entry.value))).toList(),
+                                onChanged: (field) { if (field != null) setState(() => _blacklist[i] = (field: field, controller: _blacklist[i].controller)); },
+                              ))),
+                              const SizedBox(width: 8),
+                              Expanded(child: _field(_blacklist[i].controller, _blacklist[i].field == VideoBlacklistField.videoCode ? 'AD-(.*)' : '(.*)VR(.*)')),
+                              IconButton(
+                                tooltip: 'Remove blacklist rule', visualDensity: VisualDensity.compact,
+                                icon: Icon(Icons.close, size: 16, color: _muted),
+                                onPressed: () => setState(() {
+                                  final rule = _blacklist.removeAt(i);
+                                  _blacklistErrors.remove(rule.controller);
+                                  rule.controller.dispose();
+                                }),
+                              ),
+                            ]),
+                            if (_blacklistErrors[_blacklist[i].controller] != null) Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(_blacklistErrors[_blacklist[i].controller]!, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.error)),
+                            ),
+                          ]),
+                        ),
+                      ]),
+                    ),
+                    const SizedBox(height: 20),
                     _label('Duration (minutes)'),
                     Row(children: [
                       Expanded(child: CupertinoTextField(

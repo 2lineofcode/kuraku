@@ -66,7 +66,7 @@ class PageExploreTab {
   final tecSearchRight = TextEditingController();
   final fnSearchRight = FocusNode();
   final phSearchRight = 'Search...'.obs;
-  final singleActressMode = true.obs;
+  final actressMode = ActressMode.single.obs;
   final _perPage = 500;
   int _menuRequest = 0;
   int _selectionRequest = 0;
@@ -84,7 +84,7 @@ class PageExploreTab {
     'rightQuery': tecSearchRight.text,
     'sort': leftSortSelected.value,
     'mode': rightListViewMode.value,
-    'singleActress': singleActressMode.value,
+    'actressMode': actressMode.value.name,
     'filtered': filter.isFiltered.value,
     'videoCode': filter.tecVideoCode.text,
     'categoryDraft': filter.tecCategory.text,
@@ -93,6 +93,7 @@ class PageExploreTab {
     'yearEnd': filter.currentRange.value.end,
     'durationMin': filter.durationMin.value,
     'durationMax': filter.durationMax.value,
+    'blacklist': filter.blacklistPreferences,
   };
 
   void restorePreferences(Map<String, dynamic> value) {
@@ -105,8 +106,10 @@ class PageExploreTab {
     tecSearchRight.text = value['rightQuery'] is String ? value['rightQuery'] : '';
     if (leftSortOptions.contains(value['sort'])) leftSortSelected.value = value['sort'];
     rightListViewMode.value = value['mode'] == kR18 ? kR18 : kLocal;
-    singleActressMode.value = value['singleActress'] != false;
+    actressMode.value = ActressMode.values.firstWhereOrNull((mode) => mode.name == value['actressMode'])
+        ?? (value['singleActress'] == false ? ActressMode.all : ActressMode.single);
     filter.isFiltered.value = value['filtered'] == true;
+    filter.restoreBlacklist(value['blacklist']);
     filter.tecVideoCode.text = value['videoCode'] is String ? value['videoCode'] : '';
     filter.tecCategory.text = value['categoryDraft'] is String ? value['categoryDraft'] : '';
     if (value['categories'] is List) filter.categoriesSelected.assignAll((value['categories'] as List).whereType<String>().toSet());
@@ -129,8 +132,8 @@ class PageExploreTab {
       field.addListener(onChanged);
     }
     _preferenceWorker = everAll([
-      currentMenuSelected, leftListSelected, leftSortSelected, rightListViewMode, singleActressMode,
-      filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax,
+      currentMenuSelected, leftListSelected, leftSortSelected, rightListViewMode, actressMode,
+      filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax, filter.blacklist,
     ], (_) => onChanged());
   }
 
@@ -349,6 +352,7 @@ class PageExploreTab {
     if (isClosed) return;
     final request = ++_selectionRequest;
     final menu = currentMenuSelected.value;
+    final castMode = actressMode.value;
     leftListSelected.value = item;
     if (!preserveMode) rightListViewMode.value = kLocal;
     leftListSelectedIndex.value = leftListFiltered.indexOf(item);
@@ -362,7 +366,7 @@ class PageExploreTab {
       final result = await loadSelection(menu, item);
       if (request != _selectionRequest || isClosed) return;
       rightListLocal.assignAll(result.$1);
-      rightListR18TotalVideo.value = result.$2;
+      if (menu != kActress || castMode == actressMode.value) rightListR18TotalVideo.value = result.$2;
     } catch (e) {
       if (!isClosed && request == _selectionRequest) error.value = 'Failed to load videos. Please select the item again.';
       AppLog.logE('Explore selection failed: $e');
@@ -378,7 +382,7 @@ class PageExploreTab {
     switch (menu) {
       case kActress:
         localVideos = DBVideos.getAllLike('actress', item.id.toString());
-        r18Count = DBR18.getCountAllVideosByActress(item.id!, singleActressMode: singleActressMode.value);
+        r18Count = DBR18.getCountAllVideosByActress(item.id!, actressMode: actressMode.value);
         break;
       case kCategory:
         localVideos = DBVideos.getAllLike('category', item.name!, jsonObject: 'category');
@@ -469,6 +473,7 @@ class PageExploreTab {
 
   final _filterAdapter = VideoFilterAdapter<Map<String, dynamic>>(
     videoCode: (video) => video['video_code'] ?? '',
+    title: (video) => video['title'],
     actresses: (video) => _splitCsvField(video['actresses']),
     categories: (video) => _splitCsvField(video['categories']),
     releaseDate: (video) => video['release_date'] ?? '',
@@ -553,17 +558,17 @@ class PageExploreTab {
     if (isLoadMore) isLoadingR18More.value = true;
     final menu = currentMenuSelected.value;
     final selected = leftListSelected.value;
-    final isSingleActress = singleActressMode.value;
+    final castMode = actressMode.value;
 
     try {
       if (!isLoadMore && menu == kActress) {
-        final count = await DBR18.getCountAllVideosByActress(selected.id ?? 0, singleActressMode: isSingleActress);
+        final count = await DBR18.getCountAllVideosByActress(selected.id ?? 0, actressMode: castMode);
         if (request != _r18Request || isClosed) return;
         rightListR18TotalVideo.value = count;
       }
       final List<Map<String, dynamic>> r18videos;
       switch (menu) {
-        case kActress: r18videos = await DBR18.getAllVideosByActress(selected.id ?? 0, singleActressMode: isSingleActress, page: page, perPage: _perPage + 1); break;
+        case kActress: r18videos = await DBR18.getAllVideosByActress(selected.id ?? 0, actressMode: castMode, page: page, perPage: _perPage + 1); break;
         case kCategory: r18videos = await DBR18.getAllVideosByCategory(HelperDecensor.censored(selected.name), page: page, perPage: _perPage + 1); break;
         case kPath: r18videos = []; break;
         case kLabel: r18videos = await DBR18.getAllVideosByLabel(selected.name ?? '', page: page, perPage: _perPage + 1); break;

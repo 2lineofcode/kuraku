@@ -624,13 +624,13 @@ class PageSettingsView extends GetView<PageSettingsController> {
           ])),
           const SizedBox(width: 8),
           Tooltip(
-            message: busy ? 'Keep completed work' : ready ? 'Index new or changed videos' : 'Download and set up local search',
+            message: busy ? 'Keep completed work' : ready ? (missing == 0 ? 'All videos are indexed' : 'Index pending videos only') : 'Download and set up local search',
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(0, 28), padding: const EdgeInsets.symmetric(horizontal: 10),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              onPressed: busy ? controller.stopSemanticIndex : ready ? controller.generateMissingEmbeddings : controller.setupSemanticSearch,
+              onPressed: busy ? controller.stopSemanticIndex : ready ? (missing > 0 ? controller.generateMissingEmbeddings : null) : controller.setupSemanticSearch,
               child: Text(busy ? 'Stop' : ready ? 'Index' : 'Set up', style: const TextStyle(fontSize: 11)),
             ),
           ),

@@ -40,6 +40,7 @@ class SemanticWorkerTest(unittest.TestCase):
             self.assertTrue(worker.index('one')['indexed'])
             self.assertEqual(worker.plan()['ids'], ['two'])
             self.assertEqual(worker.summary()['indexed'], 1)
+            self.assertEqual(worker.summary()['pending'], len(worker.plan()['ids']))
             blob, kind = db.execute('SELECT embedding, typeof(embedding) FROM video_embeddings').fetchone()
             self.assertEqual((len(blob), kind), (2048, 'blob'))
             # A metadata-only change does not require running the image encoder again.
@@ -60,12 +61,16 @@ class SemanticWorkerTest(unittest.TestCase):
             self.assertEqual(worker_module.lexical_score('id', {'id'}, prepared, ''), 0)
             self.assertEqual(worker_module.lexical_score('blue car', {'blue', 'car'}, prepared, ''), 0)
             self.assertIn('日本語', worker_module.tokens('日本語'))
-            # Thumbnail changes and ambiguous basenames must be rechecked, not silently reused.
+            # Index only pending items; rebuilding explicitly includes completed frames.
             (root / 'vid_thumbnail/one.jpg').write_bytes(b'changed thumbnail')
-            self.assertEqual(len(worker.plan()['ids']), 2)
+            self.assertEqual(worker.plan()['ids'], ['two'])
+            self.assertEqual(worker.summary()['pending'], len(worker.plan()['ids']))
+            self.assertEqual(set(worker.plan(force=True)['ids']), {'one', 'two'})
+            (root / 'one.mp4').unlink()
+            self.assertEqual(worker.plan()['ids'], ['two'])
             db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?)', ('duplicate', '/other/one.mp4', '', '', '[]', ''))
             db.commit()
-            self.assertEqual(worker.plan()['missing_thumbnails'], 2)
+            self.assertEqual(worker.plan()['missing_thumbnails'], 1)
             worker.refresh()
             self.assertFalse(np.any(worker.matrix))
             self.assertFalse(worker.index('deleted')['indexed'])
@@ -135,6 +140,17 @@ class SemanticWorkerTest(unittest.TestCase):
             worker = worker_module.Worker(path, Path(tmp))
             worker.refresh()
             self.assertFalse(np.any(worker.matrix))
+            self.assertEqual(worker.summary()['pending'], 1)
+            self.assertEqual(worker.plan()['ids'], ['a'])
+            for blob, source, model in [(np.zeros(512, dtype='<f4').tobytes(), '{}', worker_module.MODEL),
+                    (np.full(512, np.nan, dtype='<f4').tobytes(), json.dumps({'path': '/a.mp4'}), worker_module.MODEL),
+                    (np.eye(1, 512, dtype='<f4').tobytes(), '{broken', worker_module.MODEL),
+                    (np.eye(1, 512, dtype='<f4').tobytes(), json.dumps({'path': '/old.mp4'}), worker_module.MODEL),
+                    (np.eye(1, 512, dtype='<f4').tobytes(), json.dumps({'path': '/a.mp4'}), 'old-model')]:
+                db.execute('UPDATE video_embeddings SET embedding=?, source_text=?, model=?', (blob, source, model))
+                db.commit()
+                self.assertEqual(worker.summary()['pending'], 1)
+                self.assertEqual(worker.plan()['ids'], ['a'])
             with self.assertRaisesRegex(ValueError, 'No visual index'):
                 worker.search('forest')
             worker.db.close()

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -70,6 +72,136 @@ void main() {
       tab.dispose();
       copy.dispose();
     }
+  });
+
+  test('blacklist excludes any matching field and restores only valid rules', () {
+    final state = VideoFilterState();
+    final adapter = VideoFilterAdapter<Map<String, String>>(
+      videoCode: (video) => video['code']!, title: (video) => video['title'],
+      actresses: (_) => [], categories: (_) => [], releaseDate: (_) => null,
+    );
+    final videos = [
+      {'code': 'ad-123', 'title': 'Normal'},
+      {'code': 'ABC-123', 'title': 'A vr trailer'},
+      {'code': 'ABC-124', 'title': 'Normal'},
+    ];
+    state.blacklist.addAll([
+      VideoBlacklistRule(field: VideoBlacklistField.videoCode, pattern: 'AD-(.*)'),
+      VideoBlacklistRule(field: VideoBlacklistField.title, pattern: '(.*)VR(.*)'),
+    ]);
+    expect(state.apply(videos, adapter), [videos.last]);
+    expect(state.hasFilters, isTrue);
+    expect(() => VideoBlacklistRule(field: VideoBlacklistField.title, pattern: '['), throwsFormatException);
+    expect(() => VideoBlacklistRule(field: VideoBlacklistField.title, pattern: '  '), throwsFormatException);
+    final tabs = [PageSearchTab(0), PageDownloadSearchTab(0), PageExploreTab(0, pins: <String>{}.obs)];
+    final copies = [PageSearchTab(1), PageDownloadSearchTab(1), PageExploreTab(1, pins: <String>{}.obs)];
+    for (var i = 0; i < tabs.length; i++) {
+      final dynamic tab = tabs[i];
+      final dynamic copy = copies[i];
+      (tab.filter as VideoFilterState).blacklist.assignAll(state.blacklist);
+      copy.restorePreferences(jsonDecode(jsonEncode(tab.toPreferences())) as Map<String, dynamic>);
+      expect((copy.filter as VideoFilterState).apply(videos, adapter), [videos.last]);
+      expect(copy.filter.isFiltered.value, isTrue);
+      tab.dispose();
+      copy.dispose();
+    }
+    state.restoreBlacklist([{'field': 'title', 'pattern': '['}, {'field': 'unknown', 'pattern': 'VR'}, null]);
+    expect(state.blacklist, isEmpty);
+    state.reset();
+    expect(state.hasFilters, isFalse);
+    expect(state.apply(videos, adapter), videos);
+  });
+
+  test('filters match decensored titles and categories without changing raw values', () {
+    final state = VideoFilterState();
+    final adapter = VideoFilterAdapter<Map<String, String>>(
+      videoCode: (video) => video['code']!, title: (video) => video['title'],
+      actresses: (_) => [], categories: (video) => [video['category']!], releaseDate: (_) => null,
+    );
+    final videos = [
+      {'code': 'ABC-001', 'title': 'A D***k scene', 'category': 'D***k'},
+      {'code': 'ABC-002', 'title': 'A Drunk scene', 'category': 'Drunk'},
+      {'code': 'ABC-003', 'title': 'Normal', 'category': 'Drama'},
+    ];
+    state.blacklist.add(VideoBlacklistRule(field: VideoBlacklistField.title, pattern: 'Drunk'));
+    expect(state.apply(videos, adapter), [videos.last]);
+    state.blacklist.clear();
+    for (final category in ['D***k', 'Drunk']) {
+      state.categoriesSelected.assignAll([category]);
+      expect(state.apply(videos, adapter), videos.take(2));
+    }
+    expect(videos.first['title'], 'A D***k scene');
+    expect(videos.first['category'], 'D***k');
+  });
+
+  testWidgets('filter category labels are decensored while selections retain raw R18 names', (tester) async {
+    final state = VideoFilterState();
+    state.categories.add('D***k');
+    state.categoriesSelected.add('D***k');
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: TextButton(
+      onPressed: () => HelperOpener.openFilterDialog(state: state, allVideos: <String>[], videos: <String>[].obs,
+        adapter: adapter, showActressName: false, showYears: false), child: const Text('Open')))));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Drunk'), findsOneWidget);
+    expect(find.text('D***k'), findsNothing);
+    await tester.tap(find.descendant(of: find.byType(InputChip), matching: find.byIcon(Icons.close)));
+    await tester.pumpAndSettle();
+    final field = find.byWidgetPredicate((widget) => widget is CupertinoTextField && widget.placeholder == 'Search and add categories...');
+    await tester.enterText(field, 'Drunk');
+    await tester.pumpAndSettle(const Duration(milliseconds: 400));
+    final suggestion = find.byWidgetPredicate((widget) => widget is Text && widget.data == 'Drunk');
+    expect(suggestion, findsOneWidget);
+    await tester.tap(suggestion);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(state.categoriesSelected, ['D***k']);
+  });
+
+  testWidgets('blacklist editor validates regex, drafts, removes and resets', (tester) async {
+    final state = VideoFilterState();
+    final videos = ['AD-123', 'ABC-123'].obs;
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: TextButton(
+      onPressed: () => HelperOpener.openFilterDialog(state: state, allVideos: ['AD-123', 'ABC-123'], videos: videos,
+        adapter: adapter, showActressName: false, showCategories: false, showYears: false), child: const Text('Open')))));
+    Future<void> open() async { await tester.tap(find.text('Open')); await tester.pumpAndSettle(); }
+    final field = find.byWidgetPredicate((widget) => widget is CupertinoTextField && widget.placeholder == 'AD-(.*)');
+    await open();
+    await tester.tap(find.byTooltip('Add blacklist rule'));
+    await tester.pumpAndSettle();
+    await tester.enterText(field, '[');
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(find.text('Invalid regex pattern.'), findsOneWidget);
+    expect(state.blacklist, isEmpty);
+    await tester.enterText(field, 'AD-(.*)');
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(videos, ['ABC-123']);
+    await open();
+    await tester.tap(find.byType(DropdownButton<VideoBlacklistField>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Title').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byWidgetPredicate((widget) => widget is CupertinoTextField && widget.placeholder == '(.*)VR(.*)'), '(.*)VR(.*)');
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(state.blacklist.single.field, VideoBlacklistField.videoCode);
+    await open();
+    await tester.tap(find.byTooltip('Add blacklist rule'));
+    await tester.pumpAndSettle();
+    await tester.enterText(field.last, '^ABC-');
+    await tester.tap(find.byTooltip('Remove blacklist rule').first);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('^ABC-'), findsOneWidget);
+    await tester.tap(find.text('Reset'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(state.hasFilters, isFalse);
+    expect(videos, ['AD-123', 'ABC-123']);
   });
 
   testWidgets('duration draft validates, applies, cancels and resets', (tester) async {
@@ -170,6 +302,10 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     state.categoriesSelected.assignAll(state.categories);
+    state.blacklist.addAll([
+      VideoBlacklistRule(field: VideoBlacklistField.videoCode, pattern: 'AD-(.*)'),
+      VideoBlacklistRule(field: VideoBlacklistField.title, pattern: '(.*)VR(.*)'),
+    ]);
     await open();
 
     expect(tester.takeException(), isNull);

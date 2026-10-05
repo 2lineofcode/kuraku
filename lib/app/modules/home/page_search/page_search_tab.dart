@@ -138,6 +138,7 @@ class PageSearchTab {
     'yearEnd': filter.currentRange.value.end,
     'durationMin': filter.durationMin.value,
     'durationMax': filter.durationMax.value,
+    'blacklist': filter.blacklistPreferences,
   };
 
   void restorePreferences(Map<String, dynamic> value) {
@@ -151,6 +152,7 @@ class PageSearchTab {
     if (isSemanticMode.value && !_hasSort.value) sortBy.value = 'Relevance';
     if (['All qualities', 'FHD only', 'HD only'].contains(value['quality'])) qualityFilter.value = value['quality'];
     filter.isFiltered.value = value['filtered'] == true;
+    filter.restoreBlacklist(value['blacklist']);
     filter.tecVideoCode.text = value['videoCode'] is String ? value['videoCode'] : '';
     filter.tecActressName.text = value['actress'] is String ? value['actress'] : '';
     filter.tecCategory.text = value['categoryDraft'] is String ? value['categoryDraft'] : '';
@@ -174,7 +176,7 @@ class PageSearchTab {
       field.addListener(onChanged);
     }
     _preferenceWorker = everAll([
-      isListView, isSemanticMode, visualSensitivity, sortBy, qualityFilter, _hasSort, filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax,
+      isListView, isSemanticMode, visualSensitivity, sortBy, qualityFilter, _hasSort, filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax, filter.blacklist,
     ], (_) => onChanged());
   }
 
@@ -458,6 +460,7 @@ class PageSearchTab {
 
   final _filterAdapter = VideoFilterAdapter<Videos>(
     videoCode: (video) => video.videoCode ?? '',
+    title: (video) => video.title,
     actresses: (video) => (video.actress ?? []).map((actress) => actress.nameRomaji ?? ''),
     categories: (video) => (video.category ?? []).map((category) => category.category ?? ''),
     releaseDate: (video) => video.releaseDate,

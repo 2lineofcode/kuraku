@@ -369,7 +369,7 @@ void main() {
     Get.reset();
   });
 
-  testWidgets('Format action and dvd_id links keep the compact result layout', (tester) async {
+  testWidgets('Format action and dvd_id and video_code links keep the compact result layout', (tester) async {
     final opened = <dynamic>[];
     final controller = Get.put(PageSqleditorTab(sources: {'javit.db': '/javit.db'}));
     await tester.binding.setSurfaceSize(const Size(420, 520));
@@ -390,6 +390,15 @@ void main() {
     await tester.tap(find.text('KC90AE-309'));
     await tester.pump();
     expect(opened, [{'video_code': 'KC90AE-309'}]);
+    controller.result.value = {'columns': [' VIDEO_CODE ', 'release_date'], 'rows': [
+      [' ABC-001 ', '2026-05-26'], [null, '2026-05-12'], ['', '2026-05-12'], [123, '2026-05-12'],
+    ], 'elapsed_ms': 1};
+    await tester.pump();
+    expect(find.widgetWithText(TextButton, ' ABC-001 '), findsOneWidget);
+    await tester.tap(find.text(' ABC-001 '));
+    await tester.pump();
+    expect(opened, [{'video_code': 'KC90AE-309'}, {'video_code': 'ABC-001'}]);
+    expect(find.widgetWithText(TextButton, '123'), findsNothing);
     expect(find.widgetWithText(TextButton, 'NULL'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());

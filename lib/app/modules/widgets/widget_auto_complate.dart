@@ -15,9 +15,11 @@ class ExAutoComplate extends StatelessWidget {
     this.onSelected,
     this.fontSize,
     this.fieldBuilder,
+    this.displayStringForOption,
   });
 
   final List<String> items;
+  final String Function(String)? displayStringForOption;
   final TextEditingController? controller;
   final String? placeHolder;
   final String? emptyText;
@@ -33,7 +35,7 @@ class ExAutoComplate extends StatelessWidget {
       controller: controller,
       suggestionsCallback: (search) {
         return items.where((kategori) {
-          return kategori.toLowerCase().contains(search.toLowerCase());
+          return (displayStringForOption?.call(kategori) ?? kategori).toLowerCase().contains((displayStringForOption?.call(search) ?? search).toLowerCase());
         }).toList();
       },
       builder: fieldBuilder ?? (context, controller, focusNode) {
@@ -46,7 +48,7 @@ class ExAutoComplate extends StatelessWidget {
         );
       },
       itemBuilder: (context, s) {
-        return '$s'.text.minFontSize(11).size(11).make().p8().pOnly(left: 8);
+        return (displayStringForOption?.call(s) ?? s).text.minFontSize(11).size(11).make().p8().pOnly(left: 8);
       },
       constraints: BoxConstraints(
         maxHeight: maxHeight ?? 200,

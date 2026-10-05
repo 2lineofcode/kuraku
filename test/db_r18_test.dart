@@ -294,11 +294,11 @@ void main() {
       var call = database.rawCalls.last;
       expect(call.args.first, 42);
       expect(call.args.sublist(call.args.length - 2), [10, 10]);
-      expect(call.sql, contains('HAVING COUNT(dva2.actress_id) = 1'));
+      expect(call.sql, contains('HAVING COUNT(DISTINCT dva2.actress_id) = 1'));
 
-      await DBR18.getAllVideosByActress(42, singleActressMode: false);
+      await DBR18.getAllVideosByActress(42, actressMode: ActressMode.all);
       call = database.rawCalls.last;
-      expect(call.sql, isNot(contains('HAVING COUNT(dva2.actress_id) = 1')));
+      expect(call.sql, isNot(contains('HAVING COUNT(DISTINCT dva2.actress_id) = 1')));
       expect(call.args.sublist(call.args.length - 2), [10000, 0]);
 
       expect(await DBR18.getCountAllVideosByActress(42), 3);

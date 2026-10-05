@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
 import 'package:javit/app/core/app_pref.dart';
 import 'package:javit/app/core/app_setting.dart';
+import 'package:javit/app/data/database/db_r18.dart';
 import 'package:javit/app/data/models/videos_entity.dart';
 import 'package:javit/app/modules/home/page_explore/page_explore_controller.dart';
 import 'package:javit/app/modules/home/page_explore/page_explore_view.dart';
@@ -81,6 +82,57 @@ void main() {
   });
   tearDown(Get.reset);
 
+  test('actress cast mode restores legacy preferences and saves all three choices', () {
+    final tab = _Tab(99);
+    addTearDown(tab.dispose);
+    tab.restorePreferences({'singleActress': false});
+    expect(tab.actressMode.value, ActressMode.all);
+    tab.restorePreferences({'singleActress': true});
+    expect(tab.actressMode.value, ActressMode.single);
+    for (final mode in ActressMode.values) {
+      tab.actressMode.value = mode;
+      final saved = jsonDecode(jsonEncode(tab.toPreferences())) as Map<String, dynamic>;
+      tab.actressMode.value = ActressMode.single;
+      tab.restorePreferences(saved);
+      expect(tab.actressMode.value, mode);
+    }
+    tab.restorePreferences({'actressMode': 'unknown'});
+    expect(tab.actressMode.value, ActressMode.single);
+  });
+
+  test('a pending selection cannot overwrite the count for a newer cast mode', () async {
+    final tab = _Tab(99)..delaySelection = true;
+    addTearDown(tab.dispose);
+    final loading = tab.onLeftListTap(LeftListModel(id: 1, name: 'Actress'));
+    tab.actressMode.value = ActressMode.multi;
+    tab.rightListR18TotalVideo.value = 7;
+    tab.selections.single.complete(([Videos(id: '1', title: 'Video')], 99));
+    await loading;
+    expect(tab.rightListR18TotalVideo.value, 7);
+    expect(tab.rightListLocal, hasLength(1));
+  });
+
+  testWidgets('R18 actress dropdown selects all, single and multi modes', (tester) async {
+    final tab = _Tab(99);
+    addTearDown(tab.dispose);
+    tab.isFresh.value = false;
+    tab.leftListSelected.value = LeftListModel(id: 1, name: 'Actress', imgUrl: '');
+    tab.rightListLocal.assignAll([Videos(id: '1', title: 'Video')]);
+    await tab.onSectionR18Tap();
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: _View(controller: tab))));
+    await tester.pumpAndSettle();
+    for (final option in const {'All': ActressMode.all, 'Multi Actress': ActressMode.multi, 'Single Actress': ActressMode.single}.entries) {
+      await tester.tap(find.byType(DropdownButton<ActressMode>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(option.key).last);
+      await tester.pumpAndSettle();
+      expect(tab.actressMode.value, option.value);
+      expect(tab.currentPage.value, 1);
+    }
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('Explore saves and restores tabs, drafts, filters and selection through refresh', (tester) async {
     final controller = Get.put<PageExploreController>(_Controller());
     await tester.pump();
@@ -88,7 +140,7 @@ void main() {
     final first = controller.activeTab;
     first.tecSearchRight.text = 'draft';
     first.leftSortSelected.value = 'Count';
-    first.singleActressMode.value = false;
+    first.actressMode.value = ActressMode.multi;
     first.filter.tecVideoCode.text = 'TEST';
     first.filter.categoriesSelected.assignAll(['Category']);
     first.filter.currentRange.value = const RangeValues(2010, 2020);
@@ -119,7 +171,7 @@ void main() {
     expect(restored.tabs.first.rightListViewMode.value, kR18);
     expect(restored.tabs.first.currentPage.value, 1);
     expect(restored.tabs.first.filter.currentRange.value, const RangeValues(2010, 2020));
-    expect(restored.tabs.first.singleActressMode.value, isFalse);
+    expect(restored.tabs.first.actressMode.value, ActressMode.multi);
     expect(restored.tabs.first.filter.tecVideoCode.text, 'TEST');
     expect(restored.tabs.first.rightListLocal.length, 100);
   });
