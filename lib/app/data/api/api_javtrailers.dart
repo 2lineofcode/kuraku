@@ -1,6 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:get/get.dart';
+
+import '../../core/app_translations.dart';
+
 mixin ApiJavTrailers {
   static const headers = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
@@ -13,15 +17,15 @@ mixin ApiJavTrailers {
       '--http1.1', '--fail', '--silent', '--show-error', '--location', '--max-time', '20',
       '--user-agent', headers['User-Agent']!, '--referer', headers['Referer']!, url,
     ]);
-    if (result.exitCode != 0) throw HttpException('Unable to load JavTrailers: ${result.stderr}', uri: Uri.parse(url));
+    if (result.exitCode != 0) throw HttpException('Unable to load JavTrailers: @{error}'.trNamed({'error': '${result.stderr}'}), uri: Uri.parse(url));
     return result.stdout as String;
   }
 
   static Map<String, String>? parseVideo(String html, String code) {
     final match = RegExp(r'''<script\b[^>]*\bid=["']__NUXT_DATA__["'][^>]*>([\s\S]*?)</script>''', caseSensitive: false).firstMatch(html);
-    if (match == null) throw const FormatException('JavTrailers page data not found');
+    if (match == null) throw FormatException('JavTrailers page data not found'.tr);
     final data = jsonDecode(match.group(1)!);
-    if (data is! List) throw const FormatException('Invalid JavTrailers page data');
+    if (data is! List) throw FormatException('Invalid JavTrailers page data'.tr);
 
     String value(dynamic index) => index is int && index >= 0 && index < data.length && data[index] is String ? data[index] as String : '';
     for (final item in data) {
@@ -35,16 +39,16 @@ mixin ApiJavTrailers {
 
   static Future<String> getTrailer(String code) async {
     code = code.trim().toUpperCase();
-    if (code.isEmpty) throw ArgumentError('Video code is required to find a trailer');
+    if (code.isEmpty) throw ArgumentError('Video code is required to find a trailer'.tr);
     final search = await _getPage('https://javtrailers.com/search/${Uri.encodeComponent(code)}');
     final result = parseVideo(search, code);
-    if (result == null) throw StateError('Trailer not found for $code');
+    if (result == null) throw StateError('Trailer not found for @{code}'.trNamed({'code': code}));
     final page = await _getPage('https://javtrailers.com/video/${result['content_id']}');
     final video = parseVideo(page, code);
     final url = video?['trailer'] ?? '';
     final uri = Uri.tryParse(url);
     if (uri == null || uri.scheme != 'https' || uri.host != 'media.javtrailers.com' || uri.userInfo.isNotEmpty || !RegExp(r'\.(mp4|m3u8)$', caseSensitive: false).hasMatch(uri.path)) {
-      throw StateError('No playable trailer found on JavTrailers for $code');
+      throw StateError('No playable trailer found on JavTrailers for @{code}'.trNamed({'code': code}));
     }
     return url;
   }

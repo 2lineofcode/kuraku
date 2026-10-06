@@ -10,6 +10,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:sql_formatter/sql_formatter.dart' as sql_formatter;
 
 import '../../../core/app_logging.dart';
+import '../../../core/app_translations.dart';
 import '../../../utils/chat_service.dart';
 
 class PageSqleditorTab extends GetxController {
@@ -47,7 +48,7 @@ class PageSqleditorTab extends GetxController {
 
   String get title {
     revision.value;
-    return loadedSnippetName ?? 'Query ${id + 1} · ${source.value}';
+    return loadedSnippetName ?? 'Query @{number} · @{source}'.trNamed({'number': '${id + 1}', 'source': source.value});
   }
 
   Map<String, dynamic> toPreferences() => {
@@ -155,7 +156,7 @@ class PageSqleditorTab extends GetxController {
     final end = selected ? value.selection.end : value.text.length;
     final sql = value.text.substring(start, end);
     if (sql.trim().isEmpty) return;
-    if (sql.length > 32000) { queryError.value = 'Format up to 32000 characters at a time.'; return; }
+    if (sql.length > 32000) { queryError.value = 'Format up to 32000 characters at a time.'.tr; return; }
     try {
       // sql_formatter 0.1.0 splits SQLite BLOB literals and JSON arrow operators.
       var prefix = ':__javit_format_';
@@ -181,14 +182,14 @@ class PageSqleditorTab extends GetxController {
       queryError.value = '';
       focusNode.requestFocus();
     } catch (_) {
-      queryError.value = 'Could not format this SQL. Your query was kept unchanged.';
+      queryError.value = 'Could not format this SQL. Your query was kept unchanged.'.tr;
     }
   }
 
-  String _message(Object error) => error is ChatException ? error.message
-      : error is StateError ? error.message.toString()
-      : error is FormatException ? 'Parameters must be a JSON array or object.'
-      : 'The operation could not be completed. Please retry.';
+  String _message(Object error) => error is ChatException ? error.message.tr
+      : error is StateError ? error.message.toString().tr
+      : error is FormatException ? 'Parameters must be a JSON array or object.'.tr
+      : 'The operation could not be completed. Please retry.'.tr;
 
   void stopQuery() {
     if (committing.value) return;
@@ -200,7 +201,7 @@ class PageSqleditorTab extends GetxController {
     final selectedSource = source.value;
     final selection = input.selection;
     final sql = (selection.isValid && !selection.isCollapsed ? selection.textInside(input.text) : input.text).trim();
-    if (sql.isEmpty) { queryError.value = 'Write or select a query first.'; return; }
+    if (sql.isEmpty) { queryError.value = 'Write or select a query first.'.tr; return; }
     final token = CancelToken();
     _queryToken = token;
     running.value = true;
@@ -216,7 +217,7 @@ class PageSqleditorTab extends GetxController {
       if (token.isCancelled || isClosed || selectedSource != source.value) return;
       if (data['requires_confirmation'] == true) {
         if (!await confirmWrite(sql, selectedSource, jsonEncode(args)) || token.isCancelled || isClosed || selectedSource != source.value) {
-          if (!isClosed && selectedSource == source.value) queryError.value = 'Write cancelled. No changes were made.';
+          if (!isClosed && selectedSource == source.value) queryError.value = 'Write cancelled. No changes were made.'.tr;
           return;
         }
         committing.value = true;
@@ -226,14 +227,14 @@ class PageSqleditorTab extends GetxController {
     } catch (error) {
       if (!token.isCancelled) AppLog.logW('SQL query failed for $selectedSource: $error');
       if (!isClosed && selectedSource == source.value) {
-        queryError.value = token.isCancelled ? 'Query stopped.' : _message(error);
-        if (committing.value) queryError.value += ' If completion is uncertain, check the database before retrying the write.';
+        queryError.value = token.isCancelled ? 'Query stopped.'.tr : _message(error);
+        if (committing.value) queryError.value += ' If completion is uncertain, check the database before retrying the write.'.tr;
       }
     } finally {
       if (!isClosed) {
         running.value = false;
         committing.value = false;
-        if (token.isCancelled && selectedSource == source.value && queryError.value.isEmpty) queryError.value = 'Query stopped.';
+        if (token.isCancelled && selectedSource == source.value && queryError.value.isEmpty) queryError.value = 'Query stopped.'.tr;
       }
       _queryToken = null;
     }
@@ -245,9 +246,9 @@ class PageSqleditorTab extends GetxController {
     if (generating.value) return;
     aiError.value = '';
     aiSql.value = '';
-    if (api == null || query == null) { aiError.value = 'AI generation is unavailable.'; return; }
+    if (api == null || query == null) { aiError.value = 'AI generation is unavailable.'.tr; return; }
     if (schemaLoading.value || schemaError.value.isNotEmpty || _schema.isEmpty) {
-      aiError.value = 'Load the database schema first, then retry.';
+      aiError.value = 'Load the database schema first, then retry.'.tr;
       return;
     }
     final selectedSource = source.value;
@@ -255,7 +256,7 @@ class PageSqleditorTab extends GetxController {
     final token = CancelToken();
     _aiToken = token;
     generating.value = true;
-    final timer = Timer(const Duration(seconds: 90), () => token.cancel('Generation timed out'));
+    final timer = Timer(const Duration(seconds: 90), () => token.cancel('Generation timed out'.tr));
     try {
       final sql = await api!.generateSql(prompt, Map.of(_schema), token);
       if (token.isCancelled) return;
@@ -266,12 +267,12 @@ class PageSqleditorTab extends GetxController {
       }
     } catch (error) {
       if (!token.isCancelled) AppLog.logW('SQL generation failed for $selectedSource: $error');
-      if (!isClosed && selectedSource == source.value) aiError.value = token.isCancelled ? 'Generation stopped or timed out. You can retry.' : _message(error);
+      if (!isClosed && selectedSource == source.value) aiError.value = token.isCancelled ? 'Generation stopped or timed out. You can retry.'.tr : _message(error);
     } finally {
       timer.cancel();
       if (!isClosed) {
         generating.value = false;
-        if (token.isCancelled && selectedSource == source.value && aiError.value.isEmpty) aiError.value = 'Generation stopped or timed out. You can retry.';
+        if (token.isCancelled && selectedSource == source.value && aiError.value.isEmpty) aiError.value = 'Generation stopped or timed out. You can retry.'.tr;
       }
       _aiToken = null;
     }
@@ -456,7 +457,7 @@ class PageSqleditorTab extends GetxController {
       if (isClosed || request != _schemaRequest) return;
       AppLog.logW('SQL schema load failed for ${source.value}: $error');
       _schema = {};
-      schemaError.value = 'Could not load schema. Click to retry.';
+      schemaError.value = 'Could not load schema. Click to retry.'.tr;
     } finally {
       if (!isClosed && request == _schemaRequest) {
         schemaLoading.value = false;
@@ -530,17 +531,17 @@ class SqlSnippetStore {
 
   Future<void> _save(String source, String name, String? sql, bool update) async {
     name = name.trim();
-    if (name.isEmpty) throw StateError('Enter a snippet name.');
-    if (sql != null && sql.trim().isEmpty) throw StateError('Write or select a query first.');
+    if (name.isEmpty) throw StateError('Enter a snippet name.'.tr);
+    if (sql != null && sql.trim().isEmpty) throw StateError('Write or select a query first.'.tr);
     final entries = snippetsFor(source);
     if (sql == null) {
       entries.remove(name);
     } else {
-      if (update && !entries.containsKey(name)) throw StateError('This snippet no longer exists. Save it as a new snippet.');
-      if (!update && entries.containsKey(name)) throw StateError('This name already exists. Use a different name.');
+      if (update && !entries.containsKey(name)) throw StateError('This snippet no longer exists. Save it as a new snippet.'.tr);
+      if (!update && entries.containsKey(name)) throw StateError('This name already exists. Use a different name.'.tr);
       entries[name] = sql.trim();
     }
-    if (persistSnippets == null) throw StateError('Snippet storage is unavailable.');
+    if (persistSnippets == null) throw StateError('Snippet storage is unavailable.'.tr);
     final next = {...savedSnippets, source: entries};
     await persistSnippets!(next);
     savedSnippets..clear()..addAll(next);

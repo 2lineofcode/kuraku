@@ -19,6 +19,7 @@ import '../../../env.g.dart';
 import '../../core/app_color.dart';
 import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
+import '../../core/app_translations.dart';
 import '../../data/database/db_activity.dart';
 import '../../data/database/db_gamification.dart';
 import '../../data/database/db_profile.dart';
@@ -173,7 +174,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     final todayColi = await DBActivity.getCountRelapseToday();
     AppLog.logD('todayColi -> $todayColi');
     if (todayColi >= AppPref.getAppMaxColi()) {
-      await HelperToast.error('Max coli count reached for today. Please try again tomorrow.');
+      await HelperToast.error('Max coli count reached for today. Please try again tomorrow.'.tr);
       Get.back();
       return false;
     }
@@ -181,14 +182,14 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
     final path = video.videoPath;
     if (path.isNullOrEmpty) {
-      await HelperToast.error('Video path is null');
+      await HelperToast.error('Video path is null'.tr);
       return false;
     }
 
     final decodedPath = Uri.parse(path!).toFilePath();
     final file = File(decodedPath);
     if (!file.existsSync()) {
-      await HelperToast.error('Cant access file: ${video.videoPath}');
+      await HelperToast.error('Cant access file: @{videoPath}'.trNamed({'videoPath': '${video.videoPath}'}));
       return false;
     }
 
@@ -276,7 +277,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
     if (subtitlePaths.isNotEmpty) {
       if (subtitlePaths.length != 1 || videoPaths.isNotEmpty) {
-        await HelperToast.warn('Drop one subtitle file onto the current video');
+        await HelperToast.warn('Drop one subtitle file onto the current video'.tr);
       } else if (identical(currentVideo.value, video)) {
         await loadSubtitle(subtitlePaths.single);
       }
@@ -285,7 +286,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
     if (videoPaths.isEmpty) {
       if (hasUnsupportedFile) {
-        await HelperToast.warn('File not supported');
+        await HelperToast.warn('File not supported'.tr);
       }
       return;
     }
@@ -302,7 +303,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     final video = currentVideo.value;
     try {
       final result = await FilePicker.pickFile(
-        dialogTitle: 'Load subtitle',
+        dialogTitle: 'Load subtitle'.tr,
         type: FileType.custom,
         allowedExtensions: subtitleExtensions,
       );
@@ -310,7 +311,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       if (path != null && !isClosed && identical(currentVideo.value, video)) await loadSubtitle(path);
     } catch (e) {
       AppLog.logW('Failed to open subtitle picker: $e');
-      await HelperToast.error('Failed to open subtitle: $e');
+      await HelperToast.error('Failed to open subtitle: @{e}'.trNamed({'e': '$e'}));
     } finally {
       requestFocusOnPlayer();
     }
@@ -319,13 +320,13 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   Future<void> loadSubtitle(String path) async {
     try {
       if (!subtitleExtensions.contains(extension(path).toLowerCase().replaceFirst('.', ''))) {
-        throw ArgumentError('Supported subtitles: .srt, .vtt, .ass, .ssa');
+        throw ArgumentError('Supported subtitles: .srt, .vtt, .ass, .ssa'.tr);
       }
-      if (!File(path).existsSync()) throw FileSystemException('Cannot access subtitle', path);
+      if (!File(path).existsSync()) throw FileSystemException('Cannot access subtitle'.tr, path);
       await selectSubtitle(SubtitleTrack.uri(Uri.file(path).toString(), title: basename(path)));
     } catch (e) {
       AppLog.logW('Failed to load subtitle ($path): $e');
-      await HelperToast.error('Failed to load subtitle: $e');
+      await HelperToast.error('Failed to load subtitle: @{e}'.trNamed({'e': '$e'}));
     }
   }
 
@@ -335,7 +336,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       await player.setSubtitleTrack(track);
     } catch (e) {
       AppLog.logW('Failed to select subtitle track: $e');
-      await HelperToast.error('Failed to select subtitle: $e');
+      await HelperToast.error('Failed to select subtitle: @{e}'.trNamed({'e': '$e'}));
     } finally {
       requestFocusOnPlayer();
     }
@@ -409,7 +410,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     final decodedPath = _normalizeRawDropPath(path);
     final file = File(decodedPath);
     if (!file.existsSync()) {
-      await HelperToast.warn('File not found');
+      await HelperToast.warn('File not found'.tr);
       return null;
     }
 
@@ -508,13 +509,13 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   Future<void> _openVideo(Videos video) async {
     final path = video.videoPath;
     if (path.isNullOrEmpty) {
-      await HelperToast.error('Video path is null');
+      await HelperToast.error('Video path is null'.tr);
       return;
     }
 
     final file = File(path!);
     if (!file.existsSync()) {
-      await HelperToast.warn('Cant access video file');
+      await HelperToast.warn('Cant access video file'.tr);
       return;
     }
 
@@ -548,7 +549,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       _watchTracker.setPlaying(false);
       isInitialized.value = false;
       AppLog.logE('Failed to load video: $e');
-      await HelperToast.error('Failed to load video: $e');
+      await HelperToast.error('Failed to load video: @{e}'.trNamed({'e': '$e'}));
     }
   }
 
@@ -704,9 +705,9 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     final homeController = Get.find<HomeController>();
     final isAdded = homeController.addToCart(currentVideo.value);
     if (!isAdded) {
-      await HelperToast.info('Already in panel cart');
+      await HelperToast.info('Already in panel cart'.tr);
     } else {
-      await HelperToast.success('Added in panel cart');
+      await HelperToast.success('Added in panel cart'.tr);
     }
     await Overlayment.dismissLast();
   }
@@ -772,7 +773,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
               controller: _tecSearch,
               focusNode: _fnSearch,
               clearButtonMode: OverlayVisibilityMode.editing,
-              placeholder: 'Search (${_videos.length})...',
+              placeholder: 'Search (@{length})...'.trNamed({'length': '${_videos.length}'}),
               style: TextStyle(color: AppColor.text, fontSize: 14),
               prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
               // suffix: IconButton(
@@ -871,11 +872,11 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
                                 final homeController = Get.find<HomeController>();
                                 final isAdded = homeController.addToCart(__item);
                                 if (isAdded) {
-                                  await HelperToast.success('Added to panel cart');
+                                  await HelperToast.success('Added to panel cart'.tr);
                                 } else {
-                                  await HelperToast.info('Already in panel cart');
+                                  await HelperToast.info('Already in panel cart'.tr);
                                 }
-                              }).tooltip('Add to Panel Cart').pOnly(left: 12),
+                              }).tooltip('Add to Panel Cart'.tr).pOnly(left: 12),
                               if (!__item.actress.isEmptyOrNull) ...[
                                 Icon(UIconsPro.regularRounded.person_dolly, size: 13).pOnly(left: 12).onInkTap(() async {
                                   final _fltr = await DBVideos.getByActress(__item.actress?[0].nameRomaji ?? '');
@@ -900,7 +901,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
                       final file = File(__item.videoPath!);
                       if (!file.existsSync()) {
-                        await HelperToast.warn('Cant access video file');
+                        await HelperToast.warn('Cant access video file'.tr);
                         return;
                       }
 
@@ -945,7 +946,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
   Future<void> toggleVideoFit() async {
     videoFit.value = videoFit.value == BoxFit.contain ? BoxFit.fitHeight : BoxFit.contain;
-    final label = videoFit.value == BoxFit.contain ? 'Fit: Contain' : 'Fit: Fit Height';
+    final label = videoFit.value == BoxFit.contain ? 'Fit: Contain'.tr : 'Fit: Fit Height'.tr;
     await showInfoOverlay(label);
   }
 

@@ -39,10 +39,10 @@ mixin HomePanelAppLog {
         child: VStack(
           [
             HStack([
-              'APP LOG'.text.bold.make().expand(),
+              'APP LOG'.tr.text.bold.make().expand(),
               IconButton(
                 icon: Icon(UIconsPro.regularRounded.cross, size: 13),
-                tooltip: 'Close',
+                tooltip: 'Close'.tr,
                 onPressed: () => Overlayment.dismissLast(),
               )
             ]).pOnly(bottom: 12),
@@ -82,7 +82,7 @@ mixin HomePanelAppLog {
 
             // Spacer(),
             ExButtonText(
-              label: 'Clear',
+              label: 'Clear'.tr,
               height: 32,
               width: double.infinity,
               onPressed: () => clear(),

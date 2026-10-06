@@ -9,6 +9,7 @@ import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
+import '../../../core/app_translations.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../player/player_multi_view.dart';
@@ -40,10 +41,10 @@ mixin HomePanelCart {
             HStack(
               [
                 Icon(UIconsPro.regularRounded.bags_shopping, size: 16).pOnly(right: 12, left: 8),
-                Obx(() => 'Video Cart (${_controller.cart.length})'.text.bold.make()),
+                Obx(() => 'Video Cart (@{length})'.trNamed({'length': '${_controller.cart.length}'}).text.bold.make()),
                 Spacer(),
                 IconButton(
-                  icon: Icon(UIconsPro.regularRounded.delete, size: 13).tooltip('Empty Cart'),
+                  icon: Icon(UIconsPro.regularRounded.delete, size: 13).tooltip('Empty Cart'.tr),
                   onPressed: () async {
                     _controller.cart.value = [];
                     await Overlayment.dismissLast();
@@ -54,7 +55,7 @@ mixin HomePanelCart {
             Divider(),
             Obx(
               () => _controller.cart.isEmpty
-                  ? ExUiErrorOrEmpty(illustration: Icon(UIconsPro.regularRounded.empty_set, size: 64).pOnly(bottom: 12), message: 'Cart is empty').expand()
+                  ? ExUiErrorOrEmpty(illustration: Icon(UIconsPro.regularRounded.empty_set, size: 64).pOnly(bottom: 12), message: 'Cart is empty'.tr).expand()
                   : ListView.separated(
                       itemCount: _controller.cart.length,
                       separatorBuilder: (context, index) => Divider(color: AppColor.border),
@@ -146,21 +147,21 @@ mixin HomePanelCart {
                       await _deleteVideos(_controller.cart);
                     },
                   ),
-                ).pOnly(right: 8).tooltip('Delete All This Files'),
+                ).pOnly(right: 8).tooltip('Delete All This Files'.tr),
 
                 Container(
                   decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                   child: HStack([
                     Icon(UIconsPro.regularRounded.play, size: 14)
                   ]).p(10).pSymmetric(h: 12),
-                ).onInkTap(() => _playVideos()).pOnly(right: 8).tooltip('Play as Playlist'),
+                ).onInkTap(() => _playVideos()).pOnly(right: 8).tooltip('Play as Playlist'.tr),
 
                 Container(
                   decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                   child: HStack([
                     Icon(UIconsPro.regularRounded.camera_movie, size: 14)
                   ]).p(10).pSymmetric(h: 12),
-                ).onInkTap(() => _openInGridPlayer()).pOnly(right: 8).tooltip('Open in Grid Player'),
+                ).onInkTap(() => _openInGridPlayer()).pOnly(right: 8).tooltip('Open in Grid Player'.tr),
 
                 Container(
                   decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
@@ -171,7 +172,7 @@ mixin HomePanelCart {
                       await HomePanelPlaylist.showDialogAddToPlaylistItem(_controller.cart);
                     },
                   ),
-                ).pOnly(right: 8).tooltip('Add to Playlist'),
+                ).pOnly(right: 8).tooltip('Add to Playlist'.tr),
 
                 Spacer(),
               ],
@@ -189,11 +190,11 @@ mixin HomePanelCart {
     await Overlayment.dismissLast();
     ExAlert.adaptive(
       isDismissible: false,
-      title: Text('Are you sure?', style: TextStyle(fontSize: 14)),
-      content: Text('Delete "${videos.title}"? this action can\'t be undo', style: TextStyle(fontSize: 12)).pOnly(top: 8),
+      title: Text('Are you sure?'.tr, style: TextStyle(fontSize: 14)),
+      content: Text('Delete "@{title}"? this action can\'t be undo'.trNamed({'title': '${videos.title}'}), style: TextStyle(fontSize: 12)).pOnly(top: 8),
       actions: [
         CupertinoDialogAction(
-          child: Text('Yes', style: TextStyle(color: Vx.red500, fontSize: 13)),
+          child: Text('Yes'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
           onPressed: () async {
             Get.back();
 
@@ -202,7 +203,7 @@ mixin HomePanelCart {
                 File(videos.videoPath!).deleteSync();
               } catch (e) {
                 AppLog.logE('Failed to delete video ${videos.videoPath}: $e');
-                await HelperToast.error('Failed to delete video: ${videos.videoPath}');
+                await HelperToast.error('Failed to delete video: @{videoPath}'.trNamed({'videoPath': '${videos.videoPath}'}));
               }
               _controller.cart.remove(videos);
               _controller.cart.refresh();
@@ -212,7 +213,7 @@ mixin HomePanelCart {
           },
         ),
         CupertinoDialogAction(
-          child: Text('No', style: TextStyle(fontSize: 13)),
+          child: Text('No'.tr, style: TextStyle(fontSize: 13)),
           onPressed: () async => {Get.back(), await open()}, 
         ),
       ],
@@ -226,11 +227,11 @@ mixin HomePanelCart {
     await Overlayment.dismissLast();
 
     ExAlert.adaptive(
-      title: Text('Are you sure?', style: TextStyle(fontSize: 14)),
-      content: Text('Delete this video files? this action can\'t be undo', style: TextStyle(fontSize: 12)).pOnly(top: 8),
+      title: Text('Are you sure?'.tr, style: TextStyle(fontSize: 14)),
+      content: Text('Delete this video files? this action can\'t be undo'.tr, style: TextStyle(fontSize: 12)).pOnly(top: 8),
       actions: [
         CupertinoDialogAction(
-          child: Text('Yes', style: TextStyle(color: Vx.red500, fontSize: 13)),
+          child: Text('Yes'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
           onPressed: () async {
             Get.back();
             final fileToDelete = videos.map((e) => e.videoPath).toList();
@@ -242,17 +243,17 @@ mixin HomePanelCart {
                   File(file!).deleteSync();
                 } catch (e) {
                   AppLog.logE('Failed to delete video $file: $e');
-                  await HelperToast.error('Failed to delete video: $file');
+                  await HelperToast.error('Failed to delete video: @{file}'.trNamed({'file': '$file'}));
                 }
               }
             }
 
-            await HelperToast.warn('${_controller.cart.length} Video deleted');
+            await HelperToast.warn('@{length} Video deleted'.trNamed({'length': '${_controller.cart.length}'}));
             await _refreshState();
           },
         ),
         CupertinoDialogAction(
-          child: Text('No', style: TextStyle(fontSize: 13)),
+          child: Text('No'.tr, style: TextStyle(fontSize: 13)),
           onPressed: () => Get.back(),
         ),
       ],
@@ -270,7 +271,7 @@ mixin HomePanelCart {
     }).toList();
 
     if (playableVideos.isEmpty) {
-      await HelperToast.warn('No playable video found. Check your external drive connection.');
+      await HelperToast.warn('No playable video found. Check your external drive connection.'.tr);
       return;
     }
 

@@ -65,7 +65,7 @@ class PageSqleditorController extends GetxController {
     if (persistTabs == null) return Future.value();
     final value = {'tabs': tabs.map((tab) => tab.toPreferences()).toList(), 'activeTab': activeTabIndex.value};
     _pendingSave = _pendingSave.then((_) => persistTabs!(value)).then((_) { saveError.value = ''; }).catchError((Object _) {
-      saveError.value = 'Could not save SQL tabs. Retry to keep your drafts.';
+      saveError.value = 'Could not save SQL tabs. Retry to keep your drafts.'.tr;
     });
     return _pendingSave;
   }
@@ -92,7 +92,7 @@ class PageSqleditorController extends GetxController {
     if (index < 0 || index >= tabs.length) return;
     final tab = tabs[index];
     if (tab.committing.value) {
-      tab.queryError.value = 'Wait for the write to finish before closing this tab.';
+      tab.queryError.value = 'Wait for the write to finish before closing this tab.'.tr;
       return;
     }
     tab.stopQuery();

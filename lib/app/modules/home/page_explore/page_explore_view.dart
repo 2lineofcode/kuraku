@@ -9,6 +9,7 @@ import 'package:kana_kit/kana_kit.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/app_translations.dart';
 import '../../../core/const.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/models/videos_entity.dart';
@@ -32,13 +33,13 @@ class PageExploreView extends GetView<PageExploreController> {
       },
       child: Focus(autofocus: true, child: Column(children: [
       Obx(() => SearchTabBar(
-        tabs: controller.tabs.map((tab) => (title: tab.title, isLoading: tab.isLoading.value || tab.isLoadingSelection.value || tab.isLoadingR18.value)).toList(),
+        tabs: controller.tabs.map((tab) => (title: tab.currentMenuSelected.value == kCustom || tab.leftListSelected.value.name == null ? tab.title.tr : tab.title, isLoading: tab.isLoading.value || tab.isLoadingSelection.value || tab.isLoadingR18.value)).toList(),
         activeIndex: controller.activeTabIndex.value,
         scrollController: controller.tabScrollController,
         onSelect: controller.selectTab,
         onClose: controller.closeTab,
         onAdd: controller.addTab,
-        addTooltip: 'New Explore tab',
+        addTooltip: 'New Explore tab'.tr,
       )).pOnly(bottom: 8),
       Expanded(child: Obx(() {
         final tab = controller.activeTab;
@@ -61,8 +62,8 @@ class PageExploreTabView extends StatelessWidget {
           ? buildPage()
           : ExUiErrorOrEmpty(
               illustration: Icon(UIconsPro.regularRounded.square_dashed_circle_plus, size: 128),
-              title: '~ Fresh ~',
-              message: 'Hi There, Select Or Drag & Drop your JAV Folder Here',
+              title: '~ Fresh ~'.tr,
+              message: 'Hi There, Select Or Drag & Drop your JAV Folder Here'.tr,
             ),
     );
   }
@@ -93,7 +94,7 @@ class PageExploreTabView extends StatelessWidget {
           itemBuilder: (context, index) {
             return Obx(
               () => ExButtonOutline(
-                label: controller.menus[index],
+                label: controller.menus[index].tr,
                 labelSize: 12,
                 labelColor: controller.currentMenuSelected.value == controller.menus[index] ? AppColor.text : AppColor.muted,
                 borderColor: controller.currentMenuSelected.value == controller.menus[index] ? AppColor.selected : AppColor.container,
@@ -121,7 +122,7 @@ class PageExploreTabView extends StatelessWidget {
                 () => CupertinoTextField(
                   controller: controller.tecSearchLeft,
                   focusNode: controller.fnSearchLeft,
-                  placeholder: controller.phSearchLeft.value,
+                  placeholder: controller.phSearchLeft.value.tr,
                   style: TextStyle(color: AppColor.text, fontSize: 12),
                   clearButtonMode: OverlayVisibilityMode.editing,
                   prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
@@ -133,16 +134,16 @@ class PageExploreTabView extends StatelessWidget {
                 () => CustomPopup(
                   contentPadding: EdgeInsets.all(12),
                   content: VStack([
-                    'Sort By:'.text.bold.black.make(),
+                    'Sort By:'.tr.text.bold.black.make(),
                     Divider(),
                     ExButtonText(
-                      label: controller.leftSortSelected.value == 'Name' ? '◉ Name' : '◎ Name',
+                      label: controller.leftSortSelected.value == 'Name' ? '◉ Name'.tr : '◎ Name'.tr,
                       labelSize: 13,
                       labelColor: Vx.black,
                       onPressed: () => {controller.onLeftSortChange('Name'), Get.back()},
                     ).pOnly(right: 6),
                     ExButtonText(
-                      label: controller.leftSortSelected.value == 'Count' ? '◉ Count' : '◎ Count',
+                      label: controller.leftSortSelected.value == 'Count' ? '◉ Count'.tr : '◎ Count'.tr,
                       labelSize: 13,
                       labelColor: Vx.black,
                       onPressed: () => {controller.onLeftSortChange('Count'), Get.back()},
@@ -210,17 +211,17 @@ class PageExploreTabView extends StatelessWidget {
                                     // path only
                                     if (controller.currentMenuSelected.value == kPath) ...[
                                       if (HelperMisc.isExternalDrive(item.name)) ...[
-                                        'External → ${item.name!.getLastSegments(segment: 1)} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
+                                        'External → @{segment} (@{count})'.trNamed({'segment': '${item.name!.getLastSegments(segment: 1)}', 'count': '${item.count}'}).text.size(12).maxLines(3).ellipsis.make().p8().expand(),
                                       ] else ...[
-                                        'Local → ${item.name!.getLastPath()} (${item.count})'.text.size(12).maxLines(3).ellipsis.make().p8().expand(),
+                                        'Local → @{getLastPath} (@{count})'.trNamed({'getLastPath': '${item.name!.getLastPath()}', 'count': '${item.count}'}).text.size(12).maxLines(3).ellipsis.make().p8().expand(),
                                       ],
                                     ]
                                     // other ~
                                     else ...[
-                                      '${item.name} ${item.count != 0 ? '(${item.count})' : ''}'.text.size(12).maxLines(3).ellipsis.make().p8().expand()
+                                      '${controller.currentMenuSelected.value == kCustom ? item.name?.tr : item.name} ${item.count != 0 ? '(${item.count})' : ''}'.text.size(12).maxLines(3).ellipsis.make().p8().expand()
                                     ],
                                     IconButton(
-                                      tooltip: isPinned ? 'Unpin' : 'Pin to top',
+                                      tooltip: isPinned ? 'Unpin'.tr : 'Pin to top'.tr,
                                       icon: Icon(isPinned ? Icons.push_pin : Icons.push_pin_outlined, size: 16),
                                       color: isPinned ? Colors.amber : Vx.neutral500,
                                       padding: EdgeInsets.zero,
@@ -256,7 +257,7 @@ class PageExploreTabView extends StatelessWidget {
               : controller.rightListLocal.isEmpty
               ? ExUiErrorOrEmpty(
                   illustration: Icon(CupertinoIcons.chevron_left_2, size: 64).pOnly(bottom: 12),
-                  message: 'Please select left area first',
+                  message: 'Please select left area first'.tr,
                 ).expand()
               : controller.rightListViewMode.value == kLocal
                   ? _buildVListLocal().expand()
@@ -272,7 +273,7 @@ class PageExploreTabView extends StatelessWidget {
   Widget _buildUiNoData() {
     return ExUiErrorOrEmpty(
       illustration: Icon(UIconsPro.regularRounded.search, size: 64).pOnly(bottom: 24),
-      message: 'No Result Found, as you searched for "${controller.tecSearchLeft.text}"',
+      message: 'No Result Found, as you searched for "@{text}"'.trNamed({'text': '${controller.tecSearchLeft.text}'}),
     );
   }
 
@@ -319,7 +320,7 @@ class PageExploreTabView extends StatelessWidget {
             }).pOnly(top: 6, bottom: 6),
             Obx(
               () => HStack([
-                '$kLocal: ${item.count}'
+                '${kLocal.tr}: ${item.count}'
                     .text
                     .size(11)
                     .minFontSize(11)
@@ -351,7 +352,7 @@ class PageExploreTabView extends StatelessWidget {
                     .ellipsis
                     .align(TextAlign.right)
                     .make()
-                    .tooltip('Total filesize')
+                    .tooltip('Total filesize'.tr)
                     .pOnly(right: 12)
                     .expand(),
               ]),
@@ -408,7 +409,7 @@ class PageExploreTabView extends StatelessWidget {
                   style: TextStyle(fontSize: 12, color: AppColor.text),
                   items: const {ActressMode.all: 'All', ActressMode.single: 'Single Actress', ActressMode.multi: 'Multi Actress'}.entries.map((option) => DropdownMenuItem(
                     value: option.key,
-                    child: Text(option.value),
+                    child: Text(option.value.tr),
                   )).toList(),
                   onChanged: (mode) {
                     if (mode == null || mode == controller.actressMode.value) return;
@@ -422,7 +423,7 @@ class PageExploreTabView extends StatelessWidget {
               controller: controller.tecSearchRight,
               focusNode: controller.fnSearchRight,
               clearButtonMode: OverlayVisibilityMode.editing,
-              placeholder: 'Search (${controller.rightListR18Filtered.length}) Videos...',
+              placeholder: 'Search (@{length}) Videos...'.trNamed({'length': '${controller.rightListR18Filtered.length}'}),
               style: TextStyle(color: AppColor.text, fontSize: 14),
               prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
               onChanged: (q) => controller.onRightListDoSearch(q),
@@ -568,7 +569,7 @@ class PageExploreTabView extends StatelessWidget {
             Container(
               color: Vx.blue600.withAlpha(200),
               child: HStack([
-                '🇮🇩'.text.size(10).minFontSize(10).make().tooltip('ID Sub'),
+                '🇮🇩'.text.size(10).minFontSize(10).make().tooltip('ID Sub'.tr),
               ]).p4(),
             ).cornerRadius(8).p2().positioned(right: 0, top: 0),
           ],
@@ -578,7 +579,7 @@ class PageExploreTabView extends StatelessWidget {
             Container(
               color: Vx.purple600.withAlpha(200),
               child: HStack([
-                '🇬🇧'.text.size(10).minFontSize(10).make().tooltip('EN Sub'),
+                '🇬🇧'.text.size(10).minFontSize(10).make().tooltip('EN Sub'.tr),
               ]).p4(),
             ).cornerRadius(8).p2().positioned(right: 0, top: 0),
           ],
@@ -588,7 +589,7 @@ class PageExploreTabView extends StatelessWidget {
             Container(
               color: Vx.red600.withAlpha(200),
               child: HStack([
-                '🎞️'.text.size(10).minFontSize(10).make().tooltip('Reduce Mosaic'),
+                '🎞️'.text.size(10).minFontSize(10).make().tooltip('Reduce Mosaic'.tr),
               ]).p4(),
             ).cornerRadius(8).p2().positioned(right: 0, top: 0),
           ],
@@ -600,8 +601,8 @@ class PageExploreTabView extends StatelessWidget {
               child: HStack([
                 Icon(UIconsPro.solidRounded.calendar, size: 10).pOnly(right: 5),
                 video.releaseDate.isNotEmptyAndNotNull
-                    ? '${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Release date: ${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}')
-                    : '${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Added at: ${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}')
+                    ? '${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Release date: @{kMdY}'.trNamed({'kMdY': '${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'}))
+                    : '${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Added at: @{kMdY}'.trNamed({'kMdY': '${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}'}))
               ]).p4(),
             ).cornerRadius(8).p2(),
           ],
@@ -624,7 +625,7 @@ class PageExploreTabView extends StatelessWidget {
                 Icon(UIconsPro.solidRounded.eye, size: 10).pOnly(right: 5, top: 2),
                 '${video.viewCount ?? 0}'.text.size(10).minFontSize(10).make(),
               ]).pSymmetric(h: 4, v: 2),
-            ).cornerRadius(4).tooltip(video.viewCount != null ? 'View: ${video.viewCount}' : '').positioned(bottom: 24, right: 4),
+            ).cornerRadius(4).tooltip(video.viewCount != null ? 'View: @{count}'.trNamed({'count': '${video.viewCount}'}) : '').positioned(bottom: 24, right: 4),
           ],
 
            // Video title

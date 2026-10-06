@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import '../../core/app_color.dart';
 
@@ -17,14 +18,14 @@ class DownloadMethodDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Download', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColor.text)),
+            Text('Download'.tr, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColor.text)),
             const SizedBox(height: 4),
-            Text('Choose how to open this video', style: TextStyle(fontSize: 12, color: AppColor.muted)),
+            Text('Choose how to open this video'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),
             const SizedBox(height: 20),
-            for (final option in const [
-              ('native', 'Native', 'Download in JavIt', Icons.download_rounded),
-              ('downie', 'Downie', 'Send to Downie', Icons.open_in_new_rounded),
-              ('url', 'Just Open URL', 'Open in your default browser', Icons.language_rounded),
+            for (final option in [
+              ('native', 'Native'.tr, 'Download in JavIt'.tr, Icons.download_rounded),
+              ('downie', 'Downie'.tr, 'Send to Downie'.tr, Icons.open_in_new_rounded),
+              ('url', 'Just Open URL'.tr, 'Open in your default browser'.tr, Icons.language_rounded),
             ])
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -65,7 +66,7 @@ class DownloadMethodDialog extends StatelessWidget {
             TextButton(
               style: TextButton.styleFrom(foregroundColor: AppColor.muted, textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 12)),
               onPressed: () => onSelected(null),
-              child: const Text('Cancel'),
+              child: Text('Cancel'.tr),
             ),
           ],
         ),

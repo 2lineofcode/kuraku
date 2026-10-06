@@ -8,6 +8,7 @@ import 'package:uicons_pro/uicons_pro.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/app_translations.dart';
 import '../../../data/models/chat_entity.dart';
 import '../../../utils/chat_knowledge.dart';
 import '../../../utils/chat_service.dart';
@@ -22,8 +23,8 @@ class PageChatView extends GetView<PageChatController> {
     AppColor.dependOn(context);
     return Column(children: [
       Obx(() => controller.error.value.isEmpty ? const SizedBox.shrink() : Row(children: [
-        Expanded(child: Text(controller.error.value, style: const TextStyle(fontSize: 12, color: Colors.red))),
-        TextButton(onPressed: controller.busy.value ? null : controller.retry, child: const Text('Retry')),
+        Expanded(child: Text(controller.error.value.tr, style: const TextStyle(fontSize: 12, color: Colors.red))),
+        TextButton(onPressed: controller.busy.value ? null : controller.retry, child: Text('Retry'.tr)),
       ])),
       Obx(() => controller.busy.value ? const LinearProgressIndicator(minHeight: 2) : const SizedBox(height: 2)),
       Expanded(child: Obx(() => AbsorbPointer(
@@ -41,7 +42,7 @@ class PageChatView extends GetView<PageChatController> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     child: Row(children: [
                       Builder(builder: (context) => IconButton(
-                        tooltip: 'Toggle chat history',
+                        tooltip: 'Toggle chat history'.tr,
                         visualDensity: VisualDensity.compact,
                         constraints: const BoxConstraints.tightFor(width: 32, height: 32),
                         padding: EdgeInsets.zero,
@@ -55,16 +56,16 @@ class PageChatView extends GetView<PageChatController> {
                         },
                       )),
                       const SizedBox(width: 8),
-                      Expanded(child: Obx(() => Text(controller.activeChat.value.title,
+                      Expanded(child: Obx(() => Text(controller.activeChat.value.title == 'New chat' ? 'New chat'.tr : controller.activeChat.value.title,
                         maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)))),
-                      IconButton(tooltip: 'Delete chat',
+                      IconButton(tooltip: 'Delete chat'.tr,
                         onPressed: () => _editChat(context, controller.activeChat.value, deleting: true),
                         visualDensity: VisualDensity.compact,
                         constraints: const BoxConstraints.tightFor(width: 32, height: 32),
                         padding: EdgeInsets.zero,
                         icon: const Icon(Icons.delete_outline_rounded, size: 16)).pOnly(right: 8),
-                      IconButton(tooltip: 'New chat', onPressed: controller.newChat,
+                      IconButton(tooltip: 'New chat'.tr, onPressed: controller.newChat,
                         visualDensity: VisualDensity.compact,
                         constraints: const BoxConstraints.tightFor(width: 32, height: 32),
                         padding: EdgeInsets.zero,
@@ -99,7 +100,7 @@ class PageChatView extends GetView<PageChatController> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(padding: const EdgeInsets.fromLTRB(4, 0, 0, 4), child: Row(children: [
           const Expanded(child: Text('JavIt AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-          IconButton(tooltip: 'Delete all chats', onPressed: () => _deleteAllChats(context),
+          IconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 28, height: 28),
             padding: EdgeInsets.zero,
@@ -113,23 +114,23 @@ class PageChatView extends GetView<PageChatController> {
             if (closeOnSelect) Navigator.pop(context);
           },
           icon: Icon(UIconsPro.regularRounded.plus, size: 14, color: AppColor.text),
-          label: 'New chat',
+          label: 'New chat'.tr,
         )),
         const SizedBox(height: 8),
         CupertinoTextField(
           controller: controller.searchInput,
           onChanged: (value) => controller.search.value = value,
           style: TextStyle(fontSize: 12, color: AppColor.text),
-          placeholder: 'Search chats',
+          placeholder: 'Search chats'.tr,
           prefix: Icon(UIconsPro.regularRounded.search, size: 12, color: AppColor.muted).pOnly(left: 8),
         ),
         Padding(padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
-          child: Text('Your chats', style: TextStyle(fontSize: 11, color: AppColor.muted))),
+          child: Text('Your chats'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted))),
         Expanded(child: Obx(() {
           final query = controller.search.value.trim().toLowerCase();
           final active = controller.activeChat.value;
           final chats = controller.chats.where((chat) => chat.title.toLowerCase().contains(query)).toList();
-          if (chats.isEmpty) return Center(child: Text('No chats found', style: TextStyle(fontSize: 12, color: AppColor.muted)));
+          if (chats.isEmpty) return Center(child: Text('No chats found'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)));
           return ListView.builder(
             itemCount: chats.length,
             itemBuilder: (context, index) {
@@ -150,7 +151,7 @@ class PageChatView extends GetView<PageChatController> {
                     contentPadding: const EdgeInsets.only(left: 8),
                     leading: chat.isPinned ? Icon(Icons.push_pin_rounded, size: 13, color: AppColor.muted) : null,
                     minLeadingWidth: 14,
-                    title: Text(chat.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
+                    title: Text(chat.title == 'New chat' ? 'New chat'.tr : chat.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
                     onTap: () {
                       controller.selectChat(chat);
                       if (closeOnSelect) Navigator.pop(context);
@@ -160,21 +161,21 @@ class PageChatView extends GetView<PageChatController> {
                         MenuItemButton(
                           leadingIcon: Icon(chat.isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined, size: 12),
                           onPressed: () => controller.togglePin(chat),
-                          child: Text(chat.isPinned ? 'Unpin chat' : 'Pin chat', style: const TextStyle(fontSize: 12)),
+                          child: Text(chat.isPinned ? 'Unpin chat'.tr : 'Pin chat'.tr, style: const TextStyle(fontSize: 12)),
                         ),
                         MenuItemButton(
                           leadingIcon: Icon(UIconsPro.regularRounded.edit, size: 12),
                           onPressed: () => _editChat(context, chat, deleting: false),
-                          child: const Text('Rename', style: TextStyle(fontSize: 12)),
+                          child: Text('Rename'.tr, style: TextStyle(fontSize: 12)),
                         ),
                         MenuItemButton(
                           leadingIcon: Icon(UIconsPro.regularRounded.trash, size: 12),
                           onPressed: () => _editChat(context, chat, deleting: true),
-                          child: const Text('Delete', style: TextStyle(fontSize: 12)),
+                          child: Text('Delete'.tr, style: TextStyle(fontSize: 12)),
                         ),
                       ],
                       builder: (context, menu, _) => IconButton(
-                        tooltip: 'Chat options',
+                        tooltip: 'Chat options'.tr,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints.tightFor(width: 28, height: 28),
                         visualDensity: VisualDensity.compact,
@@ -201,18 +202,18 @@ class PageChatView extends GetView<PageChatController> {
           child: Icon(UIconsPro.regularRounded.comment_alt_dots, size: 24, color: AppColor.text),
         ),
         const SizedBox(height: 12),
-        const Text('What would you like to explore?', textAlign: TextAlign.center,
+        Text('What would you like to explore?'.tr, textAlign: TextAlign.center,
           style: TextStyle(fontSize: 26, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
-        Text('Ask about your library and the local R18 catalog.', textAlign: TextAlign.center,
+        Text('Ask about your library and the local R18 catalog.'.tr, textAlign: TextAlign.center,
           style: TextStyle(fontSize: 12, color: AppColor.muted)),
         const SizedBox(height: 16),
         Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
           for (final template in PageChatController.templates.entries)
             ExButtonOutline(height: 36, radius: 18, borderColor: AppColor.border, labelColor: AppColor.text,
               onPressed: () => controller.useTemplate(template.key),
-              child: Text(template.value.label, style: TextStyle(fontSize: 11, color: AppColor.text))),
-          for (final prompt in ['Berapa jumlah video saya?', 'Tampilkan favorit saya', 'Bandingkan koleksi saya dengan katalog R18'])
+              child: Text(template.value.label.tr, style: TextStyle(fontSize: 11, color: AppColor.text))),
+          for (final prompt in ['How many videos do I have?'.tr, 'Show my favorites'.tr, 'Compare my collection with the R18 catalog'.tr])
             ExButtonOutline(height: 36, radius: 18,
               borderColor: AppColor.border, labelColor: AppColor.text,
               onPressed: () => controller.usePrompt(prompt),
@@ -233,18 +234,18 @@ class PageChatView extends GetView<PageChatController> {
             key: const ValueKey('edit-message-input'), controller: controller.editInput,
             autofocus: true, minLines: 2, maxLines: 10, readOnly: disabled,
             style: TextStyle(fontSize: 13, color: AppColor.text),
-            placeholder: 'Edit message',
+            placeholder: 'Edit message'.tr,
           ),
           const SizedBox(height: 8),
-          Text('Resubmitting replaces the messages after this one.', style: TextStyle(fontSize: 10, color: AppColor.muted)),
+          Text('Resubmitting replaces the messages after this one.'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted)),
           const SizedBox(height: 4),
           Wrap(alignment: WrapAlignment.end, spacing: 8, children: [
-            TextButton(onPressed: disabled ? null : controller.cancelEdit, child: const Text('Cancel')),
+            TextButton(onPressed: disabled ? null : controller.cancelEdit, child: Text('Cancel'.tr)),
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: controller.editInput,
               builder: (context, value, _) => FilledButton(
                 onPressed: disabled || value.text.trim().isEmpty ? null : controller.submitEdit,
-                child: const Text('Save & resend'),
+                child: Text('Save & resend'.tr),
               ),
             ),
           ]),
@@ -280,7 +281,7 @@ class PageChatView extends GetView<PageChatController> {
                   Row(mainAxisSize: MainAxisSize.min, children: [
                     Icon(Icons.auto_awesome_outlined, size: 15, color: AppColor.muted),
                     const SizedBox(width: 8),
-                    Text(message.provider == 'local' ? 'Local library' : message.provider ?? 'AI', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    Text(message.provider == 'local' ? 'Local library'.tr : message.provider ?? 'AI', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                   ]),
                   const SizedBox(height: 8),
                   if (generating || message.activity.isNotEmpty)
@@ -299,11 +300,11 @@ class PageChatView extends GetView<PageChatController> {
                   final offset = message.titleSearch!['offset'] as int? ?? 0;
                   final disabled = controller.busy.value || controller.respondingChatId.value != null;
                   return Row(mainAxisSize: MainAxisSize.min, children: [
-                    Text('Page ${offset ~/ 25 + 1}', style: TextStyle(fontSize: 11, color: AppColor.muted)),
-                    IconButton(tooltip: 'Previous database page', visualDensity: VisualDensity.compact,
+                    Text('Page @{offset}'.trNamed({'offset': '${offset ~/ 25 + 1}'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
+                    IconButton(tooltip: 'Previous database page'.tr, visualDensity: VisualDensity.compact,
                       onPressed: disabled || offset == 0 ? null : () => controller.loadTitleSearchPage(message, -1),
                       icon: const Icon(Icons.chevron_left_rounded, size: 18)),
-                    IconButton(tooltip: 'Next database page', visualDensity: VisualDensity.compact,
+                    IconButton(tooltip: 'Next database page'.tr, visualDensity: VisualDensity.compact,
                       onPressed: disabled || message.titleSearch!['has_more'] != true ? null : () => controller.loadTitleSearchPage(message, 1),
                       icon: const Icon(Icons.chevron_right_rounded, size: 18)),
                     if (controller.loadingPageId.value == message.id) const CupertinoActivityIndicator(radius: 6),
@@ -316,19 +317,19 @@ class PageChatView extends GetView<PageChatController> {
                   child: Row(children: [
                     Icon(Icons.info_outline_rounded, size: 16, color: AppColor.muted),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(invalid ? 'This older response could not be processed. Please retry.' : message.errorMessage ?? 'Response stopped.',
+                    Expanded(child: Text(invalid ? 'This older response could not be processed. Please retry.'.tr : message.errorMessage?.tr ?? 'Response stopped.'.tr,
                       style: TextStyle(fontSize: 12, color: AppColor.muted))),
                   ]),
                 ),
                 Row(mainAxisSize: MainAxisSize.min, children: [
                   if (content.isNotEmpty && !generating) IconButton(
-                    tooltip: 'Copy message', visualDensity: VisualDensity.compact,
+                    tooltip: 'Copy message'.tr, visualDensity: VisualDensity.compact,
                     constraints: const BoxConstraints.tightFor(width: 30, height: 30), padding: EdgeInsets.zero,
                     icon: Icon(Icons.copy_rounded, size: 14, color: AppColor.muted),
                     onPressed: () => _copy(context, content),
                   ),
                   if (!assistant) Obx(() => IconButton(
-                    tooltip: 'Edit message', visualDensity: VisualDensity.compact,
+                    tooltip: 'Edit message'.tr, visualDensity: VisualDensity.compact,
                     constraints: const BoxConstraints.tightFor(width: 30, height: 30), padding: EdgeInsets.zero,
                     icon: Icon(Icons.edit_outlined, size: 14, color: AppColor.muted),
                     onPressed: controller.busy.value || controller.respondingChatId.value != null
@@ -338,7 +339,7 @@ class PageChatView extends GetView<PageChatController> {
                     Obx(() => controller.respondingChatId.value != null ? const SizedBox.shrink() : TextButton.icon(
                       onPressed: controller.retryResponse,
                       icon: const Icon(Icons.refresh_rounded, size: 15),
-                      label: const Text('Retry response', style: TextStyle(fontSize: 11)),
+                      label: Text('Retry response'.tr, style: TextStyle(fontSize: 11)),
                     )),
                 ]),
               ]),
@@ -360,9 +361,9 @@ class PageChatView extends GetView<PageChatController> {
         ImgConfig(builder: (url, attributes) {
           final imageUrl = _imageUrl(url);
           final valid = imageUrl.isNotEmpty;
-          return Semantics(label: 'Cover for ${attributes['alt'] ?? 'video'}', image: true,
+          return Semantics(label: 'Cover for @{video}'.trNamed({'video': '${attributes['alt'] ?? 'video'.tr}'}), image: true,
             child: ClipRRect(borderRadius: BorderRadius.circular(6), child: valid
-              ? Tooltip(message: 'Preview image', child: Material(color: Colors.transparent, child: InkWell(
+              ? Tooltip(message: 'Preview image'.tr, child: Material(color: Colors.transparent, child: InkWell(
                   onTap: () => _previewImage(context, imageUrl, attributes['alt'] ?? 'Image', images),
                   child: ExThumbnail(imageUrl: imageUrl, videoCode: attributes['alt'], width: 96, height: 64,
                     iconSize: 20, fitUrl: BoxFit.cover),
@@ -382,8 +383,8 @@ class PageChatView extends GetView<PageChatController> {
           decoration: BoxDecoration(color: AppColor.panel, borderRadius: BorderRadius.circular(12)),
           wrapper: (child, code, language) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
-              Expanded(child: Text(language.isEmpty ? 'Code' : language, style: TextStyle(fontSize: 11, color: AppColor.muted))),
-              IconButton(tooltip: 'Copy code', visualDensity: VisualDensity.compact,
+              Expanded(child: Text(language.isEmpty ? 'Code'.tr : language, style: TextStyle(fontSize: 11, color: AppColor.muted))),
+              IconButton(tooltip: 'Copy code'.tr, visualDensity: VisualDensity.compact,
                 onPressed: () => _copy(context, code), icon: const Icon(Icons.copy_rounded, size: 14)),
             ]),
             child,
@@ -397,7 +398,7 @@ class PageChatView extends GetView<PageChatController> {
           if (value.startsWith('javit-similar:')) {
             try {
               final code = Uri.decodeComponent(value.substring('javit-similar:'.length));
-              controller.usePrompt('Cari video mirip $code berdasarkan tema pada judul dan deskripsinya, bukan hanya pemerannya. Jelaskan sumber kecocokannya.');
+              controller.usePrompt('Find videos similar to @{code} based on themes in their titles and descriptions, not just their cast. Explain the sources of the matches.'.trNamed({'code': '$code'}));
             } on FormatException { /* Ignore malformed action links. */ }
             return;
           }
@@ -406,7 +407,7 @@ class PageChatView extends GetView<PageChatController> {
           try {
             if (await launchUrl(uri, mode: LaunchMode.externalApplication)) return;
           } catch (_) {}
-          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open this link.')));
+          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open this link.'.tr)));
         }),
       ]),
     );
@@ -415,7 +416,7 @@ class PageChatView extends GetView<PageChatController> {
   Future<void> _translateTitle(BuildContext context, String title) {
     Future<String>? translation;
     return showDialog<void>(context: context, builder: (context) => StatefulBuilder(builder: (context, setState) => AlertDialog(
-      title: const Text('Indonesian translation', style: TextStyle(fontSize: 16)),
+      title: Text('Indonesian translation'.tr, style: TextStyle(fontSize: 16)),
       content: SizedBox(width: 540, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start, children: [
           SelectableText(title, style: TextStyle(fontSize: 12, color: AppColor.muted)),
@@ -423,14 +424,14 @@ class PageChatView extends GetView<PageChatController> {
           FutureBuilder<String>(future: translation ??= controller.translateTitle(title), builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) return const CupertinoActivityIndicator();
             if (snapshot.hasError) return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(snapshot.error is ChatException ? (snapshot.error as ChatException).message : 'Could not load or save the translation.', style: const TextStyle(fontSize: 12)),
-              TextButton(onPressed: () => setState(() => translation = null), child: const Text('Retry translation')),
+              Text(snapshot.error is ChatException ? (snapshot.error as ChatException).message.tr : 'Could not load or save the translation.'.tr, style: const TextStyle(fontSize: 12)),
+              TextButton(onPressed: () => setState(() => translation = null), child: Text('Retry translation'.tr)),
             ]);
             return SelectableText(snapshot.data ?? '', style: const TextStyle(fontSize: 14));
           }),
         ],
       ))),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('Close'.tr))],
     )));
   }
 
@@ -467,18 +468,18 @@ class PageChatView extends GetView<PageChatController> {
         child: SizedBox(width: 960, height: MediaQuery.sizeOf(context).height * .8,
           child: Column(children: [
             Padding(padding: const EdgeInsets.only(left: 16, right: 4), child: Row(children: [
-              Expanded(child: Tooltip(message: 'Copy code', child: TextButton(
+              Expanded(child: Tooltip(message: 'Copy code'.tr, child: TextButton(
                 onPressed: () => _copy(context, image.code),
                 style: TextButton.styleFrom(alignment: Alignment.centerLeft, foregroundColor: AppColor.text),
                 child: Text(image.code, maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               ))),
               Text('${index + 1} / ${images.length}', style: TextStyle(fontSize: 11, color: AppColor.muted)),
-              IconButton(tooltip: 'Previous image (←)', onPressed: index > 0 ? () => move(-1) : null,
+              IconButton(tooltip: 'Previous image (←)'.tr, onPressed: index > 0 ? () => move(-1) : null,
                 icon: const Icon(Icons.chevron_left_rounded, size: 20)),
-              IconButton(tooltip: 'Next image (→)', onPressed: index + 1 < images.length ? () => move(1) : null,
+              IconButton(tooltip: 'Next image (→)'.tr, onPressed: index + 1 < images.length ? () => move(1) : null,
                 icon: const Icon(Icons.chevron_right_rounded, size: 20)),
-              IconButton(tooltip: 'Close preview', onPressed: () => Navigator.pop(context),
+              IconButton(tooltip: 'Close preview'.tr, onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.close_rounded, size: 20)),
             ])),
             Expanded(child: LayoutBuilder(builder: (context, constraints) => InteractiveViewer(
@@ -487,7 +488,7 @@ class PageChatView extends GetView<PageChatController> {
                 width: constraints.maxWidth, height: constraints.maxHeight,
                 fitUrl: BoxFit.contain, backdropColor: Colors.black),
             ))),
-            Padding(padding: const EdgeInsets.all(8), child: Text('← Previous · → Next · ↓ Close',
+            Padding(padding: const EdgeInsets.all(8), child: Text('← Previous · → Next · ↓ Close'.tr,
               style: TextStyle(fontSize: 11, color: AppColor.muted))),
           ]),
         ),
@@ -499,7 +500,7 @@ class PageChatView extends GetView<PageChatController> {
     await Clipboard.setData(ClipboardData(text: text));
     if (context.mounted) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 2)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Copied to clipboard'.tr), duration: Duration(seconds: 2)));
     }
   }
 
@@ -520,9 +521,9 @@ class PageChatView extends GetView<PageChatController> {
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(child: ConstrainedBox(constraints: const BoxConstraints(maxHeight: 130),
-              child: SingleChildScrollView(child: SelectableText(controller.commandNotice.value,
+              child: SingleChildScrollView(child: SelectableText(controller.commandNotice.value.tr,
                 style: TextStyle(fontSize: 11, height: 1.6, color: AppColor.muted))))),
-            IconButton(tooltip: 'Dismiss command result', visualDensity: VisualDensity.compact,
+            IconButton(tooltip: 'Dismiss command result'.tr, visualDensity: VisualDensity.compact,
               onPressed: () => controller.commandNotice.value = '', icon: const Icon(Icons.close_rounded, size: 14)),
           ]),
         ),
@@ -544,7 +545,7 @@ class PageChatView extends GetView<PageChatController> {
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     child: Row(children: [
                       SizedBox(width: 88, child: Text(matches[index], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                      Expanded(child: Text(PageChatController.commands[matches[index]]!, maxLines: 1,
+                      Expanded(child: Text(PageChatController.commands[matches[index]]!.tr, maxLines: 1,
                         overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: AppColor.muted))),
                       if (index == selected) const Icon(Icons.keyboard_return_rounded, size: 14),
                     ]),
@@ -573,19 +574,19 @@ class PageChatView extends GetView<PageChatController> {
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: const BoxDecoration(),
             style: TextStyle(fontSize: 14, height: 1.5, color: AppColor.text),
-            placeholder: 'Ask anything...',
+            placeholder: 'Ask anything...'.tr,
           ),
         ),
         const SizedBox(height: 6),
         Row(children: [
-          Expanded(child: Text('Enter to send · Shift + Enter newline · / commands', style: TextStyle(fontSize: 10, color: AppColor.muted))),
+          Expanded(child: Text('Enter to send · Shift + Enter newline · / commands'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted))),
           Obx(() => controller.respondingChatId.value != null
-            ? IconButton.filled(tooltip: 'Stop response', onPressed: controller.stopResponse,
+            ? IconButton.filled(tooltip: 'Stop response'.tr, onPressed: controller.stopResponse,
                 icon: const Icon(Icons.stop_rounded, size: 20))
             : ValueListenableBuilder<TextEditingValue>(
               valueListenable: controller.input,
               builder: (context, value, _) => IconButton.filled(
-                tooltip: 'Send message',
+                tooltip: 'Send message'.tr,
                 onPressed: editing || value.text.trim().isEmpty || controller.busy.value || !controller.ready.value ? null : controller.submitInput,
                 icon: const Icon(Icons.arrow_upward_rounded, size: 20),
               ),
@@ -599,28 +600,28 @@ class PageChatView extends GetView<PageChatController> {
   Future<void> _editChat(BuildContext context, ChatConversation chat, {required bool deleting}) async {
     var title = chat.title;
     final confirmed = await showDialog<bool>(context: context, builder: (context) => CupertinoAlertDialog(
-      title: Text(deleting ? 'Delete chat?' : 'Rename chat', style: const TextStyle(fontSize: 14)),
+      title: Text(deleting ? 'Delete chat?'.tr : 'Rename chat'.tr, style: const TextStyle(fontSize: 14)),
       content: deleting
-        ? const Text('This conversation and its draft will be deleted. This cannot be undone.', style: TextStyle(fontSize: 12))
+        ? Text('This conversation and its draft will be deleted. This cannot be undone.'.tr, style: TextStyle(fontSize: 12))
         : CupertinoTextFormFieldRow(
             padding: const EdgeInsets.only(top: 12),
             style: TextStyle(fontSize: 12, color: AppColor.text),
             initialValue: title,
             autofocus: true,
             maxLength: 100,
-            placeholder: 'Chat title',
+            placeholder: 'Chat title'.tr,
             onChanged: (value) => title = value,
-            validator: (value) => value == null || value.trim().isEmpty ? 'Enter a title' : null,
+            validator: (value) => value == null || value.trim().isEmpty ? 'Enter a title'.tr : null,
             autovalidateMode: AutovalidateMode.onUserInteraction,
             onFieldSubmitted: (_) {
               if (title.trim().isNotEmpty) Navigator.pop(context, true);
             },
           ),
       actions: [
-        CupertinoDialogAction(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel', style: TextStyle(fontSize: 13))),
+        CupertinoDialogAction(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr, style: TextStyle(fontSize: 13))),
         CupertinoDialogAction(isDestructiveAction: deleting, onPressed: () {
           if (deleting || title.trim().isNotEmpty) Navigator.pop(context, true);
-        }, child: Text(deleting ? 'Delete' : 'Save', style: const TextStyle(fontSize: 13))),
+        }, child: Text(deleting ? 'Delete'.tr : 'Save'.tr, style: const TextStyle(fontSize: 13))),
       ],
     ));
     if (confirmed != true) return;
@@ -633,11 +634,11 @@ class PageChatView extends GetView<PageChatController> {
 
   Future<void> _deleteAllChats(BuildContext context) async {
     final confirmed = await showDialog<bool>(context: context, builder: (context) => CupertinoAlertDialog(
-      title: const Text('Delete all chats?', style: TextStyle(fontSize: 14)),
-      content: const Text('All conversations, messages, and drafts will be deleted. This cannot be undone.', style: TextStyle(fontSize: 12)),
+      title: Text('Delete all chats?'.tr, style: TextStyle(fontSize: 14)),
+      content: Text('All conversations, messages, and drafts will be deleted. This cannot be undone.'.tr, style: TextStyle(fontSize: 12)),
       actions: [
-        CupertinoDialogAction(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel', style: TextStyle(fontSize: 13))),
-        CupertinoDialogAction(isDestructiveAction: true, onPressed: () => Navigator.pop(context, true), child: const Text('Delete all', style: TextStyle(fontSize: 13))),
+        CupertinoDialogAction(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr, style: TextStyle(fontSize: 13))),
+        CupertinoDialogAction(isDestructiveAction: true, onPressed: () => Navigator.pop(context, true), child: Text('Delete all'.tr, style: TextStyle(fontSize: 13))),
       ],
     ));
     if (confirmed == true) await controller.deleteAllChats();
@@ -666,8 +667,8 @@ class _ChatActivityPanelState extends State<_ChatActivityPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final label = widget.active ? (widget.status == 'pending' ? 'Thinking...' : 'Responding...')
-        : widget.status == 'completed' ? 'Activity · ${(widget.elapsedMs / 1000).toStringAsFixed(1)}s' : 'Activity · interrupted';
+    final label = widget.active ? (widget.status == 'pending' ? 'Thinking...'.tr : 'Responding...'.tr)
+        : widget.status == 'completed' ? 'Activity · @{toStringAsFixed}s'.trNamed({'toStringAsFixed': '${(widget.elapsedMs / 1000).toStringAsFixed(1)}'}) : 'Activity · interrupted'.tr;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(12)),
@@ -687,8 +688,8 @@ class _ChatActivityPanelState extends State<_ChatActivityPanel> {
         if (expanded) Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            for (final step in widget.steps.isEmpty ? ['Preparing your request'] : widget.steps)
-              Padding(padding: const EdgeInsets.only(bottom: 5), child: Text('• $step', style: TextStyle(fontSize: 12, height: 1.4, color: AppColor.muted))),
+            for (final step in widget.steps.isEmpty ? ['Preparing your request'.tr] : widget.steps)
+              Padding(padding: const EdgeInsets.only(bottom: 5), child: Text('• ${step.tr}', style: TextStyle(fontSize: 12, height: 1.4, color: AppColor.muted))),
           ]),
         ),
       ]),
@@ -727,11 +728,11 @@ class _ChatTableState extends State<_ChatTable> {
           ),
       ),
       if (!widget.databasePaged) Row(mainAxisSize: MainAxisSize.min, children: [
-        Text('${start + 1}–$end of $count · Page ${current + 1}/$pages', style: TextStyle(fontSize: 11, color: AppColor.muted)),
-        IconButton(tooltip: 'Previous results', visualDensity: VisualDensity.compact,
+        Text('@{start}–@{end} of @{count} · Page @{current}/@{pages}'.trNamed({'start': '${start + 1}', 'end': '$end', 'count': '$count', 'current': '${current + 1}', 'pages': '$pages'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
+        IconButton(tooltip: 'Previous results'.tr, visualDensity: VisualDensity.compact,
           onPressed: current == 0 ? null : () => setState(() => page = current - 1),
           icon: const Icon(Icons.chevron_left_rounded, size: 18)),
-        IconButton(tooltip: 'Next results', visualDensity: VisualDensity.compact,
+        IconButton(tooltip: 'Next results'.tr, visualDensity: VisualDensity.compact,
           onPressed: current == pages - 1 ? null : () => setState(() => page = current + 1),
           icon: const Icon(Icons.chevron_right_rounded, size: 18)),
       ]),

@@ -23,6 +23,14 @@ JavIt turns video folders on your Mac or external drives into a searchable perso
 
 The video-info Download action opens links in **Downie** on macOS for supported configured sites (NJAV, MissAV, JavMost, Sextb, and JavGuru). Install Downie separately to use this action.
 
+## Language
+
+English is the default. Casual, playful Bahasa Indonesia is also available in **Settings → Appearance → Language**; the choice is saved across restarts.
+
+UI messages live in `lib/app/core/translations/en.dart` and `id.dart`. Use `'Label'.tr` for static text and `'Count: @{count}'.trNamed({'count': count.toString()})` for dynamic text. Keep database fields, stored option values, paths, provider names, and user content unchanged; translate their UI labels at display time.
+
+To add a language, create its dictionary and register its code and native name in `AppTranslations.languages` and its dictionary in `AppTranslations.keys`. Missing messages fall back to English. Flutter's built-in localization delegates are already connected.
+
 ## How It Works
 
 ```text

@@ -86,13 +86,13 @@ class PlayerView extends GetView<PlayerController> {
                 border: Border.all(color: Colors.white24),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Column(
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.file_open_rounded, color: Colors.white, size: 40),
                   SizedBox(height: 12),
                   Text(
-                    'Drop video or subtitle here',
+                    'Drop video or subtitle here'.tr,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -102,7 +102,7 @@ class PlayerView extends GetView<PlayerController> {
                   ),
                   SizedBox(height: 6),
                   Text(
-                    'Videos: .mp4, .mkv, .avi, .mov\nMultiple videos become a playlist\nSubtitle: .srt, .vtt, .ass, .ssa',
+                    'Videos: .mp4, .mkv, .avi, .mov\nMultiple videos become a playlist\nSubtitle: .srt, .vtt, .ass, .ssa'.tr,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white70,

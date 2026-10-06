@@ -179,7 +179,7 @@ class _MiniPlayerCard extends StatelessWidget {
           ),
           IconButton(
             iconSize: 18,
-            tooltip: 'Previous',
+            tooltip: 'Previous'.tr,
             icon: Icon(UIconsPro.regularRounded.angle_small_left, color: Colors.white),
             onPressed: () => controller.prevVideo(),
           ),
@@ -187,20 +187,20 @@ class _MiniPlayerCard extends StatelessWidget {
             final isPlaying = controller.isPlaying.value;
             return IconButton(
               iconSize: 20,
-              tooltip: isPlaying ? 'Pause' : 'Play',
+              tooltip: isPlaying ? 'Pause'.tr : 'Play'.tr,
               icon: Icon(isPlaying ? Icons.pause : Icons.play_arrow, color: Colors.white),
               onPressed: () => controller.togglePlayPause(),
             );
           }),
           IconButton(
             iconSize: 18,
-            tooltip: 'Next',
+            tooltip: 'Next'.tr,
             icon: Icon(UIconsPro.regularRounded.angle_small_right, color: Colors.white),
             onPressed: () => controller.nextVideo(),
           ),
           IconButton(
             iconSize: 18,
-            tooltip: 'Close',
+            tooltip: 'Close'.tr,
             icon: Icon(UIconsPro.regularRounded.cross_small, color: Colors.white),
             onPressed: () async {
               await controller.stopPlayback();

@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import '../../core/app_color.dart';
 import 'widget_search_suggestions_overlay.dart';
@@ -49,7 +50,7 @@ class SearchHistoryDropdown extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(child: Text(query, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11))),
                     IconButton(
-                      tooltip: 'Remove from history',
+                      tooltip: 'Remove from history'.tr,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints.tightFor(width: 24, height: 24),
                       icon: const Icon(Icons.close, size: 12),
@@ -74,16 +75,16 @@ class SearchHistoryDropdown extends StatelessWidget {
                 final confirmed = await showCupertinoDialog<bool>(
                   context: context,
                   builder: (context) => CupertinoAlertDialog(
-                    title: const Text('Are you sure you want to clear all history?', style: TextStyle(fontSize: 13)),
+                    title: Text('Are you sure you want to clear all history?'.tr, style: TextStyle(fontSize: 13)),
                     actions: [
-                      CupertinoDialogAction(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
-                      CupertinoDialogAction(isDestructiveAction: true, onPressed: () => Navigator.pop(context, true), child: const Text('Yes')),
+                      CupertinoDialogAction(onPressed: () => Navigator.pop(context, false), child: Text('No'.tr)),
+                      CupertinoDialogAction(isDestructiveAction: true, onPressed: () => Navigator.pop(context, true), child: Text('Yes'.tr)),
                     ],
                   ),
                 );
                 if (confirmed == true) await onClear();
               },
-              child: const Text('Clear all', style: TextStyle(fontSize: 11)),
+              child: Text('Clear all'.tr, style: TextStyle(fontSize: 11)),
             ),
           ),
         ]),

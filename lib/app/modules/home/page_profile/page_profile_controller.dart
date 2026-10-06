@@ -28,7 +28,7 @@ class PageProfileController extends GetxController {
       if (!isClosed) totalRelapse.value = count;
     } catch (e) {
       AppLog.logW('Loading profile failed: $e');
-      if (!isClosed) error.value = 'Could not load profile. Please try again.';
+      if (!isClosed) error.value = 'Could not load profile. Please try again.'.tr;
     } finally {
       if (!isClosed) isLoading.value = false;
     }
@@ -52,7 +52,7 @@ class PageProfileController extends GetxController {
     if (isSaving.value) return;
     final name = tecName.text.trim();
     if (name.isEmpty) {
-      nameError.value = 'Please enter your name.';
+      nameError.value = 'Please enter your name.'.tr;
       return;
     }
     isSaving.value = true;
@@ -62,11 +62,11 @@ class PageProfileController extends GetxController {
       home.profile.value = Profile.fromJson(home.profile.value.toJson()..['name'] = name);
       if (!isClosed) {
         isEditing.value = false;
-        notice.value = 'Profile saved';
+        notice.value = 'Profile saved'.tr;
       }
     } catch (e) {
       AppLog.logW('Saving profile failed: $e');
-      if (!isClosed) nameError.value = 'Could not save your name. Please try again.';
+      if (!isClosed) nameError.value = 'Could not save your name. Please try again.'.tr;
     } finally {
       if (!isClosed) isSaving.value = false;
     }

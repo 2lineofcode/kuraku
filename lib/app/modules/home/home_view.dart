@@ -70,12 +70,12 @@ class HomeView extends GetView<HomeController> {
                     child: VStack(
                       [
                         Icon(UIconsPro.regularRounded.check_circle, size: 48).centered().pOnly(bottom: 16),
-                        'Task Done'.text.bold.xl3.makeCentered().pOnly(bottom: 8),
+                        'Task Done'.tr.text.bold.xl3.makeCentered().pOnly(bottom: 8),
                         '$error'.text.makeCentered().pOnly(bottom: 8),
                         ExButtonElevated(
-                            label: 'Restart App',
+                            label: 'Restart App'.tr,
                             onPressed: () async {
-                              controller.loadingText.value = 'Restarting...';
+                              controller.loadingText.value = 'Restarting...'.tr;
                               controller.change(0, status: RxStatus.loading());
                               await Get.delete<DBService>(force: true);
 
@@ -109,9 +109,9 @@ class HomeView extends GetView<HomeController> {
 
   Widget appBarTitle() {
     if (kDebugMode) {
-      return Obx(() => '🐞 ${controller.currentMenuSelected}'.text.size(14).bold.make());
+      return Obx(() => '🐞 ${controller.currentMenuSelected.value.tr}'.text.size(14).bold.make());
     } else {
-      return Obx(() => '${controller.currentMenuSelected}'.text.size(14).bold.make());
+      return Obx(() => '${controller.currentMenuSelected.value.tr}'.text.size(14).bold.make());
     }
   }
 
@@ -129,7 +129,7 @@ class HomeView extends GetView<HomeController> {
               return IconButton(
                 icon: Icon(UIconsPro.regularRounded.search, size: 14),
                 onPressed: controller.focusTopNavSearch,
-                tooltip: 'Search: [/]',
+                tooltip: 'Search: [/]'.tr,
               ).pOnly(right: 8);
             }
 
@@ -138,7 +138,7 @@ class HomeView extends GetView<HomeController> {
               focusNode: controller.fnTopNavSearch,
               enabled: controller.isTopNavSearching.isFalse,
               clearButtonMode: OverlayVisibilityMode.never,
-              placeholder: 'Anything...',
+              placeholder: 'Anything...'.tr,
               style: TextStyle(color: AppColor.text, fontSize: 14),
               prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
               suffix: HStack(
@@ -150,7 +150,7 @@ class HomeView extends GetView<HomeController> {
                       icon: Icon(Icons.close_rounded, size: 14, color: Vx.neutral500),
                       visualDensity: VisualDensity.compact,
                       splashRadius: 12,
-                      tooltip: 'Clear',
+                      tooltip: 'Clear'.tr,
                       onPressed: controller.clearTopNavSearch,
                     ).wh(28, 28),
                 ],
@@ -186,24 +186,24 @@ class HomeView extends GetView<HomeController> {
             onPressed: () {
               HomePanelCart.open();
             },
-          ).badge(count: controller.cart.length, color: Vx.red500).tooltip('Cart: ⌘ + E').hide(isVisible: controller.cart.isNotEmpty),
+          ).badge(count: controller.cart.length, color: Vx.red500).tooltip('Cart: ⌘ + E'.tr).hide(isVisible: controller.cart.isNotEmpty),
         ),
 
         IconButton(
           icon: Icon(UIconsPro.regularRounded.list, size: 14),
           onPressed: () => HomePanelPlaylist.open(),
-          tooltip: 'Playlist: [⌘ + P]',
+          tooltip: 'Playlist: [⌘ + P]'.tr,
         ),
 
         IconButton(
           icon: Icon(UIconsPro.regularRounded.banana, size: 14),
           onPressed: () => HomePanelRelapse.open(),
-          tooltip: 'Relapse: [⌘ + .]',
+          tooltip: 'Relapse: [⌘ + .]'.tr,
         ),
         IconButton(
           icon: Icon(UIconsPro.regularRounded.multiple_alt, size: 14),
           onPressed: () => HomePanelLibrary.open(),
-          tooltip: 'Library',
+          tooltip: 'Library'.tr,
         ).pOnly(right: 8),
       ],
     );
@@ -260,7 +260,7 @@ class HomeView extends GetView<HomeController> {
                   ),
                   child: HStack([
                     Icon(item['icon'], size: 16).pSymmetric(h: 8),
-                    '${item['name']}'.text.size(11).make().pOnly(left: 4),
+                    '${item['name']}'.tr.text.size(11).make().pOnly(left: 4),
                   ]).p8(),
                 ).pSymmetric(h: 10).pOnly(bottom: 8),
               ),
@@ -324,7 +324,7 @@ class HomeView extends GetView<HomeController> {
 
   Widget footerStatusText() {
     final footerText = controller.footerText.value;
-    final storageText = footerText.startsWith('Idle | Total Video:') ? controller.footerStorageText.value : '';
+    final storageText = footerText == controller.idleFooterText ? controller.footerStorageText.value : '';
 
     if (storageText.isEmpty) {
       return footerText.text.size(11).ellipsis.maxLines(1).align(TextAlign.end).make();
@@ -376,8 +376,8 @@ class HomeView extends GetView<HomeController> {
                   decoration: BoxDecoration(color: AppColor.appBar, borderRadius: BorderRadius.circular(12)),
                   child: VStack([
                     Icon(UIconsPro.solidRounded.file_upload, size: 34, color: AppColor.text).pOnly(bottom: 12).centered(),
-                    'Drop here'.text.bold.size(16).makeCentered().pOnly(bottom: 6),
-                    'Drop a folder to add Library\nDrop a .mp4 file to play instantly'.text.size(12).align(TextAlign.center).color(AppColor.muted).makeCentered(),
+                    'Drop here'.tr.text.bold.size(16).makeCentered().pOnly(bottom: 6),
+                    'Drop a folder to add Library\nDrop a .mp4 file to play instantly'.tr.text.size(12).align(TextAlign.center).color(AppColor.muted).makeCentered(),
                   ]).centered(),
                 ),
               ),

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../../env.g.dart';
+import '../core/app_translations.dart';
 import 'chat_knowledge.dart';
 import 'chat_web_search.dart';
 
@@ -138,7 +139,7 @@ class ChatService {
           continue;
         }
         if (calls.isEmpty) {
-          if (localSources.isNotEmpty) yield '\n\n_Local sources: ${localSources.join(', ')}_';
+          if (localSources.isNotEmpty) yield '\n\n_Local sources: @{sources}_'.trNamed({'sources': localSources.join(', ')});
           if (links.isNotEmpty) yield _sourceFooter(links);
           return;
         }
@@ -176,7 +177,7 @@ class ChatService {
                 onActivity?.call('Local query completed');
                 final columns = (result['columns'] as List).map((column) => ChatKnowledge.displayColumn(column.toString()).toLowerCase());
                 if (columns.any((column) => ['code', 'video_code', 'dvd_id'].contains(column)) || (result['rows'] as List).length > 20) {
-                  onActivity?.call('Displaying ${(result['rows'] as List).length} local records');
+                  onActivity?.call('Displaying @{count} local records'.trNamed({'count': '${(result['rows'] as List).length}'}));
                   yield ChatKnowledge.render(result);
                   if (links.isNotEmpty) yield _sourceFooter(links);
                   return;

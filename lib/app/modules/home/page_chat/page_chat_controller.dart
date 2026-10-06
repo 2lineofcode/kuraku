@@ -82,7 +82,7 @@ class PageChatController extends GetxController {
   Future<void> _command(String text) async {
     final name = text.toLowerCase();
     if (!commands.containsKey(name)) {
-      commandNotice.value = 'Unknown command. Type / to see available commands.';
+      commandNotice.value = 'Unknown command. Type / to see available commands.'.tr;
       return;
     }
     if (_unsavedReply != null && !await flushDraft()) return;
@@ -95,7 +95,7 @@ class PageChatController extends GetxController {
         if (_unsavedReply?.conversationId == chat.id) _unsavedReply = null;
         if (activeChat.value == chat) {
           _activate(chat);
-          commandNotice.value = 'Messages and draft cleared.';
+          commandNotice.value = 'Messages and draft cleared.'.tr;
         }
       });
       return;
@@ -106,7 +106,7 @@ class PageChatController extends GetxController {
       case '/stop':
         final running = respondingChatId.value != null;
         await stopResponse();
-        commandNotice.value = running ? 'Response stopped.' : 'No response is running.';
+        commandNotice.value = running ? 'Response stopped.'.tr : 'No response is running.'.tr;
       case '/new':
         await newChat();
       case '/r18':
@@ -137,7 +137,7 @@ class PageChatController extends GetxController {
         return true;
       } catch (failure) {
         AppLog.logW('Chat operation failed: $failure');
-        error.value = 'Could not load or save chat. Please retry.';
+        error.value = 'Could not load or save chat. Please retry.'.tr;
         return false;
       } finally {
         if (block) busy.value = --_operations > 0;
@@ -319,7 +319,7 @@ class PageChatController extends GetxController {
         if (activeChat.value == chat) activeChat.refresh();
       })) return;
       final response = answer!;
-      response.activity.add('Preparing your request');
+      response.activity.add('Preparing your request'.tr);
       api.onActivity = (step) {
         if (token.isCancelled || isClosed) return;
         if (response.activity.lastOrNull != step && response.activity.length < 20) response.activity.add(step);
@@ -336,7 +336,7 @@ class PageChatController extends GetxController {
         if (activeChat.value == chat) activeChat.refresh();
         if (checkpoint.elapsedMilliseconds >= 500) {
           if (!await _run(() => DBChat.saveAssistant(response), block: false)) {
-            throw const ChatException('Could not save the response. Please retry saving.');
+            throw ChatException('Could not save the response. Please retry saving.'.tr);
           }
           checkpoint.reset();
         }
@@ -346,8 +346,8 @@ class PageChatController extends GetxController {
     } catch (failure) {
       if (answer != null) {
         answer!.status = token.isCancelled ? 'cancelled' : 'failed';
-        answer!.errorMessage = token.isCancelled ? 'Response stopped.'
-            : failure is ChatException ? failure.message : 'The response was interrupted. Please retry.';
+        answer!.errorMessage = token.isCancelled ? 'Response stopped.'.tr
+            : failure is ChatException ? failure.message : 'The response was interrupted. Please retry.'.tr;
       }
     } finally {
       api.onActivity = null;
@@ -390,28 +390,18 @@ class PageChatController extends GetxController {
   }
 
   static const templates = {
-    '/r18': (label: 'Cari judul Jepang di R18', prompt:
-      'Cari semua video di database R18 tentang "[topik]", khusus yang memiliki judul Jepang tetapi judul English kosong. '
-      'Gunakan padanan kata dan variasi penulisan Jepang/English yang setara, serta terjemahan lokal jika tersedia. '
-      'Hindari kata yang terlalu umum. Tampilkan Image | Code | Title, judul Jepang asli, dan sumber kecocokan. '
-      'Urutkan berdasarkan release date terbaru, lalu Code. Jangan batasi total hasil; tampilkan bertahap melalui pagination.'),
-    '/filter': (label: 'Cari dengan beberapa filter', prompt:
-      'Cari video di database R18 tentang "[hujan]" DAN "[outdoor]", '
-      'kecualikan kompilasi, dan hanya yang belum ada di koleksi saya. '
-      'Gunakan padanan Jepang/English yang setara untuk setiap tema. '
-      'Tampilkan sumber kecocokan, urutkan release date terbaru lalu Code, dan gunakan pagination tanpa membatasi total hasil.'),
-    '/similar': (label: 'Cari video serupa', prompt:
-      'Cari video mirip [CODE] berdasarkan tema pada judul dan deskripsinya, bukan hanya pemerannya. '
-      'Baca metadata referensi terlebih dahulu, jelaskan sumber kecocokan, dan jangan sertakan video referensinya. '
-      'Urutkan release date terbaru lalu Code, dan gunakan pagination tanpa membatasi total hasil.'),
-    '/translate': (label: 'Terjemahkan judul Jepang', prompt:
-      'Terjemahkan judul Jepang berikut ke bahasa Indonesia yang natural: "[judul Jepang]". '
-      'Pertahankan nama dan code, jangan menambahkan informasi yang tidak ada pada judul. '
-      'Tampilkan judul asli dan terjemahannya.'),
+    '/r18': (label: 'Find Japanese titles in R18', prompt:
+      'Find all videos in the R18 database about "[topic]" with a Japanese title but no English title. Use equivalent Japanese/English terms and spelling variants, plus local translations when available. Avoid overly broad terms. Show Image | Code | Title, the original Japanese title, and match sources. Sort by newest release date, then Code. Do not cap the total results; show them through pagination.'),
+    '/filter': (label: 'Search with multiple filters', prompt:
+      'Find videos in the R18 database about "[rain]" AND "[outdoor]", excluding compilations and videos already in my collection. Use equivalent Japanese/English terms for each theme. Show match sources, sort by newest release date then Code, and paginate without capping total results.'),
+    '/similar': (label: 'Find similar videos', prompt:
+      'Find videos similar to [CODE] based on themes in their titles and descriptions, not just their cast. Read the reference metadata first, explain match sources, and exclude the reference video. Sort by newest release date then Code, and paginate without capping total results.'),
+    '/translate': (label: 'Translate a Japanese title', prompt:
+      'Translate this Japanese title into natural Indonesian: "[Japanese title]". Preserve names and codes, and do not add information absent from the title. Show the original title and its translation.'),
   };
 
   void useTemplate(String command) {
-    final prompt = templates[command]!.prompt;
+    final prompt = templates[command]!.prompt.tr;
     usePrompt(prompt);
     final placeholder = RegExp(r'\[[^\]]+\]').firstMatch(prompt);
     if (placeholder != null) input.selection = TextSelection(baseOffset: placeholder.start, extentOffset: placeholder.end);
@@ -425,12 +415,12 @@ class PageChatController extends GetxController {
   Future<String> _translateTitle(String title) async {
     final cached = await DBChat.getTranslation(title);
     if (cached != null) return cached;
-    if (isClosed) throw const ChatException('Translation stopped.');
+    if (isClosed) throw ChatException('Translation stopped.'.tr);
     final token = CancelToken();
     _translationTokens.add(token);
     try {
       final text = await api.translateTitle(title, token);
-      if (isClosed || token.isCancelled) throw const ChatException('Translation stopped.');
+      if (isClosed || token.isCancelled) throw ChatException('Translation stopped.'.tr);
       await DBChat.saveTranslation(title, text);
       return text;
     } finally { _translationTokens.remove(token); }

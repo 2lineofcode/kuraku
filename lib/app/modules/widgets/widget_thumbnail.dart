@@ -22,6 +22,7 @@ import '../../core/app_color.dart';
 import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
 import '../../core/app_setting.dart';
+import '../../core/app_translations.dart';
 import '../../data/api/api_javit.dart';
 import '../../data/database/db_videos.dart';
 import '../../data/models/videos_entity.dart';
@@ -364,7 +365,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
   Future<void> _refreshMetadata(Videos video) async {
     final code = HelperMisc.resolveVideoCode(videoCode: video.videoCode, videoPath: video.videoPath, title: video.title);
     if (!code.isValidVideoCode()) {
-      await HelperToast.warn('Video code not valid');
+      await HelperToast.warn('Video code not valid'.tr);
       return;
     }
 
@@ -424,7 +425,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
       }
 
       await DBVideos.update(newVideo);
-      await HelperToast.success('$code metadata updated');
+      await HelperToast.success('@{code} metadata updated'.trNamed({'code': '$code'}));
     } catch (e) {
       await HelperToast.error(e.toString());
     } finally {
@@ -435,7 +436,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
   Future<void> _openDownloadByCode(String code) async {
     AppLog.logD('code -> $code');
     if (!code.isValidVideoCode()) {
-      await HelperToast.warn('Video code not valid');
+      await HelperToast.warn('Video code not valid'.tr);
       return;
     }
 
@@ -483,20 +484,20 @@ class _ExThumbnailState extends State<ExThumbnail> {
 
     return scm.Menu(children: hasVideoPath
         ? [
-            action('Play', 'play'),
-            action('Add to Panel Cart', 'add_panel_cart'),
+            action('Play'.tr, 'play'),
+            action('Add to Panel Cart'.tr, 'add_panel_cart'),
             scm.MenuSeparator(),
-            action((dbVideo?.isFavorite ?? 0) == 1 ? 'Remove From Favorite' : 'Add To Favorite', 'favorite'),
-            action('Add to Playlist', 'add_playlist'),
+            action((dbVideo?.isFavorite ?? 0) == 1 ? 'Remove From Favorite'.tr : 'Add To Favorite'.tr, 'favorite'),
+            action('Add to Playlist'.tr, 'add_playlist'),
             scm.MenuSeparator(),
-            action('Edit Metadata', 'edit_metadata'),
-            action('Refresh Metadata', 'refresh_metadata'),
-            action('Open File Path', 'open_file_path'),
+            action('Edit Metadata'.tr, 'edit_metadata'),
+            action('Refresh Metadata'.tr, 'refresh_metadata'),
+            action('Open File Path'.tr, 'open_file_path'),
           ]
         : [
-            action('Download', 'download'),
-            action('Open Screenshot', 'open_screenshot'),
-            action('Open Trailer', 'open_trailer'),
+            action('Download'.tr, 'download'),
+            action('Open Screenshot'.tr, 'open_screenshot'),
+            action('Open Trailer'.tr, 'open_trailer'),
           ],
     );
   }
@@ -509,28 +510,28 @@ class _ExThumbnailState extends State<ExThumbnail> {
           return;
         }
         if (!File(path).existsSync()) {
-          await HelperToast.warn('File not found');
+          await HelperToast.warn('File not found'.tr);
           return;
         }
         await HelperOpener.openVideoFile(Videos(videoPath: path, title: p.basenameWithoutExtension(path)));
         break;
       case 'favorite':
         if (dbVideo == null) {
-          await HelperToast.warn('Video not found in database');
+          await HelperToast.warn('Video not found in database'.tr);
           break;
         }
         if ((dbVideo.isFavorite ?? 0) == 1) {
           await DBVideos.removeFromFavorite(dbVideo);
-          await HelperToast.info('Removed from favorite');
+          await HelperToast.info('Removed from favorite'.tr);
         } else {
           await DBVideos.addToFavorite(dbVideo);
-          await HelperToast.success('Added to favorite');
+          await HelperToast.success('Added to favorite'.tr);
         }
         break;
       case 'add_playlist':
       case 'edit_metadata':
         if (dbVideo == null) {
-          await HelperToast.warn('Video not found in database');
+          await HelperToast.warn('Video not found in database'.tr);
           break;
         }
         if (selected == 'add_playlist') {
@@ -541,7 +542,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
         break;
       case 'refresh_metadata':
         if (dbVideo == null) {
-          await HelperToast.warn('Video not found in database');
+          await HelperToast.warn('Video not found in database'.tr);
           break;
         }
         await _refreshMetadata(dbVideo);
@@ -551,15 +552,15 @@ class _ExThumbnailState extends State<ExThumbnail> {
         break;
       case 'add_panel_cart':
         if (dbVideo == null) {
-          await HelperToast.warn('Video not found in database');
+          await HelperToast.warn('Video not found in database'.tr);
           break;
         }
         final home = Get.find<HomeController>();
         final isAdded = home.addToCart(dbVideo);
         if (isAdded) {
-          await HelperToast.success('Added to cart');
+          await HelperToast.success('Added to cart'.tr);
         } else {
-          await HelperToast.warn('Already in panel cart');
+          await HelperToast.warn('Already in panel cart'.tr);
         }
         break;
       case 'download':

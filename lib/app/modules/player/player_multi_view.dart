@@ -12,6 +12,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../../core/app_color.dart';
 import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
+import '../../core/app_translations.dart';
 import '../../data/database/db_gamification.dart';
 import '../../data/models/videos_entity.dart';
 import '../../utils/semantic_search_service.dart';
@@ -68,7 +69,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
         _items.add(
           _MultiVideoItem(
             video: video,
-            errorText: 'Invalid video path',
+            errorText: 'Invalid video path'.tr,
           ),
         );
         continue;
@@ -79,7 +80,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
         _items.add(
           _MultiVideoItem(
             video: video,
-            errorText: 'File not found',
+            errorText: 'File not found'.tr,
           ),
         );
         continue;
@@ -113,7 +114,7 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
         _items.add(
           _MultiVideoItem(
             video: video,
-            errorText: 'Failed to open video: $e',
+            errorText: 'Failed to open video: @{e}'.trNamed({'e': '$e'}),
           ),
         );
       } finally {
@@ -413,9 +414,9 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
     }
 
     if (_items.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'No videos provided',
+          'No videos provided'.tr,
           style: TextStyle(color: Colors.white70),
         ),
       );
@@ -428,18 +429,18 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
       [
         HStack([
           isExpandedMode
-              ? '${_items.length} Videos • Focus ${_expandedIndex! + 1}'.text.white.size(14).make().expand()
-              : '${_items.length} Videos'.text.white.size(14).make().expand(),
+              ? '@{length} Videos • Focus @{expandedIndex}'.trNamed({'length': '${_items.length}', 'expandedIndex': '${_expandedIndex! + 1}'}).text.white.size(14).make().expand()
+              : '@{length} Videos'.trNamed({'length': '${_items.length}'}).text.white.size(14).make().expand(),
           if (isExpandedMode)
             IconButton(
               onPressed: () => setState(() => _expandedIndex = null),
               icon: const Icon(Icons.grid_view_rounded, color: Colors.white70),
-              tooltip: 'Back to Grid',
+              tooltip: 'Back to Grid'.tr,
             ),
           IconButton(
             onPressed: _closeAllPlayers,
             icon: const Icon(Icons.close, color: Colors.white70),
-            tooltip: 'Close',
+            tooltip: 'Close'.tr,
           ),
         ]).pOnly(top: 16, left: 12, right: 12).hide(),
         LayoutBuilder(
@@ -577,7 +578,7 @@ class _GridTile extends StatelessWidget {
         ? item.video.videoCode!.trim()
         : (item.video.title?.trim().isNotEmpty == true)
             ? item.video.title!.trim()
-            : 'Untitled';
+            : 'Untitled'.tr;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -612,7 +613,7 @@ class _GridTile extends StatelessWidget {
                                 child: Padding(
                                   padding: const EdgeInsets.all(12),
                                   child: Text(
-                                    item.errorText ?? 'Unknown error',
+                                    item.errorText ?? 'Unknown error'.tr,
                                     style: const TextStyle(color: Colors.redAccent),
                                     textAlign: TextAlign.center,
                                   ),
@@ -684,7 +685,7 @@ class _GridTile extends StatelessWidget {
                               color: Colors.white,
                               size: 18,
                             ),
-                            tooltip: 'Close Video',
+                            tooltip: 'Close Video'.tr,
                             style: IconButton.styleFrom(
                               backgroundColor: Colors.black.withValues(alpha: 0.55),
                             ),
@@ -757,7 +758,7 @@ class _MultiPlayerControls extends StatelessWidget {
                               color: Colors.white,
                               size: isCompact ? 18 : 24,
                             ),
-                            tooltip: isPlaying ? 'Pause' : 'Play',
+                            tooltip: isPlaying ? 'Pause'.tr : 'Play'.tr,
                           );
                         },
                       ),
@@ -821,7 +822,7 @@ class _MultiPlayerControls extends StatelessWidget {
                                 color: Colors.white,
                                 size: isCompact ? 18 : 24,
                               ),
-                              tooltip: isMute ? 'Unmute' : 'Mute',
+                              tooltip: isMute ? 'Unmute'.tr : 'Mute'.tr,
                             );
                           },
                         ),

@@ -13,11 +13,13 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/app_color.dart';
 import '../../core/app_pref.dart';
+import '../../core/app_translations.dart';
 import '../../data/models/videos_entity.dart';
 import '../../utils/helper.dart';
 
@@ -124,7 +126,7 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
       PlayPauseIntent: CallbackAction<PlayPauseIntent>(
         onInvoke: (intent) {
           _playPause();
-          _showInfoOverlayTemporarily('${videoPlayercontroller.value.isPlaying ? 'Playing' : 'Paused'}');
+          _showInfoOverlayTemporarily('${videoPlayercontroller.value.isPlaying ? 'Playing'.tr : 'Paused'.tr}');
           return null;
         },
       ),
@@ -133,7 +135,7 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
           _seekForward5s();
           final position = _latestValue.position;
           final duration = _latestValue.duration;
-          _showInfoOverlayTemporarily('Forward: ${formatDuration(position)} / ${formatDuration(duration)}');
+          _showInfoOverlayTemporarily('Forward: @{position} / @{duration}'.trNamed({'position': '${formatDuration(position)}', 'duration': '${formatDuration(duration)}'}));
           return null;
         },
       ),
@@ -142,7 +144,7 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
           _seekForward30s();
           final position = _latestValue.position;
           final duration = _latestValue.duration;
-          _showInfoOverlayTemporarily('Forward: ${formatDuration(position)} / ${formatDuration(duration)}');
+          _showInfoOverlayTemporarily('Forward: @{position} / @{duration}'.trNamed({'position': '${formatDuration(position)}', 'duration': '${formatDuration(duration)}'}));
           return null;
         },
       ),
@@ -151,7 +153,7 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
           _seekForward60s();
           final position = _latestValue.position;
           final duration = _latestValue.duration;
-          _showInfoOverlayTemporarily('Forward: ${formatDuration(position)} / ${formatDuration(duration)}');
+          _showInfoOverlayTemporarily('Forward: @{position} / @{duration}'.trNamed({'position': '${formatDuration(position)}', 'duration': '${formatDuration(duration)}'}));
           return null;
         },
       ),
@@ -160,7 +162,7 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
           _seekBackward5s();
           final position = _latestValue.position;
           final duration = _latestValue.duration;
-          _showInfoOverlayTemporarily('Backward: ${formatDuration(position)} / ${formatDuration(duration)}');
+          _showInfoOverlayTemporarily('Backward: @{position} / @{duration}'.trNamed({'position': '${formatDuration(position)}', 'duration': '${formatDuration(duration)}'}));
           return null;
         },
       ),
@@ -169,7 +171,7 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
           _seekBackward30s();
           final position = _latestValue.position;
           final duration = _latestValue.duration;
-          _showInfoOverlayTemporarily('Backward: ${formatDuration(position)} / ${formatDuration(duration)}');
+          _showInfoOverlayTemporarily('Backward: @{position} / @{duration}'.trNamed({'position': '${formatDuration(position)}', 'duration': '${formatDuration(duration)}'}));
           return null;
         },
       ),
@@ -178,42 +180,42 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
           _seekBackward60s();
           final position = _latestValue.position;
           final duration = _latestValue.duration;
-          _showInfoOverlayTemporarily('Backward: ${formatDuration(position)} / ${formatDuration(duration)}');
+          _showInfoOverlayTemporarily('Backward: @{position} / @{duration}'.trNamed({'position': '${formatDuration(position)}', 'duration': '${formatDuration(duration)}'}));
           return null;
         },
       ),
       VolumeUpIntent: CallbackAction<VolumeUpIntent>(
         onInvoke: (intent) {
           _volumeUp();
-          _showInfoOverlayTemporarily('Volume: ${(_latestValue.volume * 100).toInt()}%');
+          _showInfoOverlayTemporarily('Volume: @{toInt}%'.trNamed({'toInt': '${(_latestValue.volume * 100).toInt()}'}));
           return null;
         },
       ),
       VolumeDownIntent: CallbackAction<VolumeDownIntent>(
         onInvoke: (intent) {
           _volumeDown();
-          _showInfoOverlayTemporarily('Volume: ${(_latestValue.volume * 100).toInt()}%');
+          _showInfoOverlayTemporarily('Volume: @{toInt}%'.trNamed({'toInt': '${(_latestValue.volume * 100).toInt()}'}));
           return null;
         },
       ),
       SpeedUpIntent: CallbackAction<SpeedUpIntent>(
         onInvoke: (intent) {
           _speedUp();
-          _showInfoOverlayTemporarily('Speed: ${_latestValue.playbackSpeed.toDoubleStringAsFixed(digit: 1)}x');
+          _showInfoOverlayTemporarily('Speed: @{digit}x'.trNamed({'digit': '${_latestValue.playbackSpeed.toDoubleStringAsFixed(digit: 1)}'}));
           return null;
         },
       ),
       SpeedDownIntent: CallbackAction<SpeedDownIntent>(
         onInvoke: (intent) {
           _speedDown();
-          _showInfoOverlayTemporarily('Speed: ${_latestValue.playbackSpeed.toDoubleStringAsFixed(digit: 1)}x');
+          _showInfoOverlayTemporarily('Speed: @{digit}x'.trNamed({'digit': '${_latestValue.playbackSpeed.toDoubleStringAsFixed(digit: 1)}'}));
           return null;
         },
       ),
       MuteIntent: CallbackAction<MuteIntent>(
         onInvoke: (intent) {
           _mute();
-          _showInfoOverlayTemporarily('Muted');
+          _showInfoOverlayTemporarily('Muted'.tr);
           return null;
         },
       ),
@@ -346,7 +348,7 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
                         '${widget.video.videoCode}'.text.extraBold.size(11).minFontSize(11).make().onInkTap(() {
                           HelperMisc.copyToClipboard(widget.video.videoCode, showToast: true);
                         }),
-                        '${widget.video.viewCount != null && widget.video.viewCount! > 0 ? '(${widget.video.viewCount} Views)' : ''}'.text.size(11).minFontSize(11).make().pOnly(left: widget.video.videoCode.isNotEmptyAndNotNull ? 8 : 0),
+                        '${widget.video.viewCount != null && widget.video.viewCount! > 0 ? '(@{viewCount} Views)'.trNamed({'viewCount': '${widget.video.viewCount}'}) : ''}'.text.size(11).minFontSize(11).make().pOnly(left: widget.video.videoCode.isNotEmptyAndNotNull ? 8 : 0),
                       ],
                     ).pSymmetric(h: 8, v: 3),
                   ).pOnly(left: 8),
@@ -382,7 +384,7 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
                 color: Colors.white,
                 size: 14,
               ).pOnly(right: 8),
-              'Vol ${(controller.value.volume * 100).toInt()}'.text.bold.size(11).minFontSize(11).make().pOnly(top: 0),
+              'Vol @{toInt}'.trNamed({'toInt': '${(controller.value.volume * 100).toInt()}'}).text.bold.size(11).minFontSize(11).make().pOnly(top: 0),
             ],
           ).pSymmetric(h: 10, v: 3),
         ),

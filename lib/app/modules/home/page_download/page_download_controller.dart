@@ -11,6 +11,7 @@ import '../../../core/app_logging.dart';
 import '../../../core/app_notification.dart';
 import '../../../core/app_pref.dart';
 import '../../../core/app_setting.dart';
+import '../../../core/app_translations.dart';
 import '../../../data/database/_init_db.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/models/activity_entity.dart';
@@ -134,7 +135,7 @@ class PageDownloadController extends GetxController {
   late final PageDownloadJob job = PageDownloadJob(onChanged: () {
     if (isClosed) return;
     jobRevision.value++;
-    downloadStdout.value = job.status == 'Ready' ? '' : job.running && job.progressText.isNotEmpty ? job.progressText : job.status;
+    downloadStdout.value = job.status == 'Ready' ? '' : job.running && job.progressText.isNotEmpty ? job.progressText : job.status.tr;
     currentProcessDownload.value = job.process;
     if (Get.isRegistered<HomeController>() && downloadStdout.value.isNotEmpty) Get.find<HomeController>().footerText.value = downloadStdout.value;
   });
@@ -205,7 +206,7 @@ class PageDownloadController extends GetxController {
   void downloadWebsite(String url) {
     if (isClosed) return;
     if (job.running) {
-      formError.value = 'A download is already active. Cancel it before starting another.';
+      formError.value = 'A download is already active. Cancel it before starting another.'.tr;
       unawaited(openDialogDownload());
       return;
     }
@@ -273,10 +274,10 @@ class PageDownloadController extends GetxController {
     jobRevision.value++;
     try {
       final binary = p.join(appSetting.appPath, 'javit_dl');
-      if (!await File(binary).exists()) throw StateError('Downloader binary is missing. Restart JavIt to restore it.');
+      if (!await File(binary).exists()) throw StateError('Downloader binary is missing. Restart JavIt to restore it.'.tr);
       if (!Platform.isWindows) {
         final result = await Process.run('/bin/chmod', ['+x', binary]);
-        if (result.exitCode != 0) throw StateError('Cannot make downloader executable: ${result.stderr}');
+        if (result.exitCode != 0) throw StateError('Cannot make downloader executable: @{stderr}'.trNamed({'stderr': '${result.stderr}'}));
       }
       if (job.cancelled || isClosed) {
         job.status = 'Cancelled';
@@ -297,7 +298,7 @@ class PageDownloadController extends GetxController {
         try {
           await DBActivity.updateDownloadLog(id: activity!.id!, content: _downloadContent(request, job.status == 'Completed' ? 'finish' : job.status == 'Cancelled' ? 'cancelled' : 'failed'));
         } catch (e) {
-          formError.value = 'Download result: ${job.status}. Saving history failed: $e';
+          formError.value = 'Download result: @{status}. Saving history failed: @{error}'.trNamed({'status': job.status.tr, 'error': '$e'});
           AppLog.logW(formError.value);
         }
       }
@@ -322,7 +323,7 @@ class PageDownloadController extends GetxController {
     if (completedOutput != null) {
       try {
         await HelperMisc.playSoundDownloadComplate();
-        await AppNotification.show(NotificationModel(title: p.basename(completedOutput), body: 'Download finished', payload: completedOutput));
+        await AppNotification.show(NotificationModel(title: p.basename(completedOutput), body: 'Download finished'.tr, payload: completedOutput));
       } catch (e) {
         AppLog.logW('Download notification failed: $e');
       }

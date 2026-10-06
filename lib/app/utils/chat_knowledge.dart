@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:get/get.dart';
+
+import '../core/app_translations.dart';
 
 class ChatKnowledge {
   ChatKnowledge({required this.mainPath, this.r18Path, this.loadScript});
@@ -172,28 +175,28 @@ class ChatKnowledge {
         values.insert(0, '![${cell(code)}](javit-cover:${Uri.encodeComponent(cover)})');
         final japaneseIndex = rawColumns.indexOf('title_ja');
         final title = (japaneseIndex >= 0 ? row[japaneseIndex] : row[titleIndex])?.toString() ?? '';
-        values.add('${RegExp(r'[\u3040-\u30ff\u3400-\u9fff]').hasMatch(title) ? '[Translate](javit-translate:${Uri.encodeComponent(title)}) · ' : ''}'
-            '[Similar](javit-similar:${Uri.encodeComponent(code)})');
+        values.add('${RegExp(r'[\u3040-\u30ff\u3400-\u9fff]').hasMatch(title) ? '[${'Translate'.tr}](javit-translate:${Uri.encodeComponent(title)}) · ' : ''}'
+            '[${'Similar'.tr}](javit-similar:${Uri.encodeComponent(code)})');
       }
       return '| ${values.join(' | ')} |';
     }
-    final body = rows.isEmpty ? 'Tidak ada hasil / No matches.' : [
-      '| ${headers.map(cell).join(' | ')} |',
+    final body = rows.isEmpty ? 'No matches.'.tr : [
+      '| ${headers.map((header) => cell(header.tr)).join(' | ')} |',
       '| ${headers.map((_) => '---').join(' | ')} |',
       ...rows.map((row) => rowText(row as List)),
     ].join('\n');
     final filters = <String>[
-      if (result['similar_to'] != null) 'Similar themes to ${cell(result['similar_to'])}',
-      for (final group in result['required_terms'] as List? ?? []) 'Required: ${(group as List).map(cell).join(' / ')}',
-      if ((result['exclude_terms'] as List? ?? []).isNotEmpty) 'Exclude: ${(result['exclude_terms'] as List).map(cell).join(' / ')}',
-      if (result['unowned'] == true) 'Not in your library',
+      if (result['similar_to'] != null) 'Similar themes to @{reference}'.trNamed({'reference': cell(result['similar_to'])}),
+      for (final group in result['required_terms'] as List? ?? []) 'Required: @{terms}'.trNamed({'terms': (group as List).map(cell).join(' / ')}),
+      if ((result['exclude_terms'] as List? ?? []).isNotEmpty) 'Exclude: @{terms}'.trNamed({'terms': (result['exclude_terms'] as List).map(cell).join(' / ')}),
+      if (result['unowned'] == true) 'Not in your library'.tr,
     ].join(' · ');
     final terms = (result['search_terms'] as List?)?.map(cell).join(', ');
     final offset = result['page_offset'] as int? ?? 0;
-    final count = terms != null && rows.isNotEmpty ? 'Rows ${offset + 1}–${offset + rows.length}' : '${rows.length} records';
-    final notice = terms != null && result['has_more'] == true ? 'More matches available on the next page.'
-        : result['truncated'] == true ? 'Showing a limited result (up to 500 records). Narrow the filter or request the next batch.' : '';
-    return '${filters.isEmpty ? '' : '$filters\n\n'}${terms == null ? '' : 'Cross-language title search · $terms\n\n'}${rows.length > 1 || terms != null ? '$count\n\n' : ''}$body\n\n${notice.isEmpty ? '' : '$notice\n\n'}'
-        '_Local · ${(result['sources'] as List).map(cell).join(', ')} · ${result['elapsed_ms']} ms_';
+    final count = terms != null && rows.isNotEmpty ? 'Rows @{start}–@{end}'.trNamed({'start': '${offset + 1}', 'end': '${offset + rows.length}'}) : '@{count} records'.trNamed({'count': '${rows.length}'});
+    final notice = terms != null && result['has_more'] == true ? 'More matches available on the next page.'.tr
+        : result['truncated'] == true ? 'Showing a limited result (up to 500 records). Narrow the filter or request the next batch.'.tr : '';
+    return '${filters.isEmpty ? '' : '$filters\n\n'}${terms == null ? '' : 'Cross-language title search · @{terms}\n\n'.trNamed({'terms': '$terms'})}${rows.length > 1 || terms != null ? '$count\n\n' : ''}$body\n\n${notice.isEmpty ? '' : '$notice\n\n'}'
+        '_${'Local'.tr} · ${(result['sources'] as List).map(cell).join(', ')} · ${result['elapsed_ms']} ms_';
   }
 }

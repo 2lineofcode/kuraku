@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:get/get.dart';
+
 import '../data/models/videos_entity.dart';
 import 'local_semantic_worker.dart';
 
@@ -52,7 +54,7 @@ mixin SemanticSearchService {
   }
 
   static Future<Map<String, dynamic>> indexStatus() async {
-    if (playbackActive) throw SemanticSearchException('Visual indexing pauses while a player is open.');
+    if (playbackActive) throw SemanticSearchException('Visual indexing pauses while a player is open.'.tr);
     return Map<String, dynamic>.from(await LocalSemanticWorker.request('summary'));
   }
 
@@ -60,7 +62,7 @@ mixin SemanticSearchService {
   static Future<SemanticIndexProgress> reindexAll({Future<void> Function(SemanticIndexProgress)? onProgress}) => _index(true, onProgress);
 
   static Future<SemanticIndexProgress> _index(bool force, Future<void> Function(SemanticIndexProgress)? onProgress) async {
-    if (indexing) throw SemanticSearchException('Visual indexing is already running.');
+    if (indexing) throw SemanticSearchException('Visual indexing is already running.'.tr);
     indexing = true;
     _cancelled = false;
     var processed = 0, skipped = 0, current = 0, total = 0;
@@ -122,7 +124,7 @@ mixin SemanticSearchService {
 
   static Future<List<SemanticSearchHit>> search(String query, {int? limit, Object? owner, double minimum = .24, void Function(int indexed, int total)? onCoverage}) async {
     if (query.trim().isEmpty) return [];
-    if (playbackActive) throw SemanticSearchException('Close the player to use Visual Search.');
+    if (playbackActive) throw SemanticSearchException('Close the player to use Visual Search.'.tr);
     final result = await LocalSemanticWorker.request('search', {'query': query, 'minimum': minimum}, owner);
     onCoverage?.call(result['indexed'] as int, result['total'] as int);
     final hits = (result['hits'] as List).map((item) => SemanticSearchHit(

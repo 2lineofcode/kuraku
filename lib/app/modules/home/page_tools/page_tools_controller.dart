@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
+import '../../../core/app_translations.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
@@ -27,6 +28,8 @@ class PageToolsController extends GetxController with StateMixin {
   // ** part: large filesize
   final missingQualityCount = 0.obs;
   final qualityScanRunning = false.obs;
+  final qualityScanStopping = false.obs;
+  final qualityScanFailed = false.obs;
   final qualityScanTotal = 0.obs;
   final qualityScanChecked = 0.obs;
   final qualityScanUpdated = 0.obs;
@@ -197,7 +200,8 @@ class PageToolsController extends GetxController with StateMixin {
   void stopQualityScan() {
     if (!qualityScanRunning.value) return;
     _qualityScanCancelled = true;
-    qualityScanStatus.value = 'Stopping… Saved results will be kept.';
+    qualityScanStopping.value = true;
+    qualityScanStatus.value = 'Stopping… Saved results will be kept.'.tr;
     AppLog.logI('Resolution scan: stop requested');
     unawaited(_cancelQualityProbe());
   }
@@ -213,11 +217,13 @@ class PageToolsController extends GetxController with StateMixin {
     if (qualityScanRunning.value || isClosed) return;
     qualityScanRunning.value = true;
     _qualityScanCancelled = false;
+    qualityScanStopping.value = false;
+    qualityScanFailed.value = false;
     qualityScanTotal.value = 0;
     qualityScanChecked.value = 0;
     qualityScanUpdated.value = 0;
     qualityScanSkipped.value = 0;
-    qualityScanStatus.value = 'Finding videos with missing resolution…';
+    qualityScanStatus.value = 'Finding videos with missing resolution…'.tr;
     final sw = Stopwatch()..start();
     AppLog.logI('Resolution scan: started');
     try {
@@ -226,7 +232,7 @@ class PageToolsController extends GetxController with StateMixin {
       for (final video in videos) {
         if (_qualityScanCancelled || isClosed) break;
         qualityScanFile.value = p.basename(video.videoPath ?? '');
-        qualityScanStatus.value = 'Reading video metadata…';
+        qualityScanStatus.value = 'Reading video metadata…'.tr;
         try {
           final quality = await extractQuality(video.videoPath ?? '');
           if (_qualityScanCancelled || isClosed) break;
@@ -244,18 +250,20 @@ class PageToolsController extends GetxController with StateMixin {
         qualityScanChecked.value++;
         await Future<void>.delayed(const Duration(milliseconds: 30));
       }
-      qualityScanStatus.value = '${_qualityScanCancelled ? 'Stopped' : 'Finished'} · ${qualityScanUpdated.value} updated · ${qualityScanSkipped.value} skipped';
+      qualityScanStatus.value = '@{Finished} · @{value} updated · @{value2} skipped'.trNamed({'Finished': '${_qualityScanCancelled ? 'Stopped'.tr : 'Finished'.tr}', 'value': '${qualityScanUpdated.value}', 'value2': '${qualityScanSkipped.value}'});
       AppLog.logI('Resolution scan: ${qualityScanStatus.value} in ${sw.elapsedMilliseconds} ms');
       if (!isClosed) {
         await checkIsHasDataNotScanned();
         await getTopLargeFileSize(mode: topLargeFilterMode.value);
       }
     } catch (e) {
-      qualityScanStatus.value = 'Scan failed. Saved results are kept. Please retry.';
+      qualityScanFailed.value = true;
+      qualityScanStatus.value = 'Scan failed. Saved results are kept. Please retry.'.tr;
       AppLog.logE('Resolution scan failed: $e');
     } finally {
       qualityScanFile.value = '';
       qualityScanRunning.value = false;
+      qualityScanStopping.value = false;
     }
   }
 
@@ -281,7 +289,7 @@ class PageToolsController extends GetxController with StateMixin {
       if (_qualityScanCancelled || isClosed) await _cancelQualityProbe();
       return await result.future.timeout(const Duration(seconds: 15), onTimeout: () async {
         await _cancelQualityProbe();
-        throw TimeoutException('Metadata probe exceeded 15 seconds');
+        throw TimeoutException('Metadata probe exceeded 15 seconds'.tr);
       });
     } finally {
       _qualityProbe = null;
@@ -371,14 +379,14 @@ class PageToolsController extends GetxController with StateMixin {
     fnTodo.requestFocus();
 
     ExAlert.adaptive(
-      title: Text('New Todo', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.left).pOnly(bottom: 16),
+      title: Text('New Todo'.tr, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.left).pOnly(bottom: 16),
       content: ConstrainedBox(
         constraints: BoxConstraints(minHeight: 30),
         child: CupertinoTextField(
           controller: tecTodo,
           focusNode: fnTodo,
           style: TextStyle(color: AppColor.text, fontSize: 12),
-          placeholder: 'TODO',
+          placeholder: 'TODO'.tr,
           onSubmitted: (value) async {
             final newTodo = Activity(type: kActivityTypeTodo, content: value);
             await DBActivity.addTodo(newTodo.content ?? '');
@@ -389,7 +397,7 @@ class PageToolsController extends GetxController with StateMixin {
       ),
       actions: [
         CupertinoDialogAction(
-          child: Text('Save', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          child: Text('Save'.tr, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           onPressed: () async {
             final newTodo = Activity(type: kActivityTypeTodo, content: tecTodo.text);
             await DBActivity.addTodo(newTodo.content ?? '');
@@ -430,7 +438,7 @@ class PageToolsController extends GetxController with StateMixin {
       if (isClosed || request != _leftRequest) return;
       leftList.assignAll(items);
     } catch (e) {
-      if (!isClosed && request == _leftRequest) leftListError.value = 'Could not load catalog. Please retry.';
+      if (!isClosed && request == _leftRequest) leftListError.value = 'Could not load catalog. Please retry.'.tr;
       AppLog.logE('R18 groups failed: $e');
     } finally {
       if (!isClosed && request == _leftRequest) leftListLoading.value = false;
@@ -466,7 +474,7 @@ class PageToolsController extends GetxController with StateMixin {
       await applyAdvancedFilters();
       change(200, status: RxStatus.success());
     } catch (e) {
-      if (!isClosed && request == _selectionRequest) change(0, status: RxStatus.error('Could not load videos. Please retry.'));
+      if (!isClosed && request == _selectionRequest) change(0, status: RxStatus.error('Could not load videos. Please retry.'.tr));
       AppLog.logE('R18 selection failed: $e');
     }
   }

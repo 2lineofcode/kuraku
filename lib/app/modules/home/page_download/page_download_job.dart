@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
+
+import '../../../core/app_translations.dart';
 
 class DownloadRequest {
   const DownloadRequest({required this.url, required this.directory, this.filename = '', this.mode = 'extract', this.concurrency = 8, this.retries = 3, this.timeout = 30, this.referer = '', this.userAgent = '', this.headless = false, this.captureDuration = 20, this.playSelector = '', this.allowPopups = false});
@@ -13,15 +16,15 @@ class DownloadRequest {
 
   void validate() {
     final uri = Uri.tryParse(url);
-    if (uri == null || !['http', 'https'].contains(uri.scheme) || uri.host.isEmpty || uri.userInfo.isNotEmpty) throw const FormatException('Enter a valid HTTP(S) URL.');
-    if (!['extract', 'auto', 'hls', 'file', 'youtube'].contains(mode)) throw const FormatException('Invalid download mode.');
-    if (!p.isAbsolute(directory) || !Directory(directory).existsSync()) throw const FormatException('Choose an existing output folder.');
-    if (filename.isEmpty && mode != 'extract') throw const FormatException('Enter an output filename.');
-    if (filename.isNotEmpty && (filename == '.' || filename == '..' || RegExp(r'[<>:"/\\|?*\x00-\x1f]').hasMatch(filename) || filename.endsWith('.') || filename.trim() != filename)) throw const FormatException('Use a filename without path separators or reserved characters.');
-    if (concurrency < 1 || concurrency > 64 || retries < 0 || retries > 10 || timeout < 1 || captureDuration < 1) throw const FormatException('Concurrency: 1–64, retries: 0–10; durations must be positive.');
+    if (uri == null || !['http', 'https'].contains(uri.scheme) || uri.host.isEmpty || uri.userInfo.isNotEmpty) throw FormatException('Enter a valid HTTP(S) URL.'.tr);
+    if (!['extract', 'auto', 'hls', 'file', 'youtube'].contains(mode)) throw FormatException('Invalid download mode.'.tr);
+    if (!p.isAbsolute(directory) || !Directory(directory).existsSync()) throw FormatException('Choose an existing output folder.'.tr);
+    if (filename.isEmpty && mode != 'extract') throw FormatException('Enter an output filename.'.tr);
+    if (filename.isNotEmpty && (filename == '.' || filename == '..' || RegExp(r'[<>:"/\\|?*\x00-\x1f]').hasMatch(filename) || filename.endsWith('.') || filename.trim() != filename)) throw FormatException('Use a filename without path separators or reserved characters.'.tr);
+    if (concurrency < 1 || concurrency > 64 || retries < 0 || retries > 10 || timeout < 1 || captureDuration < 1) throw FormatException('Concurrency: 1–64, retries: 0–10; durations must be positive.'.tr);
     if (referer.isNotEmpty) {
       final ref = Uri.tryParse(referer);
-      if (ref == null || !['http', 'https'].contains(ref.scheme) || ref.host.isEmpty) throw const FormatException('Referer must be an HTTP(S) URL.');
+      if (ref == null || !['http', 'https'].contains(ref.scheme) || ref.host.isEmpty) throw FormatException('Referer must be an HTTP(S) URL.'.tr);
     }
   }
 
@@ -65,7 +68,7 @@ class PageDownloadJob {
   void _notify() => onChanged?.call();
 
   Future<void> start(DownloadRequest request, {required String binary, required String cache, Map<String, String>? environment, Duration deadline = const Duration(hours: 6)}) async {
-    if (running) throw StateError('A download is already active.');
+    if (running) throw StateError('A download is already active.'.tr);
     request.validate();
     running = true;
     cancelled = false;
@@ -85,7 +88,7 @@ class PageDownloadJob {
     try {
       process = await Process.start(binary, request.arguments(cache), workingDirectory: request.directory, environment: environment);
       _deadline = Timer(deadline, () {
-        error = 'Download deadline reached.';
+        error = 'Download deadline reached.'.tr;
         cancel();
       });
       if (cancelled) {
@@ -104,7 +107,7 @@ class PageDownloadJob {
         progress = 1;
       } else {
         status = 'Failed';
-        if (error.isEmpty) error = exitCode == 0 ? 'No completed download was published.' : 'Downloader exited with code $exitCode. Check the log.';
+        if (error.isEmpty) error = exitCode == 0 ? 'No completed download was published.'.tr : 'Downloader exited with code @{exitCode}. Check the log.'.trNamed({'exitCode': '$exitCode'});
       }
     } catch (e) {
       status = cancelled ? 'Cancelled' : 'Failed';
@@ -127,7 +130,7 @@ class PageDownloadJob {
     try {
       final prefix = utf8.decode(await handle.read(512), allowMalformed: true).trimLeft().toLowerCase();
       if (request.mode != 'file' && (prefix.startsWith('<!doctype html') || prefix.startsWith('<html'))) {
-        error = 'The source returned HTML. Use Website mode to capture its media.';
+        error = 'The source returned HTML. Use Website mode to capture its media.'.tr;
         return false;
       }
     } finally {

@@ -19,6 +19,7 @@ import '../../env.g.dart';
 import '../core/app_color.dart';
 import '../core/app_logging.dart';
 import '../core/app_pref.dart';
+import '../core/app_translations.dart';
 import '../core/const.dart';
 import '../data/api/api_javit.dart';
 import '../data/api/api_javtrailers.dart';
@@ -45,14 +46,14 @@ mixin HelperOpener {
   // open folder
   static Future<void> openFolder(String path) async {
     await cmd.run('open -R "$path"', verbose: false).catchError((e) async {
-      await HelperToast.error('File does not exist at path: $path');
+      await HelperToast.error('File does not exist at path: @{path}'.trNamed({'path': '$path'}));
     });
   }
 
   // open file path
   static Future<void> openFilePath(String path) async {
     await cmd.run('open -R "$path"', verbose: false).catchError((e) {
-      HelperToast.error('File does not exist at path: $path');
+      HelperToast.error('File does not exist at path: @{path}'.trNamed({'path': '$path'}));
     });
   }
 
@@ -140,7 +141,7 @@ mixin HelperOpener {
 
     // new
     try {
-      if (resolvedCode.isEmpty) throw Exception('empty video code');
+      if (resolvedCode.isEmpty) throw Exception('empty video code'.tr);
       final x = await DBVideos.getByCode(resolvedCode);
       if (x.videoCode.isNotEmptyAndNotNull) {
         HelperLoading.dismiss();
@@ -236,7 +237,7 @@ mixin HelperOpener {
                           await openScreenshot(item);
                         },
                       ),
-                    ).pOnly(right: 8).tooltip('Screenshot'),
+                    ).pOnly(right: 8).tooltip('Screenshot'.tr),
 
                     // download
                     Container(
@@ -303,9 +304,9 @@ mixin HelperOpener {
                             try {
                               final target = method == 'downie' ? 'downie://XUOpenURL?url=${Uri.encodeComponent(url)}' : url;
                               final opened = await launchUrlString(target, mode: LaunchMode.externalApplication);
-                              if (!opened) throw StateError('No application could open the URL');
+                              if (!opened) throw StateError('No application could open the URL'.tr);
                             } catch (e) {
-                              await HelperToast.error('Unable to open ${method == 'downie' ? 'Downie' : 'URL'}: $e');
+                              await HelperToast.error('Unable to open @{URL}: @{e}'.trNamed({'URL': '${method == 'downie' ? 'Downie' : 'URL'}', 'e': '$e'}));
                               return;
                             }
                           }
@@ -321,7 +322,7 @@ mixin HelperOpener {
                           } catch (_) {}
                         },
                       ),
-                    ).pOnly(right: 8).tooltip('Download'),
+                    ).pOnly(right: 8).tooltip('Download'.tr),
 
                     // trailer
                     Container(
@@ -330,7 +331,7 @@ mixin HelperOpener {
                         icon: Icon(UIconsPro.regularRounded.video_camera, size: 16),
                         onPressed: () async => await openTrailer(item),
                       ),
-                    ).pOnly(right: 8).tooltip('Trailer'),
+                    ).pOnly(right: 8).tooltip('Trailer'.tr),
                     Spacer(),
                   ],
                 ).pOnly(bottom: 12),
@@ -346,12 +347,12 @@ mixin HelperOpener {
                         child: VStack([
                           HStack([
                             Icon(UIconsPro.regularRounded.square_code, size: 14).pOnly(right: 8),
-                            'Metadata'.text.size(14).bold.make(),
+                            'Metadata'.tr.text.size(14).bold.make(),
                           ]).pOnly(bottom: 16),
 
                           // actress
                           if (!video.actress.isEmptyOrNull) ...[
-                            'Actress:'.text.size(12).bold.make().pOnly(bottom: 4),
+                            'Actress:'.tr.text.size(12).bold.make().pOnly(bottom: 4),
                             Wrap(children: [
                               for (int i = 0; i < video.actress!.length; i++) ...[
                                 '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}'
@@ -399,7 +400,7 @@ mixin HelperOpener {
 
                           // category
                           if (!video.category.isEmptyOrNull) ...[
-                            'Category:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'Category:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             Wrap(children: [
                               for (int i = 0; i < video.category!.length; i++) ...[
                                 '${HelperDecensor.decensor(video.category?[i].category)}'.text.color(AppColor.muted).underline.size(11).minFontSize(11).make().pOnly(right: 8).onInkTap(() async {
@@ -418,7 +419,7 @@ mixin HelperOpener {
 
                           // series
                           if (!video.series.isEmptyOrNull) ...[
-                            'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'Series:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${HelperDecensor.decensor(video.series)}'.text.underline.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() async {
                               // ** on series clicked
                               final newTab = PageExploreController.isNewTabModifierPressed;
@@ -444,31 +445,31 @@ mixin HelperOpener {
 
                           // release date
                           if (!video.releaseDate.isEmptyOrNull) ...[
-                            'Release Date:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'Release Date:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.releaseDateFormated}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
 
                           // duration
                           if (video.duration != 0) ...[
-                            'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'Duration:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.durationFormated}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
 
                           // label
                           if (!video.label.isEmptyOrNull) ...[
-                            'Label:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'Label:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.label}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
 
                           // studio
                           if (!video.studio.isEmptyOrNull) ...[
-                            'Studio:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'Studio:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.studio}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
 
                           // director
                           if (!video.director.isEmptyOrNull) ...[
-                            'Director:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'Director:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.director}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
                         ]).p12(),
@@ -523,7 +524,7 @@ mixin HelperOpener {
     HelperLoading.dismiss();
 
     if (video.screenshot == null || video.screenshot!.isEmpty) {
-      await HelperToast.warn('No screenshot found');
+      await HelperToast.warn('No screenshot found'.tr);
       return;
     }
 
@@ -663,7 +664,7 @@ mixin HelperOpener {
     } else if (item is Map) {
       video = Videos(videoCode: item['video_code']?.toString(), title: item['title']?.toString(), trailer: item['trailer']?.toString());
     } else {
-      throw ArgumentError('Unsupported trailer item');
+      throw ArgumentError('Unsupported trailer item'.tr);
     }
 
     video.videoCode = (video.videoCode ?? '').trim().toUpperCase();
@@ -700,7 +701,7 @@ mixin HelperOpener {
       if (cancelled) return;
       final urls = trailerUrls(video.trailer ?? '');
       if (urls.isEmpty) {
-        throw StateError('Trailer not found or URL is invalid');
+        throw StateError('Trailer not found or URL is invalid'.tr);
       }
 
       for (final url in urls) {
@@ -771,7 +772,7 @@ mixin HelperOpener {
       if (!cancelled) {
         AppLog.logE('Unable to open trailer: $e');
         final message = e is PlatformException ? e.message ?? e.code : e.toString();
-        await HelperToast.warn('Unable to play trailer: $message', duration: 5.seconds);
+        await HelperToast.warn('Unable to play trailer: @{message}'.trNamed({'message': '$message'}), duration: 5.seconds);
       }
     } finally {
       if (loading) HelperLoading.dismiss();
@@ -786,23 +787,23 @@ mixin HelperOpener {
 
   static Future<void> openKeyboardShortcuts() async {
     final shortcuts = <Map<String, String>>[
-      {'key': 'Esc',    'action': 'Close dialog/panel'},
+      {'key': 'Esc',    'action': 'Close dialog/panel'.tr},
 
-      {'key': '⌘ + 1',  'action': 'Go to Home'},
-      {'key': '⌘ + 2',  'action': 'Go to Library'},
-      {'key': '⌘ + 3',  'action': 'Go to Explore'},
-      {'key': '⌘ + 4',  'action': 'Go to Downloads'},
-      {'key': '⌘ + 5',  'action': 'Go to Tools'},
-      {'key': '⌘ + B',  'action': 'Show/hide side menu (mini mode)'},
-      {'key': '⌘ + D',  'action': 'Open new download dialog'},
-      {'key': '⌘ + E',  'action': 'Open video cart panel'},
-      {'key': '⌘ + L',  'action': 'Open app log panel'},
-      {'key': '⌘ + P',  'action': 'Open playlist panel'},
-      {'key': '⌘ + R',  'action': 'Reload all pages'},
-      {'key': '⌘ + T',  'action': 'Add new todo'},
+      {'key': '⌘ + 1',  'action': 'Go to Home'.tr},
+      {'key': '⌘ + 2',  'action': 'Go to Library'.tr},
+      {'key': '⌘ + 3',  'action': 'Go to Explore'.tr},
+      {'key': '⌘ + 4',  'action': 'Go to Downloads'.tr},
+      {'key': '⌘ + 5',  'action': 'Go to Tools'.tr},
+      {'key': '⌘ + B',  'action': 'Show/hide side menu (mini mode)'.tr},
+      {'key': '⌘ + D',  'action': 'Open new download dialog'.tr},
+      {'key': '⌘ + E',  'action': 'Open video cart panel'.tr},
+      {'key': '⌘ + L',  'action': 'Open app log panel'.tr},
+      {'key': '⌘ + P',  'action': 'Open playlist panel'.tr},
+      {'key': '⌘ + R',  'action': 'Reload all pages'.tr},
+      {'key': '⌘ + T',  'action': 'Add new todo'.tr},
 
-      {'key': '⌘ + ,',  'action': 'Open Settings'},
-      {'key': '⌘ + .',  'action': 'Open relapse panel'},
+      {'key': '⌘ + ,',  'action': 'Open Settings'.tr},
+      {'key': '⌘ + .',  'action': 'Open relapse panel'.tr},
     ];
 
     
@@ -820,7 +821,7 @@ mixin HelperOpener {
           [
             HStack(
               [
-                'Keyboard Shortcuts'.text.bold.size(16).make().pOnly(left: 12),
+                'Keyboard Shortcuts'.tr.text.bold.size(16).make().pOnly(left: 12),
                 Spacer(),
                 IconButton(
                   icon: Icon(UIconsPro.regularRounded.cross, size: 14),
@@ -838,8 +839,8 @@ mixin HelperOpener {
                 TableRow(
                   decoration: BoxDecoration(color: AppColor.container),
                   children: [
-                    'Key'.text.bold.make().p8(),
-                    'Action'.text.bold.make().p8(),
+                    'Key'.tr.text.bold.make().p8(),
+                    'Action'.tr.text.bold.make().p8(),
                   ],
                 ),
 
@@ -885,7 +886,7 @@ mixin HelperOpener {
       );
     } catch (e) {
       AppLog.logE('Failed to load filter options: $e');
-      await HelperToast.error('Unable to load filter options. Please try again.');
+      await HelperToast.error('Unable to load filter options. Please try again.'.tr);
       return;
     }
     if (Get.context == null || (isAvailable != null && !isAvailable())) return;
@@ -944,7 +945,7 @@ enum VideoBlacklistField { videoCode, title }
 
 class VideoBlacklistRule {
   VideoBlacklistRule({required this.field, required this.pattern}) : regex = RegExp(pattern, caseSensitive: false) {
-    if (pattern.trim().isEmpty) throw const FormatException('Enter a regex pattern.');
+    if (pattern.trim().isEmpty) throw FormatException('Enter a regex pattern.'.tr);
   }
 
   final VideoBlacklistField field;
@@ -1148,7 +1149,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
       try {
         rules.add(VideoBlacklistRule(field: rule.field, pattern: rule.controller.text));
       } on FormatException {
-        _blacklistErrors[rule.controller] = rule.controller.text.trim().isEmpty ? 'Enter a regex pattern.' : 'Invalid regex pattern.';
+        _blacklistErrors[rule.controller] = rule.controller.text.trim().isEmpty ? 'Enter a regex pattern.'.tr : 'Invalid regex pattern.'.tr;
       }
     }
     if (_blacklistErrors.isNotEmpty) {
@@ -1160,7 +1161,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
     if ((_durationMin.text.trim().isNotEmpty && (min == null || min < 0))
         || (_durationMax.text.trim().isNotEmpty && (max == null || max <= 0))
         || (min != null && max != null && min > max)) {
-      setState(() => _durationError = 'Enter valid minutes; max must be at least min.');
+      setState(() => _durationError = 'Enter valid minutes; max must be at least min.'.tr);
       return;
     }
     Navigator.of(context).pop<_VideoFilterValues>((
@@ -1201,18 +1202,18 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
     AppColor.dependOn(context);
     final year = DateTime.now().year.toDouble();
     final codeField = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _label('Video code'),
-      _field(_code, 'Contains video code...', submit: true),
+      _label('Video code'.tr),
+      _field(_code, 'Contains video code...'.tr, submit: true),
     ]);
     final actressField = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _label('Actress'),
+      _label('Actress'.tr),
       ExAutoComplate(
         controller: _actress,
         items: widget.state.actresses,
         displayStringForOption: HelperDecensor.decensor,
         maxHeight: 160,
-        emptyText: 'No suggestions. You can still filter by this name.',
-        fieldBuilder: (_, controller, focus) => _field(controller, 'Search actress name...', focusNode: focus),
+        emptyText: 'No suggestions. You can still filter by this name.'.tr,
+        fieldBuilder: (_, controller, focus) => _field(controller, 'Search actress name...'.tr, focusNode: focus),
         onSelected: (name) => _actress.text = HelperDecensor.decensor(name),
       ),
     ]);
@@ -1241,11 +1242,11 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Filter', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColor.text)),
+                  Text('Filter'.tr, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColor.text)),
                   SizedBox(height: 3),
-                  Text('Find exactly what you’re looking for', style: TextStyle(fontSize: 11, color: _muted)),
+                  Text('Find exactly what you’re looking for'.tr, style: TextStyle(fontSize: 11, color: _muted)),
                 ])),
-                IconButton(tooltip: 'Cancel', onPressed: () => Navigator.pop(context), icon: Icon(Icons.close, size: 17, color: _muted)),
+                IconButton(tooltip: 'Cancel'.tr, onPressed: () => Navigator.pop(context), icon: Icon(Icons.close, size: 17, color: _muted)),
               ]),
             ),
             Flexible(
@@ -1277,10 +1278,10 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                         decoration: BoxDecoration(color: AppColor.container, borderRadius: BorderRadius.circular(10)),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                           Row(children: [
-                            Expanded(child: Text('Categories', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),
+                            Expanded(child: Text('Categories'.tr, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),
                             Tooltip(
-                              message: widget.matchAllCategories ? 'Videos must match all selected categories' : 'Videos can match any selected category',
-                              child: Text(widget.matchAllCategories ? 'Match all' : 'Match any', style: TextStyle(fontSize: 10, color: _accent)),
+                              message: widget.matchAllCategories ? 'Videos must match all selected categories'.tr : 'Videos can match any selected category'.tr,
+                              child: Text(widget.matchAllCategories ? 'Match all'.tr : 'Match any'.tr, style: TextStyle(fontSize: 10, color: _accent)),
                             ),
                           ]),
                           const SizedBox(height: 10),
@@ -1289,8 +1290,8 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                             items: widget.state.categories.where((category) => !_categories.contains(category)).toList(),
                             displayStringForOption: HelperDecensor.decensor,
                             maxHeight: 160,
-                            emptyText: 'No more matching categories.',
-                            fieldBuilder: (_, controller, focus) => _field(controller, 'Search and add categories...', focusNode: focus),
+                            emptyText: 'No more matching categories.'.tr,
+                            fieldBuilder: (_, controller, focus) => _field(controller, 'Search and add categories...'.tr, focusNode: focus),
                             onSelected: (category) {
                               setState(() {
                                 if (!_categories.contains(category)) _categories.add(category);
@@ -1323,17 +1324,17 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                       decoration: BoxDecoration(color: AppColor.container, borderRadius: BorderRadius.circular(10)),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                         Row(children: [
-                          Expanded(child: Text('Blacklist', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),
+                          Expanded(child: Text('Blacklist'.tr, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),
                           IconButton(
-                            tooltip: 'Add blacklist rule', visualDensity: VisualDensity.compact,
+                            tooltip: 'Add blacklist rule'.tr, visualDensity: VisualDensity.compact,
                             icon: Icon(Icons.add, size: 18, color: _accent),
                             onPressed: () => setState(() => _blacklist.add((field: VideoBlacklistField.videoCode, controller: TextEditingController()))),
                           ),
                         ]),
-                        Text('Hide matches · Regex · Case-insensitive', style: TextStyle(fontSize: 10, color: _muted)),
+                        Text('Hide matches · Regex · Case-insensitive'.tr, style: TextStyle(fontSize: 10, color: _muted)),
                         if (_blacklist.isEmpty) Padding(
                           padding: const EdgeInsets.only(top: 10),
-                          child: Text('No rules. Add one with +.', style: TextStyle(fontSize: 11, color: _muted)),
+                          child: Text('No rules. Add one with +.'.tr, style: TextStyle(fontSize: 11, color: _muted)),
                         ),
                         for (var i = 0; i < _blacklist.length; i++) Padding(
                           key: ObjectKey(_blacklist[i].controller),
@@ -1344,14 +1345,14 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                                 value: _blacklist[i].field, isExpanded: true, isDense: true,
                                 dropdownColor: AppColor.panel,
                                 style: TextStyle(fontSize: 11, color: AppColor.text),
-                                items: const {VideoBlacklistField.videoCode: 'Video Code', VideoBlacklistField.title: 'Title'}.entries
+                                items: {VideoBlacklistField.videoCode: 'Video Code'.tr, VideoBlacklistField.title: 'Title'.tr}.entries
                                     .map((entry) => DropdownMenuItem(value: entry.key, child: Text(entry.value))).toList(),
                                 onChanged: (field) { if (field != null) setState(() => _blacklist[i] = (field: field, controller: _blacklist[i].controller)); },
                               ))),
                               const SizedBox(width: 8),
                               Expanded(child: _field(_blacklist[i].controller, _blacklist[i].field == VideoBlacklistField.videoCode ? 'AD-(.*)' : '(.*)VR(.*)')),
                               IconButton(
-                                tooltip: 'Remove blacklist rule', visualDensity: VisualDensity.compact,
+                                tooltip: 'Remove blacklist rule'.tr, visualDensity: VisualDensity.compact,
                                 icon: Icon(Icons.close, size: 16, color: _muted),
                                 onPressed: () => setState(() {
                                   final rule = _blacklist.removeAt(i);
@@ -1369,7 +1370,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                       ]),
                     ),
                     const SizedBox(height: 20),
-                    _label('Duration (minutes)'),
+                    _label('Duration (minutes)'.tr),
                     Row(children: [
                       Expanded(child: CupertinoTextField(
                         key: const ValueKey('filter-duration-min'), controller: _durationMin,
@@ -1396,8 +1397,8 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                     const SizedBox(height: 20),
                     if (widget.showYears) ...[
                       Row(children: [
-                        Expanded(child: Text('Release year', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),
-                        Text(_years.start == 2000 && _years.end == year ? 'Any year' : '${_years.start.toInt()} – ${_years.end.toInt()}', style: TextStyle(fontSize: 11, color: _accent)),
+                        Expanded(child: Text('Release year'.tr, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),
+                        Text(_years.start == 2000 && _years.end == year ? 'Any year'.tr : '${_years.start.toInt()} – ${_years.end.toInt()}', style: TextStyle(fontSize: 11, color: _accent)),
                       ]),
                       const SizedBox(height: 4),
                       SliderTheme(
@@ -1436,13 +1437,13 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                 TextButton(
                   style: TextButton.styleFrom(foregroundColor: _muted, textStyle: TextStyle(fontSize: 12)),
                   onPressed: _reset,
-                  child: const Text('Reset'),
+                  child: Text('Reset'.tr),
                 ),
                 const Spacer(),
                 TextButton(
                   style: TextButton.styleFrom(foregroundColor: AppColor.text, textStyle: TextStyle(fontSize: 12)),
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  child: Text('Cancel'.tr),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
@@ -1454,7 +1455,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   onPressed: _apply,
-                  child: const Text('Apply'),
+                  child: Text('Apply'.tr),
                 ),
               ]),
             ),

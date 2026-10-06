@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/app_translations.dart';
 import '../../../data/database/db_gamification.dart';
 import '../../../utils/helper_badge.dart';
 import 'page_profile_controller.dart';
@@ -19,7 +20,7 @@ class PageProfileView extends GetView<PageProfileController> {
         return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text(controller.error.value),
           const SizedBox(height: 12),
-          OutlinedButton(onPressed: controller.onRefresh, child: const Text('Retry')),
+          OutlinedButton(onPressed: controller.onRefresh, child: Text('Retry'.tr)),
         ]));
       }
       final home = controller.home;
@@ -44,18 +45,18 @@ class PageProfileView extends GetView<PageProfileController> {
                     CircleAvatar(radius: 25, backgroundColor: AppColor.selected, child: Icon(Icons.person_outline_rounded, size: 28)),
                     const SizedBox(width: 16),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(profile.name?.trim().isNotEmpty == true ? profile.name! : 'Your profile', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+                      Text(profile.name?.trim().isNotEmpty == true ? profile.name! : 'Your profile'.tr, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
                       const SizedBox(height: 4),
-                      Text('Member since ${_date(profile.createdAt)}', style: TextStyle(fontSize: 12, color: AppColor.muted)),
+                      Text('Member since @{createdAt}'.trNamed({'createdAt': '${_date(profile.createdAt)}'}), style: TextStyle(fontSize: 12, color: AppColor.muted)),
                     ])),
                     if (!controller.isEditing.value && wide)
-                      TextButton.icon(onPressed: controller.editName, icon: Icon(Icons.edit_outlined, size: 16), label: const Text('Edit profile')),
+                      TextButton.icon(onPressed: controller.editName, icon: Icon(Icons.edit_outlined, size: 16), label: Text('Edit profile'.tr)),
                   ]),
                   if (!controller.isEditing.value && !wide)
-                    Padding(padding: const EdgeInsets.only(top: 12), child: TextButton.icon(onPressed: controller.editName, icon: Icon(Icons.edit_outlined, size: 16), label: const Text('Edit profile'))),
+                    Padding(padding: const EdgeInsets.only(top: 12), child: TextButton.icon(onPressed: controller.editName, icon: Icon(Icons.edit_outlined, size: 16), label: Text('Edit profile'.tr))),
                   if (controller.isEditing.value) ...[
                     const SizedBox(height: 24),
-                    const Text('Display name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    Text('Display name'.tr, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 440),
@@ -65,7 +66,7 @@ class PageProfileView extends GetView<PageProfileController> {
                         enabled: !controller.isSaving.value,
                         style: const TextStyle(fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'Your name',
+                          hintText: 'Your name'.tr,
                           isDense: true,
                           border: const OutlineInputBorder(),
                           errorText: controller.nameError.value.isEmpty ? null : controller.nameError.value,
@@ -75,9 +76,9 @@ class PageProfileView extends GetView<PageProfileController> {
                     ),
                     const SizedBox(height: 12),
                     Row(children: [
-                      FilledButton(onPressed: controller.isSaving.value ? null : controller.saveName, child: Text(controller.isSaving.value ? 'Saving...' : 'Save changes')),
+                      FilledButton(onPressed: controller.isSaving.value ? null : controller.saveName, child: Text(controller.isSaving.value ? 'Saving...'.tr : 'Save changes'.tr)),
                       const SizedBox(width: 8),
-                      TextButton(onPressed: controller.isSaving.value ? null : controller.cancelEdit, child: const Text('Cancel')),
+                      TextButton(onPressed: controller.isSaving.value ? null : controller.cancelEdit, child: Text('Cancel'.tr)),
                     ]),
                   ],
                   if (controller.notice.value.isNotEmpty) ...[
@@ -86,25 +87,25 @@ class PageProfileView extends GetView<PageProfileController> {
                   ],
                 ])),
                 const SizedBox(height: 24),
-                _heading('Activity overview', 'Your collection and activity so far'),
+                _heading('Activity overview'.tr, 'Your collection and activity so far'.tr),
                 Wrap(spacing: 12, runSpacing: 12, children: [
-                  _stat('Videos', '${home.totalVideo.value}', Icons.video_library_outlined, statWidth),
-                  _stat('Watch time', '${watch.inHours}h ${watch.inMinutes.remainder(60)}m', Icons.schedule_rounded, statWidth),
-                  _stat('Current streak', '${home.streakDays.value} days', Icons.local_fire_department_outlined, statWidth),
-                  _stat('Total relapse', '${controller.totalRelapse.value} times', Icons.history_rounded, statWidth),
+                  _stat('Videos'.tr, '${home.totalVideo.value}', Icons.video_library_outlined, statWidth),
+                  _stat('Watch time'.tr, '@{hours}h @{minutes}m'.trNamed({'hours': '${watch.inHours}', 'minutes': '${watch.inMinutes.remainder(60)}'}), Icons.schedule_rounded, statWidth),
+                  _stat('Current streak'.tr, '@{streakDays} days'.trNamed({'streakDays': '${home.streakDays.value}'}), Icons.local_fire_department_outlined, statWidth),
+                  _stat('Total relapse'.tr, '@{totalRelapse} times'.trNamed({'totalRelapse': '${controller.totalRelapse.value}'}), Icons.history_rounded, statWidth),
                 ]),
                 const SizedBox(height: 24),
-                _heading('Badges & progress', 'Your current levels and next milestones'),
+                _heading('Badges & progress'.tr, 'Your current levels and next milestones'.tr),
                 Wrap(spacing: 16, runSpacing: 16, children: [
-                  SizedBox(width: panelWidth, child: _badge('Collection', HelperBadge.getCollectionProgress(home.totalVideo.value), 'videos', Icons.collections_bookmark_outlined)),
-                  SizedBox(width: panelWidth, child: _badge('Watch time', HelperBadge.getWatchDurationProgress(profile.totalWatchDuration ?? 0), 'hours', Icons.ondemand_video_rounded)),
+                  SizedBox(width: panelWidth, child: _badge('Collection'.tr, HelperBadge.getCollectionProgress(home.totalVideo.value), 'videos'.tr, Icons.collections_bookmark_outlined)),
+                  SizedBox(width: panelWidth, child: _badge('Watch time'.tr, HelperBadge.getWatchDurationProgress(profile.totalWatchDuration ?? 0), 'hours'.tr, Icons.ondemand_video_rounded)),
                 ]),
                 const SizedBox(height: 24),
-                _heading('Achievements', '${home.achievementCount.value} of ${achievements.length} unlocked'),
+                _heading('Achievements'.tr, '@{achievementCount} of @{length} unlocked'.trNamed({'achievementCount': '${home.achievementCount.value}', 'length': '${achievements.length}'})),
                 if (home.latestAchievementTitles.isNotEmpty)
-                  Padding(padding: const EdgeInsets.only(bottom: 16), child: Text('Latest: ${home.latestAchievementTitles.join(' · ')}', style: TextStyle(fontSize: 12, color: AppColor.muted))),
+                  Padding(padding: const EdgeInsets.only(bottom: 16), child: Text('Latest: @{join}'.trNamed({'join': '${home.latestAchievementTitles.map((title) => title.tr).join(' · ')}'}), style: TextStyle(fontSize: 12, color: AppColor.muted))),
                 if (achievements.isEmpty)
-                  _card(Text('No achievements yet. Your progress will appear here.', style: TextStyle(fontSize: 13, color: AppColor.muted)))
+                  _card(Text('No achievements yet. Your progress will appear here.'.tr, style: TextStyle(fontSize: 13, color: AppColor.muted)))
                 else
                   Wrap(spacing: 16, runSpacing: 16, children: achievements.map((item) => SizedBox(width: panelWidth, child: _achievement(item))).toList()),
               ]);
@@ -149,7 +150,7 @@ class PageProfileView extends GetView<PageProfileController> {
       const SizedBox(height: 16),
       _progress(progress.percent, (Get.isDarkMode ? Colors.amberAccent : Colors.orange.shade800)),
       const SizedBox(height: 8),
-      Text(progress.isMaxLevel ? 'Max level reached' : '${progress.currentValue}/${progress.targetValue} $unit · Next: ${progress.nextTitle}', style: TextStyle(fontSize: 11, color: AppColor.muted)),
+      Text(progress.isMaxLevel ? 'Max level reached'.tr : '@{currentValue}/@{targetValue} @{unit} · Next: @{nextTitle}'.trNamed({'currentValue': '${progress.currentValue}', 'targetValue': '${progress.targetValue}', 'unit': '$unit', 'nextTitle': '${progress.nextTitle}'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
     ]),
   );
 
@@ -159,16 +160,16 @@ class PageProfileView extends GetView<PageProfileController> {
       Row(children: [
         Icon(item.isUnlocked ? Icons.verified_outlined : Icons.lock_outline_rounded, size: 20, color: color),
         const SizedBox(width: 10),
-        Expanded(child: Text(item.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+        Expanded(child: Text(item.title.tr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
         const SizedBox(width: 8),
-        Text(item.group, style: TextStyle(fontSize: 10, color: color)),
+        Text(item.group.tr, style: TextStyle(fontSize: 10, color: color)),
       ]),
       const SizedBox(height: 10),
-      Text(item.description, style: TextStyle(fontSize: 12, color: AppColor.muted)),
+      Text(item.description.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),
       const SizedBox(height: 16),
       _progress(item.percent, color),
       const SizedBox(height: 8),
-      Text(item.isUnlocked ? 'Unlocked ${_date(item.unlockedAt)}' : '${item.currentValue}/${item.targetValue} · In progress', style: TextStyle(fontSize: 11, color: color)),
+      Text(item.isUnlocked ? 'Unlocked @{unlockedAt}'.trNamed({'unlockedAt': '${_date(item.unlockedAt)}'}) : '@{currentValue}/@{targetValue} · In progress'.trNamed({'currentValue': '${item.currentValue}', 'targetValue': '${item.targetValue}'}), style: TextStyle(fontSize: 11, color: color)),
     ]));
   }
 

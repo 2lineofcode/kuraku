@@ -7,6 +7,7 @@ import 'package:overlayment/overlayment.dart';
 
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
+import '../../../core/app_translations.dart';
 import '../../../data/api/api_javit.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
@@ -164,7 +165,7 @@ class PageSearchController extends GetxController {
       }
 
       await DBVideos.update(newVideos);
-      await HelperToast.success('${newVideos.videoCode} metadata updated');
+      await HelperToast.success('@{videoCode} metadata updated'.trNamed({'videoCode': '${newVideos.videoCode}'}));
     }).catchError((e) {
       HelperLoading.dismiss();
       HelperToast.error(e.toString());

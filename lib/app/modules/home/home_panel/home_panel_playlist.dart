@@ -10,6 +10,7 @@ import 'package:uicons_pro/uicons_pro.dart';
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
+import '../../../core/app_translations.dart';
 import '../../../data/database/db_playlist.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/playlist_entity.dart';
@@ -58,11 +59,11 @@ mixin HomePanelPlaylist {
             HStack(
               [
                 Icon(UIconsPro.regularRounded.list, size: 16).pOnly(right: 12, left: 8),
-                Obx(() => 'Playlist (${_controller.playlist.length})'.text.bold.make()),
+                Obx(() => 'Playlist (@{length})'.trNamed({'length': '${_controller.playlist.length}'}).text.bold.make()),
                 Spacer(),
                 Obx(
                   () => IconButton(
-                    icon: Icon(Icons.chevron_left_rounded).tooltip('Back'),
+                    icon: Icon(Icons.chevron_left_rounded).tooltip('Back'.tr),
                     onPressed: () {
                       _isDetailMode.value = false;
                       _isFavoriteMode.value = false;
@@ -71,7 +72,7 @@ mixin HomePanelPlaylist {
                 ),
                 Obx(
                   () => IconButton(
-                    icon: Icon(UIconsPro.regularRounded.plus, size: 13).tooltip('Add New Playlist'),
+                    icon: Icon(UIconsPro.regularRounded.plus, size: 13).tooltip('Add New Playlist'.tr),
                     onPressed: () => showDialogAddOrEditPlaylist(),
                   ).hide(isVisible: _isDetailMode.isFalse),
                 ),
@@ -84,7 +85,7 @@ mixin HomePanelPlaylist {
                   ? VStack([
                       Divider(),
                       ExButtonText(
-                        label: 'Play This Playlist',
+                        label: 'Play This Playlist'.tr,
                         width: double.infinity,
                         onPressed: () async {
                           final playableVideos = _listVideos.where((video) {
@@ -94,7 +95,7 @@ mixin HomePanelPlaylist {
                           }).toList();
 
                           if (playableVideos.isEmpty) {
-                            await HelperToast.warn('No playable video found. Check your external drive connection.');
+                            await HelperToast.warn('No playable video found. Check your external drive connection.'.tr);
                             return;
                           }
 
@@ -126,19 +127,19 @@ mixin HomePanelPlaylist {
     fnName.requestFocus();
 
     ExAlert.adaptive(
-      title: Text(playlist == null ? 'New Playlist' : 'Edit Playlist', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.left).pOnly(bottom: 16),
+      title: Text(playlist == null ? 'New Playlist'.tr : 'Edit Playlist'.tr, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.left).pOnly(bottom: 16),
       content: VStack([
         CupertinoTextField(
           controller: tecName,
           focusNode: fnName,
-          placeholder: 'Name',
+          placeholder: 'Name'.tr,
           prefix: Icon(CupertinoIcons.tag, size: 16).pOnly(left: 8),
           style: TextStyle(color: AppColor.text, fontSize: 12),
           readOnly: isFavorite,
         ).disabled(isFavorite).pOnly(bottom: 8),
         CupertinoTextField(
           controller: tecCover,
-          placeholder: 'Paste image URL here...',
+          placeholder: 'Paste image URL here...'.tr,
           prefix: Icon(CupertinoIcons.photo, size: 16).pOnly(left: 8),
           style: TextStyle(fontSize: 12, color: AppColor.text),
         ),
@@ -146,15 +147,15 @@ mixin HomePanelPlaylist {
       actions: [
         if (playlist != null && !isFavorite) ...[
           CupertinoDialogAction(
-            child: Text('Delete', style: TextStyle(color: Vx.red500, fontSize: 13)),
+            child: Text('Delete'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () async {
               Get.back();
               ExAlert.adaptive(
-                title: Text('Are you sure?', style: TextStyle(fontSize: 14)),
-                content: Text('Delete this playlist? this action can\'t be undo', style: TextStyle(fontSize: 12)).pOnly(top: 8),
+                title: Text('Are you sure?'.tr, style: TextStyle(fontSize: 14)),
+                content: Text('Delete this playlist? this action can\'t be undo'.tr, style: TextStyle(fontSize: 12)).pOnly(top: 8),
                 actions: [
                   CupertinoDialogAction(
-                    child: Text('Yes', style: TextStyle(color: Vx.red500, fontSize: 13)),
+                    child: Text('Yes'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
                     onPressed: () async {
                       Get.back();
                       await DBPlaylist.deletePlaylist(playlist);
@@ -162,7 +163,7 @@ mixin HomePanelPlaylist {
                     },
                   ),
                   CupertinoDialogAction(
-                    child: Text('No', style: TextStyle(fontSize: 13)),
+                    child: Text('No'.tr, style: TextStyle(fontSize: 13)),
                     onPressed: () => Get.back(),
                   ),
                 ],
@@ -171,7 +172,7 @@ mixin HomePanelPlaylist {
           ),
         ],
         CupertinoDialogAction(
-          child: Text('Submit', style: TextStyle(fontSize: 13)),
+          child: Text('Submit'.tr, style: TextStyle(fontSize: 13)),
           onPressed: () async {
             if (isFavorite) {
               AppPref.setFavoriteCoverURL(tecCover.text);
@@ -181,21 +182,21 @@ mixin HomePanelPlaylist {
 
             final name = tecName.text.trim();
             if (name.isEmpty || name.toLowerCase() == 'favorite') {
-              await HelperToast.warn(name.isEmpty ? 'Playlist name cannot be empty.' : 'Favorite is reserved for the built-in playlist.');
+              await HelperToast.warn(name.isEmpty ? 'Playlist name cannot be empty.'.tr : 'Favorite is reserved for the built-in playlist.'.tr);
               return;
             }
             try {
               final edited = Playlist(id: playlist?.id, name: name, cover: tecCover.text);
               final saved = playlist == null ? await DBPlaylist.addPlaylist(edited) : await DBPlaylist.updatePlaylist(edited);
               if (!saved) {
-                await HelperToast.warn('Could not save playlist. The name may already be in use or the playlist no longer exists.');
+                await HelperToast.warn('Could not save playlist. The name may already be in use or the playlist no longer exists.'.tr);
                 return;
               }
               Get.back();
               await _controller.getAllPlaylist();
             } catch (e) {
               AppLog.logE('Failed to save playlist: $e');
-              await HelperToast.error('Failed to save playlist. Please try again.');
+              await HelperToast.error('Failed to save playlist. Please try again.'.tr);
             }
           },
         ),
@@ -206,13 +207,13 @@ mixin HomePanelPlaylist {
   static Future<void> showDialogAddToPlaylistItem(List<Videos> videos) async {
     final allPlaylist = await DBPlaylist.getAllPlaylist();
     if (allPlaylist.isEmpty) {
-      await HelperToast.warn('No playlist found. Please create one first.');
+      await HelperToast.warn('No playlist found. Please create one first.'.tr);
       return;
     }
 
     final playlists = allPlaylist.where((e) => e.id?.isNotEmpty == true).toList();
     if (playlists.isEmpty) {
-      await HelperToast.warn('No valid playlist found. Please create one first.');
+      await HelperToast.warn('No valid playlist found. Please create one first.'.tr);
       return;
     }
 
@@ -227,7 +228,7 @@ mixin HomePanelPlaylist {
         color: AppColor.panel,
 
         child: VStack([
-          'Select playlist'.text.bold.make().pOnly(bottom: 16),
+          'Select playlist'.tr.text.bold.make().pOnly(bottom: 16),
           ListView.separated(
             itemCount: playlists.length,
             separatorBuilder: (context, index) => 12.heightBox,
@@ -241,10 +242,10 @@ mixin HomePanelPlaylist {
                 await Overlayment.dismissLast();
                 try {
                   await DBPlaylist.addPlaylistItemBulk(playlists[index].id!, videos);
-                  await HelperToast.success('Added ${videos.length} video(s) to ${playlists[index].name}');
+                  await HelperToast.success('Added @{length} video(s) to @{name}'.trNamed({'length': '${videos.length}', 'name': '${playlists[index].name}'}));
                 } catch (e) {
                   AppLog.logE('Failed to add playlist items: $e');
-                  await HelperToast.error('Failed to add videos. Please reopen the playlist and try again.');
+                  await HelperToast.error('Failed to add videos. Please reopen the playlist and try again.'.tr);
                 }
               });
             },
@@ -277,7 +278,7 @@ mixin HomePanelPlaylist {
                 fitUrl: BoxFit.cover,
                 withProxy: false ,
               ),
-              Obx(() => 'Favorite (${_listFavoriteVideo.length})'.text.ellipsis.bold.size(12).make().pSymmetric(h: 8, v: 4).color(AppColor.black180).cornerRadius(90).positioned(bottom: 8, right: 8)),
+              Obx(() => 'Favorite (@{length})'.trNamed({'length': '${_listFavoriteVideo.length}'}).text.ellipsis.bold.size(12).make().pSymmetric(h: 8, v: 4).color(AppColor.black180).cornerRadius(90).positioned(bottom: 8, right: 8)),
               Icon(UIconsPro.regularRounded.pen_clip, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
                 showDialogAddOrEditPlaylist(
                   playlist: Playlist(
@@ -342,7 +343,7 @@ mixin HomePanelPlaylist {
         if (items.isEmpty) {
           return VStack([
             Icon(UIconsPro.regularRounded.list, size: 28, color: AppColor.muted).pOnly(bottom: 12).centered(),
-            'Playlist still empty'.text.size(13).color(AppColor.muted).makeCentered(),
+            'Playlist still empty'.tr.text.size(13).color(AppColor.muted).makeCentered(),
           ]).centered();
         }
 
@@ -356,7 +357,7 @@ mixin HomePanelPlaylist {
             if (videoId.isNullOrEmpty) {
               return ListTile(
                 leading: Icon(UIconsPro.regularRounded.info_guide, size: 16, color: Vx.orange300),
-                title: 'Video not found'.text.size(12).make(),
+                title: 'Video not found'.tr.text.size(12).make(),
               );
             }
 

@@ -87,6 +87,7 @@ void main() {
     await tester.pump();
     expect(find.byType(TextButton), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+    controller.qualityScanFailed.value = true;
     controller.qualityScanStatus.value = 'Scan failed. Saved results are kept. Please retry.';
     await tester.pump();
     expect(find.byTooltip(controller.qualityScanStatus.value), findsOneWidget);

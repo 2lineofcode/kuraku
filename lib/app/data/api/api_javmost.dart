@@ -4,6 +4,7 @@ import 'package:ex_kit/ex.dart';
 
 import '../../../env.g.dart';
 import '../../core/app_network.dart';
+import '../../core/app_translations.dart';
 import '../models/__javmost_new_release.dart';
 
 mixin ApiJavMost {
@@ -18,7 +19,7 @@ mixin ApiJavMost {
       if (decoded is Map<String, dynamic>) return decoded;
     }
 
-    throw FormatException('Invalid JavMost response type: ${data.runtimeType}');
+    throw FormatException('Invalid JavMost response type: @{type}'.trNamed({'type': '${data.runtimeType}'}));
   }
 
   static Future<JavMostModel> _fetch(String url) async {

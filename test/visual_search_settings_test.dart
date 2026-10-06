@@ -113,6 +113,7 @@ void main() {
     expect(find.text('Stopping… Completed work will be kept.'), findsOneWidget);
     controller.semanticBusy.value = false;
     controller.semanticMissingCount.value = 0;
+    controller.semanticStatusIsRoutine.value = true;
     controller.semanticStatus.value = 'Finished · 20 indexed · 0 skipped.';
     await tester.pump();
     expect(find.text('20 indexed • 0 pending'), findsOneWidget);

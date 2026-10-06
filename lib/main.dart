@@ -10,6 +10,7 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
 import 'package:glob/glob.dart';
 import 'package:glob/list_local_fs.dart';
@@ -27,6 +28,7 @@ import 'app/core/app_notification.dart';
 import 'app/core/app_pref.dart';
 import 'app/core/app_setting.dart';
 import 'app/core/app_startup.dart';
+import 'app/core/app_translations.dart';
 import 'app/core/const.dart';
 import 'app/data/database/_init_db.dart';
 import 'app/modules/home/home_controller.dart';
@@ -110,6 +112,11 @@ class _JavItState extends State<JavIt> with WindowListener {
       child: GetMaterialApp(
         enableLog: Env.logLvl == 'debug' ? true : false,
         title: Env.appName,
+        translations: AppTranslations(),
+        locale: Locale(AppPref.getAppLanguage()),
+        fallbackLocale: AppTranslations.fallbackLocale,
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        supportedLocales: AppTranslations.languages.keys.map((code) => Locale(code)).toList(),
         initialRoute: AppPages.INITIAL,
         themeMode: AppPref.getAppTheme().resolve(),
         theme: ThemeData.light(useMaterial3: true),
@@ -139,7 +146,7 @@ class _JavItState extends State<JavIt> with WindowListener {
     _closing = true;
     if (!await _flushBeforeExit()) {
       _closing = false;
-      await HelperToast.error('Could not save pending activity or chat draft. Please try closing again.');
+      await HelperToast.error('Could not save pending activity or chat draft. Please try closing again.'.tr);
       return;
     }
     AppPref.setAppLastOpen(DateTime.now().toStringEx());
@@ -167,11 +174,11 @@ class _JavItState extends State<JavIt> with WindowListener {
       AppLog.logW('!!! Database `r18` not found...');
       ExAlert.adaptive(
         isDismissible: false,
-        title: Text('Ups'),
-        content: Text('Database `r18` not found, to use all features of this app, click download & install first'),
+        title: Text('Ups'.tr),
+        content: Text('Database `r18` not found, to use all features of this app, click download & install first'.tr),
         actions: [
           CupertinoDialogAction(
-            child: Text('Download & Install', style: TextStyle(color: Vx.red500, fontSize: 13)),
+            child: Text('Download & Install'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () async {
               final sw = Stopwatch()..start();
               AppLog.logI('!!! Start Downloading R18 database & Install...');
@@ -181,7 +188,7 @@ class _JavItState extends State<JavIt> with WindowListener {
               Get.back();
 
               home.change(0, status: RxStatus.loading());
-              home.loadingText.value = 'Preparing...';
+              home.loadingText.value = 'Preparing...'.tr;
 
               // ** download
               try {
@@ -207,32 +214,32 @@ class _JavItState extends State<JavIt> with WindowListener {
                   '${appSetting.appPath}/$outputFileName',
                   onReceiveProgress: (received, total) {
                     final percent = ((received / total) * 100).toStringAsFixed(0);
-                    home.footerText.value = 'DO NOT CLOSE APP | Downloading ($percent%) ...';
-                    home.loadingText.value = 'DO NOT CLOSE APP \n\n Downloading ($percent%) ...';
+                    home.footerText.value = 'DO NOT CLOSE APP | Downloading (@{percent}%) ...'.trNamed({'percent': '$percent'});
+                    home.loadingText.value = 'DO NOT CLOSE APP \n\n Downloading (@{percent}%) ...'.trNamed({'percent': '$percent'});
                   },
                 );
 
-                home.footerText.value = 'DO NOT CLOSE APP | Extracting...';
-                home.loadingText.value = 'DO NOT CLOSE APP \n\n Extracting...';
+                home.footerText.value = 'DO NOT CLOSE APP | Extracting...'.tr;
+                home.loadingText.value = 'DO NOT CLOSE APP \n\n Extracting...'.tr;
                 await shell.run('gunzip "${appSetting.appPath}/$outputFileName"');
 
-                home.footerText.value = 'DO NOT CLOSE APP | Importing... will take 4-15 minutes..';
-                home.loadingText.value = 'DO NOT CLOSE APP \n\n Importing... will take 4-15 minutes..\n converting psql into sqlite3';
+                home.footerText.value = 'DO NOT CLOSE APP | Importing... will take 4-15 minutes..'.tr;
+                home.loadingText.value = 'DO NOT CLOSE APP \n\n Importing... will take 4-15 minutes..\n converting psql into sqlite3'.tr;
                 await shell.run(
                   'python3 ${appSetting.appPath}/r18_to_javit.py -d "${appSetting.appPath}"',
                   onProcess: (process) async {
                     await process.exitCode.then((code) async {
                       if (code == 1) {
-                        home.footerText.value = 'Task Failed. Please restart app...';
+                        home.footerText.value = 'Task Failed. Please restart app...'.tr;
                       }
 
                       if (code == 0) {
-                        await HelperToast.success('Task Done. Please restart app...');
-                        home.footerText.value = 'Task Done. Please restart app...';
-                        home.loadingText.value = 'Task Done \n\n Please restart app...';
+                        await HelperToast.success('Task Done. Please restart app...'.tr);
+                        home.footerText.value = 'Task Done. Please restart app...'.tr;
+                        home.loadingText.value = 'Task Done \n\n Please restart app...'.tr;
                       }
 
-                      home.change(0, status: RxStatus.error('Update completed. Please restart app...'));
+                      home.change(0, status: RxStatus.error('Update completed. Please restart app...'.tr));
                     });
                   },
                 );

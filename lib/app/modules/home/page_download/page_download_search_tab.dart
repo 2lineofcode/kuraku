@@ -421,7 +421,7 @@ class PageDownloadSearchTab {
       if (scrollController.hasClients) scrollController.jumpTo(0);
     } catch (e) {
       if (_closed || request != _searchRequest) return;
-      error.value = 'Search failed. Please try again.';
+      error.value = 'Search failed. Please try again.'.tr;
       AppLog.logE('Download search failed: $e');
     } finally {
       if (!_closed && request == _searchRequest) isLoading.value = false;
@@ -479,7 +479,7 @@ class PageDownloadSearchTab {
       switch (route) {
         case PageDownloadQueryRoute.apiCommand:
           final apiData = await fetchJavMostByCommand(query, page);
-          if (apiData.success == false) throw StateError('Online search failed');
+          if (apiData.success == false) throw StateError('Online search failed'.tr);
           apiTotal = apiData.total ?? 0;
           r18videos = _mapJavMostNewReleaseToRows(
             apiData.result ?? [],
@@ -572,7 +572,7 @@ class PageDownloadSearchTab {
       AppLog.logD('download_query route=$route page=${currentPage.value} items=${pageItems.length} in ${sw.elapsedMilliseconds} ms');
     } catch (e) {
       if (_closed || request != _searchRequest) return;
-      error.value = 'Search failed. Please try again.';
+      error.value = 'Search failed. Please try again.'.tr;
       AppLog.logE('_loadPage e -> $e');
     } finally {
       if (!_closed && request == _searchRequest && isLoadMore) isLoadingMore.value = false;

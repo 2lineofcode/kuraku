@@ -5,9 +5,11 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 import '../../env.g.dart';
+import '../core/app_translations.dart';
 import '../core/const.dart';
 import 'helper_toast.dart';
 
@@ -23,28 +25,28 @@ mixin HelperMisc {
 
   static String durationFormatDB(num durationInMinutes) {
     if (durationInMinutes < 0) {
-      return 'Invalid duration';
+      return 'Invalid duration'.tr;
     }
 
     final hours = durationInMinutes ~/ 60;
     final minutes = durationInMinutes % 60;
 
     if (hours > 0 && minutes > 0) {
-      return '$hours hours, $minutes minutes';
+      return '@{hours} hours, @{minutes} minutes'.trNamed({'hours': '$hours', 'minutes': '$minutes'});
     } else if (hours > 0) {
-      return '$hours hours';
+      return '@{hours} hours'.trNamed({'hours': '$hours'});
     } else if (minutes > 0) {
-      return '$minutes minutes';
+      return '@{minutes} minutes'.trNamed({'minutes': '$minutes'});
     } else {
-      return '0 minutes';
+      return '0 minutes'.tr;
     }
   }
 
   static String durationFormatFFmpeg(num totalSeconds) {
     if (totalSeconds.isNaN || totalSeconds.isInfinite) {
-      return 'Invalid Duration';
+      return 'Invalid Duration'.tr;
     }
-    if (totalSeconds < 0) return 'Invalid Duration (Negative)';
+    if (totalSeconds < 0) return 'Invalid Duration (Negative)'.tr;
 
     int milliseconds = (totalSeconds * 1000).round();
     int hours = (milliseconds ~/ 3600000);
@@ -54,18 +56,18 @@ mixin HelperMisc {
     int seconds = (milliseconds ~/ 1000);
     int remainingMilliseconds = milliseconds % 1000;
     List<String> parts = [];
-    if (hours > 0) parts.add('$hours hour');
-    if (minutes > 0) parts.add('$minutes minutes');
+    if (hours > 0) parts.add('@{hours} hour'.trNamed({'hours': '$hours'}));
+    if (minutes > 0) parts.add('@{minutes} minutes'.trNamed({'minutes': '$minutes'}));
 
     if (remainingMilliseconds > 0 || (hours == 0 && minutes == 0 && seconds == 0 && totalSeconds > 0)) {
       if (remainingMilliseconds > 0) {
         //
       } else if (totalSeconds == 0) {
-        return '0 second';
+        return '0 second'.tr;
       }
     }
 
-    if (parts.isEmpty) return '0 second';
+    if (parts.isEmpty) return '0 second'.tr;
 
     return parts.join(', ');
   }
@@ -83,7 +85,7 @@ mixin HelperMisc {
     Clipboard.setData(data);
 
     if (showToast == true) {
-      toastMessage ??= '[$text] Copied to clipboard';
+      toastMessage ??= '[@{text}] Copied to clipboard'.trNamed({'text': '$text'});
       HelperToast.info(toastMessage, duration: toastDuration ?? 2.seconds, alignment: alignment);
     }
   }
@@ -115,7 +117,12 @@ mixin HelperMisc {
     }
   }
 
-  static String formatVideoQuality(String quality) {
+  static String formatVideoQuality(String quality, {bool localized = true}) {
+    final label = _formatVideoQuality(quality);
+    return localized ? label.tr : label;
+  }
+
+  static String _formatVideoQuality(String quality) {
     if (quality.isEmptyOrNull) return '';
     quality = quality.trim().toLowerCase().replaceAll('×', 'x').replaceAll(RegExp(r'\s+'), '');
     if (['fhd', 'hd', 'sd', '2k', '4k', '8k'].contains(quality)) return quality.toUpperCase();
@@ -179,16 +186,16 @@ mixin HelperMisc {
       final diff = now.difference(date);
 
       if (diff.inDays == 0) {
-        return 'Today';
+        return 'Today'.tr;
       } else if (diff.inDays == 1) {
-        return 'Yesterday';
+        return 'Yesterday'.tr;
       } else if (diff.inDays > 1 && diff.inDays <= 7) {
-        return '${diff.inDays} days ago';
+        return '@{inDays} days ago'.trNamed({'inDays': '${diff.inDays}'});
       } else {
         return date.toStringEx(format: kMdY);
       }
     } catch (e) {
-      return 'Invalid Date';
+      return 'Invalid Date'.tr;
     }
   }
 

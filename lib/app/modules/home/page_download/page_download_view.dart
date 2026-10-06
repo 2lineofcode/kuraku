@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/app_translations.dart';
 import '../../../core/const.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_media_stack.dart';
@@ -44,7 +45,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
       Obx(() => controller.downloadStdout.value.isNotEmpty
           ? HStack([
               '${controller.downloadStdout}'.text.size(11).minFontSize(11).maxLines(1).make().expand(),
-              ExButtonText(label: 'Show download', labelSize: 12, onPressed: controller.openDialogDownload),
+              ExButtonText(label: 'Show download'.tr, labelSize: 12, onPressed: controller.openDialogDownload),
             ]).pOnly(top: 12)
           : 0.heightBox),
     ])),
@@ -75,7 +76,7 @@ class PageDownloadSearchView extends StatelessWidget {
                     focusNode: controller.fnSearch,
                     selectAllOnFocus: false,
                     clearButtonMode: OverlayVisibilityMode.editing,
-                    placeholder: '${controller.phSearch}',
+                    placeholder: controller.phSearch.value.tr,
                     style: TextStyle(color: AppColor.text, fontSize: 14),
                     prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
                     suffix: HStack(
@@ -115,7 +116,7 @@ class PageDownloadSearchView extends StatelessWidget {
                                 child: VStack(
                                   [
                                     item.value.text.size(12).minFontSize(12).bold.make(),
-                                    item.description.text.size(10).minFontSize(10).color(AppColor.muted).make().pOnly(top: 2),
+                                    item.description.tr.text.size(10).minFontSize(10).color(AppColor.muted).make().pOnly(top: 2),
                                   ],
                                   crossAlignment: CrossAxisAlignment.start,
                                 ),
@@ -142,12 +143,12 @@ class PageDownloadSearchView extends StatelessWidget {
             ]),
           ),
           IconButton(
-            tooltip: 'New download',
+            tooltip: 'New download'.tr,
             icon: Icon(UIconsPro.regularRounded.plus, size: 14),
             onPressed: () => Get.find<PageDownloadController>().openDialogDownload(),
           ),
           IconButton(
-            tooltip: 'Download history',
+            tooltip: 'Download history'.tr,
             icon: Icon(UIconsPro.regularRounded.arrow_small_down, size: 18),
             onPressed: () => Get.find<PageDownloadController>().openDownloadLog(),
           ).pOnly(left: 0),
@@ -172,7 +173,7 @@ class PageDownloadSearchView extends StatelessWidget {
               textStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
             ),
             onPressed: () => controller.showHavingOnly(false),
-            child: Text('Result : ${controller.totalResults}'),
+            child: Text('Result : @{totalResults}'.trNamed({'totalResults': '${controller.totalResults}'})),
           ).pOnly(bottom: 12).hide(isVisible: controller.allVideos.isNotEmpty)),
           12.widthBox,
           Obx(() => TextButton(
@@ -184,13 +185,13 @@ class PageDownloadSearchView extends StatelessWidget {
               textStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
             ),
             onPressed: () => controller.showHavingOnly(true),
-            child: Text('Having: ${controller.havingVideos}'),
+            child: Text('Having: @{havingVideos}'.trNamed({'havingVideos': '${controller.havingVideos}'})),
           ).pOnly(bottom: 12).hide(isVisible: controller.allVideos.isNotEmpty)),
 
           Spacer(),
-          Obx(() => 'Page: ${controller.currentPage}'.text.size(10).minFontSize(10).bold.make().pOnly(bottom: 12).hide(isVisible: controller.videos.isNotEmpty)),
+          Obx(() => 'Page: @{currentPage}'.trNamed({'currentPage': '${controller.currentPage}'}).text.size(10).minFontSize(10).bold.make().pOnly(bottom: 12).hide(isVisible: controller.videos.isNotEmpty)),
           12.widthBox,
-          Obx(() => 'Next: ${controller.hasNextPage.isTrue ? 'Yes' : 'No'}'.text.size(10).minFontSize(10).bold.make().pOnly(bottom: 12).hide(isVisible: controller.videos.isNotEmpty)),
+          Obx(() => 'Next: @{No}'.trNamed({'No': '${controller.hasNextPage.isTrue ? 'Yes'.tr : 'No'.tr}'}).text.size(10).minFontSize(10).bold.make().pOnly(bottom: 12).hide(isVisible: controller.videos.isNotEmpty)),
           12.widthBox,
           Obx(() => '(${controller.videos.length})'.text.size(10).minFontSize(10).bold.make().pOnly(bottom: 12).hide(isVisible: controller.videos.isNotEmpty)),
           12.widthBox,
@@ -204,8 +205,8 @@ class PageDownloadSearchView extends StatelessWidget {
               : controller.videos.isEmpty
               ? ExUiErrorOrEmpty(
                   illustration: Icon(UIconsPro.regularRounded.search, size: 128),
-                  title: controller.havingOnly.isTrue ? 'No Owned Videos' : controller.currentPage.value == 0 ? '~ Type Something ~' : 'No Data Found',
-                  message: controller.havingOnly.isTrue ? 'No owned videos in the loaded results. Click Result to show all.' : controller.currentPage.value == 0 ? 'you can type "Video Code" or "Title" to search' : 'No Result Found, as you searched for "${controller.tecSearch.text}"',
+                  title: controller.havingOnly.isTrue ? 'No Owned Videos'.tr : controller.currentPage.value == 0 ? '~ Type Something ~'.tr : 'No Data Found'.tr,
+                  message: controller.havingOnly.isTrue ? 'No owned videos in the loaded results. Click Result to show all.'.tr : controller.currentPage.value == 0 ? 'you can type "Video Code" or "Title" to search'.tr : 'No Result Found, as you searched for "@{text}"'.trNamed({'text': '${controller.tecSearch.text}'}),
                 ).expand()
               : modeWrapView().expand(),
         ),
@@ -288,7 +289,7 @@ class PageDownloadSearchView extends StatelessWidget {
               width: 110,
               height: 18,
               child: VStack([
-                'Uncensored Leak'.text.size(10).minFontSize(10).bold.maxLines(1).make().pSymmetric(h: 8),
+                'Uncensored Leak'.tr.text.size(10).minFontSize(10).bold.maxLines(1).make().pSymmetric(h: 8),
               ]),
             ).positioned(right: 0, bottom: 62).hide(isVisible: item.isUncensoredLeak == true),
 

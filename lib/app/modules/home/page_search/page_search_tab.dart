@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../core/app_logging.dart';
+import '../../../core/app_translations.dart';
 import '../../../data/database/db_historical.dart';
 import '../../../data/database/db_library.dart';
 import '../../../data/database/db_videos.dart';
@@ -37,7 +38,7 @@ class PageSearchTab {
   final historySuggestions = <String>[].obs;
   final selectedHistoryIndex = (-1).obs;
   int _historyRequest = 0;
-  final phSearch = 'Video Code or Title or Path...'.obs;
+  final phSearch = 'Video Code or Title or Path...'.tr.obs;
   final semanticResultLabel = ''.obs;
   final semanticCoverage = ''.obs;
   final visualSensitivity = 'Balanced'.obs;
@@ -74,14 +75,14 @@ class PageSearchTab {
       case 'cart':
         final home = Get.find<HomeController>();
         for (final video in selected) { home.addToCart(video); }
-        await HelperToast.success('Selected videos are in cart');
+        await HelperToast.success('Selected videos are in cart'.tr);
         break;
       case 'playlist':
         await HomePanelPlaylist.showDialogAddToPlaylistItem(selected);
         break;
       case 'favorite':
         for (final video in selected) { await DBVideos.addToFavorite(video); }
-        await HelperToast.success('Added ${selected.length} video(s) to favorite');
+        await HelperToast.success('Added @{length} video(s) to favorite'.trNamed({'length': '${selected.length}'}));
         break;
     }
   }
@@ -95,7 +96,7 @@ class PageSearchTab {
     for (final entry in paths.entries) {
       final existing = await DBVideos.getByVideoPath(entry.value);
       if (existing != null && existing.id != files[entry.key]?.id) {
-        throw StateError('The destination is already in the library: ${entry.value}');
+        throw StateError('The destination is already in the library: @{value}'.trNamed({'value': '${entry.value}'}));
       }
       moves.add({
         'oldPath': entry.key,
@@ -205,7 +206,7 @@ class PageSearchTab {
     final minimum = visualSensitivity.value == 'Strict' ? .28 : visualSensitivity.value == 'Broad' ? .20 : .24;
     return SemanticSearchService.search(query, owner: this, minimum: minimum, onCoverage: (indexed, total) {
       if (_closed || request != _request) return;
-      semanticCoverage.value = '$indexed of $total videos have a visual index${indexed < total ? ' · Other matches use metadata' : ''}';
+      semanticCoverage.value = '@{indexed} of @{total} videos have a visual index@{metadata}'.trNamed({'indexed': '$indexed', 'total': '$total', 'metadata': '${indexed < total ? ' · Other matches use metadata'.tr : ''}'});
     });
   }
 
@@ -377,7 +378,7 @@ class PageSearchTab {
       _applyView();
     } catch (e) {
       if (_closed || request != _request) return;
-      error.value = e is SemanticSearchException ? e.message : 'Search failed. Please try again.';
+      error.value = e is SemanticSearchException ? e.message : 'Search failed. Please try again.'.tr;
       AppLog.logE('Local search failed: $e');
     } finally {
       if (!_closed && request == _request) {
@@ -440,7 +441,7 @@ class PageSearchTab {
     final next = filter.isFiltered.value ? filter.apply(allVideos.toList(), _filterAdapter) : allVideos.toList();
     if (qualityFilter.value != 'All qualities') {
       final prefix = qualityFilter.value == 'FHD only' ? 'FHD' : 'HD';
-      next.removeWhere((video) => !HelperMisc.formatVideoQuality(video.quality ?? '').startsWith(prefix));
+      next.removeWhere((video) => !HelperMisc.formatVideoQuality(video.quality ?? '', localized: false).startsWith(prefix));
     }
     if (_hasSort.value) {
       switch (sortBy.value.toLowerCase()) {
@@ -482,6 +483,6 @@ class PageSearchTab {
   }
 
   void _updatePlaceholder() {
-    phSearch.value = isSemanticMode.value ? 'Visual Search... e.g. a bright room, outdoors' : 'Video Code or Title or Path...';
+    phSearch.value = isSemanticMode.value ? 'Visual Search... e.g. a bright room, outdoors'.tr : 'Video Code or Title or Path...'.tr;
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import '../../core/app_color.dart';
 
@@ -26,7 +27,7 @@ class SearchTabBar extends StatelessWidget {
         itemBuilder: (context, index) {
           if (index == tabs.length) {
             return IconButton(
-              tooltip: addTooltip,
+              tooltip: addTooltip.tr,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints.tightFor(width: 32, height: 32),
               icon: const Icon(Icons.add, size: 16),
@@ -52,14 +53,14 @@ class SearchTabBar extends StatelessWidget {
                       const SizedBox(width: 6),
                     ],
                     Expanded(child: Tooltip(
-                      message: tab.title,
-                      child: Text(tab.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
+                      message: tab.title == 'New search' || tab.title == 'Filtered search' ? tab.title.tr : tab.title,
+                      child: Text(tab.title == 'New search' || tab.title == 'Filtered search' ? tab.title.tr : tab.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
                     )),
                   ]),
                 ),
               )),
               IconButton(
-                tooltip: 'Close tab',
+                tooltip: 'Close tab'.tr,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints.tightFor(width: 32, height: 32),
                 icon: const Icon(Icons.close, size: 12),

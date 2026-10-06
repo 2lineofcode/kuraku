@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 
 import '../core/app_logging.dart';
 import '../core/app_setting.dart';
+import '../core/app_translations.dart';
 import '../data/database/_init_db.dart';
 
 class SemanticSearchException implements Exception {
@@ -63,11 +64,18 @@ mixin LocalSemanticWorker {
     try { await future; } finally { _setup = null; }
   }
 
+  static String translateSetupProgress(String message) {
+    final download = RegExp(r'^Downloading (image search model|text search model|search resources): (.+)$').firstMatch(message);
+    return download == null ? message.tr : 'Downloading @{resource}: @{amount}'.trNamed({
+      'resource': download[1]!.tr, 'amount': download[2]!,
+    });
+  }
+
   static Future<void> _install(void Function(String) onProgress) async {
     stop();
     final epoch = _setupEpoch;
     await _copyScript();
-    onProgress('Checking Python and preparing local runtime...');
+    onProgress('Checking Python and preparing local runtime...'.tr);
     AppLog.logI('Visual Search: checking Python and preparing local runtime');
     String? python;
     for (final candidate in ['python3', '/opt/homebrew/bin/python3', '/usr/local/bin/python3']) {
@@ -79,8 +87,8 @@ mixin LocalSemanticWorker {
         if (code == 0) { python = candidate; break; }
       } on ProcessException { continue; }
     }
-    if (epoch != _setupEpoch) throw SemanticSearchException('Setup stopped. Retry to continue.');
-    if (python == null) throw SemanticSearchException('Install Python 3.12–3.14, then retry setup.');
+    if (epoch != _setupEpoch) throw SemanticSearchException('Setup stopped. Retry to continue.'.tr);
+    if (python == null) throw SemanticSearchException('Install Python 3.12–3.14, then retry setup.'.tr);
     AppLog.logI('Visual Search: starting installer with $python');
     final process = await Process.start(python, ['-B', '-u', _script, 'setup', _root]);
     _installer = process;
@@ -92,7 +100,7 @@ mixin LocalSemanticWorker {
       if (lines.length > 8) lines.removeAt(0);
       if (epoch == _setupEpoch && line.startsWith('PROGRESS ')) {
         final message = line.substring(9);
-        onProgress(message);
+        onProgress(translateSetupProgress(message));
         final percent = RegExp(r'(\d+)%').firstMatch(message);
         final key = percent == null ? message : '${message.substring(0, percent.start)}${int.parse(percent[1]!) ~/ 10}';
         if (key != lastProgress) {
@@ -107,11 +115,11 @@ mixin LocalSemanticWorker {
     final stderr = process.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen(receive);
     try {
       final code = await process.exitCode.timeout(const Duration(minutes: 15));
-      if (epoch != _setupEpoch) throw SemanticSearchException('Setup stopped. Retry to continue.');
-      if (code != 0) throw SemanticSearchException('Setup failed. Check your connection, disk space and Python installation, then retry. ${lines.isEmpty ? '' : lines.last}');
+      if (epoch != _setupEpoch) throw SemanticSearchException('Setup stopped. Retry to continue.'.tr);
+      if (code != 0) throw SemanticSearchException('Setup failed. Check your connection, disk space and Python installation, then retry. @{last}'.trNamed({'last': '${lines.isEmpty ? '' : lines.last}'}));
     } on TimeoutException {
       _terminate(process);
-      throw SemanticSearchException('Setup timed out. Retry setup to reuse downloaded files.');
+      throw SemanticSearchException('Setup timed out. Retry setup to reuse downloaded files.'.tr);
     } finally {
       await stdout.cancel();
       await stderr.cancel();
@@ -120,7 +128,7 @@ mixin LocalSemanticWorker {
   }
 
   static Future<void> _start() async {
-    if (_setup != null) throw SemanticSearchException('Visual Search setup is in progress.');
+    if (_setup != null) throw SemanticSearchException('Visual Search setup is in progress.'.tr);
     if (_process != null) return;
     if (_starting != null) return _starting!;
     final future = _spawn();
@@ -130,16 +138,16 @@ mixin LocalSemanticWorker {
 
   static Future<void> _spawn() async {
     final epoch = _epoch;
-    if (!await isReady()) throw SemanticSearchException('Set up Visual Search in Settings first.');
+    if (!await isReady()) throw SemanticSearchException('Set up Visual Search in Settings first.'.tr);
     await _copyScript();
     final process = await Process.start(_python, ['-B', '-u', _script, 'serve', _root, Get.find<DBService>().dbMain.path]);
     if (epoch != _epoch) {
       process.kill();
-      throw SemanticSearchException('Visual Search paused.');
+      throw SemanticSearchException('Visual Search paused.'.tr);
     }
     _process = process;
     unawaited(process.stdin.done.catchError((Object error) {
-      if (_process == process) stop(SemanticSearchException('Visual Search connection closed. Please retry.'));
+      if (_process == process) stop(SemanticSearchException('Visual Search connection closed. Please retry.'.tr));
     }));
     var lastError = '';
     process.stderr.transform(utf8.decoder).listen((text) { lastError = text; });
@@ -162,8 +170,8 @@ mixin LocalSemanticWorker {
     unawaited(process.exitCode.then((_) {
       if (_process != process) return;
       stop(SemanticSearchException(lastError.isEmpty
-          ? 'Visual Search stopped. Please retry.'
-          : 'Visual Search could not start. Use Repair setup in Settings.'));
+          ? 'Visual Search stopped. Please retry.'.tr
+          : 'Visual Search could not start. Use Repair setup in Settings.'.tr));
     }));
   }
 
@@ -179,7 +187,7 @@ mixin LocalSemanticWorker {
     _queue = _queue.then((_) async {
       _queued--;
       if (epoch != _epoch || (owner != null && _owners[owner] != revision)) {
-        completer.completeError(SemanticSearchException('Search superseded or paused.'));
+        completer.completeError(SemanticSearchException('Search superseded or paused.'.tr));
         return;
       }
       _command = command;
@@ -202,7 +210,7 @@ mixin LocalSemanticWorker {
       return await completer.future.timeout(const Duration(seconds: 60));
     } on TimeoutException {
       stop();
-      throw SemanticSearchException('Visual Search timed out. Please retry.');
+      throw SemanticSearchException('Visual Search timed out. Please retry.'.tr);
     } finally {
       _pending.remove(id);
       if (_pending.isEmpty && _queued == 0) _idleTimer = Timer(const Duration(seconds: 30), stop);
@@ -231,7 +239,7 @@ mixin LocalSemanticWorker {
     _process = null;
     if (process != null) _terminate(process);
     for (final pending in _pending.values) {
-      pending.completeError(error ?? SemanticSearchException('Visual Search paused.'));
+      pending.completeError(error ?? SemanticSearchException('Visual Search paused.'.tr));
     }
     _pending.clear();
   }

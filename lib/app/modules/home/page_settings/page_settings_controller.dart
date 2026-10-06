@@ -12,6 +12,7 @@ import '../../../../env.g.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
 import '../../../core/app_setting.dart';
+import '../../../core/app_translations.dart';
 import '../../../core/const.dart';
 import '../../../data/database/_init_db.dart';
 import '../../../data/database/db_activity.dart';
@@ -47,6 +48,7 @@ class PageSettingsController extends GetxController {
   final semanticMissingCount = 0.obs;
   final semanticBusy = false.obs;
   final semanticStatus = ''.obs;
+  final semanticStatusIsRoutine = false.obs;
   final semanticReady = false.obs;
   final semanticProgress = (-1.0).obs;
   final semanticSkipped = 0.obs;
@@ -56,6 +58,7 @@ class PageSettingsController extends GetxController {
   // **
   final appMiniMode = false.obs;
   final appTheme = AppPref.getAppTheme().obs;
+  final appLanguage = AppPref.getAppLanguage().obs;
 
 
   // ** storage
@@ -75,6 +78,18 @@ class PageSettingsController extends GetxController {
     await onRefresh();
   }
 
+  Future<void> setLanguage(String code) async {
+    if (!AppTranslations.languages.containsKey(code)) return;
+    try {
+      await AppPref.setAppLanguage(code);
+      appLanguage.value = code;
+      if (Get.locale != Locale(code)) await Get.updateLocale(Locale(code));
+    } catch (e) {
+      AppLog.logE('Could not save language: $e');
+      await HelperToast.error('Could not save language. Please retry.'.tr);
+    }
+  }
+
   Future<void> setTheme(AppTheme value) async {
     try {
       await AppPref.setAppTheme(value);
@@ -82,7 +97,7 @@ class PageSettingsController extends GetxController {
       appSetting.refreshTheme();
     } catch (e) {
       AppLog.logE('Could not save theme: $e');
-      await HelperToast.error('Could not save appearance. Please retry.');
+      await HelperToast.error('Could not save appearance. Please retry.'.tr);
     }
   }
 
@@ -117,7 +132,7 @@ class PageSettingsController extends GetxController {
     final value = int.tryParse(tecAppMaxColi.text);
     if (value == null || value < 0) {
       tecAppMaxColi.text = AppPref.getAppMaxColi().toString();
-      await HelperToast.error('Enter a valid daily limit. Zero blocks playback.');
+      await HelperToast.error('Enter a valid daily limit. Zero blocks playback.'.tr);
       return;
     }
     try {
@@ -125,7 +140,7 @@ class PageSettingsController extends GetxController {
       final count = await DBActivity.getCountRelapseToday();
       Get.find<HomeController>().isDangerMode.value = count >= value;
     } catch (_) {
-      await HelperToast.error('Could not save daily limit. Please retry.');
+      await HelperToast.error('Could not save daily limit. Please retry.'.tr);
     }
   }
 
@@ -153,7 +168,7 @@ class PageSettingsController extends GetxController {
       storageList.value = await _scanStorage();
     } catch (e) {
       AppLog.logE('Failed to read storage: $e');
-      await HelperToast.error('Failed to read storage: $e');
+      await HelperToast.error('Failed to read storage: @{e}'.trNamed({'e': '$e'}));
     } finally {
       isLoadingStorage.value = false;
     }
@@ -172,6 +187,7 @@ class PageSettingsController extends GetxController {
       semanticEmbeddingCount.value = status['indexed'] as int;
       semanticMissingCount.value = status['pending'] as int;
     } catch (e) {
+      semanticStatusIsRoutine.value = false;
       semanticStatus.value = e.toString();
       AppLog.logW('Visual Search: status refresh failed: $e');
     }
@@ -183,14 +199,15 @@ class PageSettingsController extends GetxController {
       AppLog.logW('Visual Search: setup ignored because another operation is running');
       return;
     }
+    semanticStatusIsRoutine.value = false;
     if (SemanticSearchService.playbackActive) {
-      semanticStatus.value = 'Close the player before setup.';
+      semanticStatus.value = 'Close the player before setup.'.tr;
       AppLog.logW('Visual Search: setup blocked because a player is open');
       return;
     }
     semanticBusy.value = true;
     semanticInstalling.value = true;
-    semanticStatus.value = 'Preparing Visual Search setup...';
+    semanticStatus.value = 'Preparing Visual Search setup...'.tr;
     semanticProgress.value = -1;
     try {
       await LocalSemanticWorker.setup((message) {
@@ -200,10 +217,12 @@ class PageSettingsController extends GetxController {
         semanticProgress.value = percent == null ? -1 : int.parse(percent[1]!) / 100;
       });
       if (isClosed) return;
-      semanticStatus.value = 'Ready. Index thumbnails to enable visual matches.';
+      semanticStatusIsRoutine.value = true;
+      semanticStatus.value = 'Ready. Index thumbnails to enable visual matches.'.tr;
       AppLog.logI('Visual Search: setup completed');
       await refreshSemanticStatus();
     } catch (e) {
+      semanticStatusIsRoutine.value = false;
       semanticStatus.value = e.toString();
       AppLog.logE('Visual Search: setup failed or stopped: $e');
     } finally {
@@ -216,7 +235,8 @@ class PageSettingsController extends GetxController {
   void stopSemanticIndex() {
     AppLog.logI('Visual Search: stop requested');
     _semanticStopped = true;
-    semanticStatus.value = 'Stopping… Completed work will be kept.';
+    semanticStatusIsRoutine.value = false;
+    semanticStatus.value = 'Stopping… Completed work will be kept.'.tr;
     if (semanticInstalling.value) {
       LocalSemanticWorker.cancelSetup();
     } else {
@@ -233,14 +253,15 @@ class PageSettingsController extends GetxController {
       AppLog.logW('Visual Search: indexing ignored because another operation is running');
       return;
     }
+    semanticStatusIsRoutine.value = false;
     if (SemanticSearchService.playbackActive) {
-      semanticStatus.value = 'Close the player to start indexing.';
+      semanticStatus.value = 'Close the player to start indexing.'.tr;
       AppLog.logW('Visual Search: indexing blocked because a player is open');
       return;
     }
     semanticBusy.value = true;
     _semanticStopped = false;
-    semanticStatus.value = 'Checking thumbnails...';
+    semanticStatus.value = 'Checking thumbnails...'.tr;
     semanticProgress.value = -1;
     semanticSkipped.value = 0;
     try {
@@ -249,19 +270,24 @@ class PageSettingsController extends GetxController {
         semanticSkipped.value = value.skipped;
         semanticProgress.value = value.total == 0 ? -1 : value.current / value.total;
         semanticStatus.value = value.paused
-            ? 'Paused while a player is open. Progress is saved.'
-            : '${value.current} / ${value.total} checked · ${value.indexed} indexed · ${value.skipped} skipped';
+            ? 'Paused while a player is open. Progress is saved.'.tr
+            : '@{current} / @{total} checked · @{indexed} indexed · @{skipped} skipped'.trNamed({'current': '${value.current}', 'total': '${value.total}', 'indexed': '${value.indexed}', 'skipped': '${value.skipped}'});
       }
       final result = force
           ? await SemanticSearchService.reindexAll(onProgress: progress)
           : await SemanticSearchService.reindexMissing(onProgress: progress);
-      semanticStatus.value = '${result.cancelled ? 'Stopped' : 'Finished'} · ${result.indexed} indexed · ${result.skipped} skipped.'
-          '${result.skipped > 0 ? ' ${result.message} Retry after unavailable files are restored.' : ''}';
+      semanticStatusIsRoutine.value = !result.cancelled && result.skipped == 0;
+      final details = result.skipped > 0 ? ' @{message} Retry after unavailable files are restored.'.trNamed({'message': result.message}) : '';
+      semanticStatus.value = '@{state} · @{indexed} indexed · @{skipped} skipped.@{details}'.trNamed({
+        'state': result.cancelled ? 'Stopped'.tr : 'Finished'.tr,
+        'indexed': '${result.indexed}', 'skipped': '${result.skipped}', 'details': details,
+      });
       AppLog.logI('Visual Search: ${semanticStatus.value}');
       await refreshSemanticStatus();
     } catch (e) {
       AppLog.logE('Visual Search: indexing failed or stopped: $e');
-      semanticStatus.value = _semanticStopped ? 'Stopped. Progress saved.' : 'Index failed: $e';
+      semanticStatusIsRoutine.value = false;
+      semanticStatus.value = _semanticStopped ? 'Stopped. Progress saved.'.tr : 'Index failed: @{e}'.trNamed({'e': '$e'});
     } finally {
       semanticBusy.value = false;
     }
@@ -335,24 +361,24 @@ class PageSettingsController extends GetxController {
       final isOutdated = dbVersionDate == null || dbVersionDate.isBefore(lastUpdFromNow);
 
       ExAlert.adaptive(
-        title: Text('Information', textAlign: TextAlign.left),
+        title: Text('Information'.tr, textAlign: TextAlign.left),
         content: VStack([
           12.heightBox,
-          Text('Current Version\t: ${dbVersionDate?.toStringEx(format: kYMd) ?? '-'}').pOnly(bottom: 4),
-          Text('Last Update\t\t\t\t\t\t\t: $lastUpdFromNowStr').pOnly(bottom: 4),
-          !isOutdated ? Text('Next Update\t\t\t\t\t\t: ${lastUpdFromNow.add(7.days).toStringEx(format: kYMd)}').pOnly(bottom: 4) : 0.heightBox,
+          Text('Current Version\t: @{kYMd}'.trNamed({'kYMd': '${dbVersionDate?.toStringEx(format: kYMd) ?? '-'}'})).pOnly(bottom: 4),
+          Text('Last Update\t\t\t\t\t\t\t: @{lastUpdFromNowStr}'.trNamed({'lastUpdFromNowStr': '$lastUpdFromNowStr'})).pOnly(bottom: 4),
+          !isOutdated ? Text('Next Update\t\t\t\t\t\t: @{kYMd}'.trNamed({'kYMd': '${lastUpdFromNow.add(7.days).toStringEx(format: kYMd)}'})).pOnly(bottom: 4) : 0.heightBox,
           isOutdated
               ? Text(
-                  '🔥 New Version Database R18 is avaiable',
+                  '🔥 New Version Database R18 is avaiable'.tr,
                   textAlign: TextAlign.left,
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ).pOnly(top: 24)
-              : Text('🔥 You are using the latest version', textAlign: TextAlign.left).pOnly(top: 24),
+              : Text('🔥 You are using the latest version'.tr, textAlign: TextAlign.left).pOnly(top: 24),
         ]).p4(),
         actions: [
           isOutdated
               ? CupertinoDialogAction(
-                  child: Text('Update', style: TextStyle(color: Vx.red500, fontSize: 13)),
+                  child: Text('Update'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
                   onPressed: () async {
                     Get.back();
                     final appSetting = Get.find<AppSettingService>();
@@ -377,7 +403,7 @@ class PageSettingsController extends GetxController {
                           gzPath,
                           onReceiveProgress: (received, total) {
                             final percent = total > 0 ? ((received / total) * 100).toStringAsFixed(0) : '0';
-                            home.footerText.value = 'DO NOT CLOSE APP | Downloading ($percent%) ...';
+                            home.footerText.value = 'DO NOT CLOSE APP | Downloading (@{percent}%) ...'.trNamed({'percent': '$percent'});
                           },
                         );
                         break;
@@ -385,7 +411,7 @@ class PageSettingsController extends GetxController {
                         lastDownloadError = e;
                         final statusCode = e.response?.statusCode ?? 0;
                         if (statusCode == 404) {
-                          await HelperToast.error('Version for $candidateDateStr not found, try update tommorow.');
+                          await HelperToast.error('Version for @{candidateDateStr} not found, try update tommorow.'.trNamed({'candidateDateStr': '$candidateDateStr'}));
                           return;
                         }
                         rethrow;
@@ -396,7 +422,7 @@ class PageSettingsController extends GetxController {
                       throw Exception('R18 dump not found on server (tried last 8 weekly versions). Last error: ${lastDownloadError?.message ?? 'unknown'}');
                     }
 
-                    home.footerText.value = 'DO NOT CLOSE APP | Extracting...';
+                    home.footerText.value = 'DO NOT CLOSE APP | Extracting...'.tr;
                     await shell.run('gunzip "$gzPath"');
 
                     // Release file lock so Python can rotate old r18*.db safely.
@@ -405,20 +431,20 @@ class PageSettingsController extends GetxController {
                       dbService.dbR18 = null;
                     } catch (_) {}
 
-                    home.footerText.value = 'DO NOT CLOSE APP | Importing... will take 4-15 minutes..';
+                    home.footerText.value = 'DO NOT CLOSE APP | Importing... will take 4-15 minutes..'.tr;
                     await shell.run(
                       'python3 ${appSetting.appPath}/r18_to_javit.py -d "${appSetting.appPath}"',
                       onProcess: (process) async {
                         await process.exitCode.then((code) async {
                           if (code == 1) {
-                            home.footerText.value = 'Task Failed. Please restart app...';
-                            home.change(0, status: RxStatus.error('Task Failed. Please restart app...'));
+                            home.footerText.value = 'Task Failed. Please restart app...'.tr;
+                            home.change(0, status: RxStatus.error('Task Failed. Please restart app...'.tr));
                           }
 
                           if (code == 0) {
-                            await HelperToast.success('Task Done. Please restart app...');
-                            home.footerText.value = 'Task Done. Please restart app...';
-                            home.change(0, status: RxStatus.error('Update completed. Please restart app...'));
+                            await HelperToast.success('Task Done. Please restart app...'.tr);
+                            home.footerText.value = 'Task Done. Please restart app...'.tr;
+                            home.change(0, status: RxStatus.error('Update completed. Please restart app...'.tr));
                           }
                         });
                       },
@@ -439,15 +465,15 @@ class PageSettingsController extends GetxController {
     String? message,
   }) async {
     ExAlert.adaptive(
-      title: Text(title ?? 'Are you sure?', style: TextStyle(fontSize: 14)),
+      title: Text(title ?? 'Are you sure?'.tr, style: TextStyle(fontSize: 14)),
       content: message != null ? Text(message, style: TextStyle(fontSize: 12)).pOnly(top: 8) : null,
       actions: [
         CupertinoDialogAction(
           onPressed: onYes,
-          child: Text('Yes', style: TextStyle(color: Vx.red500, fontSize: 13)),
+          child: Text('Yes'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
         ),
         CupertinoDialogAction(
-          child: Text('No', style: TextStyle(fontSize: 13)),
+          child: Text('No'.tr, style: TextStyle(fontSize: 13)),
           onPressed: () {
             Get.back();
           },
@@ -468,7 +494,7 @@ class PageSettingsController extends GetxController {
           ? 'Macintosh HD'
           : Platform.isWindows && appSetting.appPath.length >= 2
               ? appSetting.appPath.substring(0, 2)
-              : 'System Drive',
+              : 'System Drive'.tr,
       isExternal: false,
     );
     if (primary != null) {

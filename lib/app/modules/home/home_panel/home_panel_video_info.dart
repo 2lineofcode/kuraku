@@ -128,7 +128,7 @@ mixin HomePanelVideoInfo {
                               HelperOpener.openVideoFile(video),
                             },
                           ),
-                        ).pOnly(right: 8).tooltip('Play'),
+                        ).pOnly(right: 8).tooltip('Play'.tr),
 
                         // add to favorite
                         GetBuilder<PageSearchController>(
@@ -148,7 +148,7 @@ mixin HomePanelVideoInfo {
                                 b.update();
                               },
                             ),
-                          ).pOnly(right: 8).tooltip('Add/Remove Favorite'),
+                          ).pOnly(right: 8).tooltip('Add/Remove Favorite'.tr),
                         ),
 
                         // renew metadata
@@ -160,7 +160,7 @@ mixin HomePanelVideoInfo {
                                   icon: Icon(UIconsPro.regularRounded.refresh, size: 14),
                                   onPressed: () => _controller.renewMetadata(video),
                                 ),
-                              ).pOnly(right: 8).tooltip('Renew Metadata'),
+                              ).pOnly(right: 8).tooltip('Renew Metadata'.tr),
                             // : 0.heightBox,
 
                         Container(
@@ -169,7 +169,7 @@ mixin HomePanelVideoInfo {
                             icon: Icon(UIconsPro.regularRounded.folder, size: 16),
                             onPressed: () => HelperOpener.openFilePath(video.videoPath ?? ''),
                           ),
-                        ).pOnly(right: 8).tooltip('Open File Path'),
+                        ).pOnly(right: 8).tooltip('Open File Path'.tr),
 
                         Container(
                           decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
@@ -179,12 +179,12 @@ mixin HomePanelVideoInfo {
                               final homeController = Get.find<HomeController>();
                               final isAdded = homeController.addToCart(video);
                               if (!isAdded) {
-                                HelperToast.info('Already in panel cart');
+                                HelperToast.info('Already in panel cart'.tr);
                               }
                               Overlayment.dismissLast();
                             },
                           ),
-                        ).pOnly(right: 8).tooltip('Add to Panel Cart'),
+                        ).pOnly(right: 8).tooltip('Add to Panel Cart'.tr),
 
                         Spacer(),
                       ],
@@ -202,11 +202,11 @@ mixin HomePanelVideoInfo {
                       child: SingleChildScrollView(
                         child: VStack([
                           HStack([
-                            '# Metadata'.text.size(14).bold.make().expand(),
+                            '# Metadata'.tr.text.size(14).bold.make().expand(),
 
                             IconButton(
                               icon: Icon(UIconsPro.regularRounded.plus_hexagon , size: 16),
-                              tooltip: 'Add To Playlist',
+                              tooltip: 'Add To Playlist'.tr,
                               onPressed: () async {
                                 await Overlayment.dismissLast();
                                 await HomePanelPlaylist.showDialogAddToPlaylistItem([video]);
@@ -215,7 +215,7 @@ mixin HomePanelVideoInfo {
 
                             IconButton(
                               icon: Icon(UIconsPro.regularRounded.pen_square , size: 16),
-                              tooltip: 'Edit Metadata',
+                              tooltip: 'Edit Metadata'.tr,
                               onPressed: () async {
                                 await Overlayment.dismissLast();
                                 await HomePanelMetadata.open(video);
@@ -226,7 +226,7 @@ mixin HomePanelVideoInfo {
 
                           // actress
                           if (!video.actress.isEmptyOrNull) ...[
-                            'Actress:'.text.size(12).bold.make().pOnly(bottom: 4),
+                            'Actress:'.tr.text.size(12).bold.make().pOnly(bottom: 4),
                             Wrap(children: [
                               for (int i = 0; i < video.actress!.length; i++) ...[
                                 '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}'
@@ -245,7 +245,7 @@ mixin HomePanelVideoInfo {
 
                           // category
                           if (!video.category.isEmptyOrNull) ...[
-                            'Category:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'Category:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             Wrap(children: [
                               for (int i = 0; i < video.category!.length; i++) ...[
                                 '${HelperDecensor.decensor(video.category?[i].category)}'.text.color(AppColor.muted).underline.size(11).minFontSize(11).make().onInkTap(() async {
@@ -258,7 +258,7 @@ mixin HomePanelVideoInfo {
 
                           // series
                           if (!video.series.isEmptyOrNull) ...[
-                            'Series:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'Series:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${HelperDecensor.decensor(video.series)}'.text.underline.color(AppColor.muted).size(11).minFontSize(11).make().onInkTap(() async {
                               await _onItemSeriesClick(video);
                             }).pOnly(bottom: 16)
@@ -266,19 +266,19 @@ mixin HomePanelVideoInfo {
 
                           // release date
                           if (!video.releaseDate.isEmptyOrNull) ...[
-                            'Release Date:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'Release Date:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.releaseDateFormated}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
 
                           // duration
                           if (video.duration != 0) ...[
-                            'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'Duration:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.durationFormated}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ],
 
                           // label
                           if (!video.label.isEmptyOrNull) ...[
-                            'Label:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'Label:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.label}'.text.color(AppColor.muted).underline.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() {
                               _onItemLabelClick(video);
                             }),
@@ -286,7 +286,7 @@ mixin HomePanelVideoInfo {
 
                           // studio
                           if (!video.studio.isEmptyOrNull) ...[
-                            'Studio:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'Studio:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.studio}'.text.color(AppColor.muted).underline.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() {
                               _onItemStudioClick(video);
                             }),
@@ -294,7 +294,7 @@ mixin HomePanelVideoInfo {
 
                           // director
                           if (!video.director.isEmptyOrNull) ...[
-                            'Director:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'Director:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.director}'.text.color(AppColor.muted).underline.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() {
                               _onItemDirectorClick(video);
                             }),
@@ -304,11 +304,11 @@ mixin HomePanelVideoInfo {
 
                           VStack([
                             // resolution
-                            'Res:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'Res:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.quality}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
 
                             // filesize
-                            'File Size:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                            'File Size:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.filesize?.toFileSizeFormat()}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                           ]),
 
@@ -324,7 +324,7 @@ mixin HomePanelVideoInfo {
                                   ? VStack([
                                       // duration (non jav)
                                       if (video.duration == 0) ...[
-                                        'Duration:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                                        'Duration:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                                         '${_mediaInfo[3]}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
                                       ],
                                     ])
@@ -333,13 +333,13 @@ mixin HomePanelVideoInfo {
                           ),
 
                           // Path
-                          'Path:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                          'Path:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                           '${video.videoPath?.getLastSegments()}'.text.color(AppColor.muted).ellipsis.size(11).minFontSize(11).make().color(AppColor.hover).onInkTap(() async {
                             await _onItemVideoPathClick(video);
                           }).tooltip(video.videoPath ?? ''),
 
                           // added
-                          'Added:'.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4, top: 16),
+                          'Added:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4, top: 16),
                           '${video.createdAt?.reformatDate()}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
 
                         ]).p12(),

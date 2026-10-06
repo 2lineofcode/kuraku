@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../data/models/videos_entity.dart';
 import 'app_setting.dart';
+import 'app_translations.dart';
 
 enum AppTheme {
   system('System'),
@@ -10,8 +11,9 @@ enum AppTheme {
   dark('Dark'),
   light('Light');
 
-  const AppTheme(this.label);
-  final String label;
+  const AppTheme(this._label);
+  final String _label;
+  String get label => _label.tr;
 
   ThemeMode resolve([DateTime? now]) {
     switch (this) {
@@ -56,6 +58,21 @@ mixin AppPref {
   }
 
   // ** [app]
+  static String getAppLanguage() {
+    final code = _pref.read('_kAppLanguage');
+    return AppTranslations.resolveLanguage(code is String ? code : null);
+  }
+  static Future<void> setAppLanguage(String code) async {
+    if (!AppTranslations.languages.containsKey(code)) throw ArgumentError.value(code, 'code');
+    final previous = _pref.read('_kAppLanguage');
+    try {
+      await _pref.write('_kAppLanguage', code);
+    } catch (_) {
+      _pref.writeInMemory('_kAppLanguage', previous);
+      rethrow;
+    }
+  }
+
   static void setAppLastOpen(String value) => _pref.write(_kAppLastOpen, value);
 
   static bool getAppHideSideMenu() => _pref.read(_kAppHideSideMenu) ?? false;

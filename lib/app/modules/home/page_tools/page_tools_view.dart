@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/app_translations.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_media_stack.dart';
@@ -50,7 +51,7 @@ class PageToolsView extends GetView<PageToolsController> {
         final item = controller.menus[index];
         return Obx(
           () => ExButtonOutline(
-            label: item,
+            label: item.tr,
             labelSize: 12,
             labelColor: controller.currentMenuSelected.value == item ? AppColor.text : AppColor.muted,
             borderColor: controller.currentMenuSelected.value == item ? AppColor.selected : AppColor.container,
@@ -69,8 +70,8 @@ class PageToolsView extends GetView<PageToolsController> {
     final running = controller.qualityScanRunning.value;
     final missing = controller.missingQualityCount.value;
     final status = controller.qualityScanStatus.value;
-    final failed = status.startsWith('Scan failed');
-    final stopping = status.startsWith('Stopping');
+    final failed = controller.qualityScanFailed.value;
+    final stopping = controller.qualityScanStopping.value;
     if (!running && missing == 0 && !failed) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -79,12 +80,12 @@ class PageToolsView extends GetView<PageToolsController> {
           SizedBox(width: 12, height: 12, child: CircularProgressIndicator(
             strokeWidth: 1.5,
             value: controller.qualityScanTotal.value == 0 ? null : controller.qualityScanChecked.value / controller.qualityScanTotal.value,
-            semanticsLabel: 'Resolution scan progress',
+            semanticsLabel: 'Resolution scan progress'.tr,
           )),
           const SizedBox(width: 8),
           Expanded(child: Tooltip(
-            message: '${controller.qualityScanFile.value}\n${controller.qualityScanUpdated.value} updated · ${controller.qualityScanSkipped.value} skipped',
-            child: Text('Scanning ${controller.qualityScanChecked.value}/${controller.qualityScanTotal.value}', style: const TextStyle(fontSize: 11)),
+            message: '@{qualityScanFile}\n@{qualityScanUpdated} updated · @{qualityScanSkipped} skipped'.trNamed({'qualityScanFile': '${controller.qualityScanFile.value}', 'qualityScanUpdated': '${controller.qualityScanUpdated.value}', 'qualityScanSkipped': '${controller.qualityScanSkipped.value}'}),
+            child: Text('Scanning @{qualityScanChecked}/@{qualityScanTotal}'.trNamed({'qualityScanChecked': '${controller.qualityScanChecked.value}', 'qualityScanTotal': '${controller.qualityScanTotal.value}'}), style: const TextStyle(fontSize: 11)),
           )),
         ],
         if (!running && (failed || controller.qualityScanSkipped.value > 0))
@@ -93,14 +94,14 @@ class PageToolsView extends GetView<PageToolsController> {
             child: Icon(Icons.info_outline, size: 14),
           )),
         Tooltip(
-          message: running ? 'Keep completed results' : 'Scan missing video resolutions',
+          message: running ? 'Keep completed results'.tr : 'Scan missing video resolutions'.tr,
           child: TextButton(
             style: TextButton.styleFrom(
               minimumSize: const Size(0, 28), padding: const EdgeInsets.symmetric(horizontal: 8),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             onPressed: stopping && running ? null : running ? controller.stopQualityScan : controller.scanAndUpdateDBVideoRes,
-            child: Text(running ? stopping ? 'Stopping…' : 'Stop' : 'Scan ($missing)', style: const TextStyle(fontSize: 11)),
+            child: Text(running ? stopping ? 'Stopping…'.tr : 'Stop'.tr : 'Scan (@{missing})'.trNamed({'missing': '$missing'}), style: const TextStyle(fontSize: 11)),
           ),
         ),
       ]),
@@ -111,15 +112,15 @@ class PageToolsView extends GetView<PageToolsController> {
     if (controller.topLargeFileSizeList.isEmpty) {
       return ExUiErrorOrEmpty(
          illustration: Icon(UIconsPro.regularRounded.square_dashed_circle_plus, size: 128),
-        title: '~ Fresh ~',
-        message: 'Hi There, Select Or Drag & Drop your JAV Folder Here',
+        title: '~ Fresh ~'.tr,
+        message: 'Hi There, Select Or Drag & Drop your JAV Folder Here'.tr,
       );
     }
     return VStack(
       [
         // ** options
         HStack([
-          Obx(() => 'Top ${controller.topLargeFileSizeList.length} Large File'.text.make()),
+          Obx(() => 'Top @{length} Large File'.trNamed({'length': '${controller.topLargeFileSizeList.length}'}).text.make()),
           Spacer(),
 
           HStack([
@@ -129,9 +130,9 @@ class PageToolsView extends GetView<PageToolsController> {
                   context: Get.context!,
                   position: RelativeRect.fromLTRB(details.globalPosition.dx, details.globalPosition.dy, details.globalPosition.dx, details.globalPosition.dy),
                   items: [
-                    PopupMenuItem(value: 'all', child: Text('All', style: TextStyle(fontSize: 12))),
-                    PopupMenuItem(value: 'internal', child: Text('Internal', style: TextStyle(fontSize: 12))),
-                    PopupMenuItem(value: 'external', child: Text('External', style: TextStyle(fontSize: 12))),
+                    PopupMenuItem(value: 'all', child: Text('All'.tr, style: TextStyle(fontSize: 12))),
+                    PopupMenuItem(value: 'internal', child: Text('Internal'.tr, style: TextStyle(fontSize: 12))),
+                    PopupMenuItem(value: 'external', child: Text('External'.tr, style: TextStyle(fontSize: 12))),
                   ],
                 );
 
@@ -149,7 +150,7 @@ class PageToolsView extends GetView<PageToolsController> {
                     Icon(UIconsPro.regularRounded.filter, size: 12).pOnly(right: 12),
                     Obx(
                       () => Text(
-                        controller.topLargeFilterMode.value.isEmpty ? '<select>' : controller.topLargeFilterMode.value.toTitleCase!,
+                        controller.topLargeFilterMode.value.isEmpty ? '<select>'.tr : controller.topLargeFilterMode.value.toTitleCase!.tr,
                         style: TextStyle(fontSize: 12, color: AppColor.text),
                       ),
                     ),
@@ -179,11 +180,11 @@ class PageToolsView extends GetView<PageToolsController> {
                   ),
                   child: Row(
                     children: [
-                      _buildHeaderCell('Thumbnail', flex: 1),
-                      _buildHeaderCell('Code', flex: 1),
-                      _buildHeaderCell('Path', flex: 3),
-                      _buildHeaderCell('Quality', flex: 1),
-                      _buildHeaderCell('Size', flex: 1, isLast: true),
+                      _buildHeaderCell('Thumbnail'.tr, flex: 1),
+                      _buildHeaderCell('Code'.tr, flex: 1),
+                      _buildHeaderCell('Path'.tr, flex: 3),
+                      _buildHeaderCell('Quality'.tr, flex: 1),
+                      _buildHeaderCell('Size'.tr, flex: 1, isLast: true),
                     ],
                   ),
                 ),
@@ -197,7 +198,7 @@ class PageToolsView extends GetView<PageToolsController> {
                         final item = controller.topLargeFileSizeList[index];
                         final videoPath = item.videoPath ?? '';
                         final isExternal = HelperMisc.isExternalDrive(videoPath);
-                        final pathLabel = isExternal ? 'External → ${videoPath.getLastSegments(segment: 1)}' : 'Local → ${videoPath.getLastPath()}';
+                        final pathLabel = isExternal ? 'External → @{path}'.trNamed({'path': videoPath.getLastSegments(segment: 1)}) : 'Local → @{path}'.trNamed({'path': videoPath.getLastPath()});
 
                         return InkWell(
                           onHover: (isHover) => controller.onTopLargeHover(index, isHover),
@@ -264,14 +265,14 @@ class PageToolsView extends GetView<PageToolsController> {
     return VStack(
       [
         HStack([
-          Obx(() => 'Duplicate Groups: ${controller.duplicateGroupCount.value} | Matched Videos: ${controller.duplicateVideoList.length}'.text.make()),
+          Obx(() => 'Duplicate Groups: @{duplicateGroupCount} | Matched Videos: @{length}'.trNamed({'duplicateGroupCount': '${controller.duplicateGroupCount.value}', 'length': '${controller.duplicateVideoList.length}'}).text.make()),
           Spacer(),
           Obx(
             () => HStack(
               controller.duplicateModes.map((mode) {
                 final isSelected = controller.duplicateMode.value == mode;
                 return ExButtonOutline(
-                  label: mode == 'exact' ? 'Exact' : 'Probable',
+                  label: mode == 'exact' ? 'Exact'.tr : 'Probable'.tr,
                   labelSize: 11,
                   labelColor: isSelected ? AppColor.text : AppColor.muted,
                   borderColor: isSelected ? AppColor.selected : AppColor.container,
@@ -285,8 +286,8 @@ class PageToolsView extends GetView<PageToolsController> {
         Obx(
           () => (
             controller.duplicateMode.value == 'exact'
-                ? 'Exact = same code, atau non-JAV dengan filesize + normalized filename yang sama'
-                : 'Probable = same normalized filename/title, cocok buat re-download beda resolusi'
+                ? 'Exact = same code, or non-JAV with the same file size and normalized filename'.tr
+                : 'Probable = same normalized filename/title, useful for downloads at different resolutions'.tr
           ).text.size(11).color(AppColor.muted).make().pOnly(bottom: 12),
         ),
         Expanded(
@@ -296,8 +297,8 @@ class PageToolsView extends GetView<PageToolsController> {
                 return ExUiErrorOrEmpty(
                   illustration: Icon(UIconsPro.regularRounded.flame, size: 128),
                   title: controller.duplicateMode.value == 'exact'
-                      ? '~ No Exact Duplicate Found 🔥 ~'
-                      : '~ No Probable Duplicate Found 🔥 ~',
+                      ? '~ No Exact Duplicate Found 🔥 ~'.tr
+                      : '~ No Probable Duplicate Found 🔥 ~'.tr,
                 );
               }
 
@@ -311,9 +312,9 @@ class PageToolsView extends GetView<PageToolsController> {
                   TableRow(
                     decoration: BoxDecoration(color: AppColor.container),
                     children: [
-                      'Code'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                      'Path'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                      'Size'.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                      'Code'.tr.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                      'Path'.tr.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
+                      'Size'.tr.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
                     ],
                   ),
                   ...List.generate(
@@ -348,8 +349,8 @@ class PageToolsView extends GetView<PageToolsController> {
                               duration: 120.milliseconds,
                               color: rowColor,
                               child: (HelperMisc.isExternalDrive(item.videoPath)
-                                      ? 'External → ${item.videoPath!.getLastSegments(segment: 1)}'
-                                      : 'Local → ${item.videoPath!.getLastPath()}')
+                                      ? 'External → @{segment}'.trNamed({'segment': '${item.videoPath!.getLastSegments(segment: 1)}'})
+                                      : 'Local → @{getLastPath}'.trNamed({'getLastPath': '${item.videoPath!.getLastPath()}'}))
                                   .text
                                   .ellipsis
                                   .size(12)
@@ -390,24 +391,24 @@ class PageToolsView extends GetView<PageToolsController> {
       return ExUiErrorOrEmpty(
         child: VStack([
           Icon(UIconsPro.regularRounded.to_do_alt, size: 128).pOnly(bottom: 16).centered(),
-          'No Data TODO'.text.bold.makeCentered().pOnly(bottom: 2),
-          'You can add todo by clicking the button below'.text.size(12).makeCentered().pOnly(bottom: 12),
+          'No Data TODO'.tr.text.bold.makeCentered().pOnly(bottom: 2),
+          'You can add todo by clicking the button below'.tr.text.size(12).makeCentered().pOnly(bottom: 12),
           ExButtonText(
-            label: 'Add New Todo',
+            label: 'Add New Todo'.tr,
             labelSize: 13,
             isLabelBold: true,
             onPressed: () => controller.addTodo(),
-          ).tooltip('Add Todo: [⌘ + T]').centered(),
+          ).tooltip('Add Todo: [⌘ + T]'.tr).centered(),
         ]).centered(),
       );
     }
     return VStack(
       [
         HStack([
-          Obx(() => 'Total Todo: ${controller.todoList.length}'.text.make()),
+          Obx(() => 'Total Todo: @{length}'.trNamed({'length': '${controller.todoList.length}'}).text.make()),
           Spacer(),
           Tooltip(
-            message: 'Add Todo: [⌘ + T]',
+            message: 'Add Todo: [⌘ + T]'.tr,
             child: IconButton(
               icon: Icon(UIconsPro.regularRounded.plus, size: 14),
               onPressed: () => controller.addTodo(),
@@ -430,9 +431,9 @@ class PageToolsView extends GetView<PageToolsController> {
                   ),
                   child: Row(
                     children: [
-                      _buildHeaderCell('Thumbnail', flex: 1),
-                      _buildHeaderCell('Todo', flex: 4),
-                      _buildHeaderCell('Action', flex: 1, isLast: true),
+                      _buildHeaderCell('Thumbnail'.tr, flex: 1),
+                      _buildHeaderCell('Todo'.tr, flex: 4),
+                      _buildHeaderCell('Action'.tr, flex: 1, isLast: true),
                     ],
                   ),
                 ),
@@ -570,9 +571,9 @@ class PageToolsView extends GetView<PageToolsController> {
 
           // filter by
           HStack([
-            'Browse'.text.size(12).bold.make().expand(),
+            'Browse'.tr.text.size(12).bold.make().expand(),
             PopupMenuButton<String>(
-              tooltip: 'Browse catalog by',
+              tooltip: 'Browse catalog by'.tr,
               initialValue: controller.currentFilterBy.value,
               onSelected: (kind) {
                 switch (kind) {
@@ -583,10 +584,10 @@ class PageToolsView extends GetView<PageToolsController> {
                 }
               },
               itemBuilder: (_) => [for (final kind in [kActress, kSeries, kCategory, kYear])
-                PopupMenuItem(value: kind, child: Text(kind, style: const TextStyle(fontSize: 12))),
+                PopupMenuItem(value: kind, child: Text(kind.tr, style: const TextStyle(fontSize: 12))),
               ],
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(controller.currentFilterBy.value, style: const TextStyle(fontSize: 11)),
+                Text(controller.currentFilterBy.value.tr, style: const TextStyle(fontSize: 11)),
                 const Icon(Icons.expand_more, size: 16),
               ]).pSymmetric(h: 8, v: 4).box.color(AppColor.selected).make().cornerRadius(4),
             ),
@@ -596,22 +597,22 @@ class PageToolsView extends GetView<PageToolsController> {
           CupertinoTextField(
             controller: controller.tecFilterSearchLeft,
             focusNode: controller.fnFilterSearchLeft,
-            placeholder: 'Search ${controller.currentFilterBy.value.toLowerCase()}...',
+            placeholder: 'Search @{toLowerCase}...'.trNamed({'toLowerCase': '${controller.currentFilterBy.value.tr.toLowerCase()}'}),
             style: TextStyle(color: AppColor.text, fontSize: 12),
             clearButtonMode: OverlayVisibilityMode.editing,
             prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
             onChanged: controller.searchAdvancedGroups,
             onSubmitted: (s) async => await controller.onLeftListDoSearch(s),
           ).pSymmetric(v: 12),
-          '${controller.leftList.length} items · ↑ ↓ to browse'.text.size(10).color(AppColor.muted).make().pOnly(bottom: 8),
+          '@{length} items · ↑ ↓ to browse'.trNamed({'length': '${controller.leftList.length}'}).text.size(10).color(AppColor.muted).make().pOnly(bottom: 8),
           
           if (controller.leftListLoading.value) const LinearProgressIndicator(minHeight: 2),
           if (controller.leftListError.value.isNotEmpty) Column(children: [
             Text(controller.leftListError.value, style: const TextStyle(fontSize: 11)),
-            TextButton(onPressed: () => controller.onLeftListDoSearch(controller.tecFilterSearchLeft.text), child: const Text('Retry')),
+            TextButton(onPressed: () => controller.onLeftListDoSearch(controller.tecFilterSearchLeft.text), child: Text('Retry'.tr)),
           ]),
           if (!controller.leftListLoading.value && controller.leftListError.value.isEmpty && controller.leftList.isEmpty)
-            'No matching items'.text.size(11).color(AppColor.muted).make().p8(),
+            'No matching items'.tr.text.size(11).color(AppColor.muted).make().p8(),
           // list
           FocusScope(
             autofocus: true,
@@ -649,7 +650,7 @@ class PageToolsView extends GetView<PageToolsController> {
                                   Text(HelperDecensor.decensor(item['name_en']), style: const TextStyle(fontSize: 11), maxLines: 2, overflow: TextOverflow.ellipsis),
                                   if ((item['name_ja'] ?? '').toString().trim().isNotEmpty && item['name_ja'] != item['name_en'])
                                     Text('${item['name_ja']}', style: TextStyle(fontSize: 10, color: AppColor.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  Text('${item['video_count']} videos · ${item['max_release_date'] ?? 'Date unknown'}', style: TextStyle(fontSize: 9, color: AppColor.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  Text('@{video_count} videos · @{unknown}'.trNamed({'video_count': '${item['video_count']}', 'unknown': '${item['max_release_date'] ?? 'Date unknown'}'}), style: TextStyle(fontSize: 9, color: AppColor.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
                                 ]).w(double.infinity).p4(),
                               )
                                   .color(isSelected ? AppColor.selected : isHovered ? AppColor.border : Colors.transparent)
@@ -683,7 +684,7 @@ class PageToolsView extends GetView<PageToolsController> {
         decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
         child: ExUiErrorOrEmpty(
           illustration: Icon(CupertinoIcons.chevron_left_2, size: 64).pOnly(bottom: 12),
-          message: 'Choose an actress, series, category or year to browse the R18 catalog.',
+          message: 'Choose an actress, series, category or year to browse the R18 catalog.'.tr,
         ),
       );
     }
@@ -697,18 +698,18 @@ class PageToolsView extends GetView<PageToolsController> {
             HStack([
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(HelperDecensor.decensor(controller.leftListSelected.value), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                Text('${controller.rightListFiltered.length} of ${controller.rightList.length} videos', style: TextStyle(fontSize: 10, color: AppColor.muted)),
+                Text('@{length} of @{length2} videos'.trNamed({'length': '${controller.rightListFiltered.length}', 'length2': '${controller.rightList.length}'}), style: TextStyle(fontSize: 10, color: AppColor.muted)),
               ])),
               if (controller.hasAdvancedFilters) TextButton(
                 onPressed: controller.clearAdvancedFilters,
-                child: const Text('Clear', style: TextStyle(fontSize: 11)),
+                child: Text('Clear'.tr, style: TextStyle(fontSize: 11)),
               ),
 
               // 2
               Obx(
                 () => ZStack([
                   IconButton(
-                    tooltip: 'More filters: video code, year and duration',
+                    tooltip: 'More filters: video code, year and duration'.tr,
                     icon: Icon(
                       controller.filter.isFiltered.isTrue ? UIconsPro.boldRounded.filter_list : UIconsPro.regularRounded.filter_list,
                       size: controller.filter.isFiltered.isTrue ? 16 : 14,
@@ -721,7 +722,7 @@ class PageToolsView extends GetView<PageToolsController> {
             ]).pOnly(bottom: 8),
             CupertinoTextField(
               controller: controller.tecResultSearch,
-              placeholder: 'Search video code or title...',
+              placeholder: 'Search video code or title...'.tr,
               style: TextStyle(fontSize: 12, color: AppColor.text),
               clearButtonMode: OverlayVisibilityMode.editing,
               prefix: Icon(Icons.search, size: 16, color: AppColor.muted).pOnly(left: 8),
@@ -731,24 +732,24 @@ class PageToolsView extends GetView<PageToolsController> {
               },
             ).pOnly(bottom: 8),
             Wrap(spacing: 8, runSpacing: 4, children: [
-              _advancedOption('Release', controller.releaseFilter.value, {'all': 'All dates', 'released': 'Released', 'upcoming': 'Upcoming'}, (value) => controller.releaseFilter.value = value),
-              _advancedOption('Library', controller.libraryFilter.value, {'all': 'All videos', 'owned': 'In Library', 'missing': 'Not in Library'}, (value) => controller.libraryFilter.value = value),
-              _advancedOption('Sort', controller.resultSort.value, {'newest': 'Newest released', 'oldest': 'Oldest', 'code': 'Video code'}, (value) => controller.resultSort.value = value),
+              _advancedOption('Release'.tr, controller.releaseFilter.value, {'all': 'All dates'.tr, 'released': 'Released'.tr, 'upcoming': 'Upcoming'.tr}, (value) => controller.releaseFilter.value = value),
+              _advancedOption('Library'.tr, controller.libraryFilter.value, {'all': 'All videos'.tr, 'owned': 'In Library'.tr, 'missing': 'Not in Library'.tr}, (value) => controller.libraryFilter.value = value),
+              _advancedOption('Sort'.tr, controller.resultSort.value, {'newest': 'Newest released'.tr, 'oldest': 'Oldest'.tr, 'code': 'Video code'.tr}, (value) => controller.resultSort.value = value),
             ]).pOnly(bottom: 12),
 
             // list video
             Obx(() => controller.rightListFiltered.isEmpty
-                ? const Center(child: Text('No videos match the current filters'))
+                ? Center(child: Text('No videos match the current filters'.tr))
                 : _buildVideoList()).expand(),
 
           ],
         ).p12()),
-        onLoading: ExUiLoading(message: 'Loading...'.text.size(11).minFontSize(11).makeCentered()),
-        onError: (error) => Center(child: Text(error ?? 'Could not load videos')),
+        onLoading: ExUiLoading(message: 'Loading...'.tr.text.size(11).minFontSize(11).makeCentered()),
+        onError: (error) => Center(child: Text(error ?? 'Could not load videos'.tr)),
         onEmpty: ExUiErrorOrEmpty(
           illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
-          title: 'No Data Found',
-          message: 'No Result Found, as you searched for "${controller.leftListSelected}"',
+          title: 'No Data Found'.tr,
+          message: 'No Result Found, as you searched for "@{leftListSelected}"'.trNamed({'leftListSelected': '${controller.leftListSelected}'}),
         ),
       ),
     );
@@ -805,7 +806,7 @@ class PageToolsView extends GetView<PageToolsController> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('${item['video_code']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)).onInkTap(() {
                   HelperMisc.copyToClipboard(item['video_code'], showToast: true);
-                }).tooltip('Copy video code'),
+                }).tooltip('Copy video code'.tr),
                 if ('${item['title'] ?? ''}'.trim().isNotEmpty)
                   Text(HelperDecensor.decensor(item['title']), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10)),
               ]),
@@ -815,24 +816,24 @@ class PageToolsView extends GetView<PageToolsController> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(date, style: const TextStyle(fontSize: 10)).p4().color(AppColor.black180).cornerRadius(4),
                 if (item['is_released'] == false)
-                  const Text('Upcoming', style: TextStyle(fontSize: 10)).p4().color(Colors.brown.shade800).cornerRadius(4).pOnly(top: 4),
+                  Text('Upcoming'.tr, style: TextStyle(fontSize: 10)).p4().color(Colors.brown.shade800).cornerRadius(4).pOnly(top: 4),
                 if (item['match'] == true)
-                  const Text('In Library', style: TextStyle(fontSize: 10)).p4().color(Colors.green.shade800).cornerRadius(4).pOnly(top: 4),
+                  Text('In Library'.tr, style: TextStyle(fontSize: 10)).p4().color(Colors.green.shade800).cornerRadius(4).pOnly(top: 4),
                 if (Get.isRegistered<HomeController>()) GetBuilder<HomeController>(builder: (_) => item['is_clicked'] == true
-                    ? const Text('Requested', style: TextStyle(fontSize: 10)).p4().color(Colors.blue.shade800).cornerRadius(4).pOnly(top: 4)
+                    ? Text('Requested'.tr, style: TextStyle(fontSize: 10)).p4().color(Colors.blue.shade800).cornerRadius(4).pOnly(top: 4)
                     : const SizedBox.shrink()),
               ]),
             )),
             Positioned(right: 6, top: 6, child: Column(children: [
               IconButton(
-                tooltip: 'Open trailer',
+                tooltip: 'Open trailer'.tr,
                 style: IconButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
                 icon: const Icon(Icons.play_arrow_outlined, size: 16),
                 onPressed: () => HelperOpener.openTrailer(item),
               ),
               const SizedBox(height: 4),
               IconButton(
-                tooltip: 'Open screenshots',
+                tooltip: 'Open screenshots'.tr,
                 style: IconButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
                 icon: const Icon(Icons.photo_outlined, size: 16),
                 onPressed: () => HelperOpener.openScreenshot(item),

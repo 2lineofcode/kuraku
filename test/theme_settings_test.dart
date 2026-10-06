@@ -68,7 +68,7 @@ void main() {
       await tester.pumpAndSettle();
       final options = tester.widget<DropdownButton<AppTheme>>(find.byType(DropdownButton<AppTheme>)).items!;
       expect(options.map((item) => item.value), AppTheme.values);
-      final label = theme == AppTheme.schedule ? 'Auto Schedule (06-17 light | 17-06 dark)' : theme.label;
+      final label = theme.label;
       await tester.tap(find.text(label).last);
       await tester.pumpAndSettle();
       expect(controller.appTheme.value, theme);

@@ -52,32 +52,32 @@ class ImgViewerView extends GetView<ImgViewerController> {
         ),
         actions: [
           _buildAppBarAction(
-            tooltip: 'Shuffle',
+            tooltip: 'Shuffle'.tr,
             onPressed: controller.shuffleImages,
             icon: Icons.shuffle,
           ),
           _buildAppBarAction(
-            tooltip: 'Rotate left',
+            tooltip: 'Rotate left'.tr,
             onPressed: controller.rotateCounterClockwise,
             icon: Icons.rotate_left,
           ),
           _buildAppBarAction(
-            tooltip: 'Rotate right',
+            tooltip: 'Rotate right'.tr,
             onPressed: controller.rotateClockwise,
             icon: Icons.rotate_right,
           ),
           _buildAppBarAction(
-            tooltip: 'Zoom out',
+            tooltip: 'Zoom out'.tr,
             onPressed: controller.zoomOut,
             icon: Icons.remove,
           ),
           _buildAppBarAction(
-            tooltip: 'Reset zoom',
+            tooltip: 'Reset zoom'.tr,
             onPressed: controller.resetZoom,
             icon: Icons.center_focus_strong,
           ),
           _buildAppBarAction(
-            tooltip: 'Zoom in',
+            tooltip: 'Zoom in'.tr,
             onPressed: controller.zoomIn,
             icon: Icons.add,
           ),
@@ -186,7 +186,7 @@ class ImgViewerView extends GetView<ImgViewerController> {
   Widget _emptyView() {
     return Center(
       child: Text(
-        'No image found',
+        'No image found'.tr,
         style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 14),
       ),
     );

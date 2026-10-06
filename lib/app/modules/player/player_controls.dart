@@ -12,6 +12,7 @@ import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../core/app_color.dart';
 import '../../core/app_pref.dart';
+import '../../core/app_translations.dart';
 import '../../utils/helper.dart';
 import 'player_controller.dart';
 import 'player_seek_preview.dart';
@@ -251,7 +252,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                           ? TextButton(
                               style: TextButton.styleFrom(foregroundColor: Colors.white, backgroundColor: Colors.black54),
                               onPressed: () => widget.controller.setVideoZoom(1),
-                              child: Text('Zoom ${(widget.controller.videoZoom.value * 100).round()}% · Reset'),
+                              child: Text('Zoom @{round}% · Reset'.trNamed({'round': '${(widget.controller.videoZoom.value * 100).round()}'})),
                             )
                           : SizedBox.shrink()),
                     ),
@@ -356,7 +357,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                     ),
                     if (video.viewCount != null && video.viewCount! > 0)
                       Text(
-                        ' • ${video.viewCount} views • ${video.videoPath?.isHasIdSub() == true ? '🇮🇩 ID Sub' : video.videoPath?.isHasEnSub() == true ? '🇬🇧 EN Sub' : 'No Sub' } • ${video.videoPath?.isHasUncensored() == true ? '🎞️ Uncensored' : 'Censored'}',
+                        ' • @{viewCount} views • @{Sub} • @{Censored}'.trNamed({'viewCount': '${video.viewCount}', 'Sub': '${video.videoPath?.isHasIdSub() == true ? '🇮🇩 ID Sub'.tr : video.videoPath?.isHasEnSub() == true ? '🇬🇧 EN Sub'.tr : 'No Sub'.tr}', 'Censored': '${video.videoPath?.isHasUncensored() == true ? '🎞️ Uncensored'.tr : 'Censored'.tr}'}),
                         style: TextStyle(
                           fontSize: 11,
                           color: Colors.white.withValues(alpha: .7),
@@ -374,26 +375,26 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               Container(
                 decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
                 child: Icon(UIconsPro.regularRounded.plus, size: 14, color: Colors.white).p8(),
-              ).tooltip('Add To Cart (C)').onInkTap(() => widget.controller.addToCart()),
+              ).tooltip('Add To Cart (C)'.tr).onInkTap(() => widget.controller.addToCart()),
 
               8.widthBox,
 
               Container(
                 decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
                 child: Icon(UIconsPro.regularRounded.info, size: 14, color: Colors.white).p8(),
-              ).tooltip('Video Info (I)').onInkTap(() => widget.controller.openInfo()),
+              ).tooltip('Video Info (I)'.tr).onInkTap(() => widget.controller.openInfo()),
 
               8.widthBox,
 
               Container(
                 decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
                 child: Icon(UIconsPro.regularRounded.list, size: 14, color: Colors.white).p8(),
-              ).tooltip('Playlist (L)').onInkTap(() => widget.controller.openList()),
+              ).tooltip('Playlist (L)'.tr).onInkTap(() => widget.controller.openList()),
 
               8.widthBox,
 
               PopupMenuButton<String>(
-                tooltip: 'Subtitles',
+                tooltip: 'Subtitles'.tr,
                 child: Container(
                   decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
                   child: Icon(Icons.subtitles_outlined, size: 14, color: Colors.white).p8(),
@@ -405,10 +406,10 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                     await widget.controller.selectSubtitle(value == 'no' ? SubtitleTrack.no() : SubtitleTrack.auto());
                   }
                 },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'load', child: Text('Load subtitle file…')),
-                  PopupMenuItem(value: 'auto', child: Text('Auto')),
-                  PopupMenuItem(value: 'no', child: Text('Off')),
+                itemBuilder: (_) => [
+                  PopupMenuItem(value: 'load', child: Text('Load subtitle file…'.tr)),
+                  PopupMenuItem(value: 'auto', child: Text('Auto'.tr)),
+                  PopupMenuItem(value: 'no', child: Text('Off'.tr)),
                 ],
               ),
 
@@ -417,7 +418,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               Container(
                 decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
                 child: Icon(Icons.picture_in_picture_alt_rounded, size: 14, color: Colors.white).p8(),
-              ).tooltip('Mini Player (P)').onInkTap(() async {
+              ).tooltip('Mini Player (P)'.tr).onInkTap(() async {
                 widget.controller.enterMiniMode();
                 Get.back();
               }),
@@ -431,7 +432,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                   fillColor: AppColor.black120,
                 ),
                 child: Icon(UIconsPro.regularRounded.cross_small, size: 14, color: Colors.white).p8(),
-              ).tooltip('Close (Q)').onInkTap(() async {
+              ).tooltip('Close (Q)'.tr).onInkTap(() async {
                 await widget.controller.stopPlayback();
                 Get.back();
               }),
@@ -495,14 +496,14 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                 children: [
                   _buildControlIcon(
                     icon: widget.controller.isPlaying.value ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                    tooltip: widget.controller.isPlaying.value ? 'Pause (Space)' : 'Play (Space)',
+                    tooltip: widget.controller.isPlaying.value ? 'Pause (Space)'.tr : 'Play (Space)'.tr,
                     size: 32,
                     onTap: _togglePlayPause,
                   ),
                   SizedBox(width: 8),
                   _buildSecondaryIcon(
                     icon: Icons.skip_previous_rounded,
-                    tooltip: 'Previous (Shift + <)',
+                    tooltip: 'Previous (Shift + <)'.tr,
                     enabled: hasPrev,
                     onTap: () async {
                       await widget.controller.prevVideo();
@@ -511,7 +512,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                   ),
                   _buildSecondaryIcon(
                     icon: Icons.skip_next_rounded,
-                    tooltip: 'Next (Shift + >)',
+                    tooltip: 'Next (Shift + >)'.tr,
                     enabled: hasNext,
                     onTap: () async {
                       await widget.controller.nextVideo();
@@ -625,7 +626,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                                       ? Center(child: SizedBox(
                                           width: 24,
                                           height: 24,
-                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70, semanticsLabel: 'Loading preview'),
+                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70, semanticsLabel: 'Loading preview'.tr),
                                         ))
                                       : bytes == null
                                       ? Icon(Icons.broken_image_outlined, color: Colors.white54, size: 24)
@@ -789,7 +790,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            tooltip: 'Mute (M)',
+            tooltip: 'Mute (M)'.tr,
             icon: Icon(icon, color: Colors.white),
             splashRadius: 24,
             onPressed: () async {
@@ -861,13 +862,13 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     const speeds = <double>[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
     return PopupMenuButton<double>(
-      tooltip: 'Playback speed',
+      tooltip: 'Playback speed'.tr,
       offset: Offset(0, -8),
       initialValue: currentSpeed,
       color: AppColor.black120,
       onSelected: (value) async {
         await widget.controller.setPlaybackRate(value);
-        _showInfo('Speed: ${value.toStringAsFixed(2)}x');
+        _showInfo('Speed: @{toStringAsFixed}x'.trNamed({'toStringAsFixed': '${value.toStringAsFixed(2)}'}));
         _showControls();
       },
       itemBuilder: (context) => speeds
@@ -969,7 +970,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
   Widget _buildSettingsButton() {
     return IconButton(
-      tooltip: 'Video Adjustments (,)',
+      tooltip: 'Video Adjustments (,)'.tr,
       splashRadius: 24,
       icon: Icon(Icons.settings, color: Colors.white),
       onPressed: _toggleVideoAdjustments,
@@ -986,23 +987,23 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
           children: [
             Row(
               children: [
-                Text('Adjustments', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)).expand(),
+                Text('Adjustments'.tr, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)).expand(),
                 
                 IconButton(
                   icon: const Icon(Icons.refresh, color: Colors.white, size: 18),
-                  tooltip: 'Reset',
+                  tooltip: 'Reset'.tr,
                   onPressed: _resetVideoAdjustments,
                 ),
 
                 IconButton(
                   icon: const Icon(Icons.bookmark_add, color: Colors.white, size: 18),
-                  tooltip: 'Save current as custom',
+                  tooltip: 'Save current as custom'.tr,
                   onPressed: _saveCurrentCustomPreset,
                 ),
 
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white, size: 18),
-                  tooltip: 'Close',
+                  tooltip: 'Close'.tr,
                   onPressed: _toggleVideoAdjustments,
                 ),
 
@@ -1025,7 +1026,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               ),
             ),
             const SizedBox(height: 16),
-            _buildAdjustmentSlider('Brightness', _brightness, -100, 100, (v) async {
+            _buildAdjustmentSlider('Brightness'.tr, _brightness, -100, 100, (v) async {
               _setAdjustmentState(() {
                 _brightness = v;
                 _activeAdjustmentPreset = 'Custom';
@@ -1033,7 +1034,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               final p = widget.controller.player.platform;
               if (p is NativePlayer) await p.setProperty('brightness', v.toStringAsFixed(0));
             }),
-            _buildAdjustmentSlider('Contrast', _contrast, -100, 100, (v) async {
+            _buildAdjustmentSlider('Contrast'.tr, _contrast, -100, 100, (v) async {
               _setAdjustmentState(() {
                 _contrast = v;
                 _activeAdjustmentPreset = 'Custom';
@@ -1041,7 +1042,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               final p = widget.controller.player.platform;
               if (p is NativePlayer) await p.setProperty('contrast', v.toStringAsFixed(0));
             }),
-            _buildAdjustmentSlider('Saturation', _saturation, -100, 100, (v) async {
+            _buildAdjustmentSlider('Saturation'.tr, _saturation, -100, 100, (v) async {
               _setAdjustmentState(() {
                 _saturation = v;
                 _activeAdjustmentPreset = 'Custom';
@@ -1049,7 +1050,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               final p = widget.controller.player.platform;
               if (p is NativePlayer) await p.setProperty('saturation', v.toStringAsFixed(0));
             }),
-            _buildAdjustmentSlider('Hue', _hue, -180, 180, (v) async {
+            _buildAdjustmentSlider('Hue'.tr, _hue, -180, 180, (v) async {
               _setAdjustmentState(() {
                 _hue = v;
                 _activeAdjustmentPreset = 'Custom';
@@ -1057,7 +1058,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               final p = widget.controller.player.platform;
               if (p is NativePlayer) await p.setProperty('hue', v.toStringAsFixed(0));
             }),
-            _buildAdjustmentSlider('Gamma', _gamma, -100, 100, (v) async {
+            _buildAdjustmentSlider('Gamma'.tr, _gamma, -100, 100, (v) async {
               _setAdjustmentState(() {
                 _gamma = v;
                 _activeAdjustmentPreset = 'Custom';
@@ -1077,26 +1078,26 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                     await widget.controller.applyAudioNormalization(enabled: enabled);
                     final active = widget.controller.isAudioNormalizationEnabled.value;
                     if (enabled && !active) {
-                      _showInfo('Audio normalization unsupported');
+                      _showInfo('Audio normalization unsupported'.tr);
                     } else {
-                      _showInfo(active ? 'Audio normalization on' : 'Audio normalization off');
+                      _showInfo(active ? 'Audio normalization on'.tr : 'Audio normalization off'.tr);
                     }
                     _showControls();
                   },
                 ),
               ),
-              'Audio Normalization'.text.white.size(12).make().pOnly(left: 8).expand(),
+              'Audio Normalization'.tr.text.white.size(12).make().pOnly(left: 8).expand(),
             ]),
             Row(
               children: [
-                const Text('Rotation', style: TextStyle(color: Colors.white, fontSize: 12)).expand(),
+                Text('Rotation'.tr, style: TextStyle(color: Colors.white, fontSize: 12)).expand(),
                 IconButton(
-                  tooltip: 'Rotate left 90°',
+                  tooltip: 'Rotate left 90°'.tr,
                   icon: const Icon(Icons.rotate_left, color: Colors.white, size: 18),
                   onPressed: () => _rotateVideo(clockwise: false),
                 ),
                 IconButton(
-                  tooltip: 'Rotate right 90°',
+                  tooltip: 'Rotate right 90°'.tr,
                   icon: const Icon(Icons.rotate_right, color: Colors.white, size: 18),
                   onPressed: () => _rotateVideo(clockwise: true),
                 ),
@@ -1165,13 +1166,13 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   Future<void> _rotateVideo({required bool clockwise}) async {
     final p = widget.controller.player.platform;
     if (p is! NativePlayer) {
-      _showInfo('Video rotation unsupported');
+      _showInfo('Video rotation unsupported'.tr);
       return;
     }
     try {
       await p.command(['cycle-values', 'video-rotate', ...(clockwise ? ['0', '90', '180', '270'] : ['0', '270', '180', '90'])]);
     } catch (_) {
-      if (mounted) _showInfo('Failed to rotate video');
+      if (mounted) _showInfo('Failed to rotate video'.tr);
     }
   }
 
@@ -1187,7 +1188,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       gamma: 0,
       presetName: 'Custom',
     );
-    _showInfo('Adjustments reset');
+    _showInfo('Adjustments reset'.tr);
   }
 
   Future<void> _saveCurrentCustomPreset() async {
@@ -1201,7 +1202,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     if (!_hasSavedCustomPreset) {
       _setAdjustmentState(() => _hasSavedCustomPreset = true);
     }
-    _showInfo('Custom preset saved');
+    _showInfo('Custom preset saved'.tr);
   }
 
   Widget _buildPresetChip(String name) {
@@ -1217,7 +1218,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
           borderColor: isActive ? Colors.white : Colors.white24,
         ),
         child: Text(
-          name,
+          name.tr,
           style: TextStyle(
             color: isActive ? Colors.black : Colors.white,
             fontSize: 11,
@@ -1232,7 +1233,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     if (preset == 'Saved') {
       final values = AppPref.getPlayerCustomAdjustment();
       if (values.isEmpty) {
-        _showInfo('No saved preset');
+        _showInfo('No saved preset'.tr);
         return;
       }
       await _applyVideoAdjustments(
@@ -1360,14 +1361,14 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       await p.setProperty('hue', hue.toStringAsFixed(0));
       await p.setProperty('gamma', gamma.toStringAsFixed(0));
     }
-    _showInfo('Preset: $presetName');
+    _showInfo('Preset: @{presetName}'.trNamed({'presetName': '${presetName.tr}'}));
   }
 
 
   Widget _buildFullscreenButton(bool isFullscreen) {
     return IconButton(
       splashRadius: 24,
-      tooltip: isFullscreen ? 'Exit fullscreen' : 'Fullscreen',
+      tooltip: isFullscreen ? 'Exit fullscreen'.tr : 'Fullscreen'.tr,
       icon: Icon(
         isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
         color: Colors.white,
@@ -1420,14 +1421,14 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   Future<void> _togglePlayPause() async {
     await widget.controller.togglePlayPause();
     _showControls();
-    _showInfo(widget.controller.isPlaying.value ? 'Playing' : 'Paused');
+    _showInfo(widget.controller.isPlaying.value ? 'Playing'.tr : 'Paused'.tr);
   }
 
   Future<void> _seekRelative(Duration offset) async {
     await widget.controller.seekRelative(offset);
     final pos = widget.controller.position.value;
     final dur = widget.controller.duration.value;
-    final label = offset.isNegative ? 'Backward' : 'Forward';
+    final label = offset.isNegative ? 'Backward'.tr : 'Forward'.tr;
     _showInfo(
       '$label: ${_formatDuration(pos)} / ${_formatDuration(dur)}',
     );
@@ -1437,13 +1438,13 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   Future<void> _changeVolume(double delta) async {
     await widget.controller.adjustVolume(delta);
     final percent = (widget.controller.volume.value * 100).clamp(0, 100).round();
-    _showInfo('Volume: $percent%');
+    _showInfo('Volume: @{percent}%'.trNamed({'percent': '$percent'}));
     _showControls();
   }
 
   Future<void> _changeSpeed(double delta) async {
     await widget.controller.adjustPlaybackRate(delta);
-    _showInfo('Speed: ${widget.controller.playbackSpeed.value.toStringAsFixed(2)}x');
+    _showInfo('Speed: @{toStringAsFixed}x'.trNamed({'toStringAsFixed': '${widget.controller.playbackSpeed.value.toStringAsFixed(2)}'}));
     _showControls();
   }
 
@@ -1452,11 +1453,11 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       final target = (_preMuteVolume ?? 0.5).clamp(0.0, 1.0);
       await widget.controller.setVolumeNormalized(target);
       final percent = (target * 100).round();
-      _showInfo('Volume: $percent%');
+      _showInfo('Volume: @{percent}%'.trNamed({'percent': '$percent'}));
     } else {
       _preMuteVolume = widget.controller.volume.value;
       await widget.controller.mute();
-      _showInfo('Muted');
+      _showInfo('Muted'.tr);
     }
     _showControls();
   }
@@ -1476,7 +1477,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       _cancelHideTimer();
       final willBeFullscreen = !widget.controller.isFullScreen.value;
       await widget.controller.toggleFullscreen(widget.videoState);
-      _showInfo(willBeFullscreen ? 'Fullscreen' : 'Windowed');
+      _showInfo(willBeFullscreen ? 'Fullscreen'.tr : 'Windowed'.tr);
     } catch (_) {}
   }
 

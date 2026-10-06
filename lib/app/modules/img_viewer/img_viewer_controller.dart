@@ -67,12 +67,12 @@ class ImgViewerController extends GetxController {
   String get currentImage => images.isEmpty ? '' : images[selectedIndex.value];
   String get currentTitle {
     final current = currentImage.trim();
-    if (current.isEmpty) return title.value.isEmpty ? 'Image Viewer' : title.value;
+    if (current.isEmpty) return title.value.isEmpty ? 'Image Viewer'.tr : title.value;
 
     final uri = Uri.tryParse(current);
     final path = uri != null && uri.path.isNotEmpty ? uri.path : current;
     final filename = p.basename(path);
-    return filename.isEmpty ? (title.value.isEmpty ? 'Image Viewer' : title.value) : filename;
+    return filename.isEmpty ? (title.value.isEmpty ? 'Image Viewer'.tr : title.value) : filename;
   }
   bool get canGoPrevious => selectedIndex.value > 0;
   bool get canGoNext => selectedIndex.value < images.length - 1;

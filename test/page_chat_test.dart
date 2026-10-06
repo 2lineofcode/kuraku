@@ -163,7 +163,7 @@ void main() {
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
     await tapAction(13, 20);
-    expect(controller.input.text, contains('Cari video mirip TEST-001'));
+    expect(controller.input.text, contains('Find videos similar to TEST-001'));
     await controller.flushDraft();
     expect(tester.takeException(), isNull);
   });
@@ -192,15 +192,15 @@ void main() {
       expect(controller.input.selection.textInside(controller.input.text), startsWith('['));
       expect(controller.messages, isEmpty);
     }
-    await tester.ensureVisible(find.text('Cari judul Jepang di R18'));
+    await tester.ensureVisible(find.text('Find Japanese titles in R18'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cari judul Jepang di R18'));
+    await tester.tap(find.text('Find Japanese titles in R18'));
     await tester.pump();
-    expect(controller.input.selection.textInside(controller.input.text), '[topik]');
-    expect(controller.input.text, contains('Jangan batasi total hasil'));
+    expect(controller.input.selection.textInside(controller.input.text), '[topic]');
+    expect(controller.input.text, contains('Do not cap the total results'));
     controller.usePrompt('/r18');
     await controller.send();
-    expect(controller.input.selection.textInside(controller.input.text), '[topik]');
+    expect(controller.input.selection.textInside(controller.input.text), '[topic]');
     controller.input.clear();
     await controller.flushDraft();
     final chat = controller.activeChat.value;
@@ -594,17 +594,17 @@ void main() {
       home: const Scaffold(body: PageChatView()),
     ));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Berapa jumlah video saya?'));
-    await tester.tap(find.text('Berapa jumlah video saya?'));
+    await tester.ensureVisible(find.text('How many videos do I have?'));
+    await tester.tap(find.text('How many videos do I have?'));
     await tester.pump();
-    expect(controller.input.text, 'Berapa jumlah video saya?');
+    expect(controller.input.text, 'How many videos do I have?');
     controller.input.value = controller.input.value.copyWith(composing: const TextRange(start: 0, end: 4));
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     expect(controller.messages, isEmpty);
     controller.input.value = controller.input.value.copyWith(composing: TextRange.empty);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
-    expect(controller.messages.map((message) => message.content), ['Berapa jumlah video saya?', 'Test answer']);
+    expect(controller.messages.map((message) => message.content), ['How many videos do I have?', 'Test answer']);
     expect(controller.input.text, isEmpty);
     await tester.enterText(find.widgetWithText(CupertinoTextField, 'Ask anything...'), '   ');
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -630,7 +630,7 @@ void main() {
     expect(controller.error.value, isEmpty);
     await controller.reload();
     await tester.pumpAndSettle();
-    expect(controller.messages.first.content, 'Berapa jumlah video saya?');
+    expect(controller.messages.first.content, 'How many videos do I have?');
     expect(controller.input.text, 'Draft\nSecond line');
     final first = controller.activeChat.value;
     await tester.tap(find.widgetWithText(OutlinedButton, 'New chat'));

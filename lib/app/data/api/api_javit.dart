@@ -1,6 +1,7 @@
 import 'package:ex_kit/ex.dart';
 
 import '../../core/app_network.dart';
+import '../../core/app_translations.dart';
 import '../../utils/helper_misc.dart';
 import '../models/__javit_metadata_entity.dart';
 import '../models/__javit_search_entity.dart';
@@ -22,7 +23,7 @@ mixin ApiJavit {
   static Future<JavitMetadata> getMetadata({required String code}) async {
     code = code.trim().toUpperCase();
     if (code.isValidVideoCode() == false) {
-      throw Exception('Invalid video code for $code');
+      throw Exception('Invalid video code for @{code}'.trNamed({'code': code}));
     }
     code = code.getVideoCode();
 

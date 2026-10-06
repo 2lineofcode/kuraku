@@ -7,6 +7,7 @@ import 'package:overlayment/overlayment.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_pref.dart';
+import '../../../core/app_translations.dart';
 import '../../../core/const.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/models/activity_entity.dart';
@@ -78,7 +79,7 @@ class _RelapsePanelState extends State<_RelapsePanel> {
       if (mounted) setState(() { _items = items; _loaded = true; });
     } catch (_) {
       if (mounted) setState(() {
-        _error = saved ? 'Saved, but could not refresh. Retry loading.' : 'Could not complete the request. Please retry.';
+        _error = saved ? 'Saved, but could not refresh. Retry loading.'.tr : 'Could not complete the request. Please retry.'.tr;
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -93,10 +94,10 @@ class _RelapsePanelState extends State<_RelapsePanel> {
 
   String _elapsed(DateTime date) {
     final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
-    if (diff.inHours < 24) return '${diff.inHours} hr ago';
-    return '${diff.inDays} days ago';
+    if (diff.inMinutes < 1) return 'Just now'.tr;
+    if (diff.inMinutes < 60) return '@{inMinutes} min ago'.trNamed({'inMinutes': '${diff.inMinutes}'});
+    if (diff.inHours < 24) return '@{inHours} hr ago'.trNamed({'inHours': '${diff.inHours}'});
+    return '@{inDays} days ago'.trNamed({'inDays': '${diff.inDays}'});
   }
 
   Widget _stat(String label, int value) => Expanded(child: Column(
@@ -136,62 +137,62 @@ class _RelapsePanelState extends State<_RelapsePanel> {
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Expanded(child: Text('Relapse', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
-            IconButton(tooltip: 'Close', icon: const Icon(Icons.close, size: 18), onPressed: () => Overlayment.dismissLast()),
+            Expanded(child: Text('Relapse'.tr, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
+            IconButton(tooltip: 'Close'.tr, icon: const Icon(Icons.close, size: 18), onPressed: () => Overlayment.dismissLast()),
           ]),
           const SizedBox(height: 12),
-          Text('TODAY', style: TextStyle(fontSize: 12, color: AppColor.muted)),
+          Text('TODAY'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),
           const SizedBox(height: 4),
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Expanded(child: Text(_loaded ? '$todayCount / $limit' : '— / $limit', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600,
               color: _loaded && reached ? Theme.of(context).colorScheme.error : AppColor.text))),
-            Text(_loaded && reached ? 'Daily limit reached' : 'Daily limit', style: TextStyle(fontSize: 12, color: AppColor.muted)),
+            Text(_loaded && reached ? 'Daily limit reached'.tr : 'Daily limit'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),
           ]),
           const SizedBox(height: 6),
-          Text(latest == null ? 'No records yet' : 'Last recorded ${_elapsed(latest)}', style: TextStyle(fontSize: 12, color: AppColor.muted)),
+          Text(latest == null ? 'No records yet'.tr : 'Last recorded @{latest}'.trNamed({'latest': '${_elapsed(latest)}'}), style: TextStyle(fontSize: 12, color: AppColor.muted)),
           const SizedBox(height: 16),
           ExButtonOutline(
             width: double.infinity,
             height: 32,
             radius: 4,
-            label: 'Log relapse',
+            label: 'Log relapse'.tr,
             labelSize: 12,
             labelColor: _busy || !_loaded ? AppColor.muted : AppColor.text,
             borderColor: AppColor.border,
             backgroundColor: AppColor.container,
             icon: Icon(Icons.add, size: 14, color: _busy || !_loaded ? AppColor.muted : AppColor.text),
             onPressed: _busy || !_loaded ? null : () => _run(() async {
-              if (await DBActivity.addRelapse() == null) throw StateError('Record was not saved');
+              if (await DBActivity.addRelapse() == null) throw StateError('Record was not saved'.tr);
             }),
           ),
           if (_busy) const LinearProgressIndicator(minHeight: 2),
           if (_error.isNotEmpty) Row(children: [
             Expanded(child: Text(_error, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.error))),
-            TextButton(onPressed: _busy ? null : () => _run(), child: const Text('Retry')),
+            TextButton(onPressed: _busy ? null : () => _run(), child: Text('Retry'.tr)),
           ]),
           if (_removed != null) Row(children: [
-            const Expanded(child: Text('Entry removed', style: TextStyle(fontSize: 12))),
+            Expanded(child: Text('Entry removed'.tr, style: TextStyle(fontSize: 12))),
             TextButton(onPressed: _busy ? null : () => _run(() async {
               await DBActivity.restoreRelapse(_removed!);
               _removed = null;
-            }), child: const Text('Undo')),
+            }), child: Text('Undo'.tr)),
           ]),
           const SizedBox(height: 16),
-          Row(children: [_stat('This week', weekCount), _stat('This month', monthCount), _stat('Total', total)]),
+          Row(children: [_stat('This week'.tr, weekCount), _stat('This month'.tr, monthCount), _stat('Total'.tr, total)]),
           const SizedBox(height: 8),
-          Text('${difference > 0 ? '+' : ''}$difference vs last full week ($previousCount)', style: TextStyle(fontSize: 12, color: AppColor.muted)),
+          Text('@{difference}@{difference2} vs last full week (@{previousCount})'.trNamed({'difference': '${difference > 0 ? '+' : ''}', 'difference2': '$difference', 'previousCount': '$previousCount'}), style: TextStyle(fontSize: 12, color: AppColor.muted)),
           const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
-          const Text('History', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          Text('History'.tr, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Expanded(child: _items.isEmpty
-            ? Center(child: Text(_loaded ? 'No records yet' : 'Loading history…', style: TextStyle(fontSize: 13, color: AppColor.muted)))
+            ? Center(child: Text(_loaded ? 'No records yet'.tr : 'Loading history…'.tr, style: TextStyle(fontSize: 13, color: AppColor.muted)))
             : ListView.builder(
               itemCount: _items.length,
               itemBuilder: (context, index) {
                 final item = _items[index];
                 final day = _day(item);
                 final yesterday = DateTime(today.year, today.month, today.day - 1);
-                final title = day == null ? 'Invalid date' : day == today ? 'Today' : day == yesterday ? 'Yesterday' : day.toStringEx(format: 'MMM d, yyyy');
+                final title = day == null ? 'Invalid date'.tr : day == today ? 'Today'.tr : day == yesterday ? 'Yesterday'.tr : day.toStringEx(format: 'MMM d, yyyy');
                 final stamp = DateTime.tryParse(item.createdAt ?? '');
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
@@ -199,21 +200,21 @@ class _RelapsePanelState extends State<_RelapsePanel> {
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(title, style: const TextStyle(fontSize: 13)),
                       const SizedBox(height: 4),
-                      Text(stamp == null ? 'Time unavailable' : 'Last recorded at ${stamp.toStringEx(format: 'HH:mm')}', style: TextStyle(fontSize: 12, color: AppColor.muted)),
+                      Text(stamp == null ? 'Time unavailable'.tr : 'Last recorded at @{mm}'.trNamed({'mm': '${stamp.toStringEx(format: 'HH:mm')}'}), style: TextStyle(fontSize: 12, color: AppColor.muted)),
                     ])),
                     Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(color: AppColor.selected, borderRadius: BorderRadius.circular(12)),
                       child: Text('${item.times ?? 1}×', style: const TextStyle(fontSize: 12))),
                     MenuAnchor(
                       builder: (_, menu, child) => IconButton(
-                        tooltip: 'Entry actions', icon: const Icon(Icons.more_horiz, size: 18),
+                        tooltip: 'Entry actions'.tr, icon: const Icon(Icons.more_horiz, size: 18),
                         onPressed: _busy ? null : () => menu.isOpen ? menu.close() : menu.open(),
                       ),
                       menuChildren: [MenuItemButton(
                         onPressed: _busy ? null : () => _run(() async {
                           _removed = await DBActivity.deleteRelapseByDateLimitOne(item.content ?? '');
                         }),
-                        child: const Text('Remove latest entry'),
+                        child: Text('Remove latest entry'.tr),
                       )],
                     ),
                   ]),

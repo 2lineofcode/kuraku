@@ -11,6 +11,7 @@ import 'package:uuid/v4.dart';
 import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
 import '../../core/app_setting.dart';
+import '../../core/app_translations.dart';
 import '../../data/database/db_activity.dart';
 import '../../data/database/db_gamification.dart';
 import '../../data/database/db_playlist.dart';
@@ -174,7 +175,7 @@ class HomeController extends GetxController with StateMixin {
   Future<void> onRefreshAllContent({bool preserveInputState = false}) async {
     try {
       final sw = Stopwatch()..start();
-      footerText.value = preserveInputState ? 'Refreshing (background)...' : 'Refreshing...';
+      footerText.value = preserveInputState ? 'Refreshing (background)...'.tr : 'Refreshing...'.tr;
 
       if (!preserveInputState) {
         await Get.find<PageHomeController>().onRefresh();
@@ -195,16 +196,16 @@ class HomeController extends GetxController with StateMixin {
       profile.value = await DBProfile.getProfile() ?? Profile();
       await updateFooterSummary();
 
-      AppLog.logS('${preserveInputState ? 'Refresh Background Content' : 'Refresh All Content'} Take Time: ${sw.elapsedMilliseconds} ms');
+      AppLog.logS('${preserveInputState ? 'Refresh Background Content'.tr : 'Refresh All Content'.tr} Take Time: ${sw.elapsedMilliseconds} ms');
       change(200, status: RxStatus.success());
     } catch (e) {
       AppLog.logE('Refresh all content failed: $e');
       ExAlert.adaptive(
-        title: Text('Ups'),
+        title: Text('Ups'.tr),
         content: Text('${e.toString()}'),
         actions: [
           CupertinoDialogAction(
-            child: Text('Refresh', style: TextStyle(color: Vx.red500, fontSize: 13)),
+            child: Text('Refresh'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () async {
               await onRefreshAllContent();
               Get.back();
@@ -222,12 +223,14 @@ class HomeController extends GetxController with StateMixin {
     currentMenuSelected.value = menu;
   }
 
+  String get idleFooterText => 'Idle | Total Video: @{value}'.trNamed({'value': '${totalVideo.value}'});
+
   Future<void> updateFooterSummary() async {
     totalVideo.value = await DBVideos.getCount();
 
     final storage = await _readStorageUsage();
     if (storage == null || storage['total'] == 0) {
-      footerText.value = 'Idle | Total Video: ${totalVideo.value}';
+      footerText.value = idleFooterText;
       footerStorageText.value = '';
       footerStorageUsedPct.value = 0;
       return;
@@ -236,8 +239,8 @@ class HomeController extends GetxController with StateMixin {
     final total = storage['total'] ?? 0;
     final free = storage['free'] ?? 0;
     final usedPct = total > 0 ? ((total - free) / total) * 100 : 0;
-    footerText.value = 'Idle | Total Video: ${totalVideo.value}';
-    footerStorageText.value = ' | Avaiable: ${free.toFileSizeFormat()} (${usedPct.toStringAsFixed(1)}%)';
+    footerText.value = idleFooterText;
+    footerStorageText.value = ' | Avaiable: @{toFileSizeFormat} (@{toStringAsFixed}%)'.trNamed({'toFileSizeFormat': '${free.toFileSizeFormat()}', 'toStringAsFixed': '${usedPct.toStringAsFixed(1)}'});
     footerStorageUsedPct.value = usedPct.toDouble();
   }
 
@@ -448,7 +451,7 @@ class HomeController extends GetxController with StateMixin {
     } else if (videoPaths.isNotEmpty) {
       unawaited(_openDroppedVideos(videoPaths));
     } else if (folderPaths.isEmpty && (hasUnsupportedFile || imagePaths.isNotEmpty)) {
-      unawaited(HelperToast.warn('File not supported'));
+      unawaited(HelperToast.warn('File not supported'.tr));
     }
   }
 
@@ -533,13 +536,13 @@ class HomeController extends GetxController with StateMixin {
     }
 
     if (images.isEmpty) {
-      await HelperToast.warn('File not found');
+      await HelperToast.warn('File not found'.tr);
       return;
     }
 
     await Get.toNamed(Routes.IMG_VIEWER, arguments: {
       'images': images,
-      'title': images.length == 1 ? images.first.getLastPath() : 'Image Viewer',
+      'title': images.length == 1 ? images.first.getLastPath() : 'Image Viewer'.tr,
     });
   }
 
@@ -570,16 +573,16 @@ class HomeController extends GetxController with StateMixin {
 
     ExAlert.adaptive(
       isDismissible: false,
-      title: Text('Open Videos'),
-      content: Text('Choose how to play your videos.'),
+      title: Text('Open Videos'.tr),
+      content: Text('Choose how to play your videos.'.tr),
       actions: [
         CupertinoDialogAction(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Single Player', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              Text('Single Player'.tr, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               SizedBox(height: 4),
-              Text('Play one at a time in a playlist.', style: TextStyle(fontSize: 11, color: Vx.gray300), textAlign: TextAlign.center),
+              Text('Play one at a time in a playlist.'.tr, style: TextStyle(fontSize: 11, color: Vx.gray300), textAlign: TextAlign.center),
             ],
           ),
           onPressed: () async {
@@ -591,9 +594,9 @@ class HomeController extends GetxController with StateMixin {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Multi Player', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              Text('Multi Player'.tr, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               SizedBox(height: 4),
-              Text('Play videos side by side at the same time.', style: TextStyle(fontSize: 11, color: Vx.gray300), textAlign: TextAlign.center),
+              Text('Play videos side by side at the same time.'.tr, style: TextStyle(fontSize: 11, color: Vx.gray300), textAlign: TextAlign.center),
             ],
           ),
           onPressed: () async {
@@ -602,7 +605,7 @@ class HomeController extends GetxController with StateMixin {
           },
         ),
         CupertinoDialogAction(
-          child: Text('Cancel', style: TextStyle(fontSize: 13)),
+          child: Text('Cancel'.tr, style: TextStyle(fontSize: 13)),
           onPressed: () => Get.back(),
         ),
       ],
@@ -613,7 +616,7 @@ class HomeController extends GetxController with StateMixin {
     final decodedPath = _normalizeRawDropPath(path);
     final file = File(decodedPath);
     if (!file.existsSync()) {
-      await HelperToast.warn('File not found');
+      await HelperToast.warn('File not found'.tr);
       return null;
     }
 

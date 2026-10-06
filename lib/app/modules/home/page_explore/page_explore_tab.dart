@@ -7,6 +7,7 @@ import 'package:uuid/v4.dart';
 
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
+import '../../../core/app_translations.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
@@ -234,10 +235,10 @@ class PageExploreTab {
       if (request != _menuRequest || isClosed) return;
 
       leftList.assignAll(items);
-      phSearchLeft.value = 'Search (${leftList.length})...';
+      phSearchLeft.value = 'Search (@{length})...'.trNamed({'length': '${leftList.length}'});
       onLeftListDoSearch(tecSearchLeft.text);
     } catch (e) {
-      if (!isClosed && request == _menuRequest) error.value = 'Failed to load Explore. Please refresh.';
+      if (!isClosed && request == _menuRequest) error.value = 'Failed to load Explore. Please refresh.'.tr;
       AppLog.logE('Explore menu failed: $e');
     } finally {
       if (!isClosed && request == _menuRequest) isLoading.value = false;
@@ -299,7 +300,7 @@ class PageExploreTab {
       _applyLeftSort();
     } catch (e) {
       AppLog.logE('Failed to save Explore pin: $e');
-      if (!isClosed) Get.snackbar('Pin', 'Failed to save pin. Please try again.');
+      if (!isClosed) Get.snackbar('Pin'.tr, 'Failed to save pin. Please try again.'.tr);
     } finally {
       isSavingPin.value = false;
     }
@@ -368,7 +369,7 @@ class PageExploreTab {
       rightListLocal.assignAll(result.$1);
       if (menu != kActress || castMode == actressMode.value) rightListR18TotalVideo.value = result.$2;
     } catch (e) {
-      if (!isClosed && request == _selectionRequest) error.value = 'Failed to load videos. Please select the item again.';
+      if (!isClosed && request == _selectionRequest) error.value = 'Failed to load videos. Please select the item again.'.tr;
       AppLog.logE('Explore selection failed: $e');
     } finally {
       if (!isClosed && request == _selectionRequest) isLoadingSelection.value = false;

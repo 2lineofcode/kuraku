@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../core/app_translations.dart';
 
 mixin HelperLoading {
   static final _stopwatch = Stopwatch();
@@ -28,10 +29,10 @@ mixin HelperLoading {
           final hours = time.inHours;
 
           final formattedTime = hours > 0
-              ? '${hours}h ${minutes}m ${seconds}s'
+              ? '@{hours}h @{minutes}m @{seconds}s'.trNamed({'hours': '$hours', 'minutes': '$minutes', 'seconds': '$seconds'})
               : minutes > 0
-                  ? '${minutes}m ${seconds}s'
-                  : '$seconds seconds';
+                  ? '@{minutes}m @{seconds}s'.trNamed({'minutes': '$minutes', 'seconds': '$seconds'})
+                  : '@{seconds} seconds'.trNamed({'seconds': '$seconds'});
 
           messageText.value = '$formattedTime';
         } else {
@@ -60,7 +61,7 @@ mixin HelperLoading {
                   Obx(
                     () => showCancel.value == true
                         ? ExButtonText(
-                            label: 'Cancel',
+                            label: 'Cancel'.tr,
                             height: 40,
                             labelSize: 11,
                             onPressed: cancelCallback ?? Get.back,

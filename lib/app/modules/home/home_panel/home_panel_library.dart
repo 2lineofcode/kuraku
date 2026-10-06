@@ -14,6 +14,7 @@ import 'package:video_compress/video_compress.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
+import '../../../core/app_translations.dart';
 import '../../../core/const.dart';
 import '../../../data/database/_init_db.dart';
 import '../../../data/database/db_library.dart';
@@ -175,11 +176,11 @@ mixin HomePanelLibrary {
           HStack(
             [
               Icon(UIconsPro.regularRounded.multiple_alt, size: 18).pOnly(right: 12, left: 8),
-              'Library'.text.bold.make(),
+              'Library'.tr.text.bold.make(),
               Spacer(),
               IconButton(
                 icon: Icon(UIconsPro.regularRounded.refresh, size: 13),
-                tooltip: 'Rescan All Folders',
+                tooltip: 'Rescan All Folders'.tr,
                 onPressed: () {
                   Overlayment.dismissLast();
                   doRescanAllVideoFromLibrary(library, recoverVideoCodes: true);
@@ -187,7 +188,7 @@ mixin HomePanelLibrary {
               ),
               IconButton(
                 icon: Icon(UIconsPro.regularRounded.edit, size: 13),
-                tooltip: 'Repair Metadata from R18',
+                tooltip: 'Repair Metadata from R18'.tr,
                 onPressed: () async {
                   await Overlayment.dismissLast();
                   await _repairAllMetadata(library);
@@ -195,7 +196,7 @@ mixin HomePanelLibrary {
               ),
               IconButton(
                 icon: Icon(UIconsPro.regularRounded.plus, size: 13),
-                tooltip: 'Add New Library',
+                tooltip: 'Add New Library'.tr,
                 onPressed: () {
                   Overlayment.dismissLast();
                   showDialogAddorEditLibrary();
@@ -207,8 +208,8 @@ mixin HomePanelLibrary {
           library.isEmpty
               ? ExUiErrorOrEmpty(
                   illustration: Icon(UIconsPro.regularRounded.mug_hot_alt),
-                  title: 'No Data',
-                  message: 'No Library Found, Please Add New Library by Click Button `+`',
+                  title: 'No Data'.tr,
+                  message: 'No Library Found, Please Add New Library by Click Button `+`'.tr,
                 ).expand()
               : ListView.separated(
                   itemCount: library.length,
@@ -220,7 +221,7 @@ mixin HomePanelLibrary {
                         IconButton(
                           onPressed: () => HelperOpener.openFolder(item.rootFolder ?? ''),
                           icon: Icon(UIconsPro.regularRounded.folder, size: 14),
-                          tooltip: 'Open Folder `${item.alias}`',
+                          tooltip: 'Open Folder `@{alias}`'.trNamed({'alias': '${item.alias}'}),
                         ).pOnly(right: 8),
                         VStack([
                           '${item.alias}'.text.ellipsis.make().pOnly(right: 8),
@@ -234,7 +235,7 @@ mixin HomePanelLibrary {
                       ),
                       IconButton(
                         icon: Icon(UIconsPro.regularRounded.refresh, size: 12),
-                        tooltip: 'Rescan Folder `${item.alias}`',
+                        tooltip: 'Rescan Folder `@{alias}`'.trNamed({'alias': '${item.alias}'}),
                         onPressed: () async => {
                           await Overlayment.dismissLast(),
                           _doRescanVideoFromLibrary(item, fromAutoWatcher: false),
@@ -251,9 +252,9 @@ mixin HomePanelLibrary {
             width: double.infinity,
             decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4, fillColor: AppColor.container),
             child: HStack([
-              'Total Folder: ${await DBLibrary.getCount()}'.text.size(12).make(),
+              'Total Folder: @{getCount}'.trNamed({'getCount': '${await DBLibrary.getCount()}'}).text.size(12).make(),
               Spacer(),
-              'Total Video: ${await DBVideos.getCount()}'.text.size(12).make(),
+              'Total Video: @{getCount}'.trNamed({'getCount': '${await DBVideos.getCount()}'}).text.size(12).make(),
             ]).p12(),
           ).pSymmetric(v: 12),
           
@@ -280,7 +281,7 @@ mixin HomePanelLibrary {
       title: HStack(
         [
           Text(
-            library != null ? 'ⵌ Edit `${library.alias}`' : 'ⵌ New',
+            library != null ? 'ⵌ Edit `@{alias}`'.trNamed({'alias': '${library.alias}'}) : 'ⵌ New'.tr,
             style: TextStyle(fontWeight: FontWeight.bold),
             textAlign: TextAlign.left,
             overflow: TextOverflow.ellipsis,
@@ -296,7 +297,7 @@ mixin HomePanelLibrary {
               readOnly: true,
               controller: tfRootPath,
               focusNode: fnRootPath,
-              placeholder: '<Select Path>',
+              placeholder: '<Select Path>'.tr,
               placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
               prefix: Icon(UIconsPro.regularRounded.folder, size: 13).pOnly(left: 8),
               style: TextStyle(fontSize: 13, color: Vx.neutral500),
@@ -321,7 +322,7 @@ mixin HomePanelLibrary {
             CupertinoTextField(
               controller: tfAlias,
               focusNode: fnAlias,
-              placeholder: 'Alias',
+              placeholder: 'Alias'.tr,
               placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
               prefix: Icon(UIconsPro.regularRounded.tags, size: 14).pOnly(left: 8),
               style: TextStyle(fontSize: 13, color: AppColor.text),
@@ -335,14 +336,14 @@ mixin HomePanelLibrary {
                 );
               },
             ).pOnly(bottom: 16),
-            Obx(() => totalVideo.value != 0 ? Text('Total Video: ${totalVideo.value}') : 0.heightBox),
+            Obx(() => totalVideo.value != 0 ? Text('Total Video: @{value}'.trNamed({'value': '${totalVideo.value}'})) : 0.heightBox),
           ],
         ),
       ),
       actions: [
         if (library != null && !isFromDrop) ...[
           CupertinoDialogAction(
-            child: Text('Delete', style: TextStyle(color: Vx.red500, fontSize: 13)),
+            child: Text('Delete'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () {
               DBLibrary.delete(library);
               _doDeleteVideoFromLibrary(library);
@@ -352,7 +353,7 @@ mixin HomePanelLibrary {
         ],
 
         CupertinoDialogAction(
-          child: Text('Submit', style: TextStyle(fontSize: 13)),
+          child: Text('Submit'.tr, style: TextStyle(fontSize: 13)),
           onPressed: () async {
             await _onSubmit(
               alias: tfAlias.text,
@@ -378,7 +379,7 @@ mixin HomePanelLibrary {
   }) async {
     // Validate fields
     if (alias.isEmpty || rootPath.isEmpty) {
-      await HelperToast.error('Please fill all field');
+      await HelperToast.error('Please fill all field'.tr);
       return;
     }
 
@@ -426,7 +427,7 @@ mixin HomePanelLibrary {
     if (library.videos == null || library.videos!.isEmpty) return;
 
     if (showLoading) {
-      _controller.footerText.value = '◎ Scanning and processing videos...';
+      _controller.footerText.value = '◎ Scanning and processing videos...'.tr;
       _controller.change(200, status: RxStatus.loading());
     }
 
@@ -451,23 +452,23 @@ mixin HomePanelLibrary {
 
         processedCounter++;
         if (processedCounter % 1 == 0 || processedCounter == totalVideos) {
-          _controller.loadingText.value = 'Progress: $processedCounter of $totalVideos (${(processedCounter * 100 / totalVideos).toInt()}%)';
+          _controller.loadingText.value = 'Progress: @{processedCounter} of @{totalVideos} (@{toInt}%)'.trNamed({'processedCounter': '$processedCounter', 'totalVideos': '$totalVideos', 'toInt': '${(processedCounter * 100 / totalVideos).toInt()}'});
         }
       }
     });
     await Future.wait(workers);
 
     if (videosToAdd.isNotEmpty) {
-      _controller.footerText.value = '◎ Committing ${videosToAdd.length} Videos';
+      _controller.footerText.value = '◎ Committing @{length} Videos'.trNamed({'length': '${videosToAdd.length}'});
       await DBVideos.addBulk(videosToAdd);
     } else {
-      _controller.footerText.value = '◎ No new videos to add.';
+      _controller.footerText.value = '◎ No new videos to add.'.tr;
     }
 
     sw.stop();
     AppLog.logD('Time taken: ${sw.elapsedMilliseconds}ms');
     if (showFinishToast) {
-      await HelperToast.success('Finish • ${sw.elapsedMilliseconds}ms | ${videosToAdd.length} Videos Added');
+      await HelperToast.success('Finish • @{elapsedMilliseconds}ms | @{length} Videos Added'.trNamed({'elapsedMilliseconds': '${sw.elapsedMilliseconds}', 'length': '${videosToAdd.length}'}));
     }
 
     if (refreshAfter) {
@@ -478,7 +479,7 @@ mixin HomePanelLibrary {
   static Future<void> _repairAllMetadata(List<Library> libraries) async {
     if (_repairInProgress) return;
     if (Get.find<DBService>().dbR18 == null) {
-      await HelperToast.warn('R18 database is unavailable. Download it from Settings first.');
+      await HelperToast.warn('R18 database is unavailable. Download it from Settings first.'.tr);
       return;
     }
     _repairInProgress = true;
@@ -490,8 +491,8 @@ mixin HomePanelLibrary {
       final videos = (await DBVideos.getAll()).where((video) => roots.contains(video.rootPath)).toList();
       _controller.change(200, status: RxStatus.loading());
       for (var i = 0; i < videos.length; i++) {
-        _controller.footerText.value = 'Repairing metadata from R18...';
-        _controller.loadingText.value = 'Progress: ${i + 1} of ${videos.length}';
+        _controller.footerText.value = 'Repairing metadata from R18...'.tr;
+        _controller.loadingText.value = 'Progress: @{i} of @{length}'.trNamed({'i': '${i + 1}', 'length': '${videos.length}'});
         try {
           if (await repairVideoMetadata(videos[i])) {
             updated++;
@@ -505,9 +506,9 @@ mixin HomePanelLibrary {
       }
       await _controller.onRefreshAllContent();
       await Get.forceAppUpdate();
-      await HelperToast.info('Metadata • $updated updated • $skipped skipped • $failed failed');
+      await HelperToast.info('Metadata • @{updated} updated • @{skipped} skipped • @{failed} failed'.trNamed({'updated': '$updated', 'skipped': '$skipped', 'failed': '$failed'}));
     } catch (e) {
-      await HelperToast.error('Metadata repair failed: $e');
+      await HelperToast.error('Metadata repair failed: @{e}'.trNamed({'e': '$e'}));
     } finally {
       _repairInProgress = false;
       _controller.change(200, status: RxStatus.success());
@@ -689,16 +690,16 @@ mixin HomePanelLibrary {
           showFinishToast: false,
           showLoading: false,
         );
-        await HelperToast.info('${library.alias} | Added ${remainingAdds.length} videos');
+        await HelperToast.info('@{alias} | Added @{length} videos'.trNamed({'alias': '${library.alias}', 'length': '${remainingAdds.length}'}));
       }
 
       if (remainingDeletes.isNotEmpty) {
         await DBVideos.deleteByVideoPaths(remainingDeletes);
-        await HelperToast.warn('${library.alias} | Deleted ${remainingDeletes.length} videos');
+        await HelperToast.warn('@{alias} | Deleted @{length} videos'.trNamed({'alias': '${library.alias}', 'length': '${remainingDeletes.length}'}));
       }
 
       final recovered = fromAutoWatcher ? 0 : await DBVideos.recoverMissingVideoCodes(oldData.rootFolder ?? '');
-      if (recovered > 0) await HelperToast.info('$recovered video codes recovered');
+      if (recovered > 0) await HelperToast.info('@{recovered} video codes recovered'.trNamed({'recovered': '$recovered'}));
       if (moves.isNotEmpty || remainingAdds.isNotEmpty || remainingDeletes.isNotEmpty || recovered > 0) {
         await _controller.onRefreshAllContent(preserveInputState: fromAutoWatcher);
       }
@@ -719,7 +720,7 @@ mixin HomePanelLibrary {
     try {
       if (libraries.isEmpty) return;
 
-      _controller.footerText.value = '◎ Rescanning...';
+      _controller.footerText.value = '◎ Rescanning...'.tr;
 
       // 1) Build oldMap from current library objects (assumed DB state)
       final Map<String, List<String>> oldMap = {};
@@ -860,7 +861,7 @@ mixin HomePanelLibrary {
 
       if (remainingAdds.isNotEmpty || delCandidates.isNotEmpty || moves.isNotEmpty || recovered > 0) {
         if (showSummaryToast) {
-          await HelperToast.info('Finish • ${remainingAdds.length} added • ${delCandidates.length} deleted • ${moves.length} moved • $recovered codes recovered');
+          await HelperToast.info('Finish • @{length} added • @{length2} deleted • @{length3} moved • @{recovered} codes recovered'.trNamed({'length': '${remainingAdds.length}', 'length2': '${delCandidates.length}', 'length3': '${moves.length}', 'recovered': '$recovered'}));
         }
         await _controller.onRefreshAllContent(preserveInputState: preserveInputState);
       }

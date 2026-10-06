@@ -2,6 +2,7 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:get/get.dart';
 
 class ExAutoComplate extends StatelessWidget {
   const ExAutoComplate({
@@ -43,7 +44,7 @@ class ExAutoComplate extends StatelessWidget {
           controller: controller,
           focusNode: focusNode,
           clearButtonMode: OverlayVisibilityMode.editing,
-          placeholder: placeHolder ?? 'Search...',
+          placeholder: placeHolder ?? 'Search...'.tr,
           style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: fontSize ?? 14),
         );
       },
@@ -60,8 +61,8 @@ class ExAutoComplate extends StatelessWidget {
           child: child,
         );
       },
-      loadingBuilder: (context) => const Text('Loading...'),
-      errorBuilder: (context, error) => const Text('Error!'),
+      loadingBuilder: (context) => Text('Loading...'.tr),
+      errorBuilder: (context, error) => Text('Error!'.tr),
       emptyBuilder: (context) => '$emptyText'.text.size(11).minFontSize(11).make(),
       decorationBuilder: (context, child) {
         return Material(

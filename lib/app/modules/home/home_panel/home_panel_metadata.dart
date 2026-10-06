@@ -6,6 +6,7 @@ import 'package:overlayment/overlayment.dart';
 import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/app_translations.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
@@ -98,30 +99,30 @@ mixin HomePanelMetadata {
               [
                 HStack([
                   Icon(UIconsPro.regularRounded.pen_square, size: 16).pOnly(right: 8),
-                  'Edit Metadata ${video.videoCode.isNotEmptyAndNotNull ? '(${video.videoCode})' : ''}'.text.bold.color(AppColor.text).make(),
+                  'Edit Metadata @{videoCode}'.trNamed({'videoCode': '${video.videoCode.isNotEmptyAndNotNull ? '(${video.videoCode})' : ''}'}).text.bold.color(AppColor.text).make(),
                 ]).pOnly(bottom: 12),
 
                 // basic info
-                sectionLabel('Basic Info'),
-                inputField(label: 'Video Code', controller: tecVideoCode, placeholder: 'Leave empty for NON-JAV'),
-                inputField(label: 'Title', controller: tecTitle, placeholder: 'Title'),
+                sectionLabel('Basic Info'.tr),
+                inputField(label: 'Video Code'.tr, controller: tecVideoCode, placeholder: 'Leave empty for NON-JAV'.tr),
+                inputField(label: 'Title'.tr, controller: tecTitle, placeholder: 'Title'.tr),
                 inputField(
-                  label: 'Cover URL',
+                  label: 'Cover URL'.tr,
                   controller: tecFanArt,
-                  placeholder: 'Paste image URL here...',
-                  labelAction: 'Get From JavMost'.text.size(11).minFontSize(10).underline.blue300.make().onInkTap(() {
+                  placeholder: 'Paste image URL here...'.tr,
+                  labelAction: 'Get From JavMost'.tr.text.size(11).minFontSize(10).underline.blue300.make().onInkTap(() {
                     tecFanArt.text = 'https://img3.javmost.ws/images/480/${HelperMisc.resolveVideoCode(videoPath: video.videoPath)}.webp';
                   }),
                 ),
 
                 // cast & tags
-                sectionLabel('Cast & Tags'),
+                sectionLabel('Cast & Tags'.tr),
                 HStack([
-                  'Actress'.text.color(AppColor.muted).size(11).make(),
+                  'Actress'.tr.text.color(AppColor.muted).size(11).make(),
                   Spacer(),
                   IconButton(
                     icon: Icon(CupertinoIcons.add, size: 16),
-                    tooltip: 'Add actress',
+                    tooltip: 'Add actress'.tr,
                     onPressed: () => _showDialogAddActress(actresses),
                   ),
                 ]),
@@ -131,7 +132,7 @@ mixin HomePanelMetadata {
                     return DecoratedBox(
                       decoration: ExDecorator.box(borderRadius: 10, borderColor: AppColor.border, fillColor: AppColor.container.withValues(alpha: .4)),
                       child: actresses.isEmpty
-                          ? 'No actress added'.text.color(Vx.neutral500).size(11).makeCentered().p16()
+                          ? 'No actress added'.tr.text.color(Vx.neutral500).size(11).makeCentered().p16()
                           : Wrap(
                               spacing: 10,
                               runSpacing: 10,
@@ -163,11 +164,11 @@ mixin HomePanelMetadata {
 
                 8.heightBox,
                 HStack([
-                  'Category'.text.color(AppColor.muted).size(11).make(),
+                  'Category'.tr.text.color(AppColor.muted).size(11).make(),
                   Spacer(),
                   IconButton(
                     icon: Icon(CupertinoIcons.add, size: 16),
-                    tooltip: 'Add category',
+                    tooltip: 'Add category'.tr,
                     onPressed: () async => await _showDialogAddCategory(categories),
                   ),
                 ]),
@@ -177,7 +178,7 @@ mixin HomePanelMetadata {
                     return DecoratedBox(
                       decoration: ExDecorator.box(borderRadius: 10, borderColor: AppColor.border, fillColor: AppColor.container.withValues(alpha: .4)),
                       child: categories.isEmpty
-                          ? 'No category added'.text.color(Vx.neutral500).size(11).makeCentered().p16()
+                          ? 'No category added'.tr.text.color(Vx.neutral500).size(11).makeCentered().p16()
                           : Wrap(
                               spacing: 8,
                               runSpacing: 8,
@@ -207,23 +208,23 @@ mixin HomePanelMetadata {
                 ),
 
                 // production metadata
-                sectionLabel('Metadata'),
+                sectionLabel('Metadata'.tr),
                 inputField(
-                  label: 'Release Date',
+                  label: 'Release Date'.tr,
                   controller: tecReleaseDate,
                   placeholder: 'YYYY-MM-DD',
                   suffix: '${video.releaseDateFormated ?? ''}'.text.size(11).minFontSize(11).neutral500.make(),
                 ),
                 inputField(
-                  label: 'Duration (minutes)',
+                  label: 'Duration (minutes)'.tr,
                   controller: tecDuration,
                   placeholder: 'e.g. 120',
                   suffix: '${video.durationFormated ?? ''}'.text.size(11).minFontSize(11).neutral500.make(),
                 ),
-                inputField(label: 'Studio', controller: tecStudio, placeholder: 'Studio name'),
-                inputField(label: 'Label', controller: tecLabel, placeholder: 'Label name'),
-                inputField(label: 'Director', controller: tecDirector, placeholder: 'Director'),
-                inputField(label: 'Series', controller: tecSeries, placeholder: 'Series'),
+                inputField(label: 'Studio'.tr, controller: tecStudio, placeholder: 'Studio name'.tr),
+                inputField(label: 'Label'.tr, controller: tecLabel, placeholder: 'Label name'.tr),
+                inputField(label: 'Director'.tr, controller: tecDirector, placeholder: 'Director'.tr),
+                inputField(label: 'Series'.tr, controller: tecSeries, placeholder: 'Series'.tr),
 
                 60.heightBox,
               ],
@@ -239,7 +240,7 @@ mixin HomePanelMetadata {
                 child: HStack(
                   [
                     _actionButton(
-                      label: 'Delete',
+                      label: 'Delete'.tr,
                       color: Vx.red400,
                       isLeft: true,
                       onTap: () {
@@ -247,12 +248,12 @@ mixin HomePanelMetadata {
                       },
                     ),
                     _actionButton(
-                      label: 'Submit',
+                      label: 'Submit'.tr,
                       color: Get.context!.accentColor,
                       onTap: () {
                         final videoCode = tecVideoCode.text.trim().toUpperCase();
                         if (videoCode.isNotEmpty && !videoCode.isValidVideoCode()) {
-                          HelperToast.warn('Video code not valid');
+                          HelperToast.warn('Video code not valid'.tr);
                           return;
                         }
                         final edited = video;
@@ -314,16 +315,16 @@ mixin HomePanelMetadata {
         color: AppColor.panel,
         child: VStack(
           [
-            'Add Category'.text.bold.make().pOnly(bottom: 16),
+            'Add Category'.tr.text.bold.make().pOnly(bottom: 16),
             ExAutoComplate(
               controller: tecCategory,
               items: categoriesNames,
-              placeHolder: 'Type something...',
+              placeHolder: 'Type something...'.tr,
               onSelected: (cat) => tecCategory.text = cat,
             ).pOnly(bottom: 12),
             ExButtonElevated(
               width: double.infinity,
-              label: 'Submit',
+              label: 'Submit'.tr,
               onPressed: () async {
                 if (tecCategory.text.isEmpty) return;
 
@@ -370,16 +371,16 @@ mixin HomePanelMetadata {
         color: AppColor.panel,
         child: VStack(
           [
-            'Add Actress'.text.bold.make().pOnly(bottom: 16),
+            'Add Actress'.tr.text.bold.make().pOnly(bottom: 16),
             ExAutoComplate(
               controller: tecActress,
               items: actressesNameRomaji,
-              placeHolder: 'Type something...',
+              placeHolder: 'Type something...'.tr,
               onSelected: (actress) => tecActress.text = actress,
             ).pOnly(bottom: 12),
             ExButtonElevated(
               width: double.infinity,
-              label: 'Submit',
+              label: 'Submit'.tr,
               onPressed: () async {
                 if (tecActress.text.isEmpty) return;
 

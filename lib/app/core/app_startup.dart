@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import 'app_logging.dart';
+import 'app_translations.dart';
 
 class AppStartup extends StatefulWidget {
   const AppStartup({super.key, required this.initialize, required this.child});
@@ -42,12 +44,12 @@ class _AppStartupState extends State<AppStartup> {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: _error == null
-                ? const Column(mainAxisSize: MainAxisSize.min, children: [
+                ? Column(mainAxisSize: MainAxisSize.min, children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text('Opening JavIt, Please wait...'),
+                    Text('Opening JavIt, Please wait...'.tr),
                   ])
-                : SelectableText('Could not start JavIt. Please restart the app.\n\n$_error'),
+                : SelectableText('Could not start JavIt. Please restart the app.\n\n@{error}'.trNamed({'error': '$_error'})),
           ),
         ),
       ),

@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../core/app_logging.dart';
+import '../../../core/app_translations.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_toast.dart';
 import '../home_panel/home_panel_library.dart';
@@ -31,12 +32,12 @@ class SearchFileDrag extends StatelessWidget {
       for (final item in selected) {
         final path = item.videoPath ?? '';
         if (!p.isAbsolute(path) || !await File(path).exists()) {
-          throw FileSystemException('File is unavailable', path);
+          throw FileSystemException('File is unavailable'.tr, path);
         }
         files[path] = item;
       }
       final bookmarks = await channel.invokeMapMethod<String, dynamic>('bookmark', files.keys.toList());
-      if (bookmarks == null || bookmarks.length != files.length) throw StateError('Could not track the selected files');
+      if (bookmarks == null || bookmarks.length != files.length) throw StateError('Could not track the selected files'.tr);
       if (!canDrag) return;
       final operation = await channel.invokeMethod<String>('drag', files.keys.toList());
       if (operation != 'move' && operation != 'copy') return;
@@ -59,11 +60,11 @@ class SearchFileDrag extends StatelessWidget {
       }
       await controller.applyFileMoves(files, moves, missing);
       if (missing.isNotEmpty || operation == 'move' && files.keys.any((path) => File(path).existsSync())) {
-        await HelperToast.warn('Some moved paths could not be confirmed. Add the destination folder to your library and rescan after Finder finishes.');
+        await HelperToast.warn('Some moved paths could not be confirmed. Add the destination folder to your library and rescan after Finder finishes.'.tr);
       }
     } catch (e) {
       AppLog.logE('File drag failed: $e');
-      await HelperToast.error('File drag failed: $e');
+      await HelperToast.error('File drag failed: @{e}'.trNamed({'e': '$e'}));
     } finally {
       HomePanelLibrary.fileDragInProgress = false;
     }
