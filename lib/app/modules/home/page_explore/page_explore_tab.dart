@@ -8,6 +8,7 @@ import 'package:uuid/v4.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
 import '../../../core/app_translations.dart';
+import '../../../data/database/_init_db.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
@@ -354,6 +355,7 @@ class PageExploreTab {
 
   Future<void> onLeftListTap(LeftListModel item, {bool preserveMode = false}) async {
     if (isClosed) return;
+    _r18CountKey = null;
     final request = ++_selectionRequest;
     final menu = currentMenuSelected.value;
     final castMode = actressMode.value;
@@ -419,7 +421,23 @@ class PageExploreTab {
     return (result[0] as List<Videos>, result[1] as int);
   }
 
-  Future<int> _loadR18Count(String menu, LeftListModel item, ActressMode mode) => switch (menu) {
+  (Object?, String, Object?, String?, ActressMode)? _r18CountKey;
+  Future<int>? _r18Count;
+
+  Future<int> _loadR18Count(String menu, LeftListModel item, ActressMode mode) {
+    final db = Get.isRegistered<DBService>() ? Get.find<DBService>().dbR18 : null;
+    final key = (db, menu, item.id, item.name, mode);
+    if (_r18CountKey == key && _r18Count != null) return _r18Count!;
+    _r18CountKey = key;
+    final count = _queryR18Count(menu, item, mode).catchError((Object e) {
+      if (_r18CountKey == key) _r18CountKey = null;
+      throw e;
+    });
+    _r18Count = count;
+    return count;
+  }
+
+  Future<int> _queryR18Count(String menu, LeftListModel item, ActressMode mode) => switch (menu) {
     kActress => DBR18.getCountAllVideosByActress(item.id ?? 0, actressMode: mode),
     kCategory => DBR18.getCountAllVideosByCategory(HelperDecensor.censored(item.name), actressMode: mode),
     kLabel => DBR18.getCountAllVideosByLabel(item.name ?? '', actressMode: mode),
@@ -576,20 +594,20 @@ class PageExploreTab {
       }
       final List<Map<String, dynamic>> r18videos;
       switch (menu) {
-        case kActress: r18videos = await DBR18.getAllVideosByActress(selected.id ?? 0, actressMode: castMode, page: page, perPage: _perPage + 1); break;
-        case kCategory: r18videos = await DBR18.getAllVideosByCategory(HelperDecensor.censored(selected.name), actressMode: castMode, page: page, perPage: _perPage + 1); break;
+        case kActress: r18videos = await DBR18.getAllVideosByActress(selected.id ?? 0, actressMode: castMode, page: page, perPage: _perPage); break;
+        case kCategory: r18videos = await DBR18.getAllVideosByCategory(HelperDecensor.censored(selected.name), actressMode: castMode, page: page, perPage: _perPage); break;
         case kPath: r18videos = []; break;
-        case kLabel: r18videos = await DBR18.getAllVideosByLabel(selected.name ?? '', actressMode: castMode, page: page, perPage: _perPage + 1); break;
-        case kSeries: r18videos = await DBR18.getAllVideosBySeries(HelperDecensor.censored(selected.name), actressMode: castMode, page: page, perPage: _perPage + 1); break;
-        case kStudio: r18videos = await DBR18.getAllVideosByStudio(selected.name ?? '', actressMode: castMode, page: page, perPage: _perPage + 1); break;
-        case kDirector: r18videos = await DBR18.getAllVideosByDirector(selected.name ?? '', actressMode: castMode, page: page, perPage: _perPage + 1); break;
-        case kYear: r18videos = await DBR18.getAllVideosByYear(selected.name ?? '', actressMode: castMode, page: page, perPage: _perPage + 1); break;
+        case kLabel: r18videos = await DBR18.getAllVideosByLabel(selected.name ?? '', actressMode: castMode, page: page, perPage: _perPage); break;
+        case kSeries: r18videos = await DBR18.getAllVideosBySeries(HelperDecensor.censored(selected.name), actressMode: castMode, page: page, perPage: _perPage); break;
+        case kStudio: r18videos = await DBR18.getAllVideosByStudio(selected.name ?? '', actressMode: castMode, page: page, perPage: _perPage); break;
+        case kDirector: r18videos = await DBR18.getAllVideosByDirector(selected.name ?? '', actressMode: castMode, page: page, perPage: _perPage); break;
+        case kYear: r18videos = await DBR18.getAllVideosByYear(selected.name ?? '', actressMode: castMode, page: page, perPage: _perPage); break;
         case kCustom: r18videos = []; break;
         default: r18videos = []; break;
       }
       if (request != _r18Request || isClosed) return;
 
-      hasNextPage.value = r18videos.length > _perPage;
+      hasNextPage.value = r18videos.length == _perPage && page * _perPage < rightListR18TotalVideo.value;
       currentPage.value = page;
       final pageItems = r18videos.take(_perPage).toList();
 

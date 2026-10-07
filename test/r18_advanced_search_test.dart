@@ -24,9 +24,11 @@ class _Tools extends PageToolsController {
 }
 
 class _Database implements Database {
-  _Database({this.includeFallback = false});
+  _Database({this.includeFallback = false, this.includeBrowseDuplicates = false, this.includePagination = false});
 
   final bool includeFallback;
+  final bool includeBrowseDuplicates;
+  final bool includePagination;
   Future<List<Map<String, Object?>>> Function(String, List<Object?>)? run;
 
   @override
@@ -86,6 +88,29 @@ if sys.argv[2] == 'true':
     INSERT INTO derived_video_director VALUES ('n_1541naac066',1);
     """)
 before = c.execute('SELECT count(*) FROM derived_video').fetchone()[0]
+if sys.argv[4] == 'true':
+    c.executescript("""
+    INSERT INTO derived_category VALUES (99,'Pagination',NULL);
+    WITH RECURSIVE numbers(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM numbers WHERE n<1001)
+    INSERT INTO derived_video(content_id,dvd_id,release_date,title_en)
+      SELECT 'page-'||n,printf('ABC-%05d',n),'2026-03-01','Page' FROM numbers;
+    INSERT INTO derived_video_category SELECT content_id,99 FROM derived_video WHERE content_id LIKE 'page-%';
+    """)
+    before = c.execute('SELECT count(*) FROM derived_video').fetchone()[0]
+if sys.argv[3] == 'true':
+    c.executescript("""
+    INSERT INTO derived_video(content_id,dvd_id,series_id,release_date,title_en,title_ja,runtime_mins,sample_url,jacket_full_url,jacket_thumb_url)
+      VALUES ('new-a','ABC-123',1,'2026-02-01','New original','新しい',180,'trailer','fan','poster');
+    INSERT INTO derived_video_category VALUES ('new-a',1),('new-a',1);
+    INSERT INTO derived_video_category VALUES ('new-a',2);
+    INSERT INTO derived_video_actress VALUES ('new-a',1),('new-a',1);
+    INSERT INTO machine_translation VALUES ('新しい','New translated'),('新しい','Another translated');
+    INSERT INTO derived_series VALUES (4,'Cast',NULL),(5,'CAST',NULL);
+    INSERT INTO derived_video(content_id,dvd_id,series_id,release_date,title_en)
+      VALUES ('other-series','ABC-126',4,'2026-04-01','Duplicate series'),
+        ('case-series','ABC-127',5,'2026-03-01','Case variant');
+    """)
+    before = c.execute('SELECT count(*) FROM derived_video').fetchone()[0]
 indexer = runpy.run_path('assets/r18_database_importer.py')['create_catalog_indexes']
 indexer(c)
 indexer(c)
@@ -95,7 +120,7 @@ if 'summary AS' in q:
     plan = c.execute('EXPLAIN QUERY PLAN ' + q, args).fetchall()
     assert any('idx_dv_advanced_codes' in row[3] for row in plan), [tuple(row) for row in plan]
 print(json.dumps([dict(r) for r in c.execute(q,args)]))
-''', jsonEncode([sql, arguments ?? []]), '$includeFallback']);
+''', jsonEncode([sql, arguments ?? []]), '$includeFallback', '$includeBrowseDuplicates', '$includePagination']);
     if (result.exitCode != 0) throw StateError('${result.stderr}');
     return (jsonDecode('${result.stdout}') as List).map((row) => Map<String, Object?>.from(row as Map)).toList();
   }
@@ -114,6 +139,57 @@ void main() {
     Get.put<DBService>(_Service()..dbR18 = database..dbMain = database);
   });
   tearDown(Get.reset);
+
+  test('series lists and counts include duplicate names and case-insensitive matches', () async {
+    Get.find<DBService>().dbR18 = _Database(includeBrowseDuplicates: true);
+    final rows = await DBR18.getAllVideosBySeries('cast');
+    expect(rows.map((row) => row['video_code']), ['ABC-126', 'ABC-127', 'ABC-123', 'ABC-125']);
+    expect(await DBR18.getCountAllVideosBySeries('cast'), rows.length);
+  });
+
+  test('paged search aggregates matching variants without leaking excluded metadata', () async {
+    Get.find<DBService>().dbR18 = _Database(includeBrowseDuplicates: true);
+    final rows = await DBR18.search('ABC-123');
+    expect(rows, hasLength(1));
+    expect(rows.single['categories'].toString().split(','), unorderedEquals(['Cast', 'Older']));
+    expect(rows.single['actresses'], contains('Same name'));
+    final duration = await DBR18.getByFilter(videoCode: 'ABC-123', durationMin: 180);
+    expect(duration.single['actresses'], isNot(contains('Same name')));
+    expect(duration.single['duration'], 180);
+    final old = await DBR18.getByFilter(videoCode: 'ABC-123', durationMax: 120);
+    expect(old.single['categories'], 'Cast');
+    expect(old.single['id'], 'a');
+    expect(await DBR18.getByFilterCount(videoCode: 'ABC-123', durationMax: 120), old.length);
+  });
+
+  test('500-row pages keep all videos when release dates are tied', () async {
+    Get.find<DBService>().dbR18 = _Database(includePagination: true);
+    final codes = <String>[];
+    for (var page = 1; page <= 3; page++) {
+      final rows = await DBR18.getAllVideosByCategory('Pagination', perPage: 500, page: page);
+      expect(rows.length, page < 3 ? 500 : 1);
+      codes.addAll(rows.map((row) => row['video_code'] as String));
+    }
+    expect(codes, List.generate(1001, (i) => 'ABC-${(i + 1).toString().padLeft(5, '0')}'));
+    expect(await DBR18.getCountAllVideosByCategory('Pagination'), codes.length);
+  });
+
+  test('browse pages deduplicate codes and links before reading translated metadata', () async {
+    Get.find<DBService>().dbR18 = _Database(includeBrowseDuplicates: true);
+    final rows = await DBR18.getAllVideosByCategory('Cast', actressMode: ActressMode.all, perPage: 1);
+    expect(rows, hasLength(1));
+    expect(rows.single['id'], 'new-a');
+    expect(rows.single['video_code'], 'ABC-123');
+    expect(rows.single['release_date'], '2026-02-01');
+    expect(rows.single['title'], isIn(['New translated', 'Another translated']));
+    expect(rows.single['duration'], 180);
+    expect(rows.single['trailer'], 'trailer');
+    expect(rows.single['fan_art'], 'fan');
+    expect(rows.single['poster'], 'poster');
+    expect(rows.single.keys, unorderedEquals(['id', 'video_code', 'release_date', 'title', 'duration', 'trailer', 'fan_art', 'poster']));
+    expect(await DBR18.getCountAllVideosByCategory('Cast'), 2);
+    expect((await DBR18.getAllVideosByCategory('Cast', page: 2, perPage: 1)).single['video_code'], 'ABC-125');
+  });
 
   test('actress cast modes filter real SQL results with matching counts and pagination', () async {
     for (final mode in ActressMode.values) {

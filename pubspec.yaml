@@ -91,6 +91,7 @@ flutter:
   assets:
     - assets/r18_database_importer.py
     - assets/r18_video_code_migration.sql
+    - assets/r18_catalog_queries.sql
     - assets/visual_search_worker.py
     - assets/chat_database_worker.py
     - assets/sql_editor_worker.py

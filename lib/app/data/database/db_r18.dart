@@ -93,7 +93,7 @@ mixin DBR18 {
     'TK1', 'TK2', 'TK3', 'EC', '4D', '5D', 'DL',
   ];
 
-  static Map<String, dynamic> _buildFilterClause({ bool matchAllCategories = false, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, int? durationMin, int? durationMax, }) {
+  static Map<String, dynamic> _buildFilterClause({ bool correlatedRelations = false, bool matchAllCategories = false, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, int? durationMin, int? durationMax, }) {
     final clauses = <String>[];
     final args = <Object?>[];
 
@@ -105,11 +105,12 @@ mixin DBR18 {
     }
 
     if (actressName != null && actressName.isNotEmpty) {
-      clauses.add('EXISTS ('
-          'SELECT 1 FROM derived_video_actress dva2 '
-          'JOIN derived_actress da2 ON da2.id = dva2.actress_id '
-          'WHERE dva2.content_id = v.content_id '
-          'AND (da2.name_romaji LIKE ? OR da2.name_kana LIKE ? OR da2.name_kanji LIKE ?)'
+      clauses.add('${correlatedRelations ? 'EXISTS (' : 'v.content_id IN ('}'
+          'SELECT dva2.content_id FROM '
+          '${correlatedRelations ? 'derived_video_actress dva2 JOIN derived_actress da2' : 'derived_actress da2 CROSS JOIN derived_video_actress dva2'} '
+          'ON da2.id = dva2.actress_id '
+          'WHERE ${correlatedRelations ? 'dva2.content_id = v.content_id AND ' : ''}'
+          '(da2.name_romaji LIKE ? OR da2.name_kana LIKE ? OR da2.name_kanji LIKE ?)'
           ')');
       args.add('%$actressName%');
       args.add('%$actressName%');
@@ -118,10 +119,10 @@ mixin DBR18 {
 
     if (categories != null && categories.isNotEmpty) {
       final placeholders = List.filled(categories.length, '?').join(', ');
-      clauses.add('v.content_id IN ('
+      clauses.add('${correlatedRelations ? 'EXISTS (' : 'v.content_id IN ('}'
           'SELECT vc2.content_id FROM derived_video_category vc2 '
           'JOIN derived_category dc2 ON dc2.id = vc2.category_id '
-          'WHERE dc2.name_en IN ($placeholders)'
+          'WHERE ${correlatedRelations ? 'vc2.content_id = v.content_id AND ' : ''}dc2.name_en IN ($placeholders)'
           '${matchAllCategories ? ' GROUP BY vc2.content_id HAVING COUNT(DISTINCT dc2.name_en) = ?' : ''}'
           ')');
       args.addAll(categories);
@@ -155,13 +156,11 @@ mixin DBR18 {
     final args = <Object?>[];
 
     for (final prefix in _blacklistedPrefixes) {
-      clauses.add('$column NOT LIKE ?');
-      args.add('$prefix%');
+      clauses.add("$column NOT LIKE '$prefix%'");
     }
 
     for (final suffix in _blacklistedSuffixes) {
-      clauses.add('$column NOT LIKE ?');
-      args.add('%$suffix');
+      clauses.add("$column NOT LIKE '%$suffix'");
     }
 
     return {
@@ -229,28 +228,67 @@ mixin DBR18 {
     final uniqueCodes = codes.where((e) => e.trim().isNotEmpty).map(_normalizeCode).toSet().toList();
     if (uniqueCodes.isEmpty) return {};
 
-    final placeholders = List.filled(uniqueCodes.length, '?').join(', ');
-    final maps = await _rawQuery('''
-      SELECT
-        v.video_code AS video_code,
-        v.jacket_thumb_url AS poster
-      FROM derived_video v
-      WHERE v.video_code IN ($placeholders)
-      ORDER BY $_preferredVideo
-    ''', uniqueCodes);
-
     final result = <String, String>{};
-    for (final row in maps) {
-      final code = (row['video_code'] ?? '').toString();
-      final poster = (row['poster'] ?? '').toString();
-      if (code.isEmpty || poster.isEmpty) continue;
-      result.putIfAbsent(code, () => poster);
+    for (var offset = 0; offset < uniqueCodes.length; offset += 900) {
+      final batch = uniqueCodes.skip(offset).take(900).toList();
+      final placeholders = List.filled(batch.length, '?').join(', ');
+      final maps = await _rawQuery('''
+        SELECT
+          v.video_code AS video_code,
+          v.jacket_thumb_url AS poster
+        FROM derived_video v
+        WHERE v.video_code IN ($placeholders)
+        ORDER BY $_preferredVideo
+      ''', batch);
+
+      for (final row in maps) {
+        final code = (row['video_code'] ?? '').toString();
+        final poster = (row['poster'] ?? '').toString();
+        if (code.isEmpty || poster.isEmpty) continue;
+        result.putIfAbsent(code, () => poster);
+      }
     }
     return result;
   }
 
+  static Future<List<Map<String, dynamic>>> _catalogQuery(String where, List<Object?> args, {String search = '', List<Object?> searchArgs = const []}) => _rawQuery('''
+    WITH matched AS MATERIALIZED (
+      SELECT v.content_id, v.video_code
+      FROM page CROSS JOIN derived_video v ON v.video_code = page.video_code WHERE $where
+    ), page AS (
+      SELECT v.rowid AS video_rowid, v.video_code, v.release_date
+      FROM derived_video v INDEXED BY idx_dv_catalog_date
+      WHERE ${search.isEmpty ? '' : '$search AND '}$where
+        AND NOT EXISTS (
+          SELECT 1 FROM derived_video newer WHERE newer.video_code = v.video_code
+            AND ${where.replaceAll('v.', 'newer.')}
+            AND (newer.release_date > v.release_date OR (newer.release_date = v.release_date AND newer.rowid < v.rowid))
+        )
+      ORDER BY v.release_date DESC, v.video_code LIMIT ? OFFSET ?
+    ), categories AS (
+      SELECT m.video_code, GROUP_CONCAT(DISTINCT dc.name_en) AS categories
+      FROM matched m
+      JOIN derived_video_category dvc ON dvc.content_id = m.content_id
+      JOIN derived_category dc ON dc.id = dvc.category_id GROUP BY m.video_code
+    ), actresses AS (
+      SELECT m.video_code, GROUP_CONCAT(DISTINCT da.name_romaji) AS actresses
+      FROM matched m
+      JOIN derived_video_actress dva ON dva.content_id = m.content_id
+      JOIN derived_actress da ON da.id = dva.actress_id GROUP BY m.video_code
+    )
+    SELECT v.content_id AS id, v.video_code, v.runtime_mins AS duration,
+      COALESCE((SELECT t.target_en FROM machine_translation t WHERE t.source_ja = v.title_ja LIMIT 1), v.title_en, v.title_ja) AS title,
+      page.release_date, v.sample_url AS trailer, v.jacket_full_url AS fan_art, v.jacket_thumb_url AS poster,
+      v.gallery_full_first AS ssfirst, v.gallery_full_last AS sslast, categories.categories, actresses.actresses
+    FROM page JOIN derived_video v ON v.rowid = page.video_rowid
+    LEFT JOIN categories ON categories.video_code = page.video_code
+    LEFT JOIN actresses ON actresses.video_code = page.video_code
+    ORDER BY page.release_date DESC, v.video_code
+  ''', [...args.take(args.length - 2), ...searchArgs, ...args.take(args.length - 2), ...args]);
+
   static Future<List<Map<String, dynamic>>> search(String query, { bool matchAllCategories = false, int? page = 1, int? perPage = 100, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, int? durationMin, int? durationMax}) async {
     if (!_isReady()) return [];
+    if (query.trim().isEmpty) return getByFilter(matchAllCategories: matchAllCategories, page: page, perPage: perPage, videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax);
 
     final searchString = '%${query.trim()}%';
     final contentSearch = '%${query.trim().replaceAll('-', '')}%';
@@ -263,49 +301,27 @@ mixin DBR18 {
       WHERE 
         v2.video_code LIKE ? OR REPLACE(v2.video_code, '-', '') LIKE ? OR v2.content_id LIKE ? OR v2.title_en LIKE ?
       UNION
-      SELECT v3.video_code FROM derived_video v3
-      JOIN machine_translation t2 ON t2.source_ja = v3.title_ja WHERE t2.target_en LIKE ?
+      SELECT v3.video_code FROM machine_translation t2
+      CROSS JOIN derived_video v3 ON v3.title_ja = t2.source_ja WHERE t2.target_en LIKE ?
     )
   ''';
 
-    final filter = _buildFilterClause(matchAllCategories: matchAllCategories,videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax);
+    final filter = _buildFilterClause(correlatedRelations: true, matchAllCategories: matchAllCategories,videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax);
     final blacklist = _buildBlacklistClause();
 
-    final maps = await _rawQuery('''
-    SELECT
-        v.content_id AS id,                                       -- id
-        v.video_code AS video_code,                                   -- video_code
-        COALESCE(t.target_en, v.title_en, v.title_ja) AS title,   -- title
-        v.runtime_mins AS duration,                               -- duration
-        MAX(v.release_date) AS release_date,                           -- release_date
-        v.sample_url AS trailer,                                  -- trailer
-        v.jacket_full_url AS fan_art,                             -- fanart
-        v.jacket_thumb_url AS poster,                             -- poster
-        v.gallery_full_first AS ssfirst,                          -- screenshot[0]
-        v.gallery_full_last AS sslast,                            -- screenshot[n]
-        GROUP_CONCAT(DISTINCT dc.name_en) AS categories,             -- categories
-        GROUP_CONCAT(DISTINCT da.name_romaji) AS actresses           -- actresses
-    FROM derived_video v
-    LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
-    LEFT JOIN derived_video_category dvc ON dvc.content_id = v.content_id
-    LEFT JOIN derived_category dc on dc.id = dvc.category_id
-    LEFT JOIN derived_video_actress dva ON dva.content_id = v.content_id
-    LEFT JOIN derived_actress da ON da.id = dva.actress_id
-    WHERE
-      v.video_code IS NOT NULL AND v.video_code IN $subQuery
+    final maps = await _catalogQuery('''
+      v.video_code IS NOT NULL
       AND v.release_date IS NOT NULL
       ${filter['sql']}
       ${blacklist['sql']}
-    GROUP BY v.video_code
-    ORDER BY v.release_date DESC
-    LIMIT ? OFFSET ?
-  ''', [searchString, contentSearch, contentSearch, searchString, searchString, ...filter['args'], ...blacklist['args'], limit, offset]);
+  ''', [...filter['args'], ...blacklist['args'], limit, offset], search: 'v.video_code IN $subQuery', searchArgs: [searchString, contentSearch, contentSearch, searchString, searchString]);
 
     return maps;
   }
 
   static Future<int> getSearchCount(String query, {bool matchAllCategories = false,String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, int? durationMin, int? durationMax}) async {
     if (!_isReady()) return 0;
+    if (query.trim().isEmpty) return getByFilterCount(matchAllCategories: matchAllCategories, videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax);
 
     final searchString = '%${query.trim()}%';
     final contentSearch = '%${query.trim().replaceAll('-', '')}%';
@@ -315,8 +331,8 @@ mixin DBR18 {
       WHERE 
         v2.video_code LIKE ? OR REPLACE(v2.video_code, '-', '') LIKE ? OR v2.content_id LIKE ? OR v2.title_en LIKE ?
       UNION
-      SELECT v3.video_code FROM derived_video v3
-      JOIN machine_translation t2 ON t2.source_ja = v3.title_ja WHERE t2.target_en LIKE ?
+      SELECT v3.video_code FROM machine_translation t2
+      CROSS JOIN derived_video v3 ON v3.title_ja = t2.source_ja WHERE t2.target_en LIKE ?
     )
   ''';
 
@@ -352,6 +368,7 @@ mixin DBR18 {
     final limit = perPage ?? 100;
     final offset = ((page ?? 1) - 1) * limit;
     final filter = _buildFilterClause(
+      correlatedRelations: true,
       matchAllCategories: matchAllCategories,
       videoCode: videoCode,
       actressName: actressName,
@@ -361,34 +378,11 @@ mixin DBR18 {
     );
     final blacklist = _buildBlacklistClause();
 
-    final maps = await _rawQuery('''
-    SELECT
-        v.content_id AS id,                                       -- id
-        v.video_code AS video_code,                                   -- video_code
-        COALESCE(t.target_en, v.title_en, v.title_ja) AS title,   -- title
-        v.runtime_mins AS duration,                               -- duration
-        MAX(v.release_date) AS release_date,                           -- release_date
-        v.sample_url AS trailer,                                  -- trailer
-        v.jacket_full_url AS fan_art,                             -- fanart
-        v.jacket_thumb_url AS poster,                             -- poster
-        v.gallery_full_first AS ssfirst,                          -- screenshot[0]
-        v.gallery_full_last AS sslast,                            -- screenshot[n]
-        GROUP_CONCAT(DISTINCT dc.name_en) AS categories,             -- categories
-        GROUP_CONCAT(DISTINCT da.name_romaji) AS actresses           -- actresses
-    FROM derived_video v
-    LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
-    LEFT JOIN derived_video_category dvc ON dvc.content_id = v.content_id
-    LEFT JOIN derived_category dc on dc.id = dvc.category_id
-    LEFT JOIN derived_video_actress dva ON dva.content_id = v.content_id
-    LEFT JOIN derived_actress da ON da.id = dva.actress_id
-    WHERE
+    final maps = await _catalogQuery('''
       v.video_code IS NOT NULL
       AND v.release_date IS NOT NULL
       ${filter['sql']}
       ${blacklist['sql']}
-    GROUP BY v.video_code
-    ORDER BY v.release_date DESC
-    LIMIT ? OFFSET ?
   ''', [...filter['args'], ...blacklist['args'], limit, offset]);
 
     return maps;
@@ -405,6 +399,7 @@ mixin DBR18 {
     if (!_isReady()) return 0;
 
     final filter = _buildFilterClause(
+      correlatedRelations: videoCode != null && videoCode.trim().isNotEmpty,
       matchAllCategories: matchAllCategories,
       videoCode: videoCode,
       actressName: actressName,
@@ -464,14 +459,11 @@ mixin DBR18 {
     ].join(' AND ');
     // Literal predicates let SQLite use the converter's matching partial index.
     return '''
-      WITH eligible AS (
-        SELECT * FROM derived_video
-        WHERE length($prefix) >= 2 AND $prefix NOT GLOB '*[^A-Za-z]*'
+      length($prefix) >= 2 AND $prefix NOT GLOB '*[^A-Za-z]*'
           AND length(ltrim(($serial), 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz')) BETWEEN 2 AND 5
           AND ltrim(($serial), 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') NOT GLOB '*[^0-9]*'
           AND ($suffix) != '' AND ($suffix) NOT GLOB '*[^A-Za-z0-9]*'
           AND $blacklist
-      )
     ''';
   }
 
@@ -500,40 +492,31 @@ mixin DBR18 {
   static Future<List<Map<String, dynamic>>> _loadAdvancedSearchGroups(String kind) async {
     final group = _advancedGroup(kind);
     final isYear = kind == 'Year';
-    final relation = kind == 'Category' ? 'category' : 'actress';
     final table = switch (kind) {
       'Series' => 'derived_series', 'Category' => 'derived_category', _ => 'derived_actress',
     };
-    final join = kind == 'Series' || isYear ? '' : 'JOIN derived_video_$relation link ON link.content_id = v.content_id';
-    final key = isYear ? group.id : kind == 'Series' ? 'v.series_id' : 'link.${relation}_id';
     final name = isYear ? 'summary.id' : group.name;
     return _rawQuery('''
-      $_advancedVideos,
-      summary AS (
-        SELECT $key AS id, COUNT(DISTINCT v.video_code) AS video_count, MAX(date(v.release_date)) AS max_release_date
-        FROM eligible v $join GROUP BY $key
-      )
       SELECT summary.id, $name AS name_en, ${isYear ? "''" : group.jp} AS name_ja,
         ${isYear ? 'summary.id' : group.search} AS search_text, summary.video_count, summary.max_release_date
-      FROM summary ${isYear ? '' : 'JOIN $table g ON g.id = summary.id'}
-      WHERE $name IS NOT NULL
+      FROM javit_catalog_groups_v2 summary ${isYear ? '' : 'JOIN $table g ON g.id = summary.id'}
+      WHERE summary.kind = ? AND $name IS NOT NULL
       ORDER BY max_release_date DESC, name_en COLLATE NOCASE, summary.id
-    ''');
+    ''', [kind]);
   }
 
   static Future<List<Map<String, dynamic>>> getAdvancedSearchVideos(String kind, Object id) async {
     if (!_isReady()) return [];
     final group = _advancedGroup(kind);
-    return _rawQuery('''
-      $_advancedVideos
-      SELECT v.content_id AS id, v.video_code AS video_code, v.runtime_mins AS duration,
-        COALESCE((SELECT NULLIF(t.target_en, '') FROM machine_translation t WHERE t.source_ja = v.title_ja LIMIT 1), NULLIF(v.title_en, ''), v.title_ja) AS title, MAX(date(v.release_date)) AS release_date,
-        v.sample_url AS trailer, v.jacket_full_url AS fan_art, v.jacket_thumb_url AS poster
-      FROM eligible v ${group.join}
-      WHERE ${group.id} = ?
-      GROUP BY v.video_code
-      ORDER BY date(v.release_date) DESC, v.video_code
-    ''', [id]);
+    final index = switch (kind) {
+      'Series' => 'idx_dv_advanced_codes', 'Year' => 'idx_dv_advanced_year', _ => 'idx_dv_advanced_content',
+    };
+    return _browseQuery('''
+      SELECT v.rowid AS video_rowid, MAX(date(v.release_date)) AS release_date
+      FROM derived_video v INDEXED BY $index ${group.join}
+      WHERE $_advancedVideos AND ${group.id} = ?
+      GROUP BY v.video_code ORDER BY date(v.release_date) DESC, v.video_code
+    ''', [id], ignoreEmptyTitle: true);
   }
 
   static Future<List<Map<String, dynamic>>> getAllActress({String? q}) async {
@@ -673,25 +656,29 @@ mixin DBR18 {
         .toList();
     if (codes.isEmpty) return {};
 
-    final placeholders = List.filled(codes.length, '?').join(', ');
-    final rows = await _rawQuery('''
-      SELECT
-        v.video_code AS video_code,
-        cat.name_en AS category
-      FROM derived_video_category c
-      JOIN derived_video v ON v.content_id = c.content_id
-      JOIN derived_category cat ON cat.id = c.category_id
-      WHERE v.video_code IN ($placeholders)
-        AND cat.name_en IS NOT NULL
-    ''', codes);
-
     final grouped = <String, Set<String>>{};
-    for (final row in rows) {
-      final code = '${row['video_code'] ?? ''}'.trim();
-      final category = '${row['category'] ?? ''}'.trim();
-      if (code.isEmpty || category.isEmpty) continue;
+    for (var offset = 0; offset < codes.length; offset += 900) {
+      final batch = codes.skip(offset).take(900).toList();
+      final placeholders = List.filled(batch.length, '?').join(', ');
+      final rows = await _rawQuery('''
+        SELECT
+          v.video_code AS video_code,
+          cat.name_en AS category
+        FROM derived_video_category c
+        JOIN derived_video v ON v.content_id = c.content_id
+        JOIN derived_category cat ON cat.id = c.category_id
+        WHERE v.video_code IN ($placeholders)
+          AND cat.name_en IS NOT NULL
+      ''', batch);
 
-      grouped.putIfAbsent(code, () => <String>{}).add(category);
+      for (final row in rows) {
+        final code = '${row['video_code'] ?? ''}'.trim();
+        final category = '${row['category'] ?? ''}'.trim();
+        if (code.isEmpty || category.isEmpty) continue;
+
+        grouped.putIfAbsent(code, () => <String>{}).add(category);
+      }
+
     }
 
     final out = <String, List<String>>{};
@@ -736,6 +723,23 @@ mixin DBR18 {
     return 'AND EXISTS (SELECT 1 FROM derived_video_actress dva2 WHERE dva2.content_id = v.content_id GROUP BY dva2.content_id HAVING COUNT(DISTINCT dva2.actress_id) ${mode == ActressMode.single ? '=' : '>'} 1)';
   }
 
+  static Future<List<Map<String, dynamic>>> _browseQuery(String sql, List<Object?> args, {String extraColumns = '', bool ignoreEmptyTitle = false}) => _rawQuery('''
+    WITH page AS ($sql)
+    SELECT
+      v.content_id AS id,
+      v.video_code AS video_code,
+      v.runtime_mins AS duration,
+      COALESCE((SELECT ${ignoreEmptyTitle ? "NULLIF(t.target_en, '')" : 't.target_en'} FROM machine_translation t WHERE t.source_ja = v.title_ja LIMIT 1), ${ignoreEmptyTitle ? "NULLIF(v.title_en, '')" : 'v.title_en'}, v.title_ja) AS title,
+      page.release_date AS release_date,
+      v.sample_url AS trailer,
+      v.jacket_full_url AS fan_art,
+      v.jacket_thumb_url AS poster
+      $extraColumns
+    FROM page
+    JOIN derived_video v ON v.rowid = page.video_rowid
+    ORDER BY page.release_date DESC, v.video_code
+  ''', args);
+
   static Future<int> getCountAllVideosByActress(int actressId, {ActressMode actressMode = ActressMode.single}) async {
     if (!_isReady()) return 0;
 
@@ -767,22 +771,15 @@ mixin DBR18 {
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
     final offset = (page - 1) * limit;
-    final maps = await _rawQuery('''
+    final maps = await _browseQuery('''
       SELECT
-        da.id AS actress_id,                                      -- actress_id
-        v.content_id AS id,                                       -- id
-        v.video_code AS video_code,                                   -- video_code
-        v.runtime_mins AS duration,
-        COALESCE(t.target_en, v.title_en, v.title_ja) AS title,   -- title
-        MAX(v.release_date) AS release_date,                           -- release_date
-        v.sample_url AS trailer,                                  -- trailer
-        v.jacket_full_url AS fan_art,                             -- fan_art
-        v.jacket_thumb_url AS poster                              -- poster
+        da.id AS actress_id,
+        v.rowid AS video_rowid,
+        MAX(v.release_date) AS release_date
       FROM
         derived_video v
       JOIN derived_video_actress dva ON dva.content_id = v.content_id
       JOIN derived_actress da ON da.id = dva.actress_id
-      LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
       WHERE 1=1
         AND v.video_code IS NOT NULL
         AND da.id = ?
@@ -791,9 +788,9 @@ mixin DBR18 {
         
       GROUP BY v.video_code
       ORDER BY
-        v.release_date DESC
-      LIMIT ? OFFSET ?;
-    ''', [actressId, ...blacklist['args'], limit, offset]);
+        v.release_date DESC, v.video_code
+      LIMIT ? OFFSET ?
+    ''', [actressId, ...blacklist['args'], limit, offset], extraColumns: ', page.actress_id');
     return maps;
   }
 
@@ -830,20 +827,13 @@ mixin DBR18 {
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
     final offset = (page - 1) * limit;
-    final maps = await _rawQuery('''
+    final maps = await _browseQuery('''
         SELECT
-          v.content_id AS id,                                       -- id
-          v.video_code AS video_code,                                   -- video_code
-        v.runtime_mins AS duration,
-          COALESCE(t.target_en, v.title_en, v.title_ja) AS title,   -- title
-          MAX(v.release_date) AS release_date,                           -- release_date
-          v.sample_url AS trailer,                                  -- trailer
-          v.jacket_full_url AS fan_art,                             -- fan_art
-          v.jacket_thumb_url AS poster                              -- poster
+          v.rowid AS video_rowid,
+          MAX(v.release_date) AS release_date
         FROM derived_video v
         JOIN derived_video_category vc ON vc.content_id = v.content_id
         JOIN derived_category c ON c.id = vc.category_id
-        LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
         WHERE 1=1
           AND c.name_en = ?
           AND v.video_code IS NOT NULL
@@ -851,7 +841,7 @@ mixin DBR18 {
           ${_actressModeClause(actressMode)}
         GROUP BY v.video_code
         ORDER BY
-          v.release_date DESC
+          v.release_date DESC, v.video_code
         LIMIT ? OFFSET ?
       ''', [categoryName, ...blacklist['args'], limit, offset]);
     return maps;
@@ -889,19 +879,12 @@ mixin DBR18 {
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
     final offset = (page - 1) * limit;
-    final maps = await _rawQuery('''
+    final maps = await _browseQuery('''
         SELECT
-        v.content_id AS id,                                      -- id
-        v.video_code AS video_code,                                  -- video_code
-        v.runtime_mins AS duration,
-        COALESCE(t.target_en, v.title_en, v.title_ja) AS title,  -- title
-        MAX(v.release_date) AS release_date,                          -- release_date
-        v.sample_url AS trailer,                                 -- trailer
-        v.jacket_full_url AS fan_art,                            -- fan_art
-        v.jacket_thumb_url AS poster                             -- poster
+          v.rowid AS video_rowid,
+          MAX(v.release_date) AS release_date
         FROM derived_video v
         JOIN derived_label l ON l.id = v.label_id
-        LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
         WHERE 1=1
           AND l.name_en = ?
           AND v.video_code IS NOT NULL
@@ -909,7 +892,7 @@ mixin DBR18 {
           ${_actressModeClause(actressMode)}
         GROUP BY v.video_code
         ORDER BY
-          v.release_date DESC
+          v.release_date DESC, v.video_code
         LIMIT ? OFFSET ?
       ''', [labelName, ...blacklist['args'], limit, offset]);
     return maps;
@@ -920,36 +903,11 @@ mixin DBR18 {
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosBySeries(String series, {ActressMode actressMode = ActressMode.all}) async {
     if (!_isReady()) return 0;
-
     final blacklist = _buildBlacklistClause();
-    final useLike = series.contains('%') || series.contains('_');
-
-    // Fast path: exact match uses series_id to leverage indexes.
-    if (!useLike) {
-      final seriesRow = await _rawQuery(
-        'SELECT id FROM derived_series WHERE name_en = ? LIMIT 1',
-        [series],
-      );
-      if (seriesRow.isEmpty) return 0;
-      final seriesId = seriesRow.first['id'];
-
-      final maps = await _rawQuery('''
-        SELECT COUNT(DISTINCT v.video_code) AS total
-        FROM derived_video v
-        WHERE v.series_id = ?
-          AND v.video_code IS NOT NULL
-          ${blacklist['sql']}
-          ${_actressModeClause(actressMode)}
-      ''', [seriesId, ...blacklist['args']]);
-      return maps[0]['total'] as int;
-    }
-
-    // Fallback for wildcard search; keep LIKE semantics.
     final maps = await _rawQuery('''
       SELECT COUNT(DISTINCT v.video_code) AS total
       FROM derived_video v
-      JOIN derived_series s ON s.id = v.series_id
-      WHERE s.name_en LIKE ?
+      WHERE v.series_id IN (SELECT id FROM derived_series WHERE name_en LIKE ?)
         AND v.video_code IS NOT NULL
         ${blacklist['sql']}
         ${_actressModeClause(actressMode)}
@@ -968,30 +926,21 @@ mixin DBR18 {
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
     final offset = (page - 1) * limit;
-    final maps = await _rawQuery('''
+    final maps = await _browseQuery('''
         SELECT
-          v.content_id AS id,                                       -- id
-          v.video_code AS video_code,                                   -- video_code
-        v.runtime_mins AS duration,
-          COALESCE(t.target_en, v.title_en, v.title_ja) AS title,   -- title
-          s.name_en AS series,                                      -- series
-          MAX(v.release_date) AS release_date,                           -- release_date
-          v.sample_url AS trailer,                                  -- trailer
-          v.jacket_full_url AS fan_art,                             -- fan_art
-          v.jacket_thumb_url AS poster                              -- poster
-        FROM derived_video v
-        LEFT JOIN derived_series s ON s.id = v.series_id
-        LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
+          v.rowid AS video_rowid,
+          MAX(v.release_date) AS release_date
+        FROM derived_video v INDEXED BY idx_dv_catalog_series
         WHERE 1=1
-          AND s.name_en LIKE ?
+          AND v.series_id IN (SELECT id FROM derived_series WHERE name_en LIKE ?)
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
           ${_actressModeClause(actressMode)}
         GROUP BY v.video_code
         ORDER BY
-          v.release_date DESC
+          v.release_date DESC, v.video_code
         LIMIT ? OFFSET ?
-      ''', [series, ...blacklist['args'], limit, offset]);
+      ''', [series, ...blacklist['args'], limit, offset], extraColumns: ', (SELECT s.name_en FROM derived_series s WHERE s.id = v.series_id LIMIT 1) AS series');
     return maps;
   }
 
@@ -1027,19 +976,12 @@ mixin DBR18 {
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
     final offset = (page - 1) * limit;
-    final maps = await _rawQuery('''
+    final maps = await _browseQuery('''
         SELECT
-          v.content_id AS id,                                       -- id
-          v.video_code AS video_code,                                   -- video_code
-        v.runtime_mins AS duration,
-          COALESCE(t.target_en, v.title_en, v.title_ja) AS title,   -- title
-          MAX(v.release_date) AS release_date,                           -- release_date
-          v.sample_url AS trailer,                                  -- trailer
-          v.jacket_full_url AS fan_art,                             -- fan_art
-          v.jacket_thumb_url AS poster                              -- poster
+          v.rowid AS video_rowid,
+          MAX(v.release_date) AS release_date
         FROM derived_video v
         JOIN derived_maker m ON m.id = v.maker_id
-        LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
         WHERE 1=1
           AND (m.name_en = ? OR m.name_ja = ?)
           AND v.video_code IS NOT NULL
@@ -1047,7 +989,7 @@ mixin DBR18 {
           ${_actressModeClause(actressMode)}
         GROUP BY v.video_code
         ORDER BY
-          v.release_date DESC
+          v.release_date DESC, v.video_code
         LIMIT ? OFFSET ?
       ''', [studio, studio, ...blacklist['args'], limit, offset]);
     return maps;
@@ -1086,20 +1028,13 @@ mixin DBR18 {
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
     final offset = (page - 1) * limit;
-    final maps = await _rawQuery('''
+    final maps = await _browseQuery('''
         SELECT
-          v.content_id AS id,                                         -- id
-          v.video_code AS video_code,                                     -- video_code
-        v.runtime_mins AS duration,
-          COALESCE(t.target_en, v.title_en, v.title_ja) AS title,     -- title
-          MAX(v.release_date) AS release_date,                             -- release_date
-          v.sample_url AS trailer,                                    -- trailer
-          v.jacket_full_url AS fan_art,                               -- fan_art
-          v.jacket_thumb_url AS poster                                -- poster
+          v.rowid AS video_rowid,
+          MAX(v.release_date) AS release_date
         FROM derived_video v
         JOIN derived_video_director vd ON vd.content_id = v.content_id
         JOIN derived_director d ON d.id = vd.director_id
-        LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
         WHERE 1=1
           AND (d.name_romaji = ? OR d.name_kana = ?)
           AND v.video_code IS NOT NULL
@@ -1107,7 +1042,7 @@ mixin DBR18 {
           ${_actressModeClause(actressMode)}
         GROUP BY v.video_code
         ORDER BY
-          v.release_date DESC
+          v.release_date DESC, v.video_code
         LIMIT ? OFFSET ?
       ''', [director, director, ...blacklist['args'], limit, offset]);
     return maps;
@@ -1116,20 +1051,27 @@ mixin DBR18 {
   // ────────────────────────────────────────────────────────────────
   // ⵌ Year
   // ────────────────────────────────────────────────────────────────
+  static ({String sql, List<Object?> args}) _yearFilter(String year) {
+    if (!RegExp(r'^\d+$').hasMatch(year)) return (sql: 'v.release_date LIKE ?', args: ['$year%']);
+    final next = '${year.substring(0, year.length - 1)}${String.fromCharCode(year.codeUnitAt(year.length - 1) + 1)}';
+    return (sql: 'v.release_date >= ? AND v.release_date < ?', args: [year, next]);
+  }
+
   static Future<int> getCountAllVideosByYear(String year, {ActressMode actressMode = ActressMode.all}) async {
     if (!_isReady()) return 0;
 
     final blacklist = _buildBlacklistClause();
+    final yearFilter = _yearFilter(year);
     final maps = await _rawQuery('''
       SELECT 
         COUNT(DISTINCT v.video_code) AS total
       FROM derived_video v 
       WHERE 1=1
-        AND v.release_date LIKE ?
+        AND ${yearFilter.sql}
         AND v.video_code IS NOT NULL
         ${blacklist['sql']}
         ${_actressModeClause(actressMode)}
-    ''', ['$year%', ...blacklist['args']]);
+    ''', [...yearFilter.args, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
@@ -1142,30 +1084,24 @@ mixin DBR18 {
     if (!_isReady()) return [];
 
     final blacklist = _buildBlacklistClause();
+    final yearFilter = _yearFilter(year);
     final limit = perPage;
     final offset = (page - 1) * limit;
-    final maps = await _rawQuery('''
+    final maps = await _browseQuery('''
         SELECT
-          v.content_id AS id,                                         -- id
-          v.video_code AS video_code,                                     -- video_code
-        v.runtime_mins AS duration,
-          COALESCE(t.target_en, v.title_en, v.title_ja) AS title,     -- title
-          MAX(v.release_date) AS release_date,                             -- release_date
-          v.sample_url AS trailer,                                    -- trailer
-          v.jacket_full_url AS fan_art,                               -- fan_art
-          v.jacket_thumb_url AS poster                                -- poster
+          v.rowid AS video_rowid,
+          MAX(v.release_date) AS release_date
         FROM derived_video v
-        LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
         WHERE 1=1
-          AND v.release_date LIKE ?
+          AND ${yearFilter.sql}
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
           ${_actressModeClause(actressMode)}
         GROUP BY v.video_code
         ORDER BY
-          v.release_date DESC
+          v.release_date DESC, v.video_code
         LIMIT ? OFFSET ?
-      ''', ['$year%', ...blacklist['args'], limit, offset]);
+      ''', [...yearFilter.args, ...blacklist['args'], limit, offset]);
     return maps;
   }
 
@@ -1187,6 +1123,7 @@ mixin DBR18 {
     final offset = ((page ?? 1) - 1) * limit;
 
     final filter = _buildFilterClause(
+      correlatedRelations: true,
       videoCode: videoCode,
       actressName: actressName,
       categories: categories,
@@ -1195,27 +1132,7 @@ mixin DBR18 {
     );
     final blacklist = _buildBlacklistClause();
 
-    final maps = await _rawQuery('''
-    SELECT
-      v.content_id AS id,
-      v.video_code AS video_code,
-      COALESCE(t.target_en, v.title_en, v.title_ja) AS title,
-      v.runtime_mins AS duration,
-      MAX(v.release_date) AS release_date,
-      v.sample_url AS trailer,
-      v.jacket_full_url AS fan_art,
-      v.jacket_thumb_url AS poster,
-      v.gallery_full_first AS ssfirst,
-      v.gallery_full_last AS sslast,
-      GROUP_CONCAT(DISTINCT dc.name_en) AS categories,
-      GROUP_CONCAT(DISTINCT da.name_romaji) AS actresses
-    FROM derived_video v
-    LEFT JOIN machine_translation t ON t.source_ja = v.title_ja
-    LEFT JOIN derived_video_category dvc ON dvc.content_id = v.content_id
-    LEFT JOIN derived_category dc ON dc.id = dvc.category_id
-    LEFT JOIN derived_video_actress dva ON dva.content_id = v.content_id
-    LEFT JOIN derived_actress da ON da.id = dva.actress_id
-    WHERE
+    final maps = await _catalogQuery('''
       v.video_code IS NOT NULL
       AND v.release_date IS NOT NULL
       AND v.runtime_mins IS NOT NULL
@@ -1223,9 +1140,6 @@ mixin DBR18 {
       AND v.release_date >= ? AND v.release_date <= ?
       ${filter['sql']}
       ${blacklist['sql']}
-    GROUP BY v.video_code
-    ORDER BY v.release_date DESC
-    LIMIT ? OFFSET ?
   ''', ['$yM-01', '$yM-$dd', ...filter['args'], ...blacklist['args'], limit, offset]);
 
     return maps;

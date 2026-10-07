@@ -28,9 +28,15 @@ def create_video_codes(conn):
 
 def create_catalog_indexes(conn):
     create_video_codes(conn)
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_dvc_content_category ON derived_video_category(content_id, category_id)')
-    conn.execute('ANALYZE idx_dv_advanced_codes')
-    conn.execute('ANALYZE derived_video_category')
+    if conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'javit_catalog_groups_v2'").fetchone():
+        return
+    script = Path(__file__).with_name('r18_catalog_queries.sql').read_text()
+    with conn:
+        if not conn.in_transaction:
+            conn.execute('BEGIN')
+        for statement in script.split(';'):
+            if statement.strip():
+                conn.execute(statement)
 
 
 def cleanup_source_files(input_sql_file):

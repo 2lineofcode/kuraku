@@ -94,20 +94,36 @@ class DBService extends GetxService {
 
   static Future<void> prepareR18VideoCodes(Database db) async {
     final columns = await db.rawQuery('PRAGMA table_info(derived_video)');
-    if (columns.any((column) => column['name'] == 'video_code')) return;
-
-    final script = await rootBundle.loadString('assets/r18_video_code_migration.sql');
-    AppLog.logD('Preparing R18 video codes');
+    if (!columns.any((column) => column['name'] == 'video_code')) {
+      final script = await rootBundle.loadString('assets/r18_video_code_migration.sql');
+      AppLog.logD('Preparing R18 video codes');
+      await db.transaction((txn) async {
+        for (final statement in script.split(';')) {
+          if (statement.trim().isNotEmpty) await txn.execute(statement);
+        }
+      });
+      AppLog.logD('R18 video codes ready');
+    }
+    final prepared = await db.rawQuery("SELECT 1 FROM sqlite_master WHERE name = 'javit_catalog_groups_v2'");
+    if (prepared.isNotEmpty) return;
+    final catalog = await rootBundle.loadString('assets/r18_catalog_queries.sql');
+    AppLog.logD('Preparing R18 catalog queries');
     await db.transaction((txn) async {
-      for (final statement in script.split(';')) {
+      for (final statement in catalog.split(';')) {
         if (statement.trim().isNotEmpty) await txn.execute(statement);
       }
     });
-    AppLog.logD('R18 video codes ready');
+    AppLog.logD('R18 catalog queries ready');
   }
 
   Future<void> activateR18Database(String path, int version) async {
     final next = await openDatabase(path, version: version, onConfigure: _onConfigure);
+    try {
+      await prepareR18VideoCodes(next);
+    } catch (_) {
+      if (next != dbR18) await next.close();
+      rethrow;
+    }
     final previous = dbR18;
     dbR18 = next;
     try {

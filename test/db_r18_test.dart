@@ -45,12 +45,45 @@ class _Call {
   final bool? distinct;
 }
 
-/// Blacklist values are one sided patterns ('TK%' or '%BOD'), unlike search
-/// patterns which are wrapped on both sides ('%school%').
-List<Object?> _blacklistArgs(List<Object?> args) =>
-    args.where((arg) => arg is String && arg.contains('%') && (arg.startsWith('%') != arg.endsWith('%'))).toList();
+class _CatalogDatabase extends _Database {
+  bool indexed = false;
+  bool failIndex = false;
+  int transactions = 0;
+
+  @override
+  Future<List<Map<String, Object?>>> rawQuery(String sql, [List<Object?>? arguments]) async {
+    if (sql.startsWith('PRAGMA table_info')) return [{'name': 'video_code'}];
+    if (sql.contains("name = 'javit_catalog_groups_v2'")) return indexed ? [{'1': 1}] : [];
+    return super.rawQuery(sql, arguments);
+  }
+
+  @override
+  Future<T> transaction<T>(Future<T> Function(Transaction txn) action, {bool? exclusive}) async {
+    transactions++;
+    final result = await action(_CatalogTransaction(this));
+    indexed = true;
+    return result;
+  }
+}
+
+class _CatalogTransaction implements Transaction {
+  _CatalogTransaction(this.database);
+  @override
+  final _CatalogDatabase database;
+
+  @override
+  Future<void> execute(String sql, [List<Object?>? arguments]) async {
+    if (database.failIndex) throw StateError('Index failed');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+List<String> _blacklistPatterns(_Call call) => RegExp(r"v.video_code NOT LIKE '([^']+)'").allMatches(call.sql).map((match) => match[1]!).toList();
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late _Database database;
 
   _Database attach({List<Map<String, Object?>> rawRows = const [], List<Map<String, Object?>> queryRows = const []}) {
@@ -60,6 +93,17 @@ void main() {
   }
 
   tearDown(Get.reset);
+
+  test('existing catalogs receive the covering index once and retry failures', () async {
+    final catalog = _CatalogDatabase()..failIndex = true;
+    await expectLater(DBService.prepareR18VideoCodes(catalog), throwsStateError);
+    expect(catalog.indexed, isFalse);
+    catalog.failIndex = false;
+    await DBService.prepareR18VideoCodes(catalog);
+    expect(catalog.indexed, isTrue);
+    await DBService.prepareR18VideoCodes(catalog);
+    expect(catalog.transactions, 2);
+  });
 
   group('without an R18 database', () {
     setUp(() => Get.put<DBService>(_Service()));
@@ -172,7 +216,7 @@ void main() {
       expect(call.args.take(5), List.filled(5, '%school%'));
       expect(call.args.last, 40, reason: 'offset = (page - 1) * perPage');
       expect(call.args[call.args.length - 2], 20);
-      expect(call.sql, contains('GROUP BY v.video_code'));
+      expect(call.sql, contains('newer.video_code = v.video_code'));
       expect(call.sql, contains('ORDER BY v.release_date DESC'));
       expect(call.sql, contains('LIMIT ? OFFSET ?'));
     });
@@ -239,8 +283,8 @@ void main() {
       expect(call.sql, isNot(contains('v.video_code LIKE ?')));
       expect(call.sql, isNot(contains('EXISTS (')));
       expect(call.sql, contains('COUNT(DISTINCT v.video_code) AS total'));
-      expect(call.args, isNotEmpty, reason: 'the blacklist is always applied');
-      expect(call.args.every((arg) => arg is String), isTrue);
+      expect(call.args, isEmpty);
+      expect(_blacklistPatterns(call), contains('TK%'));
     });
 
     test('a half open year range is ignored because both bounds are required', () async {
@@ -270,18 +314,18 @@ void main() {
       database = attach(rawRows: [{'total': 0}]);
 
       await DBR18.search('x');
-      final blacklist = _blacklistArgs(database.rawCalls.single.args);
+      final blacklist = _blacklistPatterns(database.rawCalls.single);
       expect(blacklist, contains('TK%'));
       expect(blacklist, contains('PB%'));
       expect(blacklist, contains('%BOD'));
       expect(blacklist, contains('%DL'));
-      expect(database.rawCalls.single.sql.split('v.video_code NOT LIKE ?').length - 1, blacklist.length);
+      expect(database.rawCalls.single.sql.split('v.video_code NOT LIKE ').length - 1, blacklist.length);
 
       for (final call in [() => DBR18.getSearchCount('x'), () => DBR18.getByFilter(), () => DBR18.getAllVideosByYear('2026'), () => DBR18.getCountAllVideosByYear('2026')]) {
         database.rawCalls.clear();
         await call();
-        expect(database.rawCalls.single.sql, contains('NOT LIKE ?'));
-        expect(_blacklistArgs(database.rawCalls.single.args), contains('TK%'));
+        expect(database.rawCalls.single.sql, contains('NOT LIKE '));
+        expect(_blacklistPatterns(database.rawCalls.single), contains('TK%'));
       }
     });
   });
@@ -305,14 +349,14 @@ void main() {
       expect(database.rawCalls.last.args.first, 42);
     });
 
-    test('year browsing binds a prefix pattern', () async {
+    test('year browsing binds an indexed prefix range', () async {
       database = attach(rawRows: [{'total': 9}]);
 
       expect(await DBR18.getCountAllVideosByYear('2024'), 9);
-      expect(database.rawCalls.last.args.first, '2024%');
+      expect(database.rawCalls.last.args.take(2), ['2024', '2025']);
 
       await DBR18.getAllVideosByYear('2024', page: 3, perPage: 25);
-      expect(database.rawCalls.last.args.first, '2024%');
+      expect(database.rawCalls.last.args.take(2), ['2024', '2025']);
       expect(database.rawCalls.last.args.sublist(database.rawCalls.last.args.length - 2), [25, 50]);
     });
 
@@ -321,11 +365,11 @@ void main() {
 
       expect(await DBR18.getCountAllVideosByCategory('Drama'), 4);
       expect(database.rawCalls.last.args.first, 'Drama');
-      expect(_blacklistArgs(database.rawCalls.last.args), contains('TK%'));
+      expect(_blacklistPatterns(database.rawCalls.last), contains('TK%'));
 
       await DBR18.getAllVideosByCategory('Drama');
       expect(database.rawCalls.last.args.first, 'Drama');
-      expect(_blacklistArgs(database.rawCalls.last.args), contains('TK%'));
+      expect(_blacklistPatterns(database.rawCalls.last), contains('TK%'));
     });
 
     test('new releases are limited to the current month', () async {

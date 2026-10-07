@@ -51,6 +51,8 @@ app.*.map.json
 *.lock
 *.sql
 !assets/r18_video_code_migration.sql
+!assets/r18_catalog_queries.sql
+!test/fixtures/r18_catalog.sql
 supabase/**
 devtools_options.yaml
 macos/Flutter/GeneratedPluginRegistrant.swift
