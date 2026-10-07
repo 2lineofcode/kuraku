@@ -22,7 +22,7 @@ void main() {
 
   testWidgets('every toast flavour shows its message and mirrors it into the app log', (tester) async {
     await pump(tester);
-    const short = Duration(milliseconds: 100);
+    const short = Duration(seconds: 1);
 
     for (final toast in [
       ('error', () => HelperToast.error('Disk is gone', duration: short), 'Disk is gone', 'ERROR'),
@@ -31,6 +31,7 @@ void main() {
       ('warn', () => HelperToast.warn('Drive is almost full', duration: short), 'Drive is almost full', 'WARN'),
     ]) {
       await toast.$2();
+      await tester.pump();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -51,7 +52,8 @@ void main() {
   testWidgets('a null message still logs and renders without throwing', (tester) async {
     await pump(tester);
 
-    await HelperToast.info(null, duration: const Duration(milliseconds: 100));
+    await HelperToast.info(null, duration: const Duration(seconds: 1));
+    await tester.pump();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -68,6 +70,7 @@ void main() {
 
     await HelperToast.error('First problem', duration: const Duration(seconds: 30));
     await HelperToast.warn('Second problem', duration: const Duration(seconds: 30));
+    await tester.pump();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 

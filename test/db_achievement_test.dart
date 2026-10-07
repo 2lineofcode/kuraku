@@ -4,6 +4,8 @@ import 'package:javit/app/data/database/_init_db.dart';
 import 'package:javit/app/data/database/db_achievement.dart';
 import 'package:sqflite/sqflite.dart';
 
+import 'sqlite_test_database.dart';
+
 class _Service extends DBService {
   @override
   Future<void> onReady() async {}
@@ -27,6 +29,7 @@ class _Database implements Database {
   @override
   Future<int> insert(String table, Map<String, Object?> values, {String? nullColumnHack, ConflictAlgorithm? conflictAlgorithm}) async {
     expect(table, 'achievement_unlock');
+    if (rows.any((row) => row['achievement_key'] == values['achievement_key'])) throw SqliteTestException('UNIQUE constraint failed: achievement_unlock.achievement_key');
     rows.add(Map<String, Object?>.from(values));
     return rows.length;
   }

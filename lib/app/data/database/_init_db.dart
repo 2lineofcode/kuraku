@@ -12,13 +12,8 @@ import '../../core/app_logging.dart';
 import '../../core/app_setting.dart';
 import '../../utils/watch_session_tracker.dart';
 import '_update_db.dart';
-import 'db_activity.dart';
 import 'db_chat.dart';
-import 'db_library.dart';
-import 'db_playlist.dart';
 import 'db_profile.dart';
-import 'db_video_embedding.dart';
-import 'db_videos.dart';
 
 class DBService extends GetxService {
   // Database name
@@ -201,7 +196,7 @@ class DBService extends GetxService {
     await db.execute('CREATE INDEX idx_director ON videos(director);');
     await db.execute('CREATE INDEX idx_series ON videos(series);');
 
-    // Create Activity table
+    // Legacy v1 activity; v14 splits storage into domain tables and keeps a read-only view.
     await db.execute('''
       CREATE TABLE activity (
         id                          TEXT PRIMARY KEY,
@@ -252,19 +247,16 @@ class DBService extends GetxService {
   Database? get r18Database => dbR18;
 
   Future<void> deleteAllData() async {
-    await DBLibrary.deleteAll();
-    await DBVideos.deleteAll();
-    await DBVideoEmbeddings.deleteAll();
-    await DBActivity.deleteAll();
-    await DBPlaylist.deleteAll();
     await WatchSessionTracker.resetHistory(() => dbMain.transaction((txn) async {
-      await txn.delete('watch_session');
-      await txn.update('profile', {'total_watch_duration': 0, 'badge_for_watch_duration': DBProfile.watchDurationBadge(0)},
-        where: 'id = ?', whereArgs: ['1']);
+      for (final table in ['playlist', 'video_embeddings', 'videos', 'library', 'todo', 'download_log', 'relapse_event',
+        'watch_session', 'achievement_unlock', 'historical', 'chat_conversation', 'chat_translation']) {
+        await txn.delete(table);
+      }
+      await txn.update('profile', {
+        'total_watch_duration': 0, 'badge_for_watch_duration': DBProfile.watchDurationBadge(0),
+        'badge_for_collection': 'Noobless',
+      }, where: 'id = ?', whereArgs: ['1']);
     }));
-    await dbMain.delete('achievement_unlock');
-    await dbMain.delete('historical');
-    await dbMain.delete('chat_conversation');
     await vacumDB();
   }
 

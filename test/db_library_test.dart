@@ -7,6 +7,8 @@ import 'package:javit/app/data/database/db_library.dart';
 import 'package:javit/app/data/models/library_entity.dart';
 import 'package:sqflite/sqflite.dart';
 
+import 'sqlite_test_database.dart';
+
 class _Service extends DBService {
   @override
   Future<void> onReady() async {}
@@ -35,6 +37,7 @@ class _Database implements Database {
   @override
   Future<int> insert(String table, Map<String, Object?> values, {String? nullColumnHack, ConflictAlgorithm? conflictAlgorithm}) async {
     expect(table, 'library');
+    if (rows.any((row) => row['root_folder'] == values['root_folder'])) throw SqliteTestException('UNIQUE constraint failed: library.root_folder');
     rows.add(Map<String, Object?>.from(values));
     return rows.length;
   }
@@ -92,7 +95,7 @@ void main() {
     expect(stored['total_video'], 2);
     expect(stored['sub_folder'], jsonEncode(['/Volumes/Movies/a']));
     expect(stored['videos'], jsonEncode(['/Volumes/Movies/a/one.mp4']));
-    expect(database.queries.single['where'], 'root_folder = ?');
+    expect(database.queries, isEmpty);
   });
 
   test('refuses a second library pointing at the same root folder', () async {
@@ -101,8 +104,7 @@ void main() {
     expect(await DBLibrary.add(Library(rootFolder: '/Volumes/Other')), isTrue);
     expect(database.rows.map((row) => row['root_folder']), ['/Volumes/Movies', '/Volumes/Other']);
 
-    // An empty root folder is a value like any other, so it can only be registered once.
-    expect(await DBLibrary.add(Library(rootFolder: '')), isTrue);
+    expect(await DBLibrary.add(Library(rootFolder: '')), isFalse);
     expect(await DBLibrary.add(Library(rootFolder: '')), isFalse);
   });
 

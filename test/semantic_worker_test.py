@@ -22,7 +22,7 @@ class SemanticWorkerTest(unittest.TestCase):
             db_path = root / 'javit.db'
             db = sqlite3.connect(db_path)
             db.execute('CREATE TABLE videos (id TEXT PRIMARY KEY, video_path TEXT, title TEXT, video_code TEXT, actress TEXT, updated_at TEXT)')
-            db.execute('CREATE TABLE video_embeddings (video_id TEXT PRIMARY KEY, source_text TEXT, embedding TEXT, model TEXT, created_at TEXT, updated_at TEXT)')
+            db.execute("CREATE TABLE video_embeddings (video_id TEXT PRIMARY KEY REFERENCES videos(id) ON DELETE CASCADE, source_text TEXT NOT NULL, embedding BLOB NOT NULL CHECK(typeof(embedding)='blob' AND length(embedding)>0 AND length(embedding)%4=0), model TEXT NOT NULL, created_at TEXT, updated_at TEXT)")
             db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?)', ('one', str(root / 'one.mp4'), 'A red car', 'TEST-001', '[{"name_romaji":"Jane Doe"}]', ''))
             db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?)', ('two', str(root / 'two.mp4'), 'A blue boat', 'TEST-002', '[]', ''))
             db.commit()
@@ -32,6 +32,7 @@ class SemanticWorkerTest(unittest.TestCase):
                 (root / (name + '.mp4')).write_bytes(b'video fixture')
                 Image.new('RGB', (256, 256), 'gray').save(root / 'vid_thumbnail' / (name + '.jpg'))
             worker = worker_module.Worker(db_path, root)
+            self.assertEqual(worker.db.execute('PRAGMA foreign_keys').fetchone()[0], 1)
             calls = []
             vector = np.zeros(512, dtype='<f4')
             vector[0] = 1
@@ -74,6 +75,9 @@ class SemanticWorkerTest(unittest.TestCase):
             worker.refresh()
             self.assertFalse(np.any(worker.matrix))
             self.assertFalse(worker.index('deleted')['indexed'])
+            with worker.db:
+                worker.db.execute("DELETE FROM videos WHERE id='one'")
+            self.assertEqual(worker.db.execute('SELECT COUNT(*) FROM video_embeddings').fetchone()[0], 0)
             worker.db.close()
             db.close()
 

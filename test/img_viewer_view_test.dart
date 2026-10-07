@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -160,7 +161,7 @@ void main() {
     await tester.pumpWidget(GetMaterialApp(theme: ThemeData.dark(), home: const Scaffold(body: Text('Gallery'))));
     await tester.pumpAndSettle();
 
-    await Get.to(() => const ImgViewerView());
+    unawaited(Get.to(() => const ImgViewerView()));
     await tester.pumpAndSettle();
     expect(find.byType(ImgViewerView), findsOneWidget);
 

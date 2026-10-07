@@ -1237,4 +1237,6 @@ const englishTranslations = <String, String>{
   'Largest first · up to 200 files': 'Largest first · up to 200 files',
   'Listed size: @{size}': 'Listed size: @{size}',
   'No files with a recorded size in this location.': 'No files with a recorded size in this location.',
+  'Uncensored': 'Uncensored',
+  'Back (Q)': 'Back (Q)',
 };

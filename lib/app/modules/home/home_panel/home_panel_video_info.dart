@@ -35,6 +35,7 @@ mixin HomePanelVideoInfo {
     final _focusNode = FocusNode();
 
     // open overlay
+    WidgetsBinding.instance.scheduleFrame();
     await Overlayment.show(
       context: Get.context,
       OverPanel(

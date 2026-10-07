@@ -9,6 +9,7 @@ import '../../../core/app_translations.dart';
 import '../../../data/database/db_historical.dart';
 import '../../../data/database/db_library.dart';
 import '../../../data/database/db_videos.dart';
+import '../../../data/models/library_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
@@ -105,12 +106,7 @@ class PageSearchTab {
         'newRoot': roots.firstWhere((root) => p.isWithin(root, entry.value), orElse: () => p.dirname(entry.value)),
       });
     }
-    await DBVideos.moveVideoPaths(moves);
-    for (final move in moves) {
-      final video = files[move['oldPath']]!;
-      video.videoPath = move['newPath'];
-      video.rootPath = move['newRoot'];
-    }
+    final snapshots = <Library>[];
     for (final library in libraries) {
       final previous = library.videos ?? <String>[];
       final next = previous.where((path) => !paths.containsKey(path) && !missing.contains(path)).toSet();
@@ -118,7 +114,13 @@ class PageSearchTab {
       if (next.length == previous.length && next.containsAll(previous)) continue;
       library.videos = next.toList();
       library.totalVideo = next.length;
-      await DBLibrary.update(library);
+      snapshots.add(library);
+    }
+    await DBLibrary.commitScan(snapshots, moves: moves, deletedPaths: missing);
+    for (final move in moves) {
+      final video = files[move['oldPath']]!;
+      video.videoPath = move['newPath'];
+      video.rootPath = move['newRoot'];
     }
     if (!_closed) videos.refresh();
   }

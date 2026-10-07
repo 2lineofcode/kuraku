@@ -12,6 +12,7 @@ class _Database implements Database {
   bool hasChatActivity = false;
   String? failAt;
   bool unsupportedCollection = false;
+  bool unsupportedActivity = false;
 
   @override
   Future<void> execute(String sql, [List<Object?>? arguments]) async {
@@ -23,6 +24,7 @@ class _Database implements Database {
 
   @override
   Future<List<Map<String, Object?>>> rawQuery(String sql, [List<Object?>? arguments]) async {
+    if (sql.startsWith('SELECT id FROM activity')) return unsupportedActivity ? [{'id': 'unsupported'}] : [];
     if (sql.startsWith('SELECT id FROM collection')) return unsupportedCollection ? [{'id': 'unsupported'}] : [];
     if (sql == 'PRAGMA table_info(chat_message)') return hasChatActivity ? [{'name': 'activity'}] : [];
     expect(sql, 'PRAGMA table_info(collection)');
@@ -38,14 +40,14 @@ void main() {
 
   test('Migration runner respects target versions, rejects downgrade and stops on failure', () async {
     final db = _Database();
-    expect(DBUpdate.version, 13);
+    expect(DBUpdate.version, 15);
     await DBUpdate.onUpgrade(db, 1, 3);
     expect(db.statements.where((sql) => sql.contains('CREATE TABLE IF NOT EXISTS watch_session')).length, 2);
     expect(db.statements.any((sql) => sql.contains('DROP TABLE') || sql.contains('playlist_id') || sql.contains('historical') || sql.contains('chat_')), isFalse);
     db.statements.clear();
     await DBUpdate.onUpgrade(db, 8, 8);
     expect(db.statements, isEmpty);
-    for (final range in [(0, 8), (8, 7), (13, 14)]) {
+    for (final range in [(0, 8), (8, 7), (15, 16)]) {
       await expectLater(DBUpdate.onUpgrade(db, range.$1, range.$2), throwsStateError);
     }
     await expectLater(DBUpdate.onDowngrade(db, 9, 8), throwsStateError);
@@ -60,6 +62,123 @@ void main() {
     final db = _Database()..unsupportedCollection = true;
     await expectLater(DBUpdate.onUpgrade(db, 10, 11), throwsStateError);
     expect(db.statements, isEmpty);
+  });
+
+  test('Unsupported activity types stop migration before any changes', () async {
+    final db = _Database()..unsupportedActivity = true;
+    await expectLater(DBUpdate.onUpgrade(db, 13, 14), throwsStateError);
+    expect(db.statements, isEmpty);
+  });
+
+  test('Activity migration preserves rows, validates domains and rolls back in SQLite', () async {
+    final legacy = _Database();
+    await DBService.onCreate(legacy, 13);
+    final migration = _Database();
+    await DBUpdate.onUpgrade(migration, 13, 14);
+    final result = await Process.run('python3', ['-c', r'''
+import json, os, sqlite3, sys
+baseline, migration = json.loads(sys.argv[1])
+def apply(db, statements, version, fail=None):
+    db.execute('BEGIN')
+    try:
+        for sql in statements:
+            db.execute(sql)
+            if fail and fail in sql:
+                raise RuntimeError('Injected failure')
+        db.execute('PRAGMA user_version = %d' % version)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+def legacy():
+    db = sqlite3.connect(':memory:')
+    apply(db, baseline, 13)
+    db.execute("INSERT INTO activity VALUES ('t1','todo','Watch later','created','updated')")
+    db.execute("INSERT INTO activity VALUES ('d1','download',?, 'created','updated')", (json.dumps({'filename':'a.mp4','ev':'start','url':'https://example.com','dir':'/tmp','retries':3,'custom':'keep'}),))
+    db.execute("INSERT INTO activity VALUES ('r1','relapse','2024-02-29','created','updated'), ('r2','relapse','2024-02-29','created','updated')")
+    db.commit()
+    return db
+for bad in [
+    "INSERT INTO activity VALUES ('bad','todo','watch LATER',NULL,NULL)",
+    "INSERT INTO activity VALUES ('bad','todo','  ',NULL,NULL)",
+    "INSERT INTO activity VALUES ('bad','download','not json',NULL,NULL)",
+    "INSERT INTO activity VALUES ('bad','download','[]',NULL,NULL)",
+    "INSERT INTO activity VALUES ('bad','relapse','2025-02-29',NULL,NULL)",
+    "INSERT INTO activity VALUES ('bad','relapse','2026-13-01',NULL,NULL)",
+    "INSERT INTO activity VALUES (NULL,'todo','Missing ID',NULL,NULL)",
+]:
+    db = legacy()
+    db.execute(bad)
+    db.commit()
+    before = db.execute('SELECT * FROM activity ORDER BY id').fetchall()
+    try:
+        apply(db, migration, 14)
+    except (sqlite3.IntegrityError, sqlite3.OperationalError):
+        pass
+    else:
+        raise AssertionError('Invalid legacy data accepted: ' + bad)
+    assert db.execute('SELECT * FROM activity ORDER BY id').fetchall() == before
+    assert db.execute('PRAGMA user_version').fetchone()[0] == 13
+    assert not db.execute("SELECT name FROM sqlite_master WHERE name='todo'").fetchall()
+    db.close()
+db = legacy()
+before = db.execute('SELECT * FROM activity ORDER BY id').fetchall()
+try:
+    apply(db, migration, 14, fail='DROP TABLE activity')
+except RuntimeError:
+    pass
+else:
+    raise AssertionError('Failure not injected')
+assert db.execute('SELECT * FROM activity ORDER BY id').fetchall() == before
+assert db.execute('PRAGMA user_version').fetchone()[0] == 13
+apply(db, migration, 14)
+assert db.execute('SELECT * FROM activity ORDER BY id').fetchall() == before
+assert db.execute('SELECT filename,status,url,directory FROM download_log').fetchone() == ('a.mp4','start','https://example.com','/tmp')
+assert json.loads(db.execute('SELECT payload FROM download_log').fetchone()[0])['custom'] == 'keep'
+for sql in [
+    "INSERT INTO todo (id,title) VALUES ('t2','watch LATER')",
+    "INSERT INTO todo (id,title) VALUES ('t2','  ')",
+    "INSERT INTO todo (id,title) VALUES ('t2',' untrimmed ')",
+    "INSERT INTO download_log (id,payload) VALUES ('d2','invalid')",
+    "INSERT INTO download_log (id,payload) VALUES ('d2','null')",
+    "INSERT INTO relapse_event (id,occurred_on) VALUES ('r3','2025-02-29')",
+]:
+    try: db.execute(sql)
+    except (sqlite3.IntegrityError, sqlite3.OperationalError): pass
+    else: raise AssertionError('Invalid domain data accepted: ' + sql)
+db.execute("UPDATE download_log SET payload=? WHERE id='d1'", (json.dumps({'filename':'renamed.mp4','ev':'finish','output_path':'/tmp/renamed.mp4'}),))
+assert db.execute('SELECT filename,status,output_path FROM download_log').fetchone() == ('renamed.mp4','finish','/tmp/renamed.mp4')
+assert any('idx_download_log_filename' in row[-1] for row in db.execute("EXPLAIN QUERY PLAN SELECT id FROM download_log WHERE filename LIKE 'renamed%'").fetchall())
+try: db.execute("INSERT INTO activity (id,type,content) VALUES ('new','todo','blocked')")
+except sqlite3.OperationalError: pass
+else: raise AssertionError('Compatibility view must be read-only')
+# IDs are domain-scoped; filtered deletion must not delete the same ID in another table.
+db.execute("INSERT INTO todo (id,title) VALUES ('r1','Same ID')")
+for kind, table in [('todo','todo'), ('download','download_log'), ('relapse','relapse_event')]:
+    db.execute('DELETE FROM %s WHERE id IN (SELECT id FROM activity WHERE type = ? AND (id = ? AND type = ?))' % table, (kind,'r1','relapse'))
+assert db.execute("SELECT count(*) FROM todo WHERE id='r1'").fetchone()[0] == 1
+assert db.execute('SELECT count(*) FROM relapse_event').fetchone()[0] == 1
+assert db.execute('PRAGMA quick_check').fetchall() == [('ok',)]
+db.close()
+# Optional verification uses an in-memory backup; the user's database stays read-only.
+source_path = os.environ.get('JAVIT_ACTIVITY_DB')
+if source_path:
+    source = sqlite3.connect('file:' + source_path + '?mode=ro', uri=True)
+    copy = sqlite3.connect(':memory:')
+    source.backup(copy)
+    source.close()
+    current = copy.execute('PRAGMA user_version').fetchone()[0]
+    assert current in (13, 14)
+    before = copy.execute('SELECT * FROM activity ORDER BY id').fetchall()
+    if current == 13: apply(copy, migration, 14)
+    assert copy.execute('SELECT * FROM activity ORDER BY id').fetchall() == before
+    assert copy.execute('PRAGMA quick_check').fetchall() == [('ok',)]
+    assert copy.execute('PRAGMA foreign_key_check').fetchall() == []
+    print('Local database copy migrated: %d activity rows preserved' % len(before))
+    copy.close()
+''', jsonEncode([legacy.statements, migration.statements])]);
+    expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+    if (result.stdout.toString().isNotEmpty) print(result.stdout);
   });
 
   test('Fresh database and every supported upgrade converge, preserve data and roll back in SQLite', () async {
@@ -107,8 +226,8 @@ expected = schema(reference)
 for path in paths:
     db = connect()
     apply(db, path['baseline'], path['old'])
-    db.execute("INSERT INTO library (id, alias) VALUES ('library-1', 'Keep me')")
-    db.execute("INSERT INTO videos (id) VALUES ('video-1')")
+    db.execute("INSERT INTO library (id, alias, root_folder) VALUES ('library-1', 'Keep me', '/library')")
+    db.execute("INSERT INTO videos (id, root_path, video_path) VALUES ('video-1','/library','/library/video-1.mp4')")
     if path['old'] < 11:
         db.execute("INSERT INTO collection (id, type, name, cover) VALUES ('p1', 'playlist', 'My list', 'cover')")
         if path['old'] < 6:

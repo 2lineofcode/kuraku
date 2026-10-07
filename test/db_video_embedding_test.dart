@@ -56,6 +56,20 @@ class _Database implements Database {
   }
 
   @override
+  Future<int> rawInsert(String sql, [List<Object?>? arguments]) async {
+    final keys = ['video_id', 'source_text', 'embedding', 'model', 'created_at', 'updated_at'];
+    final values = Map<String, Object?>.fromIterables(keys, arguments!);
+    final existing = rows.where((row) => row['video_id'] == values['video_id']).firstOrNull;
+    if (existing == null) {
+      rows.add(values);
+    } else {
+      values['created_at'] = existing['created_at'];
+      existing.addAll(values);
+    }
+    return rows.length;
+  }
+
+  @override
   Future<int> delete(String table, {String? where, List<Object?>? whereArgs}) async {
     expect(table, 'video_embeddings');
     deletes.add(where);
@@ -84,7 +98,7 @@ void main() {
     database = _Database();
     Get.put<DBService>(_Service()..dbMain = database);
   });
-  tearDown(() => Get.delete<DBService>());
+  tearDown(() => Get.delete<DBService>(force: true));
   tearDownAll(Get.reset);
 
   group('VideoEmbeddingRecord', () {
@@ -120,18 +134,20 @@ void main() {
       expect(VideoEmbeddingRecord.fromJson({}).videoId, '');
     });
 
-    test('serialises the vector as JSON text', () {
+    test('serialises the vector as a little-endian float32 blob', () {
       final json = VideoEmbeddingRecord(videoId: 'v3', sourceText: 'text', embedding: [0.1, 0.2], model: 'm', createdAt: 'c', updatedAt: 'u').toJson();
-      expect(json, {'video_id': 'v3', 'source_text': 'text', 'embedding': jsonEncode([0.1, 0.2]), 'model': 'm', 'created_at': 'c', 'updated_at': 'u'});
-      expect(VideoEmbeddingRecord.fromJson(json).embedding, [0.1, 0.2]);
+      expect(json['embedding'], isA<Uint8List>());
+      final decoded = VideoEmbeddingRecord.fromJson(json);
+      expect(decoded.embedding[0], closeTo(0.1, 1e-6));
+      expect(decoded.embedding[1], closeTo(0.2, 1e-6));
     });
   });
 
   group('DBVideoEmbeddings', () {
-    test('upsert replaces the row, keeps the original creation date and defaults the model', () async {
+    test('upsert updates the row, keeps the original creation date and defaults the model', () async {
       await DBVideoEmbeddings.upsert(videoId: 'v1', sourceText: 'first text', embedding: [0.1, 0.2]);
       expect(database.rows, hasLength(1));
-      expect(database.lastConflict, ConflictAlgorithm.replace);
+      expect(database.lastConflict, isNull);
       expect(database.rows.single['model'], 'local-hash-v2');
       expect('${database.rows.single['created_at']}', matches(dateLike));
       final createdAt = database.rows.single['created_at'];

@@ -28,42 +28,34 @@ mixin DBVideos {
     throw ArgumentError('Unsupported column: $column');
   }
 
-  static Future<bool> _validation(Videos videos) async {
-    final isDuplicateVideoPath = await getByVideoPath(videos.videoPath ?? '');
-    if (isDuplicateVideoPath != null) return false;
-    return true;
-  }
-
   static List<Videos> _toVideos(List<Map<String, dynamic>> maps) {
     return List.generate(maps.length, (index) => Videos.fromJson(maps[index]));
   }
 
-  static Future<void> addBulk(List<Videos> videos) async {
-    final List<Map<String, dynamic>> videosToInsert = [];
-
-    for (int i = 0; i < videos.length; i++) {
-      final video = videos[i];
-
-      // ** default
-      video.id = const UuidV4().generate();
-      video.createdAt = DateTime.now().toStringEx();
-      video.updatedAt = DateTime.now().toStringEx();
-
-      _normalizeMetadata(video);
-
-      // Check validation
-      final isOK = await _validation(video);
-      if (isOK) videosToInsert.add(video.toJson());
-    }
-
-    // 2. Perform a single database transaction for insertion
-    if (videosToInsert.isNotEmpty) {
-      await _db.transaction((txn) async {
-        for (final videoJson in videosToInsert) {
-          await txn.insert(_tableName, videoJson, conflictAlgorithm: ConflictAlgorithm.replace);
+  static Future<void> addBulk(List<Videos> videos, {DatabaseExecutor? executor}) async {
+    Future<void> insert(DatabaseExecutor db) async {
+      for (final video in videos) {
+        if ((video.videoPath ?? '').trim().isEmpty || (video.rootPath ?? '').trim().isEmpty) {
+          throw ArgumentError('Video path and root are required');
         }
-      });
-      AppLog.logD('bulkAdd: ${videosToInsert.length} videos');
+        video.id = const UuidV4().generate();
+        video.createdAt = video.updatedAt = DateTime.now().toStringEx();
+        video.viewCount ??= 0;
+        video.isFavorite ??= 0;
+        video.duration ??= 0;
+        video.filesize ??= 0;
+        _normalizeMetadata(video);
+        final values = video.toJson();
+        await db.rawInsert('''
+          INSERT INTO videos (${values.keys.join(', ')}) VALUES (${List.filled(values.length, '?').join(', ')})
+          ON CONFLICT(video_path) DO NOTHING
+        ''', values.values.toList());
+      }
+    }
+    if (executor != null) {
+      await insert(executor);
+    } else {
+      await _db.transaction(insert);
     }
   }
 
@@ -116,7 +108,11 @@ mixin DBVideos {
 
   static Future<void> update(Videos videos) async {
     videos.updatedAt = DateTime.now().toStringEx();
-    await _db.update(_tableName, videos.toJson(), where: 'id = ?', whereArgs: [videos.id]);
+    final values = videos.toJson();
+    for (final field in ['duration', 'view_count', 'is_favorite', 'filesize']) {
+      if (values[field] == null) values.remove(field);
+    }
+    await _db.update(_tableName, values, where: 'id = ?', whereArgs: [videos.id]);
   }
 
   static const _missingQuality = "(quality IS NULL OR TRIM(quality) = '')";
@@ -153,14 +149,14 @@ mixin DBVideos {
     await _db.delete(_tableName, where: 'id = ?', whereArgs: [videos.id]);
   }
 
-  static Future<void> deleteByVideoPaths(List<String> videoPaths) async {
+  static Future<void> deleteByVideoPaths(List<String> videoPaths, {DatabaseExecutor? executor}) async {
     if (videoPaths.isEmpty) return;
     final unique = videoPaths.where((p) => p.trim().isNotEmpty).toSet().toList();
     if (unique.isEmpty) return;
 
     // Keep below SQLite variable limit.
     const chunkSize = 800;
-    await _db.transaction((txn) async {
+    Future<void> remove(DatabaseExecutor txn) async {
       for (var i = 0; i < unique.length; i += chunkSize) {
         final chunk = unique.sublist(i, i + chunkSize > unique.length ? unique.length : i + chunkSize);
         final placeholders = List.filled(chunk.length, '?').join(', ');
@@ -169,19 +165,24 @@ mixin DBVideos {
           chunk,
         );
       }
-    });
+    }
+    if (executor != null) {
+      await remove(executor);
+    } else {
+      await _db.transaction(remove);
+    }
   }
 
   static Future<void> deleteByRootPath(String rootPath) async {
     await _db.delete(_tableName, where: 'root_path = ?', whereArgs: [rootPath]);
   }
 
-  static Future<int> moveVideoPaths(List<Map<String, String>> moves) async {
+  static Future<int> moveVideoPaths(List<Map<String, String>> moves, {DatabaseExecutor? executor}) async {
     if (moves.isEmpty) return 0;
     var updatedRows = 0;
     final now = DateTime.now().toStringEx();
 
-    await _db.transaction((txn) async {
+    Future<void> move(DatabaseExecutor txn) async {
       for (final move in moves) {
         final oldPath = (move['oldPath'] ?? '').trim();
         final newPath = (move['newPath'] ?? '').trim();
@@ -198,7 +199,12 @@ mixin DBVideos {
         );
         updatedRows += affected;
       }
-    });
+    }
+    if (executor != null) {
+      await move(executor);
+    } else {
+      await _db.transaction(move);
+    }
 
     return updatedRows;
   }
@@ -232,6 +238,15 @@ mixin DBVideos {
   }
 
   static Future<List<Videos>> getAllLike(String column, String like, {String? jsonObject}) async {
+    if (column == 'actress' || column == 'category') {
+      final field = column == 'actress' ? 'id' : 'category';
+      final maps = await _db.rawQuery('''
+        SELECT * FROM videos v WHERE EXISTS (
+          SELECT 1 FROM json_each(v.$column) j WHERE CAST(json_extract(j.value, '\$.$field') AS TEXT) = ?
+        ) ORDER BY release_date DESC
+      ''', [like]);
+      return _toVideos(maps);
+    }
     var part = '';
     if (jsonObject != null) part = '"$jsonObject":"';
     final safeColumn = _safeColumn(column);
@@ -301,8 +316,10 @@ mixin DBVideos {
 
   static Future<List<Videos>> getByActress(String actressName) async {
     final maps = await _db.rawQuery('''
-      SELECT * FROM $_tableName WHERE json_extract(actress, '\$[0].name_romaji') LIKE ?
-    ''', ['%$actressName%']);
+      SELECT * FROM videos v WHERE EXISTS (
+        SELECT 1 FROM json_each(v.actress) j WHERE json_extract(j.value, '\$.name_romaji') = ? COLLATE NOCASE
+      )
+    ''', [actressName]);
     return _toVideos(maps);
   }
 
@@ -314,24 +331,25 @@ mixin DBVideos {
   }
 
   static Future<void> updateViewCount(Videos video) async {
-    final upd = video;
-    upd.viewCount = (video.viewCount ?? 0) + 1;
-    await _db.update(_tableName, upd.toJson(), where: 'id = ?', whereArgs: [video.id]);
+    await _db.transaction((txn) async {
+      final changed = await txn.rawUpdate('UPDATE videos SET view_count = view_count + 1 WHERE id = ?', [video.id]);
+      if (changed == 0) return;
+      final rows = await txn.query('videos', columns: ['view_count'], where: 'id = ?', whereArgs: [video.id], limit: 1);
+      video.viewCount = rows.single['view_count'] as int;
+    });
   }
 
-  static Future<void> addToFavorite(Videos video) async {
-    final upd = video;
-    upd.isFavorite = 1;
-    upd.updatedAt = DateTime.now().toStringEx();
-    await _db.update(_tableName, upd.toJson(), where: 'id = ?', whereArgs: [video.id]);
+  static Future<void> _setFavorite(Videos video, int favorite) async {
+    final now = DateTime.now().toStringEx();
+    final changed = await _db.update('videos', {'is_favorite': favorite, 'updated_at': now}, where: 'id = ?', whereArgs: [video.id]);
+    if (changed == 0) return;
+    video.isFavorite = favorite;
+    video.updatedAt = now;
   }
 
-  static Future<void> removeFromFavorite(Videos video) async {
-    final upd = video;
-    upd.isFavorite = 0;
-    upd.updatedAt = DateTime.now().toStringEx();
-    await _db.update(_tableName, upd.toJson(), where: 'id = ?', whereArgs: [video.id]);
-  }
+  static Future<void> addToFavorite(Videos video) => _setFavorite(video, 1);
+
+  static Future<void> removeFromFavorite(Videos video) => _setFavorite(video, 0);
 
   // ────────────────────────────────────────────────────────────────
   // ⵌ helper

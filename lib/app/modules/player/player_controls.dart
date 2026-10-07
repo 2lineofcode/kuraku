@@ -356,7 +356,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       final number = total > 0 ? (widget.controller.currentIndexPlaying.value + 1).clamp(1, total) : 0;
       final code = (video.videoCode ?? '').isNotEmpty ? video.videoCode! : 'NON-JAV';
       final subtitle = video.videoPath?.isHasIdSub() == true ? 'ID Sub'.tr : video.videoPath?.isHasEnSub() == true ? 'EN Sub'.tr : 'No Sub'.tr;
-      final details = [if ((video.viewCount ?? 0) > 0) '@{count} views'.trNamed({'count': '${video.viewCount}'}), subtitle,
+      final details = [if ((video.viewCount ?? 0) > 0) '@{viewCount} views'.trNamed({'viewCount': '${video.viewCount}'}), subtitle,
         video.videoPath?.isHasUncensored() == true ? 'Uncensored'.tr : 'Censored'.tr].join(' · ');
       final metadata = _glassPanel(
         CupertinoButton(

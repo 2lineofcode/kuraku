@@ -1,12 +1,14 @@
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart' hide LogInterceptor;
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart' show extraFromNetworkKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:javit/app/core/app_network.dart';
 import 'package:javit/app/modules/home/home_panel/home_panel_log.dart';
 
 class _Adapter implements HttpClientAdapter {
   int statusCode = 200;
+  final responseExtra = <String, dynamic>{};
   final requests = <RequestOptions>[];
 
   @override
@@ -18,7 +20,7 @@ class _Adapter implements HttpClientAdapter {
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
       },
-    );
+    )..extra.addAll(responseExtra);
   }
 
   @override
@@ -66,8 +68,9 @@ void main() {
     expect(notModified.statusCode, 304);
 
     adapter.statusCode = 200;
-    final fromStore = await dio.get('/stored', options: Options(extra: {'cacheHit': true}));
-    expect(fromStore.extra['cacheHit'], isTrue);
+    adapter.responseExtra[extraFromNetworkKey] = false;
+    final fromStore = await dio.get('/stored');
+    expect(fromStore.extra[extraFromNetworkKey], isFalse);
 
     // Logging depends on the configured level, but when it happens the cache
     // marker must be used instead of the elapsed time.

@@ -52,6 +52,7 @@ void main() {
     Get.put(AppSettingService()..pref = _Preferences());
     controller = _Controller();
     controller.videoController = _VideoController();
+    controller.isPlayerVisible.value = true;
     controller.currentVideo.value = Videos(videoCode: 'ABP-001', title: 'Test', videoPath: '/movies/ABP-001.mp4');
     Get.put<PlayerController>(controller);
   });
@@ -106,7 +107,8 @@ void main() {
     await tester.pumpAndSettle();
 
     unawaited(Get.to(() => const PlayerView()));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     controller.change(controller.currentVideo.value, status: RxStatus.success());
     await tester.pump();
     expect(find.byType(PlayerView), findsOneWidget);
@@ -124,7 +126,8 @@ void main() {
     await tester.pumpAndSettle();
 
     unawaited(Get.to(() => const PlayerView()));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     controller.change(controller.currentVideo.value, status: RxStatus.success());
     controller.isMiniMode.value = true;
     await tester.pump();

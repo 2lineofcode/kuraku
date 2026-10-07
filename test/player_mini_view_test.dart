@@ -89,13 +89,19 @@ void main() {
   });
   tearDown(Get.reset);
 
+  Future<void> settle(WidgetTester tester) async {
+    // The missing texture keeps the loading spinner animating.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
   Future<void> pump(WidgetTester tester) async {
     await tester.pumpWidget(GetMaterialApp(
       theme: ThemeData.dark(),
       home: const Scaffold(body: Stack(children: [PlayerMiniView()])),
       getPages: [GetPage(name: Routes.PLAYER, page: () => const Scaffold(body: Text('Full player')))],
     ));
-    await tester.pumpAndSettle();
+    await settle(tester);
   }
 
   testWidgets('stays hidden unless the player is both visible and in mini mode', (tester) async {
@@ -104,11 +110,11 @@ void main() {
     expect(find.text('ABP-001'), findsNothing);
 
     controller.isMiniMode.value = true;
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('ABP-001'), findsOneWidget);
 
     controller.isPlayerVisible.value = false;
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('ABP-001'), findsNothing);
     expect(find.byType(IconButton), findsNothing);
   });
@@ -118,11 +124,11 @@ void main() {
     expect(find.text('ABP-001'), findsOneWidget);
 
     controller.currentVideo.value = Videos(videoCode: '', title: 'Only a title');
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Only a title'), findsOneWidget);
 
     controller.currentVideo.value = Videos();
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text(''), findsOneWidget);
   });
 
@@ -135,11 +141,11 @@ void main() {
     expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value, closeTo(0.25, 1e-9));
 
     controller.position.value = const Duration(seconds: 500);
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value, 1.0, reason: 'clamped to the end');
 
     controller.duration.value = Duration.zero;
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value, 0.0);
   });
 
@@ -149,7 +155,7 @@ void main() {
     expect(find.byTooltip('Play'), findsOneWidget);
 
     controller.isPlaying.value = true;
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byIcon(CupertinoIcons.pause_fill), findsOneWidget);
     expect(find.byTooltip('Pause'), findsOneWidget);
   });
@@ -161,7 +167,7 @@ void main() {
     await tester.tap(find.byTooltip('Play'));
     await tester.tap(find.byTooltip('Next'));
     await tester.tap(find.byTooltip('Close'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(controller.calls, ['prev', 'toggle', 'next', 'stop']);
   });
@@ -170,7 +176,7 @@ void main() {
     await pump(tester);
 
     await tester.tap(find.byType(CircularProgressIndicator));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(controller.calls, contains('exitMini'));
     expect(controller.isMiniMode.value, isFalse);
@@ -183,11 +189,11 @@ void main() {
     final step = AppPref.getPlayerSeekShort();
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(controller.lastSeek, Duration(seconds: step));
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(controller.lastSeek, Duration(seconds: -step));
     expect(controller.calls, ['seek', 'seek']);
   });
@@ -196,7 +202,7 @@ void main() {
     await pump(tester);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(controller.isMiniMode.value, isFalse);
     expect(controller.calls, contains('exitMini'));

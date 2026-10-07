@@ -443,7 +443,6 @@ mixin HomePanelLibrary {
 
       if (isFromDrop) {
         Get.back();
-        await DBLibrary.add(library);
         await _doAddorEditVideoFromLibrary(library);
       } else {
         Get.back();
@@ -455,7 +454,6 @@ mixin HomePanelLibrary {
 
     // Add mode
     librarySelected.alias = alias;
-    await DBLibrary.add(librarySelected);
     Get.back();
     await _doAddorEditVideoFromLibrary(librarySelected);
     await startAutoRescanWatcher();
@@ -477,14 +475,27 @@ mixin HomePanelLibrary {
     final sw = Stopwatch();
     sw.start();
 
-    if (library.videos == null || library.videos!.isEmpty) return;
-
     if (showLoading) {
       _controller.footerText.value = '◎ Scanning and processing videos...'.tr;
       _controller.change(200, status: RxStatus.loading());
     }
 
-    final videos = library.videos!;
+    final videosToAdd = await _prepareVideos(library);
+    await DBLibrary.commitScan([library], additions: videosToAdd);
+
+    sw.stop();
+    AppLog.logD('Time taken: ${sw.elapsedMilliseconds}ms');
+    if (showFinishToast) {
+      await HelperToast.success('Finish • @{elapsedMilliseconds}ms | @{length} Videos Added'.trNamed({'elapsedMilliseconds': '${sw.elapsedMilliseconds}', 'length': '${videosToAdd.length}'}));
+    }
+
+    if (refreshAfter) {
+      await _controller.onRefreshAllContent();
+    }
+  }
+
+  static Future<List<Videos>> _prepareVideos(Library library) async {
+    final videos = library.videos ?? const <String>[];
     final totalVideos = videos.length;
     final videosToAdd = <Videos>[];
     var processedCounter = 0;
@@ -511,22 +522,7 @@ mixin HomePanelLibrary {
     });
     await Future.wait(workers);
 
-    if (videosToAdd.isNotEmpty) {
-      _controller.footerText.value = '◎ Committing @{length} Videos'.trNamed({'length': '${videosToAdd.length}'});
-      await DBVideos.addBulk(videosToAdd);
-    } else {
-      _controller.footerText.value = '◎ No new videos to add.'.tr;
-    }
-
-    sw.stop();
-    AppLog.logD('Time taken: ${sw.elapsedMilliseconds}ms');
-    if (showFinishToast) {
-      await HelperToast.success('Finish • @{elapsedMilliseconds}ms | @{length} Videos Added'.trNamed({'elapsedMilliseconds': '${sw.elapsedMilliseconds}', 'length': '${videosToAdd.length}'}));
-    }
-
-    if (refreshAfter) {
-      await _controller.onRefreshAllContent();
-    }
+    return videosToAdd;
   }
 
   static Future<void> _repairAllMetadata(List<Library> libraries) async {
@@ -669,8 +665,10 @@ mixin HomePanelLibrary {
   /// Deletes all videos associated with a specific library.
   // ────────────────────────────────────────────────────────────────
   static Future<void> _doDeleteVideoFromLibrary(Library library) async {
-    await DBVideos.deleteByRootPath(library.rootFolder ?? '');
-    await DBLibrary.delete(library);
+    await Get.find<DBService>().dbMain.transaction((txn) async {
+      await txn.delete('videos', where: 'root_path = ?', whereArgs: [library.rootFolder]);
+      await txn.delete('library', where: 'id = ?', whereArgs: [library.id]);
+    });
     await startAutoRescanWatcher();
     await _controller.onRefreshAllContent();
   }
@@ -692,16 +690,12 @@ mixin HomePanelLibrary {
 
       final pathToAdd = <String>[];
       final pathToDelete = <String>[];
-      final oldVideos = Set<String>.from(oldData.videos ?? const <String>[]);
+      final stored = await DBVideos.getAll(where: 'root_path = ?', whereArgs: [oldData.rootFolder]);
+      final oldVideos = stored.map((video) => video.videoPath!).toSet();
       final newVideos = Set<String>.from(newData.videos ?? const <String>[]);
 
       pathToAdd.addAll(newVideos.difference(oldVideos));
       pathToDelete.addAll(oldVideos.difference(newVideos));
-
-      // Update library
-      oldData.totalVideo = newData.totalVideo;
-      oldData.videos = newData.videos;
-      await DBLibrary.update(oldData);
 
       final moves = <Map<String, String>>[];
       final remainingAdds = <String>[];
@@ -730,26 +724,16 @@ mixin HomePanelLibrary {
         }
       }
 
-      if (moves.isNotEmpty) {
-        final moved = await DBVideos.moveVideoPaths(moves);
-        AppLog.logD('[RescanSingle] ${library.alias} | moved=$moved');
-      }
-
-      if (remainingAdds.isNotEmpty) {
-        final libraryWithNewVideos = Library(videos: remainingAdds, rootFolder: oldData.rootFolder);
-        await _doAddorEditVideoFromLibrary(
-          libraryWithNewVideos,
-          refreshAfter: false,
-          showFinishToast: false,
-          showLoading: false,
-        );
-        await HelperToast.info('@{alias} | Added @{length} videos'.trNamed({'alias': '${library.alias}', 'length': '${remainingAdds.length}'}));
-      }
-
-      if (remainingDeletes.isNotEmpty) {
-        await DBVideos.deleteByVideoPaths(remainingDeletes);
-        await HelperToast.warn('@{alias} | Deleted @{length} videos'.trNamed({'alias': '${library.alias}', 'length': '${remainingDeletes.length}'}));
-      }
+      final additions = await _prepareVideos(Library(videos: remainingAdds, rootFolder: oldData.rootFolder));
+      final snapshot = Library.fromJson(oldData.toJson())
+        ..totalVideo = newData.totalVideo
+        ..videos = newData.videos
+        ..subFolder = newData.subFolder;
+      await DBLibrary.commitScan([snapshot], additions: additions, moves: moves, deletedPaths: remainingDeletes);
+      oldData.totalVideo = snapshot.totalVideo;
+      oldData.videos = snapshot.videos;
+      oldData.subFolder = snapshot.subFolder;
+      oldData.updatedAt = snapshot.updatedAt;
 
       final recovered = fromAutoWatcher ? 0 : await DBVideos.recoverMissingVideoCodes(oldData.rootFolder ?? '');
       if (recovered > 0) await HelperToast.info('@{recovered} video codes recovered'.trNamed({'recovered': '$recovered'}));
@@ -775,15 +759,17 @@ mixin HomePanelLibrary {
 
       _controller.footerText.value = '◎ Rescanning...'.tr;
 
-      // 1) Build oldMap from current library objects (assumed DB state)
+      // Compare scans against committed video rows so interrupted imports can retry.
       final Map<String, List<String>> oldMap = {};
       for (final lib in libraries) {
-        oldMap[lib.rootFolder ?? ''] = List<String>.from(lib.videos ?? []);
+        final stored = await DBVideos.getAll(where: 'root_path = ?', whereArgs: [lib.rootFolder]);
+        oldMap[lib.rootFolder ?? ''] = stored.map((video) => video.videoPath!).toList();
       }
 
       // 2) Scan all roots and build newMap
       final Map<String, List<String>> newMap = {};
       final Map<String, int> newTotal = {};
+      final Map<String, List<String>?> newSubFolders = {};
 
       // We also need to track which libraries were successfully scanned.
       final List<Library> scannedLibraries = [];
@@ -798,6 +784,7 @@ mixin HomePanelLibrary {
             final newList = newData.videos ?? [];
             newMap[root] = List<String>.from(newList);
             newTotal[root] = (newData.totalVideo ?? 0).toInt();
+            newSubFolders[root] = newData.subFolder;
             scannedLibraries.add(lib);
           }
         } catch (e) {
@@ -866,10 +853,10 @@ mixin HomePanelLibrary {
         }
       }
 
-      // 5) Apply moves: batch update DB paths.
-      final movedUpdatedRows = await DBVideos.moveVideoPaths(moves);
+      // Prepare metadata outside the transaction.
+      final additions = <Videos>[];
 
-      // 6) For remaining adds, group by root and call doAddorEditVideoFromLibrary per root
+      // Group pending additions by root.
       final Map<String, List<String>> addsByRoot = {};
       for (final a in remainingAdds) {
         final root = a['root']!;
@@ -879,29 +866,28 @@ mixin HomePanelLibrary {
         final root = entry.key;
         final list = entry.value;
         final libToAdd = Library(videos: list, rootFolder: root);
-        await _doAddorEditVideoFromLibrary(
-          libToAdd,
-          refreshAfter: false,
-          showFinishToast: false,
-          showLoading: false,
-        );
+        additions.addAll(await _prepareVideos(libToAdd));
       }
 
-      // 7) Apply remaining deletes (those not used in moves)
-      // delCandidates list still contains leftovers; delete them
+      // Commit moves, additions, deletions and snapshots together.
       final delPaths = List<String>.from(
         List<Map<String, String>>.from(delCandidates).map((d) => d['path'] ?? '').where((p) => p.isNotEmpty),
       );
-      await DBVideos.deleteByVideoPaths(delPaths);
 
+
+      final snapshots = scannedLibraries.map((lib) => Library.fromJson(lib.toJson())
+        ..totalVideo = newTotal[lib.rootFolder]
+        ..videos = newMap[lib.rootFolder]
+        ..subFolder = newSubFolders[lib.rootFolder]).toList();
+      final movedUpdatedRows = await DBLibrary.commitScan(snapshots, additions: additions, moves: moves, deletedPaths: delPaths);
       var recovered = 0;
-      // 8) Update each library metadata in DB to reflect scanned state
-      for (final lib in scannedLibraries) {
-        final root = lib.rootFolder ?? '';
-        lib.totalVideo = newTotal[root] ?? lib.totalVideo;
-        lib.videos = newMap[root] ?? [];
-        await DBLibrary.update(lib);
-        if (recoverVideoCodes) recovered += await DBVideos.recoverMissingVideoCodes(root);
+      for (var i = 0; i < scannedLibraries.length; i++) {
+        final lib = scannedLibraries[i];
+        lib.totalVideo = snapshots[i].totalVideo;
+        lib.videos = snapshots[i].videos;
+        lib.subFolder = snapshots[i].subFolder;
+        lib.updatedAt = snapshots[i].updatedAt;
+        if (recoverVideoCodes) recovered += await DBVideos.recoverMissingVideoCodes(lib.rootFolder!);
       }
 
       // 9) Summary log

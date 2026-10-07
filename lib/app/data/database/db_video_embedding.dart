@@ -45,11 +45,23 @@ class VideoEmbeddingRecord {
     );
   }
 
+  static Uint8List _encode(List<double> vector) {
+    if (vector.isEmpty || vector.any((value) => !value.isFinite)) {
+      throw ArgumentError('Embedding must contain finite values');
+    }
+    final bytes = ByteData(vector.length * 4);
+    for (var i = 0; i < vector.length; i++) {
+      bytes.setFloat32(i * 4, vector[i], Endian.little);
+      if (!bytes.getFloat32(i * 4, Endian.little).isFinite) throw ArgumentError('Embedding exceeds float32 range');
+    }
+    return bytes.buffer.asUint8List();
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'video_id': videoId,
       'source_text': sourceText,
-      'embedding': jsonEncode(embedding),
+      'embedding': _encode(embedding),
       'model': model,
       'created_at': createdAt,
       'updated_at': updatedAt,
@@ -68,21 +80,22 @@ mixin DBVideoEmbeddings {
     String? model,
   }) async {
     final now = DateTime.now().toStringEx();
-    final current = await getByVideoId(videoId);
     final record = VideoEmbeddingRecord(
       videoId: videoId,
       sourceText: sourceText,
       embedding: embedding,
       model: model ?? AppPref.getSemanticSearchModel(),
-      createdAt: current?.createdAt ?? now,
+      createdAt: now,
       updatedAt: now,
     );
 
-    await _db.insert(
-      _tableName,
-      record.toJson(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    final values = record.toJson();
+    await _db.rawInsert('''
+      INSERT INTO video_embeddings (video_id, source_text, embedding, model, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(video_id) DO UPDATE SET source_text = excluded.source_text, embedding = excluded.embedding,
+        model = excluded.model, updated_at = excluded.updated_at
+    ''', values.values.toList());
   }
 
   static Future<VideoEmbeddingRecord?> getByVideoId(String videoId) async {

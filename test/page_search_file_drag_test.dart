@@ -43,6 +43,8 @@ class _Database implements Database, Transaction {
     return 1;
   }
   @override
+  Future<int> rawDelete(String sql, [List<Object?>? arguments]) async => 1;
+  @override
   Future<int> update(String table, Map<String, Object?> values, {String? where, List<Object?>? whereArgs, ConflictAlgorithm? conflictAlgorithm}) async {
     expect(table, 'library');
     libraries.firstWhere((row) => row['id'] == whereArgs!.single).addAll(values);

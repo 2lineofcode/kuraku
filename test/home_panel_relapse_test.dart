@@ -84,7 +84,10 @@ class _Database implements Database, Transaction {
   Future<int> insert(String table, Map<String, Object?> values, {String? nullColumnHack, ConflictAlgorithm? conflictAlgorithm}) async {
     if (failInsert) throw StateError('Insert failed');
     if (insertGate != null) await insertGate!.future;
-    rows.add(Map<String, Object?>.from(values));
+    rows.add({
+      'id': values['id'], 'type': kActivityTypeRelapse, 'content': values['occurred_on'],
+      'created_at': values['created_at'], 'updated_at': values['updated_at'],
+    });
     return rows.length;
   }
 
@@ -92,7 +95,7 @@ class _Database implements Database, Transaction {
   Future<int> delete(String table, {String? where, List<Object?>? whereArgs}) async {
     deleted.add(whereArgs!);
     final before = rows.length;
-    rows.removeWhere((row) => row['id'] == whereArgs[0] && row['type'] == whereArgs[1]);
+    rows.removeWhere((row) => row['id'] == whereArgs[0] && row['type'] == kActivityTypeRelapse);
     return before - rows.length;
   }
 
@@ -100,7 +103,7 @@ class _Database implements Database, Transaction {
   Future<List<Map<String, Object?>>> rawQuery(String sql, [List<Object?>? arguments]) async {
     final args = arguments ?? const [];
     if (sql.contains('COUNT(*) AS times')) {
-      return [{'times': rows.where((row) => row['type'] == args[0] && '${row['content']}'.compareTo('${args[1]}') >= 0 && '${row['content']}'.compareTo('${args[2]}') <= 0).length}];
+      return [{'times': rows.where((row) => row['type'] == kActivityTypeRelapse && '${row['content']}'.compareTo('${args[0]}') >= 0 && '${row['content']}'.compareTo('${args[1]}') <= 0).length}];
     }
     if (sql.contains('COUNT(*) AS cnt')) {
       return [{'cnt': rows.where((row) => row['type'] == args[0]).length}];

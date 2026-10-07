@@ -93,7 +93,7 @@ class LogInterceptor extends Interceptor {
     final method = response.requestOptions.method;
     final status = response.statusCode;
 
-    final isCache = response.extra['cacheHit'] == true || status == 304;
+    final isCache = response.extra['cacheHit'] == true || response.extra[extraFromNetworkKey] == false || status == 304;
 
     if (isCache) {
       AppLog.logD('[$method] $uri | $status >> Loaded from Cache');

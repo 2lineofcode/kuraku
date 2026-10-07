@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
 import 'package:sqflite/sqflite.dart';
@@ -29,20 +31,33 @@ mixin DBActivity {
     return activity;
   }
 
-  static Future<bool> _validation(Activity activity) async {
-    final content = activity.content?.trim();
-    if (content.isNullOrEmpty) return false;
+  static String _table(String? type) => switch (type) {
+    kActivityTypeTodo => 'todo',
+    kActivityTypeDownload => 'download_log',
+    kActivityTypeRelapse => 'relapse_event',
+    _ => throw ArgumentError('Unsupported activity type: $type'),
+  };
 
-    // Only TODO type enforces duplicate check.
-    if (activity.type == kActivityTypeTodo) {
-      final dup = await _db.query(
-        _tableName,
-        where: 'type = ? AND lower(content) = lower(?)',
-        whereArgs: [kActivityTypeTodo, content],
-        limit: 1,
-      );
-      if (dup.isNotEmpty) {
-        AppLog.logW('Rejected duplicate todo: "$content"');
+  static Map<String, dynamic> _values(Activity activity) => {
+    'id': activity.id,
+    switch (activity.type) {
+      kActivityTypeTodo => 'title',
+      kActivityTypeDownload => 'payload',
+      kActivityTypeRelapse => 'occurred_on',
+      _ => throw ArgumentError('Unsupported activity type: ${activity.type}'),
+    }: activity.content,
+    'created_at': activity.createdAt,
+    'updated_at': activity.updatedAt,
+  };
+
+  static bool _validation(Activity activity) {
+    final content = activity.content?.trim();
+    if (content == null || content.isEmpty) return false;
+    if (activity.type == kActivityTypeDownload) {
+      try {
+        final payload = jsonDecode(content);
+        if (payload is! Map<String, dynamic> || !isValidDownloadPayload(payload)) return false;
+      } on FormatException {
         return false;
       }
     }
@@ -50,23 +65,25 @@ mixin DBActivity {
   }
 
   static Future<bool> _insert(Activity activity) async {
-    if (!await _validation(activity)) return false;
-    await _db.insert(_tableName, _stamp(activity).toJson());
-    return true;
-  }
-
-  static Future<void> _update(Activity activity) async {
-    if (!await _validation(activity)) return;
-    activity.updatedAt = DateTime.now().toStringEx();
-    await _db.update(_tableName, activity.toJson(), where: 'id = ?', whereArgs: [activity.id]);
-  }
-
-  static Future<void> _delete({required String where, List<Object?>? whereArgs}) async {
-    await _db.delete(_tableName, where: where, whereArgs: whereArgs);
+    if (!_validation(activity)) return false;
+    try {
+      await _db.insert(_table(activity.type), _values(_stamp(activity)));
+      return true;
+    } on DatabaseException catch (error) {
+      if (activity.type != kActivityTypeTodo || !error.isUniqueConstraintError('todo.title')) rethrow;
+      AppLog.logW('Rejected duplicate todo: "${activity.content}"');
+      return false;
+    }
   }
 
   static Future<void> deleteAll({String? where, List<Object?>? whereArgs}) async {
-    await _delete(where: where ?? '1 = 1', whereArgs: whereArgs);
+    await _db.transaction((txn) async {
+      for (final type in [kActivityTypeTodo, kActivityTypeDownload, kActivityTypeRelapse]) {
+        await txn.delete(_table(type),
+          where: where == null ? null : 'id IN (SELECT id FROM activity WHERE type = ? AND ($where))',
+          whereArgs: where == null ? null : [type, ...?whereArgs]);
+      }
+    });
   }
 
   static Future<List<Activity>> _query({
@@ -111,7 +128,9 @@ mixin DBActivity {
     return ok ? todo : null;
   }
 
-  static Future<void> deleteTodo(String id) => _delete(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeTodo]);
+  static Future<void> deleteTodo(String id) async {
+    await _db.delete('todo', where: 'id = ?', whereArgs: [id]);
+  }
 
   // ────────────────────────────────────────────────────────────────
   // ⵌ PART: DOWNLOAD LOG
@@ -119,7 +138,7 @@ mixin DBActivity {
   static Future<Activity?> getDownloadLog(String id) => _queryOne(where: 'id = ? AND type = ?', whereArgs: [id, kActivityTypeDownload]);
 
   static Future<Activity?> getDownloadLogByFilename(String filename) => _queryOne(
-        where: 'type = ? AND json_extract(content, "\$.filename") LIKE ?',
+        where: 'type = ? AND id IN (SELECT id FROM download_log WHERE filename LIKE ?)',
         whereArgs: [kActivityTypeDownload, filename],
       );
 
@@ -140,14 +159,16 @@ mixin DBActivity {
     final current = await getDownloadLog(id);
     if (current == null) return null;
     current.content = content.trim();
-    await _update(current);
-    return current;
+    if (!_validation(current)) return null;
+    current.updatedAt = DateTime.now().toStringEx();
+    final changed = await _db.update('download_log', {'payload': current.content, 'updated_at': current.updatedAt},
+      where: 'id = ?', whereArgs: [id]);
+    return changed == 0 ? null : current;
   }
 
-  static Future<void> deleteDownloadLogByFilename(String filename) => _delete(
-        where: 'type = ? AND json_extract(content, "\$.filename") LIKE ?',
-        whereArgs: [kActivityTypeDownload, filename],
-      );
+  static Future<void> deleteDownloadLogByFilename(String filename) async {
+    await _db.delete('download_log', where: 'filename LIKE ?', whereArgs: [filename]);
+  }
 
   // ────────────────────────────────────────────────────────────────
   // ⵌ PART: RELAPSE / ACTIVITY
@@ -157,7 +178,7 @@ mixin DBActivity {
       _tableName,
       where: 'type = ?',
       whereArgs: [kActivityTypeRelapse],
-      orderBy: 'created_at DESC',
+      orderBy: 'created_at DESC, id DESC',
       limit: 1,
     );
     return maps.isEmpty ? null : Activity.fromJson(maps.first);
@@ -167,7 +188,7 @@ mixin DBActivity {
   static Future<List<Activity>> getAllRelapse() async {
     final maps = await _db.rawQuery('''
       SELECT
-        max(id) as id,
+        NULL as id,
         type,
         content,
         count(content) as times,
@@ -196,7 +217,7 @@ mixin DBActivity {
         whereArgs: [kActivityTypeRelapse, date], orderBy: 'created_at DESC, id DESC', limit: 1);
       if (rows.isEmpty) return null;
       final item = Activity.fromJson(rows.first);
-      await txn.delete(_tableName, where: 'id = ? AND type = ?', whereArgs: [item.id, kActivityTypeRelapse]);
+      await txn.delete('relapse_event', where: 'id = ?', whereArgs: [item.id]);
       return item;
     });
   }
@@ -205,7 +226,11 @@ mixin DBActivity {
     if (item.type != kActivityTypeRelapse || item.id == null || item.content == null) {
       throw ArgumentError('Invalid relapse record');
     }
-    await _db.insert(_tableName, item.toJson(), conflictAlgorithm: ConflictAlgorithm.ignore);
+    try {
+      await _db.insert('relapse_event', _values(item));
+    } on DatabaseException catch (error) {
+      if (!error.isUniqueConstraintError('relapse_event.id')) rethrow;
+    }
   }
 
   static Future<int> countRelapse({DateTime? start, DateTime? end}) async {
@@ -213,13 +238,19 @@ mixin DBActivity {
       return _count(where: 'type = ?', whereArgs: [kActivityTypeRelapse]);
     }
 
-    final startStr = (start ?? DateTime.now()).toStringEx(format: kYMd);
-    final endStr = (end ?? DateTime.now()).toStringEx(format: kYMd);
+    final conditions = <String>[];
+    final args = <Object?>[];
+    if (start != null) {
+      conditions.add('occurred_on >= ?');
+      args.add(start.toStringEx(format: kYMd));
+    }
+    if (end != null) {
+      conditions.add('occurred_on <= ?');
+      args.add(end.toStringEx(format: kYMd));
+    }
     final maps = await _db.rawQuery('''
-      SELECT COUNT(*) AS times
-      FROM $_tableName
-      WHERE type = ? AND content >= ? AND content <= ?
-    ''', [kActivityTypeRelapse, startStr, endStr]);
+      SELECT COUNT(*) AS times FROM relapse_event WHERE ${conditions.join(' AND ')}
+    ''', args);
 
     return maps.isNotEmpty ? maps[0]['times'] as int : 0;
   }

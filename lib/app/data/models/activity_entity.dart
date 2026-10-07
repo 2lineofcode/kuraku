@@ -1,6 +1,15 @@
 import 'dart:convert';
 import 'dart:core';
 
+const kDownloadStringFields = {'ev', 'status', 'filename', 'url', 'dir', 'mode', 'output_path', 'error', 'referer', 'user_agent', 'play_selector'};
+const kDownloadIntegerFields = {'exit_code', 'concurrency', 'retries', 'timeout', 'capture_duration'};
+const kDownloadBooleanFields = {'headless', 'allow_popups'};
+
+bool isValidDownloadPayload(Map<String, dynamic> payload) =>
+    kDownloadStringFields.every((key) => payload[key] == null || payload[key] is String)
+    && kDownloadIntegerFields.every((key) => payload[key] == null || payload[key] is int)
+    && kDownloadBooleanFields.every((key) => payload[key] == null || payload[key] is bool);
+
 class Activity {
   String? id;
   String? type;

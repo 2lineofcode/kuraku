@@ -64,18 +64,23 @@ mixin DBAchievement {
     required String title,
     required String description,
   }) async {
-    if (await isUnlocked(key)) return false;
+    if (key.trim().isEmpty || title.trim().isEmpty) throw ArgumentError('Achievement key and title are required');
 
     final now = DateTime.now().toStringEx();
-    await _db.insert(_tableName, {
-      'id': const UuidV4().generate(),
-      'achievement_key': key,
-      'title': title,
-      'description': description,
-      'unlocked_at': now,
-      'created_at': now,
-      'updated_at': now,
-    });
+    try {
+      await _db.insert(_tableName, {
+        'id': const UuidV4().generate(),
+        'achievement_key': key,
+        'title': title,
+        'description': description,
+        'unlocked_at': now,
+        'created_at': now,
+        'updated_at': now,
+      });
+    } on DatabaseException catch (error) {
+      if (!error.isUniqueConstraintError('achievement_unlock.achievement_key')) rethrow;
+      return false;
+    }
     return true;
   }
 }

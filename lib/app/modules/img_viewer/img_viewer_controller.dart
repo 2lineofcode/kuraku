@@ -70,8 +70,7 @@ class ImgViewerController extends GetxController {
     if (current.isEmpty) return title.value.isEmpty ? 'Image Viewer'.tr : title.value;
 
     final uri = Uri.tryParse(current);
-    final path = uri != null && uri.path.isNotEmpty ? uri.path : current;
-    final filename = p.basename(path);
+    final filename = uri != null && uri.hasScheme && uri.pathSegments.isNotEmpty ? uri.pathSegments.last : p.basename(current);
     return filename.isEmpty ? (title.value.isEmpty ? 'Image Viewer'.tr : title.value) : filename;
   }
   bool get canGoPrevious => selectedIndex.value > 0;
@@ -138,7 +137,7 @@ class ImgViewerController extends GetxController {
   void _setZoom(double factor) {
     final currentScale = transformationController.value.getMaxScaleOnAxis();
     final nextScale = (currentScale * factor).clamp(0.6, 5.0);
-    transformationController.value = Matrix4.diagonal3Values(nextScale, nextScale, 1);
+    transformationController.value = Matrix4.diagonal3Values(nextScale, nextScale, nextScale);
   }
 
   void _scrollThumbnailToSelected({bool jump = false}) {

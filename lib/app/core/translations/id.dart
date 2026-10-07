@@ -1237,4 +1237,6 @@ const indonesianTranslations = <String, String>{
   'Largest first · up to 200 files': 'Terbesar dulu · hingga 200 file',
   'Listed size: @{size}': 'Ukuran daftar: @{size}',
   'No files with a recorded size in this location.': 'Belum ada file dengan ukuran tercatat di lokasi ini.',
+  'Uncensored': 'Tanpa sensor',
+  'Back (Q)': 'Balik (Q)',
 };

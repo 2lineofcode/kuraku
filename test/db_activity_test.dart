@@ -12,6 +12,14 @@ class _Service extends DBService {
   Future<void> onReady() async {}
 }
 
+class _ConstraintError extends DatabaseException {
+  _ConstraintError([String field = 'todo.title']) : super('UNIQUE constraint failed: $field');
+  @override
+  int? getResultCode() => 19;
+  @override
+  Object? get result => null;
+}
+
 class _Database implements Database, Transaction {
   @override
   Future<T> transaction<T>(Future<T> Function(Transaction txn) action, {bool? exclusive}) => action(this);
@@ -19,6 +27,20 @@ class _Database implements Database, Transaction {
   final rows = <Map<String, Object?>>[];
   final queries = <Map<String, Object?>>[];
   final raw = <List<Object?>>[];
+
+  String _type(String table) => switch (table) {
+    'todo' => kActivityTypeTodo,
+    'download_log' => kActivityTypeDownload,
+    'relapse_event' => kActivityTypeRelapse,
+    _ => throw ArgumentError(table),
+  };
+
+  Map<String, Object?> _view(String table, Map<String, Object?> values) => {
+    ...values,
+    'type': _type(table),
+    if (values.containsKey('title') || values.containsKey('payload') || values.containsKey('occurred_on'))
+      'content': values['title'] ?? values['payload'] ?? values['occurred_on'],
+  }..removeWhere((key, value) => ['title', 'payload', 'occurred_on'].contains(key));
 
   bool _matches(Map<String, Object?> row, String? where, List<Object?> args) {
     switch (where) {
@@ -36,7 +58,7 @@ class _Database implements Database, Transaction {
       case 'type = ? AND lower(content) = lower(?)':
         return row['type'] == args[0] && '${row['content']}'.toLowerCase() == '${args[1]}'.toLowerCase();
     }
-    if (where.contains('json_extract')) {
+    if (where.contains('filename LIKE')) {
       if (row['type'] != args[0]) return false;
       Object? filename;
       try {
@@ -65,26 +87,29 @@ class _Database implements Database, Transaction {
 
   @override
   Future<int> insert(String table, Map<String, Object?> values, {String? nullColumnHack, ConflictAlgorithm? conflictAlgorithm}) async {
-    expect(table, 'activity');
-    rows.add(Map<String, Object?>.from(values));
+    final row = _view(table, values);
+    if (table == 'todo' && rows.any((existing) => existing['type'] == kActivityTypeTodo && '${existing['content']}'.toLowerCase() == '${row['content']}'.toLowerCase())) throw _ConstraintError();
+    if (rows.any((existing) => existing['type'] == row['type'] && existing['id'] == row['id'])) throw _ConstraintError('$table.id');
+    rows.add(row);
     return rows.length;
   }
 
   @override
   Future<int> update(String table, Map<String, Object?> values, {String? where, List<Object?>? whereArgs, ConflictAlgorithm? conflictAlgorithm}) async {
-    expect(table, 'activity');
-    final found = rows.where((row) => _matches(row, where, whereArgs ?? const [])).toList();
+    final found = rows.where((row) => row['type'] == _type(table) && _matches(row, where, whereArgs ?? const [])).toList();
     for (final row in found) {
-      row.addAll(values);
+      row.addAll(_view(table, values));
     }
     return found.length;
   }
 
   @override
   Future<int> delete(String table, {String? where, List<Object?>? whereArgs}) async {
-    expect(table, 'activity');
     final before = rows.length;
-    rows.removeWhere((row) => _matches(row, where, whereArgs ?? const []));
+    final subquery = where?.startsWith('id IN (SELECT id FROM activity') ?? false;
+    final filter = subquery ? where!.substring(where.indexOf('AND (') + 5, where.length - 2) : where;
+    final args = subquery ? whereArgs!.sublist(1) : whereArgs ?? const [];
+    rows.removeWhere((row) => row['type'] == _type(table) && _matches(row, filter, filter == 'filename LIKE ?' ? [kActivityTypeDownload, ...args] : args));
     return before - rows.length;
   }
 
@@ -106,7 +131,7 @@ class _Database implements Database, Transaction {
       return [{'cnt': matching.length}];
     }
     if (sql.contains('COUNT(*) AS times')) {
-      final matching = rows.where((row) => row['type'] == args[0] && '${row['content']}'.compareTo('${args[1]}') >= 0 && '${row['content']}'.compareTo('${args[2]}') <= 0);
+      final matching = rows.where((row) => row['type'] == kActivityTypeRelapse && (!sql.contains('>=') || '${row['content']}'.compareTo('${args.first}') >= 0) && (!sql.contains('<=') || '${row['content']}'.compareTo('${args.last}') <= 0));
       return [{'times': matching.length}];
     }
     if (sql.contains('GROUP BY type, content')) {
@@ -117,7 +142,7 @@ class _Database implements Database, Transaction {
       final keys = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
       return keys
           .map((content) => {
-                'id': grouped[content]!.last['id'],
+                'id': null,
                 'type': args[0],
                 'content': content,
                 'times': grouped[content]!.length,
@@ -166,7 +191,7 @@ void main() {
       expect(database.rows, hasLength(1));
 
       // Duplicate detection is scoped to todos only.
-      expect(await DBActivity.addDownloadLog(Activity(content: 'Watch later')), isNotNull);
+      expect(await DBActivity.addDownloadLog(Activity(content: '{"filename":"Watch later"}')), isNotNull);
       expect(database.rows, hasLength(2));
     });
 
@@ -226,6 +251,15 @@ void main() {
       expect(await DBActivity.updateDownloadLog(id: 'unknown', content: 'x'), isNull);
     });
 
+    test('rejects malformed JSON without changing a saved download', () async {
+      for (final content in ['invalid', '[]', 'null', '42', '"text"']) {
+        expect(await DBActivity.addDownloadLog(Activity(content: content)), isNull);
+      }
+      final log = await DBActivity.addDownloadLog(Activity(content: '{"filename":"keep.mp4"}'));
+      expect(await DBActivity.updateDownloadLog(id: log!.id!, content: 'invalid'), isNull);
+      expect((await DBActivity.getDownloadLog(log.id!))!.content, log.content);
+    });
+
     test('lists download logs and deletes them by filename', () async {
       await DBActivity.addDownloadLog(Activity(content: '{"filename":"one.mp4"}'));
       await DBActivity.addDownloadLog(Activity(content: '{"filename":"two.mp4"}'));
@@ -275,7 +309,7 @@ void main() {
 
       final latest = await DBActivity.getLatestRelapseTransaction();
       expect(latest!.content, '2026-03-04');
-      expect(database.queries.last['orderBy'], 'created_at DESC');
+      expect(database.queries.last['orderBy'], 'created_at DESC, id DESC');
       expect(database.queries.last['limit'], 1);
     });
 
@@ -286,6 +320,8 @@ void main() {
       await DBActivity.addTodo('not counted');
 
       expect(await DBActivity.countRelapse(), 3);
+      expect(await DBActivity.countRelapse(start: DateTime(2026, 3, 2)), 2);
+      expect(await DBActivity.countRelapse(end: DateTime(2026, 3, 1)), 1);
       expect(await DBActivity.countRelapse(start: DateTime(2026, 3, 2), end: DateTime(2026, 3, 31)), 2);
       expect(await DBActivity.countRelapse(start: DateTime(2026, 3, 1), end: DateTime(2026, 3, 1)), 1);
       expect(await DBActivity.countRelapse(start: DateTime(2020, 1, 1), end: DateTime(2020, 1, 2)), 0);
@@ -306,6 +342,8 @@ void main() {
       expect(database.rows, hasLength(1));
       expect(removed!.toJson(), latest);
       await DBActivity.restoreRelapse(removed);
+      await DBActivity.restoreRelapse(removed);
+      expect(database.rows, hasLength(2));
       expect(database.rows.last, latest);
       await DBActivity.deleteRelapseByDateLimitOne('2026-03-04');
 

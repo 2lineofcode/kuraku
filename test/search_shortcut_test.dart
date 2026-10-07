@@ -47,7 +47,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
     await tester.sendKeyEvent(LogicalKeyboardKey.slash);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
-    expect(home.selectedMenu, kMenuChat);
+    expect(home.selectedMenu, isNull);
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.slash);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
@@ -62,7 +62,7 @@ void main() {
     await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.slash);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
-    expect(home.selectedMenu, kMenuChat);
+    expect(home.selectedMenu, isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

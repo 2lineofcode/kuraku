@@ -162,6 +162,8 @@ class Worker:
         self.root = root
         self.db = sqlite3.connect(Path(db_path).resolve().as_uri() + '?mode=rw', uri=True, timeout=5) if db_path else None
         if self.db is not None:
+            self.db.execute('PRAGMA foreign_keys=ON')
+        if self.db is not None:
             self.db.row_factory = sqlite3.Row
         self.db_directory = Path(db_path).resolve().parent if db_path else root
         self.session = None

@@ -125,11 +125,18 @@ void main() {
     HomePanelAppLog.clear();
   });
   tearDown(() async {
-    while (Overlayment.count > 0) {
-      await Overlayment.dismissLast();
-    }
     Get.reset();
   });
+
+  Future<void> cleanup(WidgetTester tester) async {
+    while (Overlayment.count > 0) {
+      unawaited(Overlayment.dismissLast());
+      await tester.pumpAndSettle();
+    }
+    toastification.dismissAll(delayForAnimation: false);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+  }
 
   Future<void> pump(WidgetTester tester) async {
     await tester.pumpWidget(ToastificationWrapper(
@@ -161,6 +168,7 @@ void main() {
     expect(find.byTooltip('Add to Panel Cart'), findsOneWidget);
     expect(find.byTooltip('Add To Playlist'), findsOneWidget);
     expect(find.byTooltip('Edit Metadata'), findsOneWidget);
+    await cleanup(tester);
   });
 
   testWidgets('the favorite action toggles the stored flag and refreshes the home list', (tester) async {
@@ -180,6 +188,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(database.updates.last['is_favorite'], 0);
     expect(pageHome.favoriteRefreshes, 2);
+    await cleanup(tester);
   });
 
   testWidgets('adding to the panel cart closes the panel and refuses duplicates', (tester) async {
@@ -201,6 +210,7 @@ void main() {
 
     expect(home.cart, hasLength(1));
     expect(HomePanelAppLog.appLogRuntime.map((entry) => entry.content), contains('Already in panel cart'));
+    await cleanup(tester);
   });
 
   testWidgets('renew metadata is delegated to the search controller', (tester) async {
@@ -213,6 +223,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(search.renewed, same(video));
+    await cleanup(tester);
   });
 
   testWidgets('the down arrow and the I shortcut close the panel', (tester) async {
@@ -229,6 +240,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.keyI);
     await tester.pumpAndSettle();
     expect(Overlayment.count, 0);
+    await cleanup(tester);
   });
 
   testWidgets('editing the metadata swaps this panel for the editor', (tester) async {
@@ -242,5 +254,6 @@ void main() {
     expect(find.text('Edit Metadata (ABP-001)'), findsOneWidget);
     expect(find.text('# Metadata'), findsNothing);
     expect(Overlayment.count, 1);
+    await cleanup(tester);
   });
 }
