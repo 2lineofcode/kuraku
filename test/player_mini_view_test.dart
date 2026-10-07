@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -144,12 +145,12 @@ void main() {
 
   testWidgets('play button mirrors the playback state', (tester) async {
     await pump(tester);
-    expect(find.byIcon(Icons.play_arrow), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.play_fill), findsOneWidget);
     expect(find.byTooltip('Play'), findsOneWidget);
 
     controller.isPlaying.value = true;
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.pause), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.pause_fill), findsOneWidget);
     expect(find.byTooltip('Pause'), findsOneWidget);
   });
 

@@ -1,20 +1,21 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show FontFeature, ImageFilter;
 
 import 'package:ex_kit/ex.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:overlayment/overlayment.dart';
-import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../core/app_color.dart';
 import '../../core/app_pref.dart';
 import '../../core/app_translations.dart';
 import '../../utils/helper.dart';
-import '../widgets/widget_controls.dart';
+import '../widgets/widget_style.dart';
 import 'player_controller.dart';
 import 'player_seek_preview.dart';
 
@@ -41,6 +42,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
   Timer? _hideTimer;
   bool _controlsVisible = true;
+  bool _isMenuOpen = false;
 
   Timer? _infoTimer;
   late AnimationController _infoAnimationController;
@@ -53,6 +55,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   bool _isVolumePointerInside = false;
   bool _isVolumeDragging = false;
   bool _isSeekPreviewVisible = false;
+  final _seekPreviewLink = LayerLink();
+  double _seekWidth = 1;
   double _seekPreviewDx = 0;
   int _seekPreviewSecond = 0;
   final _seekPreview = PlayerSeekPreview();
@@ -120,7 +124,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     _focusRestorePending = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusRestorePending = false;
-      if (!mounted || Overlayment.count > 0 || ModalRoute.of(context)?.isCurrent == false) return;
+      if (!mounted || _isMenuOpen || Overlayment.count > 0 || ModalRoute.of(context)?.isCurrent == false) return;
       if (onlyIfScope && FocusManager.instance.primaryFocus is! FocusScopeNode) return;
       if (!_focusNode.hasFocus) _focusNode.requestFocus();
     });
@@ -247,11 +251,13 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                   children: [
                     _buildCenterOverlay(),
                     Positioned(
-                      top: 78,
+                      top: MediaQuery.sizeOf(context).width < 512 ? 144 : 96,
                       left: 12,
                       child: Obx(() => widget.controller.videoZoom.value > 1
-                          ? AppButton(
-                              style: TextButton.styleFrom(foregroundColor: Colors.white, backgroundColor: Colors.black54),
+                          ? CupertinoButton(
+                              color: Colors.black54,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              minimumSize: const Size(32, 32),
                               onPressed: () => widget.controller.setVideoZoom(1),
                               child: Text('Zoom @{round}% · Reset'.trNamed({'round': '${(widget.controller.videoZoom.value * 100).round()}'})),
                             )
@@ -269,6 +275,9 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                       child: _buildBottomBar(),
                     ),
 
+                    if (_controlsVisible && _isSeekPreviewVisible && (widget.controller.currentVideo.value.videoPath ?? '').isNotEmpty)
+                      _buildSeekPreview(),
+
                     // ** Total Video Overlay
                     IgnorePointer(
                       ignoring: true,
@@ -284,7 +293,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
                     // ** Info Overlay
                     Positioned(
-                      top: 78,
+                      top: MediaQuery.sizeOf(context).width < 512 ? 144 : 96,
                       right: 12,
                       child: FadeTransition(
                         opacity: _infoAnimationController,
@@ -306,7 +315,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   Widget _buildCenterOverlay() {
     return Obx(() {
       if (widget.controller.isBuffering.value && widget.controller.isInitialized.value) {
-        return Center(child: CircularProgressIndicator.adaptive());
+        return const Center(child: CupertinoActivityIndicator(color: Colors.white));
       }
 
       return SizedBox.shrink();
@@ -314,131 +323,92 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   }
 
 
+  Widget _glassPanel(Widget child, {EdgeInsets padding = const EdgeInsets.all(12)}) {
+    return CupertinoTheme(
+      data: const CupertinoThemeData(brightness: Brightness.dark, primaryColor: Colors.white),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1C1C1E).withValues(alpha: .72),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: .12)),
+            ),
+            child: DefaultTextStyle(
+              style: const TextStyle(fontFamily: 'CupertinoSystemText', fontSize: 12, color: Colors.white),
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTopBar() {
     return Obx(() {
       final video = widget.controller.currentVideo.value;
-      final totalPlaylist = widget.controller.playlist.length;
-      final currentPlaylistIndex = widget.controller.currentIndexPlaying.value;
-      final currentPlaylistNumber = totalPlaylist > 0 ? (currentPlaylistIndex + 1).clamp(1, totalPlaylist) : 0;
-
-      return AnimatedOpacity(
-        opacity: _controlsVisible ? 1.0 : 0.0,
-        duration: 100.milliseconds,
-        child: Container(
-          padding: EdgeInsets.fromLTRB(16, 36, 16, 18),
-          child: HStack(
-            [
-
-              // if ((video.videoCode ?? '').isNotEmpty) ...[
-
-              // ],
-
-              Container(
-                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 16, fillColor: Colors.black),
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      totalPlaylist > 0 ? '($currentPlaylistNumber/$totalPlaylist)  •' : '(0/0) •',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ).pOnly(right: 8),
-
-                    Text(
-                      video.videoCode!.isNotBlank ? video.videoCode! : 'NON-JAV',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    if (video.viewCount != null && video.viewCount! > 0)
-                      Text(
-                        ' • @{viewCount} views • @{Sub} • @{Censored}'.trNamed({'viewCount': '${video.viewCount}', 'Sub': '${video.videoPath?.isHasIdSub() == true ? '🇮🇩 ID Sub'.tr : video.videoPath?.isHasEnSub() == true ? '🇬🇧 EN Sub'.tr : 'No Sub'.tr}', 'Censored': '${video.videoPath?.isHasUncensored() == true ? '🎞️ Uncensored'.tr : 'Censored'.tr}'}),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.white.withValues(alpha: .7),
-                        ),
-                      ),
-                  ],
-                ).onTap(() {
-                  HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
-                }),
-              ),
-
-              Spacer(),
-
-
-              Container(
-                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                child: Icon(UIconsPro.regularRounded.plus, size: 14, color: Colors.white).p8(),
-              ).tooltip('Add To Cart (C)'.tr).onInkTap(() => widget.controller.addToCart()),
-
-              8.widthBox,
-
-              Container(
-                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                child: Icon(UIconsPro.regularRounded.info, size: 14, color: Colors.white).p8(),
-              ).tooltip('Video Info (I)'.tr).onInkTap(() => widget.controller.openInfo()),
-
-              8.widthBox,
-
-              Container(
-                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                child: Icon(UIconsPro.regularRounded.list, size: 14, color: Colors.white).p8(),
-              ).tooltip('Playlist (L)'.tr).onInkTap(() => widget.controller.openList()),
-
-              8.widthBox,
-
-              PopupMenuButton<String>(
-                popUpAnimationStyle: AnimationStyle.noAnimation,
-                tooltip: 'Subtitles'.tr,
-                child: Container(
-                  decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                  child: Icon(Icons.subtitles_outlined, size: 14, color: Colors.white).p8(),
-                ),
-                onSelected: (value) async {
-                  if (value == 'load') {
-                    await widget.controller.pickSubtitle();
-                  } else {
-                    await widget.controller.selectSubtitle(value == 'no' ? SubtitleTrack.no() : SubtitleTrack.auto());
-                  }
-                },
-                itemBuilder: (_) => [
-                  PopupMenuItem(value: 'load', child: Text('Load subtitle file…'.tr)),
-                  PopupMenuItem(value: 'auto', child: Text('Auto'.tr)),
-                  PopupMenuItem(value: 'no', child: Text('Off'.tr)),
-                ],
-              ),
-
-              8.widthBox,
-
-              Container(
-                decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                child: Icon(Icons.picture_in_picture_alt_rounded, size: 14, color: Colors.white).p8(),
-              ).tooltip('Mini Player (P)'.tr).onInkTap(() async {
-                widget.controller.enterMiniMode();
-                Get.back();
-              }),
-
-              8.widthBox,
-
-              Container(
-                decoration: ExDecorator.box(
-                  borderColor: Colors.transparent,
-                  borderRadius: 12,
-                  fillColor: AppColor.black120,
-                ),
-                child: Icon(UIconsPro.regularRounded.cross_small, size: 14, color: Colors.white).p8(),
-              ).tooltip('Close (Q)'.tr).onInkTap(() async {
-                await widget.controller.stopPlayback();
-                Get.back();
-              }),
-            ],
+      final total = widget.controller.playlist.length;
+      final number = total > 0 ? (widget.controller.currentIndexPlaying.value + 1).clamp(1, total) : 0;
+      final code = (video.videoCode ?? '').isNotEmpty ? video.videoCode! : 'NON-JAV';
+      final subtitle = video.videoPath?.isHasIdSub() == true ? 'ID Sub'.tr : video.videoPath?.isHasEnSub() == true ? 'EN Sub'.tr : 'No Sub'.tr;
+      final details = [if ((video.viewCount ?? 0) > 0) '@{count} views'.trNamed({'count': '${video.viewCount}'}), subtitle,
+        video.videoPath?.isHasUncensored() == true ? 'Uncensored'.tr : 'Censored'.tr].join(' · ');
+      final metadata = _glassPanel(
+        CupertinoButton(
+          padding: EdgeInsets.zero,
+          minimumSize: Size.zero,
+          onPressed: () => HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text('$number / $total  ·  $code', maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 2),
+            Text(details, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+          ]),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      );
+      final toolbar = _glassPanel(Row(mainAxisSize: MainAxisSize.min, children: [
+        _buildControlIcon(icon: CupertinoIcons.add, size: 16, tooltip: 'Add To Cart (C)'.tr, onTap: widget.controller.addToCart),
+        _buildControlIcon(icon: CupertinoIcons.info_circle, size: 16, tooltip: 'Video Info (I)'.tr, onTap: widget.controller.openInfo),
+        _buildControlIcon(icon: CupertinoIcons.list_bullet, size: 16, tooltip: 'Playlist (L)'.tr, onTap: widget.controller.openList),
+        _buildPlayerMenu(
+          tooltip: 'Subtitles'.tr,
+          child: const Icon(CupertinoIcons.captions_bubble, color: Colors.white, size: 16),
+          items: [('Load subtitle file…'.tr, false), ('Auto'.tr, false), ('Off'.tr, false)],
+          onSelected: (index) async {
+            if (index == 0) {
+              await widget.controller.pickSubtitle();
+            } else {
+              await widget.controller.selectSubtitle(index == 2 ? SubtitleTrack.no() : SubtitleTrack.auto());
+            }
+          },
+        ),
+        _buildControlIcon(icon: CupertinoIcons.rectangle_on_rectangle, size: 16, tooltip: 'Mini Player (P)'.tr, onTap: () {
+          widget.controller.enterMiniMode();
+          Get.back();
+        }),
+        _buildControlIcon(icon: CupertinoIcons.xmark, size: 16, tooltip: 'Back (Q)'.tr, onTap: () async {
+          await widget.controller.stopPlayback();
+          Get.back();
+        }),
+      ]), padding: const EdgeInsets.all(4));
+      return Positioned(
+        top: 36, left: 16, right: 16,
+        child: IgnorePointer(
+          ignoring: !_controlsVisible,
+          child: AnimatedOpacity(
+            opacity: _controlsVisible ? 1 : 0,
+            duration: const Duration(milliseconds: 180),
+            child: LayoutBuilder(builder: (context, constraints) => constraints.maxWidth < 480
+                ? Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    SizedBox(width: double.infinity, child: metadata), const SizedBox(height: 8), toolbar,
+                  ])
+                : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: Align(alignment: Alignment.topLeft, child: metadata)), const SizedBox(width: 12), toolbar,
+                  ])),
           ),
         ),
       );
@@ -447,101 +417,61 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
   Widget _buildBottomBar() {
     return Obx(() {
-      final video = widget.controller.currentVideo.value;
       final pos = widget.controller.position.value;
       final dur = widget.controller.duration.value;
-      final volumeValue = widget.controller.volume.value;
-      final speed = widget.controller.playbackSpeed.value;
-      final bufferPercent = widget.controller.bufferingPercent.value;
+      final remaining = dur > pos ? dur - pos : Duration.zero;
       final hasPrev = widget.controller.currentIndexPlaying.value > 0;
       final hasNext = widget.controller.currentIndexPlaying.value + 1 < widget.controller.playlist.length;
-      final isFullscreen = widget.controller.isFullScreen.value;
-
-      return AnimatedOpacity(
-        opacity: _controlsVisible ? 1.0 : 0.0,
-        duration: 100.milliseconds,
-        child: Container(
-          padding: EdgeInsets.fromLTRB(16, 18, 16, 18),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.transparent,
-                Colors.black.withValues(alpha: .85),
-              ],
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (widget.showTitle) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        video.title ?? '',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, color: Colors.white),
-                      ).tooltip(video.videoPath ?? '').opacity(value: .90),
-                    ),
-
+      final transport = Row(mainAxisSize: MainAxisSize.min, children: [
+        _buildSecondaryIcon(icon: CupertinoIcons.backward_end_fill, tooltip: 'Previous (Shift + <)'.tr,
+          enabled: hasPrev, onTap: widget.controller.prevVideo),
+        const SizedBox(width: 8),
+        _buildControlIcon(icon: widget.controller.isPlaying.value ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
+          tooltip: widget.controller.isPlaying.value ? 'Pause (Space)'.tr : 'Play (Space)'.tr, onTap: _togglePlayPause),
+        const SizedBox(width: 8),
+        _buildSecondaryIcon(icon: CupertinoIcons.forward_end_fill, tooltip: 'Next (Shift + >)'.tr,
+          enabled: hasNext, onTap: widget.controller.nextVideo),
+      ]);
+      final volume = _buildVolumeCluster(widget.controller.volume.value);
+      final options = Row(mainAxisSize: MainAxisSize.min, children: [
+        _buildSpeedMenu(widget.controller.playbackSpeed.value),
+        _buildSettingsButton(),
+        _buildFullscreenButton(widget.controller.isFullScreen.value),
+      ]);
+      const timeStyle = TextStyle(color: Colors.white70, fontSize: 10, fontFeatures: [FontFeature.tabularFigures()]);
+      return IgnorePointer(
+        ignoring: !_controlsVisible,
+        child: AnimatedOpacity(
+          opacity: _controlsVisible ? 1 : 0,
+          duration: const Duration(milliseconds: 180),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 680),
+                child: _glassPanel(LayoutBuilder(builder: (context, constraints) => Column(mainAxisSize: MainAxisSize.min, children: [
+                  if (widget.showTitle) ...[
+                    Text(widget.controller.currentVideo.value.title ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 4),
                   ],
-                ),
-                SizedBox(height: 12),
-              ],
-              _buildProgressBar(pos, dur, bufferPercent),
-              SizedBox(height: 16),
-              Row(
-                children: [
-                  _buildControlIcon(
-                    icon: widget.controller.isPlaying.value ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                    tooltip: widget.controller.isPlaying.value ? 'Pause (Space)'.tr : 'Play (Space)'.tr,
-                    size: 32,
-                    onTap: _togglePlayPause,
-                  ),
-                  SizedBox(width: 8),
-                  _buildSecondaryIcon(
-                    icon: Icons.skip_previous_rounded,
-                    tooltip: 'Previous (Shift + <)'.tr,
-                    enabled: hasPrev,
-                    onTap: () async {
-                      await widget.controller.prevVideo();
-                      _showControls();
-                    },
-                  ),
-                  _buildSecondaryIcon(
-                    icon: Icons.skip_next_rounded,
-                    tooltip: 'Next (Shift + >)'.tr,
-                    enabled: hasNext,
-                    onTap: () async {
-                      await widget.controller.nextVideo();
-                      _showControls();
-                    },
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    '${_formatDuration(pos)} / ${_formatDuration(dur)}',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Spacer(),
-                  _buildVolumeCluster(volumeValue),
-                  SizedBox(width: 12),
-                  _buildSpeedMenu(speed),
-                  SizedBox(width: 12) ,
-                  _buildSettingsButton(),
-                  SizedBox(width: 12) ,
-
-                  _buildFullscreenButton(isFullscreen),
-                ],
+                  Row(children: [
+                    Text(_formatDuration(pos), style: timeStyle),
+                    Expanded(child: _buildProgressBar(pos, dur, widget.controller.bufferingPercent.value)),
+                    Text('-${_formatDuration(remaining)}', style: timeStyle),
+                  ]),
+                  if (constraints.maxWidth < 440) ...[
+                    transport,
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [volume, options]),
+                  ] else Row(children: [
+                    Expanded(child: Align(alignment: Alignment.centerLeft, child: volume)),
+                    transport,
+                    Expanded(child: Align(alignment: Alignment.centerRight, child: options)),
+                  ]),
+                ]))),
               ),
-            ],
+            ),
           ),
         ),
       );
@@ -562,10 +492,10 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     return LayoutBuilder(
       builder: (context, constraints) {
         final seekWidth = constraints.maxWidth <= 0 ? 1.0 : constraints.maxWidth;
-        final hasVideoPath = (widget.controller.currentVideo.value.videoPath ?? '').isNotEmpty && dur > Duration.zero;
+        _seekWidth = seekWidth;
 
         double calcValueFromDx(double dx) {
-          final ratio = (dx / seekWidth).clamp(0.0, 1.0);
+          final ratio = ((dx - 22) / math.max(seekWidth - 44, 1)).clamp(0.0, 1.0);
           return ratio * maxPosition;
         }
 
@@ -581,11 +511,9 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
           });
         }
 
-        final previewWidth = 140.0;
-        final previewLeft = (_seekPreviewDx - (previewWidth / 2)).clamp(0.0, (seekWidth - previewWidth).clamp(0.0, seekWidth));
-        final previewTimestamp = _formatDuration(Duration(seconds: _seekPreviewSecond));
-
-        return MouseRegion(
+        return CompositedTransformTarget(
+          link: _seekPreviewLink,
+          child: MouseRegion(
           onEnter: (event) => onSeekHover(event.localPosition),
           onHover: (event) => onSeekHover(event.localPosition),
           onExit: (_) {
@@ -601,86 +529,16 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               clipBehavior: Clip.none,
               alignment: Alignment.centerLeft,
               children: [
-                if (_isSeekPreviewVisible && hasVideoPath) ...[
-                  Positioned(
-                    left: previewLeft,
-                    top: -106,
-                    child: Container(
-                      width: previewWidth,
-                      padding: EdgeInsets.all(6),
-                      decoration: ExDecorator.box(
-                        borderRadius: 8,
-                        borderColor: Colors.white24,
-                        fillColor: Colors.black.withValues(alpha: .9),
-                      ),
-                      child: VStack(
-                        [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: ListenableBuilder(
-                              listenable: _seekPreview,
-                              builder: (context, _) {
-                                final bytes = _seekPreview.bytes;
-                                return SizedBox(
-                                  width: previewWidth - 12,
-                                  height: 72,
-                                  child: _seekPreview.isLoading
-                                      ? Center(child: SizedBox(
-                                          width: 24,
-                                          height: 24,
-                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70, semanticsLabel: 'Loading preview'.tr),
-                                        ))
-                                      : bytes == null
-                                      ? Icon(Icons.broken_image_outlined, color: Colors.white54, size: 24)
-                                      : Image.memory(bytes, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image_outlined, color: Colors.white54)),
-                                );
-                              },
-                            ),
-                          ),
-                          previewTimestamp.text.white.size(11).makeCentered().pOnly(top: 4),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-                Container(
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .2),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
+                Positioned(
+                  left: 22, right: 22, bottom: 5,
+                  child: Align(alignment: Alignment.centerLeft, child: FractionallySizedBox(
+                    widthFactor: bufferedFraction.clamp(playedFraction, 1.0),
+                    child: Container(height: 1, color: Colors.white24),
+                  )),
                 ),
-                FractionallySizedBox(
-                  widthFactor: bufferedFraction.clamp(playedFraction, 1.0),
-                  child: Container(
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .15),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                FractionallySizedBox(
-                  widthFactor: playedFraction.clamp(0.0, 1.0),
-                  child: Container(
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Color(0xFFFF0034),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 0,
-                    thumbShape: RoundSliderThumbShape(enabledThumbRadius: 7),
-                    overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
-                    activeTrackColor: Colors.transparent,
-                    inactiveTrackColor: Colors.transparent,
-                    thumbColor: Colors.white,
-                    overlayColor: Colors.white24,
-                  ),
-                  child: Slider(
+                SizedBox(
+                  width: double.infinity,
+                  child: _buildCompactSlider(
                     min: 0,
                     max: maxPosition.toDouble(),
                     value: sliderValue,
@@ -688,15 +546,15 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                       _cancelHideTimer();
                       setState(() {
                         _isSeekPreviewVisible = true;
-                        _seekPreviewDx = (value / maxPosition) * seekWidth;
+                        _seekPreviewDx = 22 + (value / maxPosition) * math.max(seekWidth - 44, 1);
                         requestPreview(value);
                       });
                     },
-                    onChanged: (value) {
+                    onChanged: dur == Duration.zero ? null : (value) {
                       setState(() {
                         _scrubValue = value;
                         _isSeekPreviewVisible = true;
-                        _seekPreviewDx = (value / maxPosition) * seekWidth;
+                        _seekPreviewDx = 22 + (value / maxPosition) * math.max(seekWidth - 44, 1);
                         requestPreview(value);
                       });
                     },
@@ -720,56 +578,176 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               ],
             ),
           ),
+          ),
         );
       },
     );
   }
 
+  Widget _buildSeekPreview() {
+    const previewWidth = 140.0;
+    final previewLeft = (_seekPreviewDx - previewWidth / 2).clamp(0.0, math.max(_seekWidth - previewWidth, 0.0));
+    final previewTimestamp = _formatDuration(Duration(seconds: _seekPreviewSecond));
+    return Positioned(
+      left: 0, top: 0,
+      child: IgnorePointer(child: CompositedTransformFollower(
+        link: _seekPreviewLink,
+        showWhenUnlinked: false,
+        offset: Offset(previewLeft.toDouble(), -140),
+        child: Container(
+          width: previewWidth,
+          padding: EdgeInsets.all(6),
+          decoration: ExDecorator.box(
+            borderRadius: 8,
+            borderColor: Colors.white24,
+            fillColor: Colors.black.withValues(alpha: .9),
+          ),
+          child: VStack(
+            [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: ListenableBuilder(
+                  listenable: _seekPreview,
+                  builder: (context, _) {
+                    final bytes = _seekPreview.bytes;
+                    return SizedBox(
+                      width: previewWidth - 12,
+                      height: 72,
+                      child: _seekPreview.isLoading
+                          ? Center(child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: Semantics(label: 'Loading preview'.tr, child: const CupertinoActivityIndicator(color: Colors.white70)),
+                            ))
+                          : bytes == null
+                          ? Icon(CupertinoIcons.photo, color: Colors.white54, size: AppStyle.largeIconSize)
+                          : Image.memory(bytes, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => Icon(CupertinoIcons.photo, color: Colors.white54, size: AppStyle.largeIconSize)),
+                    );
+                  },
+                ),
+              ),
+              Padding(padding: const EdgeInsets.only(top: 4), child: Center(child: Text(previewTimestamp,
+                style: const TextStyle(fontFamily: 'CupertinoSystemText', color: Colors.white, fontSize: 11)))),
+            ],
+          ),
+        ),
+      )),
+    );
+  }
+
+  Widget _buildCompactSlider({
+    required double value,
+    double min = 0,
+    double max = 1,
+    ValueChanged<double>? onChanged,
+    ValueChanged<double>? onChangeStart,
+    ValueChanged<double>? onChangeEnd,
+  }) => SliderTheme(
+    data: SliderThemeData(
+      trackHeight: 2,
+      trackShape: const RectangularSliderTrackShape(),
+      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5, disabledThumbRadius: 5, elevation: 0, pressedElevation: 0),
+      overlayShape: SliderComponentShape.noOverlay,
+      activeTrackColor: Colors.white,
+      inactiveTrackColor: Colors.white24,
+      disabledActiveTrackColor: Colors.white24,
+      disabledInactiveTrackColor: Colors.white24,
+      thumbColor: Colors.white,
+      disabledThumbColor: Colors.white54,
+      showValueIndicator: ShowValueIndicator.never,
+    ),
+    child: Slider(
+      padding: const EdgeInsets.symmetric(horizontal: 22),
+      value: value, min: min, max: max,
+      onChanged: onChanged, onChangeStart: onChangeStart, onChangeEnd: onChangeEnd,
+    ),
+  );
+
   Widget _buildControlIcon({
     required IconData icon,
     required VoidCallback onTap,
     String? tooltip,
-    double size = 28,
-  }) {
-    return AppIconButton(
-      iconSize: size,
-      splashRadius: size,
-      tooltip: tooltip,
-      icon: Icon(icon, color: Colors.white),
-      onPressed: () {
-        onTap();
-        _showControls();
-      },
-    );
-  }
+    double size = AppStyle.playbackIconSize,
+  }) => Tooltip(
+    message: tooltip ?? '',
+    child: CupertinoButton(
+      padding: const EdgeInsets.all(8),
+      minimumSize: Size(size + 16, size + 16),
+      onPressed: () { onTap(); _showControls(); },
+      child: Icon(icon, size: size, color: Colors.white),
+    ),
+  );
 
   Widget _buildSecondaryIcon({
     required IconData icon,
     required Future<void> Function() onTap,
     required bool enabled,
     String? tooltip,
-  }) {
-    return AppIconButton(
-      iconSize: 24,
-      splashRadius: 26,
-      tooltip: tooltip,
-      icon: Icon(icon, color: enabled ? Colors.white : Colors.white24),
-      onPressed: enabled
-          ? () async {
-              _cancelHideTimer();
-              await onTap();
-              _startHideTimer();
-            }
-          : null,
-    );
-  }
+  }) => Tooltip(
+    message: tooltip ?? '',
+    child: CupertinoButton(
+      padding: const EdgeInsets.all(8),
+      minimumSize: const Size(40, 40),
+      onPressed: enabled ? () async {
+        _cancelHideTimer();
+        await onTap();
+        if (mounted) _showControls();
+      } : null,
+      child: Icon(icon, size: 20, color: enabled ? Colors.white : Colors.white24),
+    ),
+  );
+
+  Widget _buildPlayerMenu({
+    required String tooltip,
+    required Widget child,
+    required List<(String, bool)> items,
+    required Future<void> Function(int) onSelected,
+  }) => MenuAnchor(
+    onOpen: () { _isMenuOpen = true; _cancelHideTimer(); },
+    onClose: () { _isMenuOpen = false; _showControls(); },
+    style: const MenuStyle(
+      backgroundColor: WidgetStatePropertyAll(Colors.transparent),
+      surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
+      shadowColor: WidgetStatePropertyAll(Colors.transparent),
+      padding: WidgetStatePropertyAll(EdgeInsets.zero),
+    ),
+    builder: (context, menu, _) => Tooltip(
+      message: tooltip,
+      child: CupertinoButton(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        minimumSize: const Size(32, 32),
+        onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+        child: child,
+      ),
+    ),
+    menuChildren: [Builder(builder: (context) => _glassPanel(
+      CallbackShortcuts(
+        bindings: {const SingleActivator(LogicalKeyboardKey.escape): () => MenuController.maybeOf(context)?.close()},
+        child: SizedBox(width: 180, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        for (var index = 0; index < items.length; index++) CupertinoButton(
+          autofocus: index == 0,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          minimumSize: const Size(32, 32),
+          onPressed: () async {
+            MenuController.maybeOf(context)?.close();
+            await onSelected(index);
+            if (mounted) _showControls();
+          },
+          child: Row(children: [
+            SizedBox(width: 20, child: items[index].$2 ? const Icon(CupertinoIcons.check_mark, color: Colors.white, size: 14) : null),
+            Expanded(child: Text(items[index].$1, style: const TextStyle(color: Colors.white, fontSize: 12))),
+          ]),
+        ),
+      ]))), padding: const EdgeInsets.all(4),
+    ))],
+  );
 
   Widget _buildVolumeCluster(double volumeValue) {
     final icon = volumeValue == 0
-        ? Icons.volume_off
+        ? CupertinoIcons.speaker_slash_fill
         : volumeValue < 0.5
-            ? Icons.volume_down
-            : Icons.volume_up;
+            ? CupertinoIcons.speaker_1_fill
+            : CupertinoIcons.speaker_3_fill;
 
     final showSlider = _isVolumePointerInside || _isVolumeDragging;
 
@@ -791,15 +769,9 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          AppIconButton(
-            tooltip: 'Mute (M)'.tr,
-            icon: Icon(icon, color: Colors.white),
-            splashRadius: 24,
-            onPressed: () async {
-              _cancelHideTimer();
-              await _toggleMute();
-              _showControls();
-            },
+          _buildControlIcon(
+            tooltip: 'Mute (M)'.tr, icon: icon, size: 16,
+            onTap: () async { _cancelHideTimer(); await _toggleMute(); if (mounted) _showControls(); },
           ),
           ClipRect(
             child: AnimatedSize(
@@ -807,25 +779,15 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               curve: Curves.easeOut,
               clipBehavior: Clip.hardEdge,
               child: SizedBox(
-                width: showSlider ? 110 : 0,
+                width: showSlider ? 84 : 0,
                 child: AnimatedOpacity(
                   duration: 150.milliseconds,
                   curve: Curves.easeOut,
                   opacity: showSlider ? 1 : 0,
                   child: IgnorePointer(
                     ignoring: !showSlider,
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 2,
-                        thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
-                        overlayShape: RoundSliderOverlayShape(overlayRadius: 10),
-                        activeTrackColor: Colors.white,
-                        inactiveTrackColor: Colors.white30,
-                        thumbColor: Colors.white,
-                        overlayColor: Colors.white24,
-                      ),
-                      child: Slider(
-                        min: 0,
+                    child: _buildCompactSlider(
+                            min: 0,
                         max: 1,
                         value: volumeValue.clamp(0.0, 1.0),
                         onChangeStart: (_) {
@@ -836,7 +798,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                         },
                         onChanged: (value) async {
                           await widget.controller.setVolumeNormalized(value);
-                          setState(() {});
+                          if (mounted) setState(() {});
                         },
                         onChangeEnd: (_) {
                           if (_isVolumeDragging) {
@@ -848,7 +810,6 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                             _startHideTimer();
                           }
                         },
-                      ),
                     ),
                   ),
                 ),
@@ -862,56 +823,15 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
   Widget _buildSpeedMenu(double currentSpeed) {
     const speeds = <double>[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
-
-    return PopupMenuButton<double>(
-      popUpAnimationStyle: AnimationStyle.noAnimation,
+    return _buildPlayerMenu(
       tooltip: 'Playback speed'.tr,
-      offset: Offset(0, -8),
-      initialValue: currentSpeed,
-      color: AppColor.black120,
-      onSelected: (value) async {
-        await widget.controller.setPlaybackRate(value);
-        _showInfo('Speed: @{toStringAsFixed}x'.trNamed({'toStringAsFixed': '${value.toStringAsFixed(2)}'}));
-        _showControls();
+      child: Text('${currentSpeed.toStringAsFixed(2)}×', style: const TextStyle(color: Colors.white, fontSize: 12)),
+      items: [for (final speed in speeds) ('${speed.toStringAsFixed(2)}×', speed == currentSpeed)],
+      onSelected: (index) async {
+        await widget.controller.setPlaybackRate(speeds[index]);
+        if (!mounted) return;
+        _showInfo('Speed: @{toStringAsFixed}x'.trNamed({'toStringAsFixed': '${speeds[index].toStringAsFixed(2)}'}));
       },
-      itemBuilder: (context) => speeds
-          .map(
-            (speed) => PopupMenuItem<double>(
-              value: speed,
-              child: Row(
-                children: [
-                  if (speed == currentSpeed) Icon(Icons.check, size: 16, color: Colors.white) else SizedBox(width: 16),
-                  SizedBox(width: 12),
-                  Text(
-                    '${speed.toStringAsFixed(2)}x',
-                    style: TextStyle(
-                      color: speed == currentSpeed ? Colors.white : Colors.white70,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          )
-          .toList(),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: ExDecorator.box(
-          borderRadius: 16,
-          fillColor: Colors.white.withValues(alpha: .1),
-          borderColor: Colors.transparent,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.speed, color: Colors.white, size: 18),
-            SizedBox(width: 6),
-            Text(
-              '${currentSpeed.toStringAsFixed(2)}x',
-              style: TextStyle(color: Colors.white, fontSize: 13),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -929,7 +849,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     _adjustmentsPanel = OverPanel(
       alignment: Alignment.centerRight,
       width: 300,
-      color: Colors.black12,
+      color: Colors.transparent,
       animation: OverSlideAnimation(
         beginAlignment: Alignment.centerRight,
         reverseDurationMilliseconds: 100,
@@ -955,7 +875,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
           autofocus: true,
           child: StatefulBuilder(builder: (context, update) {
             _rebuildAdjustments = update;
-            return _buildVideoAdjustmentsPopup();
+            return Padding(padding: const EdgeInsets.fromLTRB(12, 48, 12, 12),
+              child: _glassPanel(_buildVideoAdjustmentsPopup(), padding: EdgeInsets.zero));
           }),
         ),
       ),
@@ -971,14 +892,12 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     _rebuildAdjustments?.call(() {});
   }
 
-  Widget _buildSettingsButton() {
-    return AppIconButton(
-      tooltip: 'Video Adjustments (,)'.tr,
-      splashRadius: 24,
-      icon: Icon(Icons.settings, color: Colors.white),
-      onPressed: _toggleVideoAdjustments,
-    );
-  }
+  Widget _buildSettingsButton() => _buildControlIcon(
+    tooltip: 'Video Adjustments (,)'.tr,
+    size: 16,
+    icon: CupertinoIcons.slider_horizontal_3,
+    onTap: _toggleVideoAdjustments,
+  );
 
   Widget _buildVideoAdjustmentsPopup() {
     return SingleChildScrollView(
@@ -992,23 +911,11 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               children: [
                 Text('Adjustments'.tr, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)).expand(),
 
-                AppIconButton(
-                  icon: const Icon(Icons.refresh, color: Colors.white, size: 18),
-                  tooltip: 'Reset'.tr,
-                  onPressed: _resetVideoAdjustments,
-                ),
+                _buildControlIcon(icon: CupertinoIcons.arrow_clockwise, size: 16, tooltip: 'Reset'.tr, onTap: _resetVideoAdjustments),
 
-                AppIconButton(
-                  icon: const Icon(Icons.bookmark_add, color: Colors.white, size: 18),
-                  tooltip: 'Save current as custom'.tr,
-                  onPressed: _saveCurrentCustomPreset,
-                ),
+                _buildControlIcon(icon: CupertinoIcons.bookmark, size: 16, tooltip: 'Save current as custom'.tr, onTap: _saveCurrentCustomPreset),
 
-                AppIconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 18),
-                  tooltip: 'Close'.tr,
-                  onPressed: _toggleVideoAdjustments,
-                ),
+                _buildControlIcon(icon: CupertinoIcons.xmark, size: 16, tooltip: 'Close'.tr, onTap: _toggleVideoAdjustments),
 
               ],
             ),
@@ -1074,10 +981,10 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
             HStack([
               Obx(
-                () => Checkbox.adaptive(
+                () => CupertinoSwitch(
                   value: widget.controller.isAudioNormalizationEnabled.value,
                   onChanged: (value) async {
-                    final enabled = value ?? false;
+                    final enabled = value;
                     await widget.controller.applyAudioNormalization(enabled: enabled);
                     final active = widget.controller.isAudioNormalizationEnabled.value;
                     if (enabled && !active) {
@@ -1094,16 +1001,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
             Row(
               children: [
                 Text('Rotation'.tr, style: TextStyle(color: Colors.white, fontSize: 12)).expand(),
-                AppIconButton(
-                  tooltip: 'Rotate left 90°'.tr,
-                  icon: const Icon(Icons.rotate_left, color: Colors.white, size: 18),
-                  onPressed: () => _rotateVideo(clockwise: false),
-                ),
-                AppIconButton(
-                  tooltip: 'Rotate right 90°'.tr,
-                  icon: const Icon(Icons.rotate_right, color: Colors.white, size: 18),
-                  onPressed: () => _rotateVideo(clockwise: true),
-                ),
+                _buildControlIcon(icon: CupertinoIcons.rotate_left, size: 16, tooltip: 'Rotate left 90°'.tr, onTap: () => _rotateVideo(clockwise: false)),
+                _buildControlIcon(icon: CupertinoIcons.rotate_right, size: 16, tooltip: 'Rotate right 90°'.tr, onTap: () => _rotateVideo(clockwise: true)),
               ],
             ),
           ],
@@ -1140,21 +1039,13 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
             ),
           ],
         ),
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            trackHeight: 2,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-            activeTrackColor: Colors.white,
-            inactiveTrackColor: Colors.white30,
-            thumbColor: Colors.white,
-            overlayColor: Colors.white24,
-          ),
-          child: Slider(
+        SizedBox(
+          width: double.infinity,
+          child: _buildCompactSlider(
             min: min,
             max: max,
             value: value.clamp(min, max),
             onChanged: (v) {
-              // kalau deket 0, langsung snap ke 0
               if (v.abs() < snapRange) {
                 v = 0;
               }
@@ -1210,25 +1101,13 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
   Widget _buildPresetChip(String name) {
     final isActive = _activeAdjustmentPreset == name;
-    return InkWell(
+    return CupertinoButton(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      minimumSize: const Size(32, 28),
       borderRadius: BorderRadius.circular(999),
-      onTap: () async => _applyVideoAdjustmentPreset(name),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: ExDecorator.box(
-          borderRadius: 999,
-          fillColor: isActive ? Colors.white : Colors.white.withValues(alpha: .08),
-          borderColor: isActive ? Colors.white : Colors.white24,
-        ),
-        child: Text(
-          name.tr,
-          style: TextStyle(
-            color: isActive ? Colors.black : Colors.white,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
+      color: isActive ? Colors.white : Colors.white.withValues(alpha: .08),
+      onPressed: () => _applyVideoAdjustmentPreset(name),
+      child: Text(name.tr, style: TextStyle(color: isActive ? Colors.black : Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
     );
   }
 
@@ -1368,21 +1247,16 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   }
 
 
-  Widget _buildFullscreenButton(bool isFullscreen) {
-    return AppIconButton(
-      splashRadius: 24,
-      tooltip: isFullscreen ? 'Exit fullscreen'.tr : 'Fullscreen'.tr,
-      icon: Icon(
-        isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-        color: Colors.white,
-      ),
-      onPressed: () async {
-        _cancelHideTimer();
-        await widget.controller.toggleFullscreen(widget.videoState);
-        _startHideTimer();
-      },
-    );
-  }
+  Widget _buildFullscreenButton(bool isFullscreen) => _buildControlIcon(
+    tooltip: isFullscreen ? 'Exit fullscreen'.tr : 'Fullscreen'.tr,
+    size: 16,
+    icon: isFullscreen ? CupertinoIcons.arrow_down_right_arrow_up_left : CupertinoIcons.arrow_up_left_arrow_down_right,
+    onTap: () async {
+      _cancelHideTimer();
+      await widget.controller.toggleFullscreen(widget.videoState);
+      if (mounted) _showControls();
+    },
+  );
 
   void _onUserInteraction() {
     _showControls();
@@ -1394,7 +1268,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
   void _startHideTimer() {
     _hideTimer?.cancel();
-    if (_isSeekPreviewVisible) return;
+    if (_isSeekPreviewVisible || _isMenuOpen || _isVolumePointerInside || _isVolumeDragging) return;
     _hideTimer = Timer(_autoHideDuration, () {
       if (!mounted) return;
       _seekPreview.clear();

@@ -3,13 +3,14 @@ import 'dart:convert';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:overlayment/overlayment.dart';
-import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/const.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_style.dart';
 
 mixin HomePanelAppLog {
 
@@ -42,7 +43,7 @@ mixin HomePanelAppLog {
             HStack([
               'APP LOG'.tr.text.bold.make().expand(),
               AppIconButton(
-                icon: Icon(UIconsPro.regularRounded.cross, size: 13),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize),
                 tooltip: 'Close'.tr,
                 onPressed: () => Overlayment.dismissLast(),
               )
@@ -65,7 +66,7 @@ mixin HomePanelAppLog {
                   return HStack(
                     [
                       // icon
-                      Icon(UIconsPro.regularRounded.circle_dashed, size: 11).pOnly(right: 12),
+                      HugeIcon(icon: HugeIcons.strokeRoundedCircle, size: AppStyle.smallIconSize).pOnly(right: 12),
                       VStack([
                         HStack([
                           '${item.createdAt?.reformatDate(to: kHms)}'.text.gray400.size(9).minFontSize(10).make().expand(),

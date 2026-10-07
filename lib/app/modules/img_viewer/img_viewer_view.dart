@@ -4,9 +4,11 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/app_color.dart';
 import '../widgets/widget_controls.dart';
+import '../widgets/widget_style.dart';
 import '../widgets/widget_thumbnail.dart';
 import 'img_viewer_controller.dart';
 
@@ -31,7 +33,7 @@ class ImgViewerView extends GetView<ImgViewerController> {
         actionsPadding: EdgeInsets.only(right: 4, left: isMacOS ? 8 : 0),
         toolbarTextStyle: const TextStyle(fontSize: 14),
         titleTextStyle: const TextStyle(fontSize: 14),
-        iconTheme: const IconThemeData(size: 20),
+        iconTheme: const IconThemeData(size: AppStyle.iconSize),
         title: Padding(
           padding: EdgeInsets.only(left: macTitleInset),
           child: Obx(() {
@@ -43,7 +45,7 @@ class ImgViewerView extends GetView<ImgViewerController> {
           alignment: Alignment.centerLeft,
           child: Padding(
             padding: EdgeInsets.only(left: macBackInset),
-            child: AppIconButton(tooltip: 'Back'.tr, icon: const BackButtonIcon(), onPressed: () => Navigator.of(context).maybePop()),
+            child: AppIconButton(tooltip: 'Back'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft02, size: AppStyle.iconSize), onPressed: () => Navigator.of(context).maybePop()),
           ),
         ),
         bottom: PreferredSize(
@@ -54,32 +56,35 @@ class ImgViewerView extends GetView<ImgViewerController> {
           _buildAppBarAction(
             tooltip: 'Shuffle'.tr,
             onPressed: controller.shuffleImages,
-            icon: Icons.shuffle,
+            icon: HugeIcons.strokeRoundedShuffle,
           ),
           _buildAppBarAction(
             tooltip: 'Rotate left'.tr,
             onPressed: controller.rotateCounterClockwise,
-            icon: Icons.rotate_left,
+            icon: HugeIcons.strokeRoundedRotateTopLeft,
           ),
           _buildAppBarAction(
             tooltip: 'Rotate right'.tr,
             onPressed: controller.rotateClockwise,
-            icon: Icons.rotate_right,
+            icon: HugeIcons.strokeRoundedRotateTopRight,
           ),
+
+          16.widthBox,
+
           _buildAppBarAction(
             tooltip: 'Zoom out'.tr,
             onPressed: controller.zoomOut,
-            icon: Icons.remove,
+            icon: HugeIcons.strokeRoundedMinusSign,
           ),
           _buildAppBarAction(
             tooltip: 'Reset zoom'.tr,
             onPressed: controller.resetZoom,
-            icon: Icons.center_focus_strong,
+            icon: HugeIcons.strokeRoundedFocus,
           ),
           _buildAppBarAction(
             tooltip: 'Zoom in'.tr,
             onPressed: controller.zoomIn,
-            icon: Icons.add,
+            icon: HugeIcons.strokeRoundedAdd01,
           ),
           const SizedBox(width: 4),
         ],
@@ -162,13 +167,13 @@ class ImgViewerView extends GetView<ImgViewerController> {
                     ),
                     _navButton(
                       alignment: Alignment.centerLeft,
-                      icon: Icons.chevron_left,
+                      icon: HugeIcons.strokeRoundedArrowLeft01,
                       visible: controller.canGoPrevious,
                       onPressed: controller.previous,
                     ),
                     _navButton(
                       alignment: Alignment.centerRight,
-                      icon: Icons.chevron_right,
+                      icon: HugeIcons.strokeRoundedArrowRight01,
                       visible: controller.canGoNext,
                       onPressed: controller.next,
                     ),
@@ -195,23 +200,23 @@ class ImgViewerView extends GetView<ImgViewerController> {
   Widget _buildAppBarAction({
     required String tooltip,
     required VoidCallback onPressed,
-    required IconData icon,
+    required List<List<dynamic>> icon,
   }) {
     return AppIconButton(
       tooltip: tooltip,
       onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      iconSize: 18,
+      icon: HugeIcon(icon: icon, size: AppStyle.iconSize),
+      iconSize: AppStyle.iconSize,
       splashRadius: 16,
       visualDensity: VisualDensity.compact,
       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(8),
     );
   }
 
   Widget _navButton({
     required Alignment alignment,
-    required IconData icon,
+    required List<List<dynamic>> icon,
     required bool visible,
     required VoidCallback onPressed,
   }) {
@@ -222,7 +227,8 @@ class ImgViewerView extends GetView<ImgViewerController> {
       child: AppIconButton(
         onPressed: onPressed,
         style: IconButton.styleFrom(backgroundColor: AppColor.black120),
-        icon: Icon(icon, size: 38),
+        iconSize: AppStyle.playbackIconSize,
+        icon: HugeIcon(icon: icon, size: AppStyle.playbackIconSize),
       ).p12(),
     );
   }
@@ -298,10 +304,10 @@ class ImgViewerView extends GetView<ImgViewerController> {
   }
 
   Widget _brokenImage(double width, double height) {
-    return Icon(
-      Icons.broken_image,
+    return HugeIcon(
+      icon: HugeIcons.strokeRoundedImage01,
       color: Colors.white.withAlpha(160),
-      size: 48,
+      size: AppStyle.emptyIconSize,
     ).wh(width, height);
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/app_color.dart';
 import 'widget_style.dart';
@@ -35,7 +36,7 @@ class AppButton extends StatelessWidget {
     final content = DefaultTextStyle.merge(
       style: TextStyle(fontSize: labelSize, fontWeight: isLabelBold ? FontWeight.w600 : FontWeight.w400),
       child: icon == null ? child ?? Text(label ?? '') : Row(mainAxisSize: MainAxisSize.min, children: [
-        IconTheme.merge(data: const IconThemeData(size: 14), child: icon!),
+        IconTheme.merge(data: const IconThemeData(size: AppStyle.iconSize), child: icon!),
         const SizedBox(width: 6),
         Flexible(child: child ?? Text(label ?? '', overflow: TextOverflow.ellipsis)),
       ]),
@@ -73,7 +74,7 @@ class AppButton extends StatelessWidget {
 class AppIconButton extends StatelessWidget {
   const AppIconButton({super.key, required this.icon, required this.onPressed, this.tooltip,
     this.style, this.constraints, this.padding = EdgeInsets.zero, this.visualDensity,
-    this.iconSize = 16, this.color, this.splashRadius, this.filled = false});
+    this.iconSize = AppStyle.iconSize, this.color, this.splashRadius, this.filled = false});
 
   final Widget icon;
   final VoidCallback? onPressed;
@@ -90,7 +91,7 @@ class AppIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final target = (icon is Icon ? (icon as Icon).size ?? iconSize : iconSize).clamp(AppStyle.iconTarget, double.infinity);
+    final target = (icon is Icon ? (icon as Icon).size ?? iconSize : icon is HugeIcon ? (icon as HugeIcon).size ?? iconSize : iconSize).clamp(AppStyle.iconTarget, double.infinity);
     final defaults = IconButton.styleFrom(
       foregroundColor: color ?? (filled ? scheme.onPrimary : IconTheme.of(context).color ?? scheme.onSurface),
       backgroundColor: filled ? scheme.primary : null,
@@ -248,7 +249,7 @@ class _AppDropdownState<T> extends State<AppDropdown<T>> {
       ),
       menuChildren: [for (final item in widget.items) MenuItemButton(
         onPressed: widget.onChanged == null || !item.enabled ? null : () => widget.onChanged!(item.value),
-        leadingIcon: Icon(item.value == widget.value ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 16),
+        leadingIcon: HugeIcon(icon: item.value == widget.value ? HugeIcons.strokeRoundedCheckmarkCircle02 : HugeIcons.strokeRoundedCircle, size: AppStyle.iconSize),
         style: MenuItemButton.styleFrom(textStyle: textStyle),
         child: item.child,
       )],
@@ -262,7 +263,7 @@ class _AppDropdownState<T> extends State<AppDropdown<T>> {
           if (widget.prefix != null) ...[widget.prefix!, const SizedBox(width: 6)],
           if (widget.isExpanded) Expanded(child: selected) else Flexible(child: selected),
           const SizedBox(width: 8),
-          widget.icon ?? const Icon(Icons.keyboard_arrow_down_rounded, size: 16),
+          widget.icon ?? const HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: AppStyle.iconSize),
         ]),
       ),
     );
@@ -271,7 +272,7 @@ class _AppDropdownState<T> extends State<AppDropdown<T>> {
 
 class AppDropdownFormField<T> extends StatelessWidget {
   const AppDropdownFormField({super.key, required this.initialValue, required this.items, required this.onChanged,
-    this.isExpanded = true, this.iconSize = 16, this.style, this.decoration, this.menuMaxHeight});
+    this.isExpanded = true, this.iconSize = AppStyle.iconSize, this.style, this.decoration, this.menuMaxHeight});
   final T? initialValue;
   final List<DropdownMenuItem<T>> items;
   final ValueChanged<T?>? onChanged;
@@ -288,7 +289,7 @@ class AppDropdownFormField<T> extends StatelessWidget {
       if (decoration?.labelText != null) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(decoration!.labelText!)),
       AppDropdown<T>(
         value: field.value, items: items, isExpanded: isExpanded, style: style,
-        prefix: decoration?.prefixIcon, icon: Icon(Icons.keyboard_arrow_down_rounded, size: iconSize),
+        prefix: decoration?.prefixIcon, icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: iconSize),
         menuMaxHeight: menuMaxHeight,
         onChanged: onChanged == null ? null : (value) { field.didChange(value); onChanged!(value); },
       ),

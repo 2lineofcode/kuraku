@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/app_color.dart';
 import 'widget_controls.dart';
+import 'widget_style.dart';
 
 class SearchTabBar extends StatelessWidget {
   const SearchTabBar({super.key, required this.tabs, required this.activeIndex,
@@ -31,7 +33,7 @@ class SearchTabBar extends StatelessWidget {
               tooltip: addTooltip.tr,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-              icon: const Icon(Icons.add, size: 16),
+              icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
               onPressed: onAdd,
             );
           }
@@ -64,7 +66,7 @@ class SearchTabBar extends StatelessWidget {
                 tooltip: 'Close tab'.tr,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-                icon: const Icon(Icons.close, size: 12),
+                icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize),
                 onPressed: () => onClose(index),
               ),
             ]),

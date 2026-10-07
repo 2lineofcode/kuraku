@@ -5,10 +5,10 @@ import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:path/path.dart' as p;
-import 'package:uicons_pro/uicons_pro.dart';
 import 'package:zoom_hover_pinch_image/zoom_hover_pinch_image.dart';
 
 import '../../../core/app_color.dart';
@@ -17,6 +17,7 @@ import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_style.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
 import '../page_explore/page_explore_controller.dart';
@@ -123,7 +124,7 @@ mixin HomePanelVideoInfo {
                         Container(
                           decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                           child: AppIconButton(
-                            icon: Icon(UIconsPro.regularRounded.play, size: 14),
+                            icon: HugeIcon(icon: HugeIcons.strokeRoundedPlay, size: AppStyle.iconSize),
                             onPressed: () => {
                               Overlayment.dismissLast(),
                               HelperOpener.openVideoFile(video),
@@ -137,7 +138,7 @@ mixin HomePanelVideoInfo {
                           builder: (b) => Container(
                             decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                             child: AppIconButton(
-                              icon: video.isFavorite == 1 ? Icon(UIconsPro.solidRounded.star, size: 14, color: Vx.orange500) : Icon(UIconsPro.regularRounded.star, size: 14, color: null),
+                              icon: video.isFavorite == 1 ? HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: AppStyle.iconSize, color: Vx.orange500) : HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: AppStyle.iconSize, color: null),
                               onPressed: () {
                                 final current = video.isFavorite ?? 0;
                                 if (current == 1) {
@@ -158,7 +159,7 @@ mixin HomePanelVideoInfo {
                             Container(
                                 decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                                 child: AppIconButton(
-                                  icon: Icon(UIconsPro.regularRounded.refresh, size: 14),
+                                  icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
                                   onPressed: () => _controller.renewMetadata(video),
                                 ),
                               ).pOnly(right: 8).tooltip('Renew Metadata'.tr),
@@ -167,7 +168,7 @@ mixin HomePanelVideoInfo {
                         Container(
                           decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                           child: AppIconButton(
-                            icon: Icon(UIconsPro.regularRounded.folder, size: 16),
+                            icon: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: AppStyle.iconSize),
                             onPressed: () => HelperOpener.openFilePath(video.videoPath ?? ''),
                           ),
                         ).pOnly(right: 8).tooltip('Open File Path'.tr),
@@ -175,7 +176,7 @@ mixin HomePanelVideoInfo {
                         Container(
                           decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                           child: AppIconButton(
-                            icon: Icon(UIconsPro.regularRounded.plus, size: 14),
+                            icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
                             onPressed: () {
                               final homeController = Get.find<HomeController>();
                               final isAdded = homeController.addToCart(video);
@@ -206,7 +207,7 @@ mixin HomePanelVideoInfo {
                             '# Metadata'.tr.text.size(14).bold.make().expand(),
 
                             AppIconButton(
-                              icon: Icon(UIconsPro.regularRounded.plus_hexagon , size: 16),
+                              icon: HugeIcon(icon: HugeIcons.strokeRoundedPlayListFavourite02 , size: AppStyle.iconSize),
                               tooltip: 'Add To Playlist'.tr,
                               onPressed: () async {
                                 await Overlayment.dismissLast();
@@ -215,7 +216,7 @@ mixin HomePanelVideoInfo {
                             ),
 
                             AppIconButton(
-                              icon: Icon(UIconsPro.regularRounded.pen_square , size: 16),
+                              icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01 , size: AppStyle.iconSize),
                               tooltip: 'Edit Metadata'.tr,
                               onPressed: () async {
                                 await Overlayment.dismissLast();
@@ -428,14 +429,14 @@ mixin HomePanelVideoInfo {
                       alignment: Alignment.centerRight,
                       child: Container(
                         decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
-                        child: Icon(UIconsPro.regularRounded.arrow_small_right).p12(),
+                        child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: AppStyle.iconSize).p12(),
                       ).onInkTap(() => idxSelectedNonJav.value = idxSelectedNonJav.value + 10),
                     ).positioned(right: 8, top: 0, bottom: 0),
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Container(
                         decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
-                        child: Icon(UIconsPro.regularRounded.arrow_small_left).p12(),
+                        child: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: AppStyle.iconSize).p12(),
                       ).onInkTap(() => idxSelectedNonJav.value = idxSelectedNonJav.value - 10),
                     ).positioned(left: 8, top: 0, bottom: 0),
 
@@ -443,7 +444,7 @@ mixin HomePanelVideoInfo {
                       alignment: Alignment.topRight,
                       child: Container(
                         decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
-                        child: Icon(UIconsPro.regularRounded.cross_small).p8(),
+                        child: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize).p8(),
                       ).onInkTap(() {
                         Overlayment.dismissLast();
                       }),
@@ -507,7 +508,7 @@ mixin HomePanelVideoInfo {
                         alignment: Alignment.centerRight,
                         child: Container(
                           decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
-                          child: Icon(UIconsPro.regularRounded.arrow_small_right).p12(),
+                          child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: AppStyle.iconSize).p12(),
                         ).onInkTap(() {
                           if (idxSelectedJav.value < video.screenshot!.length - 1) {
                             idxSelectedJav.value++;
@@ -518,7 +519,7 @@ mixin HomePanelVideoInfo {
                         alignment: Alignment.centerLeft,
                         child: Container(
                           decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
-                          child: Icon(UIconsPro.regularRounded.arrow_small_left).p12(),
+                          child: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: AppStyle.iconSize).p12(),
                         ).onInkTap(() {
                           if (idxSelectedJav.value > 0) {
                             idxSelectedJav.value--;
@@ -529,7 +530,7 @@ mixin HomePanelVideoInfo {
                         alignment: Alignment.topRight,
                         child: Container(
                           decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
-                          child: Icon(UIconsPro.regularRounded.cross_small).p8(),
+                          child: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize).p8(),
                         ).onInkTap(() {
                           Overlayment.dismissLast();
                         }),

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:javit/app/modules/widgets/widget_search_tab_bar.dart';
+
+import 'icon_finder.dart';
 
 void main() {
   late ScrollController scrollController;
@@ -33,7 +36,11 @@ void main() {
         addTooltip: addTooltip ?? 'New search tab',
       )),
     ));
-    await tester.pumpAndSettle();
+    if (tabs.any((tab) => tab.isLoading)) {
+      await tester.pump(const Duration(milliseconds: 200));
+    } else {
+      await tester.pumpAndSettle();
+    }
   }
 
   testWidgets('renders one entry per tab plus the add button', (tester) async {
@@ -41,8 +48,8 @@ void main() {
 
     expect(find.text('Cosplay'), findsOneWidget);
     expect(find.text('Drama'), findsOneWidget);
-    expect(find.widgetWithIcon(IconButton, Icons.add), findsOneWidget);
-    expect(find.widgetWithIcon(IconButton, Icons.close), findsNWidgets(2));
+    expect(findHugeIconButton(HugeIcons.strokeRoundedAdd01), findsOneWidget);
+    expect(findHugeIconButton(HugeIcons.strokeRoundedCancel01), findsNWidgets(2));
     expect(tester.getSize(find.byType(SearchTabBar)).height, 32);
   });
 
@@ -60,10 +67,10 @@ void main() {
     await tester.tap(find.text('First'));
     expect(selected, [2, 0]);
 
-    await tester.tap(find.widgetWithIcon(IconButton, Icons.close).at(1));
+    await tester.tap(findHugeIconButton(HugeIcons.strokeRoundedCancel01).at(1));
     expect(closed, [1]);
 
-    await tester.tap(find.widgetWithIcon(IconButton, Icons.add));
+    await tester.tap(findHugeIconButton(HugeIcons.strokeRoundedAdd01));
     expect(added, 1);
     expect(selected, [2, 0], reason: 'the add button must not change the selection');
   });
@@ -90,15 +97,15 @@ void main() {
     expect(text.maxLines, 1);
     expect(text.overflow, TextOverflow.ellipsis);
     expect(tester.widget<Tooltip>(find.ancestor(of: find.text(longTitle), matching: find.byType(Tooltip)).first).message, longTitle);
-    expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.add)).tooltip, 'Open another search');
-    expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.close)).tooltip, 'Close tab');
+    expect(tester.widget<IconButton>(findHugeIconButton(HugeIcons.strokeRoundedAdd01)).tooltip, 'Open another search');
+    expect(tester.widget<IconButton>(findHugeIconButton(HugeIcons.strokeRoundedCancel01)).tooltip, 'Close tab');
   });
 
   testWidgets('renders an empty bar with only the add button when there is no tab', (tester) async {
     await pump(tester, const []);
 
-    expect(find.widgetWithIcon(IconButton, Icons.add), findsOneWidget);
-    expect(find.widgetWithIcon(IconButton, Icons.close), findsNothing);
+    expect(findHugeIconButton(HugeIcons.strokeRoundedAdd01), findsOneWidget);
+    expect(findHugeIconButton(HugeIcons.strokeRoundedCancel01), findsNothing);
     expect(find.byType(Text), findsNothing);
   });
 }

@@ -1,7 +1,7 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:uicons_pro/uicons_pro.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_pref.dart';
@@ -25,7 +25,7 @@ class PageHomeView extends GetView<PageHomeController> {
       () => controller.totalVideo.value != 0
           ? buildPage()
           : ExUiErrorOrEmpty(
-              illustration: Icon(UIconsPro.regularRounded.square_dashed_circle_plus, size: 128),
+              illustration: HugeIcon(icon: HugeIcons.strokeRoundedComputerAdd, size: AppStyle.emptyIconSize),
               title: '~ Fresh ~'.tr,
               message: 'Hi There, Select Or Drag & Drop your JAV Folder Here'.tr,
             ),
@@ -53,7 +53,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 key: ValueKey(AppPref.homeSecNewRelease),
                 () => _buildVideoSection(
                   title: 'New Release'.tr,
-                  icon: Icon(UIconsPro.solidRounded.flame, size: 12, color: Colors.amber),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedFire, size: AppStyle.iconSize, color: Colors.amber),
                   height: 170,
                   list: controller.listNewRelease,
                   prefKey: AppPref.homeSecNewRelease,
@@ -69,7 +69,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 () => _buildVideoSection(
                   title: 'Recommended for You'.tr,
                   // subtitle: controller.recommendationSubtitle.value,
-                  icon: Icon(UIconsPro.solidRounded.sparkles, size: 12, color: Vx.amber300),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedSparkles, size: AppStyle.iconSize, color: Vx.amber300),
                   list: controller.listRecommendation,
                   prefKey: AppPref.homeSecRecommendation,
                   refreshAction: controller.getListRecommendation,
@@ -84,7 +84,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 key: ValueKey(AppPref.homeSecRandom),
                 () => _buildVideoSection(
                   title: 'Random Video'.tr,
-                  icon: Icon(UIconsPro.solidRounded.shuffle, size: 12, color: Vx.blue300),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedShuffle, size: AppStyle.iconSize, color: Vx.blue300),
                   list: controller.listRandom,
                   prefKey: AppPref.homeSecRandom,
                   refreshAction: controller.getListRandom,
@@ -99,7 +99,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 key: ValueKey(AppPref.homeSecMostWatch),
                 () => _buildVideoSection(
                   title: 'Most Watch'.tr,
-                  icon: Icon(UIconsPro.solidRounded.cursor_finger, size: 12, color: Vx.pink300),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedRanking, size: AppStyle.iconSize, color: Vx.pink300),
                   list: controller.listTop10Watch,
                   prefKey: AppPref.homeSecMostWatch,
                   refreshAction: controller.getListMostWatch,
@@ -113,7 +113,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 key: ValueKey(AppPref.homeSecFavorite),
                 () => _buildVideoSection(
                   title: 'Favorite'.tr,
-                  icon: Icon(UIconsPro.solidRounded.square_heart, size: 12, color: Vx.red400),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: AppStyle.iconSize, color: Vx.red400),
                   list: controller.listFavorite,
                   prefKey: AppPref.homeSecFavorite,
                   refreshAction: controller.getListFavorite,
@@ -127,7 +127,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 key: ValueKey(AppPref.homeSecNewAdd),
                 () => _buildVideoSection(
                   title: 'New Added'.tr,
-                  icon: Icon(UIconsPro.solidRounded.add_document, size: 12, color: Vx.cyan400),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedFileAdd, size: AppStyle.iconSize, color: Vx.cyan400),
                   list: controller.listNewAdded,
                   prefKey: AppPref.homeSecNewAdd,
                   refreshAction: controller.getListNewAdded,
@@ -141,7 +141,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 key: ValueKey(AppPref.homeSecNeverWatch),
                 () => _buildVideoSection(
                   title: 'Never Watch'.tr,
-                  icon: Icon(UIconsPro.solidRounded.popcorn, size: 12, color: AppColor.success),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedPlaySquare, size: AppStyle.iconSize, color: AppColor.success),
                   list: controller.listNeverWatch,
                   prefKey: AppPref.homeSecNeverWatch,
                   refreshAction: controller.getListNeverWatch,
@@ -155,7 +155,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 key: ValueKey(AppPref.homeSecOldest),
                 () => _buildVideoSection(
                   title: 'Oldest'.tr,
-                  icon: Icon(UIconsPro.solidRounded.olive_branch_dove, size: 12, color: Vx.lime300),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedHistory, size: AppStyle.iconSize, color: Vx.lime300),
                   list: controller.listOldest,
                   prefKey: AppPref.homeSecOldest,
                   refreshAction: controller.getListOldest,
@@ -213,13 +213,13 @@ class PageHomeView extends GetView<PageHomeController> {
           Spacer(),
 
           AppIconButton(
-            icon: Icon(UIconsPro.regularRounded.rotate_right, size: 12),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
             onPressed: refreshAction,
           ),
 
           if (showDirectToExplore == true) ...[
             AppIconButton(
-              icon: Icon(UIconsPro.regularRounded.book_alt, size: 12),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedBookOpen02, size: AppStyle.iconSize),
               onPressed: () async {
                 await Get.find<HomeController>().onMenuChange(kMenuExplore);
                 final exploreC = Get.find<PageExploreController>();
@@ -232,9 +232,9 @@ class PageHomeView extends GetView<PageHomeController> {
             init: controller,
             builder: (controller) {
               return AppIconButton(
-                icon: Icon(
-                  AppPref.getBool(prefKey) ? UIconsPro.regularRounded.eye_crossed : UIconsPro.regularRounded.eye,
-                  size: 12,
+                icon: HugeIcon(
+                  icon: AppPref.getBool(prefKey) ?  HugeIcons.strokeRoundedView : HugeIcons.strokeRoundedViewOff,
+                  size: AppStyle.iconSize,
                 ),
                 onPressed: () async {
                   final isVisible = !AppPref.getBool(prefKey);
@@ -293,7 +293,7 @@ class PageHomeView extends GetView<PageHomeController> {
           Container(
             color: AppColor.black180,
             child: HStack([
-              Icon(UIconsPro.solidRounded.calendar, size: 10).pOnly(right: 5),
+              HugeIcon(icon: HugeIcons.strokeRoundedCalendar03, size: AppStyle.smallIconSize).pOnly(right: 5),
               video.releaseDate.isNotEmptyAndNotNull
                   ? '${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Release date: @{kMdY}'.trNamed({'kMdY': '${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'}))
                   : '${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Added at: @{kMdY}'.trNamed({'kMdY': '${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}'}))
@@ -340,7 +340,7 @@ class PageHomeView extends GetView<PageHomeController> {
             Container(
               color: Vx.blue600.withAlpha(200),
               child: HStack([
-                '🇮🇩'.text.size(10).minFontSize(10).make().tooltip('ID Sub'.tr),
+                const HugeIcon(icon: HugeIcons.strokeRoundedClosedCaption, size: AppStyle.smallIconSize).tooltip('ID Sub'.tr)
               ]).p4(),
             ).cornerRadius(8).p2().positioned(right: 0, top: 0),
           ],
@@ -350,7 +350,7 @@ class PageHomeView extends GetView<PageHomeController> {
             Container(
               color: Vx.purple600.withAlpha(200),
               child: HStack([
-                '🇬🇧'.text.size(10).minFontSize(10).make().tooltip('EN Sub'.tr),
+                const HugeIcon(icon: HugeIcons.strokeRoundedClosedCaption, size: AppStyle.smallIconSize).tooltip('EN Sub'.tr),
               ]).p4(),
             ).cornerRadius(8).p2().positioned(right: 0, top: 0),
           ],
@@ -360,7 +360,7 @@ class PageHomeView extends GetView<PageHomeController> {
             Container(
               color: Vx.red600.withAlpha(200),
               child: HStack([
-                '🎞️'.text.size(10).minFontSize(10).make().tooltip('Reduce Mosaic'.tr),
+                const HugeIcon(icon: HugeIcons.strokeRoundedFilm01, size: AppStyle.smallIconSize).tooltip('Reduce Mosaic'.tr),
               ]).p4(),
             ).cornerRadius(8).p2().positioned(right: 0, top: 0),
           ],
@@ -370,7 +370,7 @@ class PageHomeView extends GetView<PageHomeController> {
             Container(
               color: AppColor.black180,
               child: HStack([
-                Icon(UIconsPro.solidRounded.calendar, size: 10).pOnly(right: 5),
+                HugeIcon(icon: HugeIcons.strokeRoundedCalendar03, size: AppStyle.smallIconSize).pOnly(right: 5),
                 video.releaseDate.isNotEmptyAndNotNull
                     ? '${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Release date: @{kMdY}'.trNamed({'kMdY': '${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'}))
                     : '${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Added at: @{kMdY}'.trNamed({'kMdY': '${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}'}))
@@ -393,7 +393,7 @@ class PageHomeView extends GetView<PageHomeController> {
             Container(
               color: AppColor.black120,
               child: HStack([
-                Icon(UIconsPro.solidRounded.eye, size: 10).pOnly(right: 5, top: 2),
+                HugeIcon(icon: HugeIcons.strokeRoundedView, size: AppStyle.smallIconSize).pOnly(right: 5, top: 2),
                 '${video.viewCount ?? 0}'.text.size(10).minFontSize(10).make(),
               ]).pSymmetric(h: 4, v: 2),
             ).cornerRadius(4).tooltip(video.viewCount != null ? 'View: @{count}'.trNamed({'count': '${video.viewCount}'}) : '').positioned(bottom: 24, right: 4),

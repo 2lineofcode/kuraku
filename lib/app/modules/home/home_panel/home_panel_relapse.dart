@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:overlayment/overlayment.dart';
 
 import '../../../core/app_color.dart';
@@ -12,6 +13,7 @@ import '../../../core/const.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/models/activity_entity.dart';
 import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_style.dart';
 import '../home_controller.dart';
 import '../page_profile/page_profile_controller.dart';
 import '../page_settings/page_settings_controller.dart';
@@ -139,7 +141,7 @@ class _RelapsePanelState extends State<_RelapsePanel> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Expanded(child: Text('Relapse'.tr, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
-            AppIconButton(tooltip: 'Close'.tr, icon: const Icon(Icons.close, size: 18), onPressed: () => Overlayment.dismissLast()),
+            AppIconButton(tooltip: 'Close'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize), onPressed: () => Overlayment.dismissLast()),
           ]),
           const SizedBox(height: 12),
           Text('TODAY'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),
@@ -161,7 +163,7 @@ class _RelapsePanelState extends State<_RelapsePanel> {
             labelColor: _busy || !_loaded ? AppColor.muted : AppColor.text,
             borderColor: AppColor.border,
             backgroundColor: AppColor.container,
-            icon: Icon(Icons.add, size: 14, color: _busy || !_loaded ? AppColor.muted : AppColor.text),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize, color: _busy || !_loaded ? AppColor.muted : AppColor.text),
             onPressed: _busy || !_loaded ? null : () => _run(() async {
               if (await DBActivity.addRelapse() == null) throw StateError('Record was not saved'.tr);
             }),
@@ -208,7 +210,7 @@ class _RelapsePanelState extends State<_RelapsePanel> {
                       child: Text('${item.times ?? 1}×', style: const TextStyle(fontSize: 12))),
                     MenuAnchor(
                       builder: (_, menu, child) => AppIconButton(
-                        tooltip: 'Entry actions'.tr, icon: const Icon(Icons.more_horiz, size: 18),
+                        tooltip: 'Entry actions'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: AppStyle.iconSize),
                         onPressed: _busy ? null : () => menu.isOpen ? menu.close() : menu.open(),
                       ),
                       menuChildren: [MenuItemButton(

@@ -84,7 +84,7 @@ void main() {
       Expanded(child: Obx(() => home.currentMenuSelected.value == kMenuProfile ? const HomeView().bodyContent() : const Text('Home'))),
       const HomeView().footerContent(),
     ]))));
-    await tester.tap(find.text('👋🏻 PA'));
+    await tester.tap(find.text('PA'));
     await tester.pumpAndSettle();
     expect(home.currentMenuSelected.value, kMenuProfile);
     expect(find.byType(CupertinoAlertDialog), findsNothing);
@@ -124,7 +124,7 @@ void main() {
     expect(find.byType(CupertinoAlertDialog), findsOneWidget);
     database.pending!.complete();
     await tester.pumpAndSettle();
-    expect(find.text('👋🏻 New name'), findsOneWidget);
+    expect(find.text('New name'), findsNWidgets(2));
     expect(find.text('Profile saved'), findsOneWidget);
     expect(find.byType(CupertinoAlertDialog), findsNothing);
     expect(home.profile.value.totalWatchDuration, 37680);

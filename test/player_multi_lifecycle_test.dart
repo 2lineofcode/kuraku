@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,7 +34,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.keyQ);
         await tester.sendKeyEvent(LogicalKeyboardKey.keyQ);
       } else if (close == 'tile') {
-        tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.close_rounded)).onPressed!();
+        tester.widget<IconButton>(find.widgetWithIcon(IconButton, CupertinoIcons.xmark)).onPressed!();
       } else {
         Get.back();
       }

@@ -1,8 +1,10 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
+import '../widgets/widget_style.dart';
 import 'player_controller.dart';
 import 'player_controls.dart';
 
@@ -89,7 +91,7 @@ class PlayerView extends GetView<PlayerController> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.file_open_rounded, color: Colors.white, size: 40),
+                  Icon(CupertinoIcons.doc, color: Colors.white, size: AppStyle.emptyIconSize),
                   SizedBox(height: 12),
                   Text(
                     'Drop video or subtitle here'.tr,

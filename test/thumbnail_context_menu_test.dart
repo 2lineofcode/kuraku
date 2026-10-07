@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:javit/app/data/database/_init_db.dart';
+import 'package:javit/app/modules/widgets/widget_style.dart';
 import 'package:javit/app/modules/widgets/widget_thumbnail.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:super_context_menu/super_context_menu.dart' as scm;
+
+import 'icon_finder.dart';
 
 class _Service extends DBService {
   @override
@@ -26,6 +30,21 @@ class _Database implements Database {
 }
 
 void main() {
+  testWidgets('thumbnail placeholder icons fit small frames and keep the shared default', (tester) async {
+    addTearDown(Get.reset);
+    for (final dimensions in [(20.0, 16.0, null, 16.0), (80.0, 64.0, null, AppStyle.emptyIconSize),
+      (80.0, 64.0, AppStyle.largeIconSize, AppStyle.largeIconSize), (300.0, 200.0, null, AppStyle.emptyIconSize), (0.0, 0.0, null, 0.0)]) {
+      await tester.pumpWidget(MaterialApp(home: Center(child: ExThumbnail(
+        key: ValueKey(dimensions), imageUrl: '', width: dimensions.$1, height: dimensions.$2, iconSize: dimensions.$3,
+      ))));
+      await tester.pumpAndSettle();
+      expect(tester.widget<HugeIcon>(findHugeIcon(HugeIcons.strokeRoundedImage01)).size, dimensions.$4);
+      expect(tester.getSize(findHugeIcon(HugeIcons.strokeRoundedImage01)), Size.square(dimensions.$4));
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('thumbnail native menu keeps local and online actions and primary taps', (tester) async {
     final database = _Database();
     Get.put<DBService>(_Service()..dbMain = database);

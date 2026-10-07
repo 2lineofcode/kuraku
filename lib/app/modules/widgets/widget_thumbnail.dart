@@ -1,19 +1,19 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
-import 'dart:math' show pow;
+import 'dart:math' show max, min, pow;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:path/path.dart' as p;
 import 'package:super_context_menu/super_context_menu.dart' as scm;
-import 'package:uicons_pro/uicons_pro.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:video_compress/video_compress.dart';
 
@@ -30,6 +30,7 @@ import '../../modules/home/home_controller.dart';
 import '../../modules/home/home_panel/home_panel_metadata.dart';
 import '../../modules/home/home_panel/home_panel_playlist.dart';
 import '../../utils/helper.dart';
+import 'widget_style.dart';
 
 class _ExThumbnailC extends GetxController {
   // ---- caches & inflight
@@ -90,7 +91,7 @@ class _ExThumbnailC extends GetxController {
     required int seconds,
   }) async {
 
-    // ✅ skip kalau file gak ada (misal drive eject, file rusak, dll)
+    // skip kalau file gak ada (misal drive eject, file rusak, dll)
     final f = File(inputPath);
     if (!f.existsSync()) return null;
 
@@ -155,7 +156,7 @@ class _ExThumbnailC extends GetxController {
   // ---- safe video_compress with timeout
   Future<Uint8List?> _safeVideoCompress(String inputPath, int pos, {Duration timeout = _vcTimeout}) async {
 
-    // ✅ skip kalau file gak ada (misal drive eject, file rusak, dll)
+    // skip kalau file gak ada (misal drive eject, file rusak, dll)
     final f = File(inputPath);
     if (!f.existsSync()) return null;
 
@@ -241,7 +242,7 @@ class _ExThumbnailC extends GetxController {
     Uint8List? bytes;
 
     if (codec.contains('av1')) {
-      AppLog.logW('[thumb] 🎥 AV1 → ffmpeg');
+      AppLog.logW('[thumb] AV1 → ffmpeg');
       bytes = await _thumbWithFfmpeg(videopath, filePath, seconds: position);
     } else {
       if (isExternal) {
@@ -249,7 +250,7 @@ class _ExThumbnailC extends GetxController {
       } else {
         bytes = await _safeVideoCompress(videopath, position);
         if (bytes == null || bytes.isEmpty || bytes.length < 1000) {
-          AppLog.logW('[thumb] ⚠️ fallback → ffmpeg (SSD)');
+          AppLog.logW('[thumb] fallback → ffmpeg (SSD)');
           bytes = await _thumbWithFfmpeg(videopath, filePath, seconds: position);
         }
       }
@@ -317,7 +318,7 @@ class ExThumbnail extends StatefulWidget {
     this.videoCode = '',
     required this.width,
     required this.height,
-    this.iconSize = 64,
+    this.iconSize = AppStyle.emptyIconSize,
     this.fitMemory = BoxFit.cover,
     this.fitUrl = BoxFit.fitHeight,
     this.withProxy = true,
@@ -580,6 +581,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
   @override
   Widget build(BuildContext context) {
     AppColor.dependOn(context);
+    final iconSize = (widget.iconSize ?? AppStyle.emptyIconSize).clamp(0.0, max(0.0, min(widget.width, widget.height))).toDouble();
     final cacheWidth = (widget.width * MediaQuery.devicePixelRatioOf(context)).round();
     Widget child;
     if ((widget.imageUrl ?? '').trim().isEmpty) {
@@ -596,7 +598,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
                 cacheWidth: cacheWidth,
               );
             }
-            return Icon(UIconsPro.regularRounded.loading, size: 32).wh(widget.width, widget.height).centered().color(AppColor.selected);
+            return HugeIcon(icon: HugeIcons.strokeRoundedLoading03, size: iconSize).centered().wh(widget.width, widget.height).color(AppColor.selected);
           }
           return (snap.hasData && snap.data != null)
               ? Image.memory(
@@ -606,7 +608,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
                   height: widget.height,
                   cacheWidth: cacheWidth,
                 )
-              : Icon(Icons.broken_image, size: widget.iconSize).wh(widget.width, widget.height).centered().color(AppColor.selected);
+              : HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: iconSize).centered().wh(widget.width, widget.height).color(AppColor.selected);
         },
       );
     } else {
@@ -640,7 +642,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
             Container(width: widget.width, height: widget.height, color: AppColor.hover).shimmer(primaryColor: AppColor.hover, secondaryColor: AppColor.container),
             if (progress.progress != null) ' ${(progress.progress! * 100).toDoubleStringAsFixed(digit: 0)}%'.text.xs.align(TextAlign.center).makeCentered(),
           ]),
-          errorWidget: (c, e, s) => Icon(Icons.broken_image, size: widget.iconSize).wh(widget.width, widget.height).centered().color(AppColor.selected),
+          errorWidget: (c, e, s) => HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: iconSize).centered().wh(widget.width, widget.height).color(AppColor.selected),
         ),
       ).color(widget.backdropColor ?? AppColor.container).wh(widget.width, widget.height);
     }

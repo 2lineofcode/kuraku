@@ -3,8 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:super_context_menu/super_context_menu.dart' as scm;
-import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
@@ -61,7 +61,7 @@ class PageSearchTabView extends StatelessWidget {
       () => controller.isFresh.isFalse || controller.isLoading.value || controller.error.value.isNotEmpty
           ? buildPage()
           : ExUiErrorOrEmpty(
-              illustration: Icon(UIconsPro.regularRounded.square_dashed_circle_plus, size: 128),
+              illustration: HugeIcon(icon: HugeIcons.strokeRoundedComputerAdd, size: AppStyle.emptyIconSize),
               title: '~ Fresh ~'.tr,
               message: 'Hi There, Select Or Drag & Drop your JAV Folder Here'.tr,
             ),
@@ -88,7 +88,7 @@ class PageSearchTabView extends StatelessWidget {
                 clearButtonMode: OverlayVisibilityMode.editing,
                 placeholder: controller.phSearch.value.tr,
                 style: TextStyle(color: AppColor.text),
-                prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+                prefix: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: AppStyle.iconSize, color: Vx.neutral500).pOnly(left: 8),
                 onTap: controller.showHistory,
                 onChanged: controller.onSearchTextChanged,
                 onSubmitted: (_) => controller.submitSearch(),
@@ -104,9 +104,9 @@ class PageSearchTabView extends StatelessWidget {
           ])).expand(),
 
           Obx(() => AppIconButton(
-            tooltip: controller.isListView.value ? 'Switch to grid view'.tr : 'Switch to list view'.tr,
+            tooltip: controller.isListView.value ? 'Switch to grid view'.tr :  'Switch to list view'.tr,
             onPressed: controller.toggleViewMode,
-            icon: Icon(controller.isListView.value ? Icons.grid_view_rounded : Icons.view_list_rounded, size: 18),
+            icon: HugeIcon(icon: controller.isListView.value ? HugeIcons.strokeRoundedLayoutList : HugeIcons.strokeRoundedGrid2x2, size: AppStyle.iconSize),
           ).pOnly(left: 4)),
 
           Obx(
@@ -119,11 +119,9 @@ class PageSearchTabView extends StatelessWidget {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 1.6),
                     )
-                  : Icon(
-                      controller.isSemanticMode.value
-                          ? UIconsPro.boldRounded.sparkles
-                          : UIconsPro.regularRounded.sparkles,
-                      size: controller.isSemanticMode.value ? 16 : 14,
+                  : HugeIcon(
+                      icon: HugeIcons.strokeRoundedSparkles,
+                      size: AppStyle.iconSize,
                       color: controller.isSemanticMode.value ? Vx.amber300 : null,
                     ),
             ).pOnly(left: 4),
@@ -133,9 +131,9 @@ class PageSearchTabView extends StatelessWidget {
           Obx(
             () => ZStack([
               AppIconButton(
-                icon: Icon(
-                  controller.filter.isFiltered.isTrue ? UIconsPro.boldRounded.filter_list : UIconsPro.regularRounded.filter_list,
-                  size: controller.filter.isFiltered.isTrue ? 16 : 14,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedFilter,
+                  size: AppStyle.iconSize,
                 ),
                 onPressed: controller.isLoading.value ? null : () => controller.openDialogFilter(isAvailable: () => identical(Get.find<PageSearchController>().activeTab, controller)),
               ).pOnly(left: 8),
@@ -162,7 +160,7 @@ class PageSearchTabView extends StatelessWidget {
                   controller.hideSuggestions();
                   menu.isOpen ? menu.close() : menu.open();
                 },
-                icon: Icon(UIconsPro.regularRounded.sort, size: 12),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedSortingZA01, size: AppStyle.iconSize),
                 child: Text('${controller.sortBy.value.tr}${quality == 'All qualities' ? '' : ' · ${quality.tr}'}', style: const TextStyle(fontSize: 11)),
               ),
             );
@@ -193,7 +191,7 @@ class PageSearchTabView extends StatelessWidget {
                         tooltip: 'Search settings\n@{value}'.trNamed({'value': '${controller.semanticCoverage.value.isEmpty ? 'Describe the image in English. Search uses one frame per video.'.tr : controller.semanticCoverage.value}'}),
                         visualDensity: VisualDensity.compact,
                         onPressed: Get.isRegistered<HomeController>() ? () => Get.find<HomeController>().onMenuChange(kMenuSetting) : null,
-                        icon: const Icon(Icons.settings_outlined, size: 16),
+                        icon: const HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: AppStyle.iconSize),
                       ),
                     ],
                   ])),
@@ -231,7 +229,7 @@ class PageSearchTabView extends StatelessWidget {
                 ))).expand()
               : controller.videos.isEmpty
               ? ExUiErrorOrEmpty(
-                  illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
+                  illustration: HugeIcon(icon: HugeIcons.strokeRoundedInbox, size: AppStyle.emptyIconSize),
                   title: 'No Data Found'.tr,
                   message: controller.isSemanticMode.value
                       ? 'Try a simpler English description, Broad matches, or check your filters.'.tr
@@ -251,14 +249,14 @@ class PageSearchTabView extends StatelessWidget {
     for (final sort in [if (controller.isSemanticMode.value) 'Relevance', 'Random', 'Release Date', 'View Count', 'File Size'])
       MenuItemButton(
         onPressed: () => controller.onSortByChange(sort),
-        leadingIcon: Icon(controller.sortBy.value == sort ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 16),
+        leadingIcon: HugeIcon(icon: controller.sortBy.value == sort ? HugeIcons.strokeRoundedCheckmarkCircle02 : HugeIcons.strokeRoundedCircle, size: AppStyle.iconSize),
         child: Text(sort.tr, style: const TextStyle(fontSize: 13)),
       ),
     Padding(padding: EdgeInsets.fromLTRB(12, 8, 12, 4), child: Text('Quality'.tr, style: TextStyle(fontSize: 11, color: Colors.grey))),
     for (final quality in ['All qualities', 'FHD only', 'HD only'])
       MenuItemButton(
         onPressed: () => controller.onQualityFilterChange(quality),
-        leadingIcon: Icon(controller.qualityFilter.value == quality ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 16),
+        leadingIcon: HugeIcon(icon: controller.qualityFilter.value == quality ? HugeIcons.strokeRoundedCheckmarkCircle02 : HugeIcons.strokeRoundedCircle, size: AppStyle.iconSize),
         child: Text(quality.tr, style: const TextStyle(fontSize: 13)),
       ),
   ];
@@ -423,7 +421,7 @@ class PageSearchTabView extends StatelessWidget {
                       child: Container(
                         color: Colors.blue.withAlpha(85),
                         alignment: Alignment.center,
-                        child: const Icon(Icons.shopping_bag, color: Colors.white, size: 24),
+                        child: const HugeIcon(icon: HugeIcons.strokeRoundedShoppingBag01, color: Colors.white, size: AppStyle.largeIconSize),
                       ),
                     ),
                   )
@@ -435,7 +433,7 @@ class PageSearchTabView extends StatelessWidget {
             Container(
               color: Vx.blue600.withAlpha(200),
               child: HStack([
-                '🇮🇩'.text.size(10).minFontSize(10).make().tooltip('ID Sub'.tr),
+                const HugeIcon(icon: HugeIcons.strokeRoundedClosedCaption, size: AppStyle.smallIconSize).tooltip('ID Sub'.tr),
               ]).p4(),
             ).cornerRadius(8).p2().positioned(right: 0, top: 0),
           ],
@@ -445,7 +443,7 @@ class PageSearchTabView extends StatelessWidget {
             Container(
               color: Vx.purple600.withAlpha(200),
               child: HStack([
-                '🇬🇧'.text.size(10).minFontSize(10).make().tooltip('EN Sub'.tr),
+                const HugeIcon(icon: HugeIcons.strokeRoundedClosedCaption, size: AppStyle.smallIconSize).tooltip('EN Sub'.tr),
               ]).p4(),
             ).cornerRadius(8).p2().positioned(right: 0, top: 0),
           ],
@@ -455,7 +453,7 @@ class PageSearchTabView extends StatelessWidget {
             Container(
               color: Vx.red600.withAlpha(200),
               child: HStack([
-                '🎞️'.text.size(10).minFontSize(10).make().tooltip('Reduce Mosaic'.tr),
+                const HugeIcon(icon: HugeIcons.strokeRoundedFilm01, size: AppStyle.smallIconSize).tooltip('Reduce Mosaic'.tr),
               ]).p4(),
             ).cornerRadius(8).p2().positioned(right: 0, top: 0),
           ],
@@ -465,7 +463,7 @@ class PageSearchTabView extends StatelessWidget {
             Container(
               color: AppColor.black180,
               child: HStack([
-                Icon(UIconsPro.solidRounded.calendar, size: 10).pOnly(right: 5),
+                HugeIcon(icon: HugeIcons.strokeRoundedCalendar03, size: AppStyle.smallIconSize).pOnly(right: 5),
                 video.releaseDate.isNotEmptyAndNotNull
                     ? '${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Release date: @{kMdY}'.trNamed({'kMdY': '${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'}))
                     : '${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Added at: @{kMdY}'.trNamed({'kMdY': '${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}'}))
@@ -497,7 +495,7 @@ class PageSearchTabView extends StatelessWidget {
             Container(
               color: AppColor.black120,
               child: HStack([
-                Icon(UIconsPro.solidRounded.eye, size: 10).pOnly(right: 5, top: 2),
+                HugeIcon(icon: HugeIcons.strokeRoundedView, size: AppStyle.smallIconSize).pOnly(right: 5, top: 2),
                 '${video.viewCount ?? 0}'.text.size(10).minFontSize(10).make(),
               ]).pSymmetric(h: 4, v: 2),
             ).cornerRadius(4).tooltip(video.viewCount != null ? 'View: @{count}'.trNamed({'count': '${video.viewCount}'}) : '').positioned(bottom: 46, right: 4),

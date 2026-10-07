@@ -1,14 +1,15 @@
 import 'dart:io';
 
 import 'package:ex_kit/ex.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:glassmorphism_ui/glassmorphism_ui.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/app_color.dart';
 import 'widget_controls.dart';
+import 'widget_style.dart';
 
 class MyLayout extends StatelessWidget {
   const MyLayout({
@@ -112,7 +113,7 @@ class MyLayout extends StatelessWidget {
       leading: isShowAppBarLeading == true
           ? appBarLeading?.pOnly(right: 8) ??
               AppIconButton(
-                icon: Icon(CupertinoIcons.arrow_left, size: 22),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft02, size: AppStyle.largeIconSize),
                 onPressed: Get.back,
               ).pOnly(right: 8)
           : null,

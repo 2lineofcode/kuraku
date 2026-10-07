@@ -96,11 +96,11 @@ class LogInterceptor extends Interceptor {
     final isCache = response.extra['cacheHit'] == true || status == 304;
 
     if (isCache) {
-      AppLog.logD('⚡ [$method] $uri | $status >> Loaded from Cache');
+      AppLog.logD('[$method] $uri | $status >> Loaded from Cache');
     } else {
       final diffInMs = diff;
       final diffInSec = (diff / 1000).toStringAsFixed(2);
-      AppLog.logD('🟢 [$method] $uri | $status | ${diffInSec}s ($diffInMs ms)');
+      AppLog.logD('[$method] $uri | $status | ${diffInSec}s ($diffInMs ms)');
     }
 
     super.onResponse(response, handler);
@@ -110,7 +110,7 @@ class LogInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) {
     final request = err.requestOptions;
     final status = err.response?.statusCode;
-    final message = '🔴 [${request.method}] ${request.uri.path} | ${status ?? err.type.name} | ${err.message}';
+    final message = '[${request.method}] ${request.uri.path} | ${status ?? err.type.name} | ${err.message}';
     if (CancelToken.isCancel(err)) {
       AppLog.logD(message);
     } else {

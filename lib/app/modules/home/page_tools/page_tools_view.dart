@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_list_view/flutter_list_view.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:path/path.dart' as p;
-import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_translations.dart';
@@ -15,6 +15,7 @@ import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_media_stack.dart';
+import '../../widgets/widget_style.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_video_info.dart';
@@ -95,7 +96,7 @@ class PageToolsView extends GetView<PageToolsController> {
         if (!running && (failed || controller.qualityScanSkipped.value > 0))
           Tooltip(message: status, child: const Padding(
             padding: EdgeInsets.only(right: 4),
-            child: Icon(Icons.info_outline, size: 14),
+            child: HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: AppStyle.iconSize),
           )),
         Tooltip(
           message: running ? 'Keep completed results'.tr : 'Scan missing video resolutions'.tr,
@@ -115,7 +116,7 @@ class PageToolsView extends GetView<PageToolsController> {
   Widget uiTopLargeFileSize() {
     if (controller.topLargeFileSizeList.isEmpty) {
       return ExUiErrorOrEmpty(
-         illustration: Icon(UIconsPro.regularRounded.square_dashed_circle_plus, size: 128),
+         illustration: HugeIcon(icon: HugeIcons.strokeRoundedComputerAdd, size: AppStyle.emptyIconSize),
         title: '~ Fresh ~'.tr,
         message: 'Hi There, Select Or Drag & Drop your JAV Folder Here'.tr,
       );
@@ -129,7 +130,7 @@ class PageToolsView extends GetView<PageToolsController> {
 
           Obx(() => AppDropdown<String>(
             value: controller.topLargeFilterMode.value,
-            prefix: Icon(UIconsPro.regularRounded.filter, size: 12),
+            prefix: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: AppStyle.iconSize),
             items: [
               DropdownMenuItem(value: 'all', child: Text('All'.tr)),
               DropdownMenuItem(value: 'internal', child: Text('Internal'.tr)),
@@ -255,7 +256,7 @@ class PageToolsView extends GetView<PageToolsController> {
       )),
       Obx(() => AppIconButton(
         tooltip: 'Refresh'.tr,
-        icon: const Icon(Icons.refresh_rounded, size: 16),
+        icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
         onPressed: controller.duplicateLoading.value ? null : controller.getDuplicateVideos,
       )),
       Obx(() => Text('@{groups} groups · @{videos} videos'.trNamed({'groups': '${controller.duplicateGroups.length}', 'videos': '${controller.duplicateVideoCount}'}), style: TextStyle(fontSize: 11, color: AppColor.muted))),
@@ -271,7 +272,7 @@ class PageToolsView extends GetView<PageToolsController> {
       controller: controller.tecDuplicateSearch,
       placeholder: 'Search code, title, path or resolution...'.tr,
       style: TextStyle(color: AppColor.text),
-      prefix: Padding(padding: const EdgeInsets.only(left: 8), child: Icon(Icons.search_rounded, size: 16, color: AppColor.muted)),
+      prefix: Padding(padding: const EdgeInsets.only(left: 8), child: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: AppStyle.iconSize, color: AppColor.muted)),
       clearButtonMode: OverlayVisibilityMode.editing,
       onChanged: (value) => controller.duplicateQuery.value = value,
     ),
@@ -284,7 +285,7 @@ class PageToolsView extends GetView<PageToolsController> {
       ]));
       final groups = controller.filteredDuplicateGroups;
       if (groups.isEmpty) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.video_library_outlined, size: 36, color: AppColor.muted),
+        HugeIcon(icon: HugeIcons.strokeRoundedFilm01, size: AppStyle.emptyIconSize, color: AppColor.muted),
         const SizedBox(height: 12),
         Text(controller.duplicateGroups.isEmpty ? 'No duplicate candidates found'.tr : 'No matching groups'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),
       ]));
@@ -326,7 +327,7 @@ class PageToolsView extends GetView<PageToolsController> {
     final poster = (video.poster ?? '').isNotEmpty ? video.poster! : video.fanArt ?? '';
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       ClipRRect(borderRadius: BorderRadius.circular(4), child: SizedBox(width: 56, height: 72,
-        child: poster.isEmpty ? Icon(Icons.movie_outlined, size: 22, color: AppColor.muted) : ExThumbnail(imageUrl: poster, width: 56, height: 72, prefix: 1.9),
+        child: poster.isEmpty ? HugeIcon(icon: HugeIcons.strokeRoundedFilm01, size: AppStyle.largeIconSize, color: AppColor.muted) : ExThumbnail(imageUrl: poster, width: 56, height: 72, prefix: 1.9),
       )),
       const SizedBox(width: 10),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -347,11 +348,11 @@ class PageToolsView extends GetView<PageToolsController> {
       ])),
       const SizedBox(width: 4),
       Column(mainAxisSize: MainAxisSize.min, children: [
-        AppIconButton(tooltip: 'Open Info'.tr, icon: const Icon(Icons.info_outline_rounded, size: 16),
+        AppIconButton(tooltip: 'Open Info'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: AppStyle.iconSize),
           style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           onPressed: () => HomePanelVideoInfo.open(video),
         ),
-        AppIconButton(tooltip: 'Open File Path'.tr, icon: const Icon(Icons.folder_open_rounded, size: 16),
+        AppIconButton(tooltip: 'Open File Path'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedFolderOpen, size: AppStyle.iconSize),
           style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           onPressed: available ? () => HelperOpener.openFilePath(path) : null,
         ),
@@ -359,7 +360,7 @@ class PageToolsView extends GetView<PageToolsController> {
           final home = Get.find<HomeController>();
           final added = home.isInCart(video);
           return AppIconButton(tooltip: added ? 'Already in panel cart'.tr : 'Add to Panel Cart'.tr,
-            icon: Icon(added ? Icons.check_rounded : Icons.add_rounded, size: 16),
+            icon: HugeIcon(icon: added ? HugeIcons.strokeRoundedTick02 : HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
             style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
             onPressed: added ? null : () => home.addToCart(video),
           );
@@ -379,7 +380,7 @@ class PageToolsView extends GetView<PageToolsController> {
         Expanded(child: Text('Total Todo: @{length}'.trNamed({'length': '${controller.todoList.length}'}), style: TextStyle(fontSize: 12, color: AppColor.muted))),
         AppIconButton(
           tooltip: 'Refresh'.tr,
-          icon: const Icon(Icons.refresh_rounded, size: 16),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
           onPressed: controller.getTodos,
         ),
         const SizedBox(width: 4),
@@ -387,28 +388,28 @@ class PageToolsView extends GetView<PageToolsController> {
           message: 'Add Todo: [⌘ + T]'.tr,
           child: AppButton(
             label: 'Add New Todo'.tr,
-            icon: const Icon(CupertinoIcons.plus),
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
             onPressed: controller.addTodo,
           ),
         ),
       ]),
       const SizedBox(height: 12),
       Expanded(child: LayoutBuilder(builder: (context, constraints) {
-        final todo = _todoColumn('TODO', pending, Icons.radio_button_unchecked_rounded, AppColor.muted, 'No pending todos'.tr);
-        final done = _todoColumn('DOWNLOADED', downloaded, Icons.check_circle_outline_rounded, AppColor.accent, 'No downloaded todos yet'.tr);
+        final todo = _todoColumn('TODO', pending, HugeIcons.strokeRoundedCircle, AppColor.muted, 'No pending todos'.tr);
+        final done = _todoColumn('DOWNLOADED', downloaded, HugeIcons.strokeRoundedCheckmarkCircle02, AppColor.accent, 'No downloaded todos yet'.tr);
         if (constraints.maxWidth < 560) return Column(children: [Expanded(child: todo), const SizedBox(height: 12), Expanded(child: done)]);
         return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [Expanded(child: todo), const SizedBox(width: 12), Expanded(child: done)]);
       })),
     ]).pOnly(left: 8);
   });
 
-  Widget _todoColumn(String title, List<Activity> items, IconData icon, Color color, String emptyMessage) => Container(
+  Widget _todoColumn(String title, List<Activity> items, List<List<dynamic>> icon, Color color, String emptyMessage) => Container(
     key: ValueKey(title),
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(color: AppColor.text.withValues(alpha: .025), borderRadius: BorderRadius.circular(6)),
     child: Column(children: [
       Row(children: [
-        Icon(icon, size: 16, color: color),
+        HugeIcon(icon: icon, size: AppStyle.iconSize, color: color),
         const SizedBox(width: 8),
         Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
         const SizedBox(width: 8),
@@ -417,7 +418,7 @@ class PageToolsView extends GetView<PageToolsController> {
       const SizedBox(height: 12),
       Expanded(child: items.isEmpty
         ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 28, color: AppColor.muted.withValues(alpha: .5)),
+            HugeIcon(icon: icon, size: AppStyle.largeIconSize, color: AppColor.muted.withValues(alpha: .5)),
             const SizedBox(height: 10),
             Text(emptyMessage, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColor.muted)),
           ]))
@@ -448,7 +449,7 @@ class PageToolsView extends GetView<PageToolsController> {
             AppIconButton(
               tooltip: 'Delete'.tr,
               style: IconButton.styleFrom(minimumSize: const Size(32, 32), padding: EdgeInsets.zero),
-              icon: Icon(Icons.close_rounded, size: 16, color: AppColor.muted),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize, color: AppColor.muted),
               onPressed: () => controller.deleteTodos(item),
             ),
           ]),
@@ -460,12 +461,12 @@ class PageToolsView extends GetView<PageToolsController> {
   Widget _buildTodoThumbnail(String? todoContent) {
     final code = (todoContent ?? '').replaceAll('✔︎', '').trim();
     if (!code.isValidVideoCode()) {
-      return Icon(Icons.notes_rounded, size: 20, color: AppColor.muted).centered();
+      return HugeIcon(icon: HugeIcons.strokeRoundedFile01, size: AppStyle.largeIconSize, color: AppColor.muted).centered();
     }
 
     final poster = controller.todoPosterByCode[code] ?? '';
     if (poster.isEmpty) {
-      return Icon(Icons.broken_image, size: 18, color: Vx.neutral500).centered();
+      return HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: AppStyle.largeIconSize, color: Vx.neutral500).centered();
     }
 
     return ClipRRect(
@@ -480,7 +481,7 @@ class PageToolsView extends GetView<PageToolsController> {
     final useVideoPath = hasVideoPath && (preferVideoPath || !hasPoster);
 
     if (!hasPoster && !hasVideoPath) {
-      return Icon(Icons.broken_image, size: 18, color: Vx.neutral500).centered();
+      return HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: AppStyle.largeIconSize, color: Vx.neutral500).centered();
     }
 
     return ClipRRect(
@@ -565,7 +566,7 @@ class PageToolsView extends GetView<PageToolsController> {
             placeholder: 'Search @{toLowerCase}...'.trNamed({'toLowerCase': '${controller.currentFilterBy.value.tr.toLowerCase()}'}),
             style: TextStyle(color: AppColor.text),
             clearButtonMode: OverlayVisibilityMode.editing,
-            prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+            prefix: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: AppStyle.iconSize, color: Vx.neutral500).pOnly(left: 8),
             onChanged: controller.searchAdvancedGroups,
             onSubmitted: (s) async => await controller.onLeftListDoSearch(s),
           ).pSymmetric(v: 12),
@@ -648,7 +649,7 @@ class PageToolsView extends GetView<PageToolsController> {
       return Container(
         decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
         child: ExUiErrorOrEmpty(
-          illustration: Icon(CupertinoIcons.chevron_left_2, size: 64).pOnly(bottom: 12),
+          illustration: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeftDouble, size: AppStyle.emptyIconSize).pOnly(bottom: 12),
           message: 'Choose an actress, series, category or year to browse the R18 catalog.'.tr,
         ),
       );
@@ -675,9 +676,9 @@ class PageToolsView extends GetView<PageToolsController> {
                 () => ZStack([
                   AppIconButton(
                     tooltip: 'More filters: video code, year and duration'.tr,
-                    icon: Icon(
-                      controller.filter.isFiltered.isTrue ? UIconsPro.boldRounded.filter_list : UIconsPro.regularRounded.filter_list,
-                      size: controller.filter.isFiltered.isTrue ? 16 : 14,
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedFilter,
+                      size: AppStyle.iconSize,
                     ),
                     onPressed: () => controller.openDialogFilter(),
                   ).pOnly(left: 8),
@@ -690,7 +691,7 @@ class PageToolsView extends GetView<PageToolsController> {
               placeholder: 'Search video code or title...'.tr,
               style: TextStyle(color: AppColor.text),
               clearButtonMode: OverlayVisibilityMode.editing,
-              prefix: Icon(Icons.search, size: 16, color: AppColor.muted).pOnly(left: 8),
+              prefix: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: AppStyle.iconSize, color: AppColor.muted).pOnly(left: 8),
               onChanged: (value) {
                 controller.resultQuery.value = value;
                 controller.applyAdvancedFilters();
@@ -712,7 +713,7 @@ class PageToolsView extends GetView<PageToolsController> {
         onLoading: ExUiLoading(message: 'Loading...'.tr.text.size(11).minFontSize(11).makeCentered()),
         onError: (error) => Center(child: Text(error ?? 'Could not load videos'.tr)),
         onEmpty: ExUiErrorOrEmpty(
-          illustration: Icon(UIconsPro.regularRounded.mug_hot_alt, size: 32),
+          illustration: HugeIcon(icon: HugeIcons.strokeRoundedInbox, size: AppStyle.emptyIconSize),
           title: 'No Data Found'.tr,
           message: 'No Result Found, as you searched for "@{leftListSelected}"'.trNamed({'leftListSelected': '${controller.leftListSelected}'}),
         ),
@@ -785,14 +786,14 @@ class PageToolsView extends GetView<PageToolsController> {
               AppIconButton(
                 tooltip: 'Open trailer'.tr,
                 style: IconButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                icon: const Icon(Icons.play_arrow_outlined, size: 16),
+                icon: const HugeIcon(icon: HugeIcons.strokeRoundedPlay, size: AppStyle.iconSize),
                 onPressed: () => HelperOpener.openTrailer(item),
               ),
               const SizedBox(height: 4),
               AppIconButton(
                 tooltip: 'Open screenshots'.tr,
                 style: IconButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                icon: const Icon(Icons.photo_outlined, size: 16),
+                icon: const HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: AppStyle.iconSize),
                 onPressed: () => HelperOpener.openScreenshot(item),
               ),
             ])),

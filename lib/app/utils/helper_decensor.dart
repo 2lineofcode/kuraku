@@ -1,11 +1,12 @@
 // ~~
 import 'package:ex_kit/ex.dart';
+import 'package:html/parser.dart' as html;
 
 mixin HelperDecensor {
   //  ~~~
   static String decensor(String? s) {
     if (s.isNullOrEmpty) return '';
-    String result = s!;
+    String result = s!.contains('&') ? html.parseFragment(s.replaceAll('<', '&lt;')).text ?? '' : s;
     _map.forEach((key, value) {
       result = result.replaceAll(key, value);
     });

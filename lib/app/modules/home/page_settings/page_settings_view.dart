@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
@@ -12,6 +13,7 @@ import '../../../core/app_translations.dart';
 import '../../../utils/helper.dart';
 import '../../../utils/r18_updater.dart';
 import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_style.dart';
 import '../../widgets/widget_surfaces.dart';
 import '../home_controller.dart';
 import 'page_settings_controller.dart';
@@ -79,7 +81,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                   onSubmitted: (_) => controller.saveRelapseLimit(),
                   suffix: AppIconButton(
                     tooltip: 'Save daily limit (0 blocks playback)'.tr,
-                    icon: const Icon(Icons.check_rounded, size: 18),
+                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedTick02, size: AppStyle.iconSize),
                     onPressed: controller.saveRelapseLimit,
                   ),
                 )),
@@ -117,13 +119,13 @@ class PageSettingsView extends GetView<PageSettingsController> {
               ])),
             ]);
             final utilities = _section('Utilities'.tr, [
-              _action(Icons.receipt_long_outlined, 'Open App Log'.tr, controller.onOpenAppLog),
-              _action(Icons.keyboard_outlined, 'Keyboard Shortcuts'.tr, () => HelperOpener.openKeyboardShortcuts()),
-              _action(Icons.folder_outlined, 'Go App Folder'.tr, () => HelperOpener.openFolder(controller.appSetting.appPath)),
-              _action(Icons.folder_copy_outlined, 'Go Cache Folder'.tr, () => HelperOpener.openFolder('/Users/adit/Library/Caches/net_thumbnail')),
+              _action(HugeIcons.strokeRoundedNote, 'Open App Log'.tr, controller.onOpenAppLog),
+              _action(HugeIcons.strokeRoundedKeyboard, 'Keyboard Shortcuts'.tr, () => HelperOpener.openKeyboardShortcuts()),
+              _action(HugeIcons.strokeRoundedFolderCog, 'Go App Folder'.tr, () => HelperOpener.openFolder(controller.appSetting.appPath)),
+              _action(HugeIcons.strokeRoundedFolderKanban, 'Go Cache Folder'.tr, () => HelperOpener.openFolder('/Users/adit/Library/Caches/net_thumbnail')),
               Divider(height: 20, color: AppColor.border),
               Obx(() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                _action(Icons.sync_rounded, 'Update R18 DB'.tr, R18Updater.busy.value ? null : controller.updateR18DB),
+                _action(HugeIcons.strokeRoundedLoading03, 'Update R18 DB'.tr, R18Updater.busy.value ? null : controller.updateR18DB),
                 if (R18Updater.busy.value) LinearProgressIndicator(
                   value: R18Updater.progress.value < 0 ? null : R18Updater.progress.value,
                   semanticsLabel: 'Update R18 DB'.tr,
@@ -243,16 +245,16 @@ class PageSettingsView extends GetView<PageSettingsController> {
     ]),
   );
 
-  Widget _action(IconData icon, String label, VoidCallback? onTap) => Material(
+  Widget _action(List<List<dynamic>> icon, String label, VoidCallback? onTap) => Material(
     type: MaterialType.transparency,
     child: ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 4),
       minLeadingWidth: 20, horizontalTitleGap: 10,
       dense: true, visualDensity: VisualDensity.compact,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      leading: Icon(icon, size: 18, color: AppColor.muted),
+      leading: HugeIcon(icon: icon, size: AppStyle.iconSize, color: AppColor.muted),
       title: Text(label, style: const TextStyle(fontSize: 12)),
-      trailing: Icon(Icons.chevron_right_rounded, size: 16, color: AppColor.muted),
+      trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: AppStyle.iconSize, color: AppColor.muted),
       onTap: onTap,
     ),
   );
@@ -274,7 +276,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     ),
     onPressed: controller.isLoadingStorage.value ? null : controller.onRefreshStorage,
-    icon: const Icon(Icons.refresh_rounded, size: 14), child: Text('Refresh'.tr),
+    icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize), child: Text('Refresh'.tr),
   )));
 
   Widget _storageRow(StorageUsage item) {
@@ -284,7 +286,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
       padding: const EdgeInsets.only(bottom: 18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Icon(item.isExternal ? Icons.sd_storage_outlined : Icons.computer_rounded, size: 18, color: AppColor.muted),
+          HugeIcon(icon: item.isExternal ? HugeIcons.strokeRoundedArchive01 : HugeIcons.strokeRoundedComputer, size: AppStyle.iconSize, color: AppColor.muted),
           const SizedBox(width: 8),
           Expanded(child: Text('${item.label}${item.isExternal ? ' (External)'.tr : ''}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
           Text('${usedPct.toStringAsFixed(1)}%', style: TextStyle(fontSize: 11, color: color)),
@@ -311,7 +313,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
             onPressed: () {
               controller.appLogMode.value = false;
             },
-            icon: Icon(Icons.arrow_back_rounded),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft02, size: AppStyle.iconSize),
           ).pOnly(right: 12),
           'APP LOG'.tr.text.bold.make(),
           Spacer(),
@@ -327,7 +329,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
 
           Obx(() => AppDropdown<String>(
             value: controller.appLogLevelSelected.value,
-            prefix: const Icon(CupertinoIcons.list_dash, size: 16),
+            prefix: const HugeIcon(icon: HugeIcons.strokeRoundedLeftToRightListBullet, size: AppStyle.iconSize),
             items: [for (final level in ['ALL', 'DEBUG', 'INFO', 'WARN', 'ERROR'])
               DropdownMenuItem(value: level, child: Text(level.tr)),
             ],
@@ -480,7 +482,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
           enabled: !busy,
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
-          icon: const Icon(Icons.more_vert, size: 18),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedMoreVertical, size: AppStyle.iconSize),
           style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           onSelected: (value) async {
             switch (value) {

@@ -212,7 +212,7 @@ class _JavItState extends State<JavIt> with WindowListener {
         ],
       );
     } else {
-      AppLog.logS('=== 💎 Application is ready, without any issue 💎 ===');
+      AppLog.logS('=== Application is ready, without any issue ===');
     }
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
@@ -63,9 +64,9 @@ class PageSqleditorTabView extends StatelessWidget {
                 initialValue: controller.source.value,
                 isExpanded: true,
                 style: TextStyle(color: AppColor.text),
-                iconSize: 16,
+                iconSize: AppStyle.iconSize,
                 decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.storage_rounded, size: 14, color: AppColor.muted),
+                  prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedPackage, size: AppStyle.iconSize, color: AppColor.muted),
                   prefixIconConstraints: const BoxConstraints(minWidth: 30, minHeight: 28),
                 ),
                 items: controller.sources.keys.map((source) => DropdownMenuItem(value: source, child: Text(source))).toList(),
@@ -77,7 +78,7 @@ class PageSqleditorTabView extends StatelessWidget {
               tooltip: controller.schemaLoading.value ? 'Loading schema…'.tr
                   : controller.schemaError.value.isNotEmpty ? controller.schemaError.value : 'Refresh table and column suggestions'.tr,
               constraints: const BoxConstraints.tightFor(width: AppStyle.inputHeight, height: AppStyle.inputHeight),
-              icon: Icon(controller.schemaError.value.isEmpty ? Icons.refresh_rounded : Icons.error_outline, size: 18),
+              icon: HugeIcon(icon: controller.schemaError.value.isEmpty ? HugeIcons.strokeRoundedRefresh01 : HugeIcons.strokeRoundedAlertCircle, size: AppStyle.iconSize),
               onPressed: controller.schemaLoading.value ? null : controller.refreshSchema,
             )),
             const SizedBox(width: 8),
@@ -97,7 +98,7 @@ class PageSqleditorTabView extends StatelessWidget {
                   ),
                   onPressed: controller.committing.value ? null : controller.running.value ? controller.stopQuery
                       : controller.query == null ? null : () => _runQuery(context),
-                  icon: Icon(controller.running.value ? Icons.stop_rounded : Icons.play_arrow_rounded, size: 14),
+                  icon: HugeIcon(icon: controller.running.value ? HugeIcons.strokeRoundedStop : HugeIcons.strokeRoundedPlay, size: AppStyle.iconSize),
                   child: Text(controller.committing.value ? 'Saving…'.tr : controller.running.value ? 'Stop'.tr : hasSelection ? 'Run selection'.tr : 'Run'.tr),
                 ),
               );
@@ -123,25 +124,25 @@ class PageSqleditorTabView extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                     constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                     padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.format_align_left_rounded, size: 14),
+                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedTextAlignLeft, size: AppStyle.iconSize),
                     onPressed: controller.formatQuery,
                   ),
                   AppIconButton(
                     tooltip: 'Query parameters (JSON)'.tr,
                     visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.tune_rounded, size: 14),
+                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: AppStyle.iconSize),
                     onPressed: () => _showParameters(context),
                   ),
                   AppButton(
                     style: TextButton.styleFrom(minimumSize: const Size(0, 28), padding: const EdgeInsets.symmetric(horizontal: 8),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap, textStyle: const TextStyle(fontSize: 11)),
-                    icon: const Icon(Icons.code_rounded, size: 14),
+                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedSourceCode, size: AppStyle.iconSize),
                     onPressed: () => _showSnippets(context),
                    child: Text('Snippets'.tr),),
                   AppButton(
                     style: TextButton.styleFrom(minimumSize: const Size(0, 28), padding: const EdgeInsets.symmetric(horizontal: 8),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap, textStyle: const TextStyle(fontSize: 11)),
-                    icon: const Icon(Icons.auto_awesome_outlined, size: 14),
+                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedSparkles, size: AppStyle.iconSize),
                     onPressed: () => _showAi(context),
                    child: Text('Ask AI'.tr),),
                   AppIconButton(
@@ -149,7 +150,7 @@ class PageSqleditorTabView extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                     constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                     padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.clear_rounded, size: 14),
+                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize),
                     onPressed: () { controller.input.clear(); controller.focusNode.requestFocus(); },
                   ),
                 ]),
@@ -240,7 +241,7 @@ class PageSqleditorTabView extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
             padding: EdgeInsets.zero,
-            icon: Icon(controller.resultsExpanded.value ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, size: 16),
+            icon: HugeIcon(icon: controller.resultsExpanded.value ? HugeIcons.strokeRoundedCollapse : HugeIcons.strokeRoundedExpand, size: AppStyle.iconSize),
             onPressed: () {
               controller.dismissSuggestions();
               controller.focusNode.unfocus();
@@ -277,11 +278,11 @@ class PageSqleditorTabView extends StatelessWidget {
     if (uri?.host == 'pics.dmm.co.jp') url = uri!.path.replaceFirst(RegExp(r'^/'), '');
     final valid = uri != null && (['http', 'https'].contains(uri.scheme) && uri.hasAuthority
         || uri.scheme.isEmpty && uri.host.isEmpty && url.contains('/') && !url.startsWith('/'));
-    final fallback = Icon(Icons.image_not_supported_outlined, size: 18, color: AppColor.muted);
+    final fallback = HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: AppStyle.largeIconSize, color: AppColor.muted);
     return SizedBox(width: 96, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: ClipRRect(borderRadius: BorderRadius.circular(4), child: SizedBox(height: 56,
         child: !valid ? Center(child: fallback)
-            : ExThumbnail(imageUrl: url, width: 80, height: 56, iconSize: 18, fitUrl: BoxFit.contain),
+            : ExThumbnail(imageUrl: url, width: 80, height: 56, iconSize: AppStyle.iconSize, fitUrl: BoxFit.contain),
       )),
     ));
   }
@@ -337,7 +338,7 @@ class PageSqleditorTabView extends StatelessWidget {
         contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
         actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
         title: Row(children: [
-          const Icon(Icons.code_rounded, size: 16),
+          const HugeIcon(icon: HugeIcons.strokeRoundedSourceCode, size: AppStyle.iconSize),
           const SizedBox(width: 8),
           Expanded(child: Text('SQL snippets'.tr, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
           PopupMenuButton<String>(
@@ -348,7 +349,7 @@ class PageSqleditorTabView extends StatelessWidget {
               PopupMenuItem(value: item, child: Text('@{item} · @{length} saved'.trNamed({'item': '$item', 'length': '${controller.snippetsFor(item).length}'}), style: const TextStyle(fontSize: 12)))],
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Text(source, style: TextStyle(fontSize: 11, color: AppColor.muted)),
-              const Icon(Icons.arrow_drop_down, size: 16),
+              const HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: AppStyle.iconSize),
             ])),
         ]),
         content: SizedBox(width: 480, child: SingleChildScrollView(child: Column(
@@ -367,7 +368,7 @@ class PageSqleditorTabView extends StatelessWidget {
                 Row(children: [
                   Expanded(child: Text('Editing: @{loadedName}'.trNamed({'loadedName': '$loadedName'}), maxLines: 1, overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
-                  AppButton(icon: const Icon(Icons.save_outlined, size: 14),
+                  AppButton(icon: const HugeIcon(icon: HugeIcons.strokeRoundedFloppyDisk, size: AppStyle.iconSize),
                     onPressed: busy || loadedSql == null || loadedSql.trim().isEmpty || loadedSql.trim() == controller.snippetsFor(source)[loadedName] ? null : () async {
                       setState(() { busy = true; error = ''; });
                       try {
@@ -384,7 +385,7 @@ class PageSqleditorTabView extends StatelessWidget {
                 Expanded(child: Text('@{length} saved queries'.trNamed({'length': '${controller.snippetsFor(source).length}'}), style: TextStyle(fontSize: 11, color: AppColor.muted))),
                 AppButton(
                   style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                  icon: Icon(adding ? Icons.close : Icons.add, size: 14),
+                  icon: HugeIcon(icon: adding ? HugeIcons.strokeRoundedCancel01 : HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
                   onPressed: busy || currentSql.trim().isEmpty ? null : () => setState(() { adding = !adding; error = ''; }), child: Text(adding ? 'Cancel save'.tr : loadedName != null ? 'Save as new'.tr : 'Save current query'.tr, style: const TextStyle(fontSize: 11))),
               ]),
               if (adding) ...[
@@ -417,7 +418,7 @@ class PageSqleditorTabView extends StatelessWidget {
               ],
               if (controller.snippetsFor(source).isEmpty)
                 Padding(padding: const EdgeInsets.symmetric(vertical: 24), child: Column(children: [
-                  Icon(Icons.bookmark_border_rounded, size: 24, color: AppColor.muted),
+                  HugeIcon(icon: HugeIcons.strokeRoundedBookmark01, size: AppStyle.largeIconSize, color: AppColor.muted),
                   const SizedBox(height: 8),
                   Text('No saved queries in @{source}'.trNamed({'source': '$source'}), style: const TextStyle(fontSize: 12)),
                   for (final item in controller.sources.keys.where((item) => item != source && controller.snippetsFor(item).isNotEmpty))
@@ -435,9 +436,9 @@ class PageSqleditorTabView extends StatelessWidget {
                     ListTile(dense: true, visualDensity: VisualDensity.compact,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10),
                       selected: selected == entry.key, selectedTileColor: Get.theme.colorScheme.primary.withValues(alpha: 0.10),
-                      leading: const Icon(Icons.code, size: 16), minLeadingWidth: 16,
+                      leading: const HugeIcon(icon: HugeIcons.strokeRoundedSourceCode, size: AppStyle.iconSize), minLeadingWidth: 16,
                       title: Text(entry.key, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
-                      trailing: selected == entry.key ? const Icon(Icons.check, size: 14) : null,
+                      trailing: selected == entry.key ? const HugeIcon(icon: HugeIcons.strokeRoundedTick02, size: AppStyle.iconSize) : null,
                       onTap: busy ? null : () => setState(() { selected = entry.key; error = ''; })),
                 ])),
               if (selected != null) ...[
@@ -449,7 +450,7 @@ class PageSqleditorTabView extends StatelessWidget {
                     style: const TextStyle(fontFamily: 'monospace', fontSize: 11, height: 1.5)))),
                 Align(alignment: Alignment.centerRight, child: AppButton(
                   style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: AppColor.muted),
-                  icon: const Icon(Icons.delete_outline, size: 14),
+                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize),
                   onPressed: busy ? null : () async {
                     setState(() { busy = true; error = ''; });
                     try {
@@ -470,7 +471,7 @@ class PageSqleditorTabView extends StatelessWidget {
                   Text('Operation'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted)),
                   const SizedBox(height: 5),
                   AppDropdownFormField<String>(
-                    key: const ValueKey('snippet-operation'), initialValue: action, isExpanded: true, iconSize: 16,
+                    key: const ValueKey('snippet-operation'), initialValue: action, isExpanded: true, iconSize: AppStyle.iconSize,
                     style: TextStyle(color: AppColor.text),
                     items: PageSqleditorTab.snippetActions.where((item) => item != 'DELETE')
                         .map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
@@ -481,7 +482,7 @@ class PageSqleditorTabView extends StatelessWidget {
                   Text('Table'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted)),
                   const SizedBox(height: 5),
                   AppDropdownFormField<String>(
-                    initialValue: table, isExpanded: true, iconSize: 16, menuMaxHeight: 260,
+                    initialValue: table, isExpanded: true, iconSize: AppStyle.iconSize, menuMaxHeight: 260,
                     style: TextStyle(color: AppColor.text),
                     items: (tables.isEmpty ? ['table_name'] : tables).map((name) => DropdownMenuItem(value: name,
                       child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis))).toList(),
@@ -689,9 +690,9 @@ class _SqlQueryInputState extends State<_SqlQueryInput> {
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(children: [
-                Icon(PageSqleditorTab.keywords.contains(suggestion) ? Icons.code_rounded
-                    : controller.schemaTables.contains(suggestion) ? Icons.table_chart_outlined : Icons.view_column_outlined,
-                  size: 14, color: AppColor.muted),
+                HugeIcon(icon: PageSqleditorTab.keywords.contains(suggestion) ? HugeIcons.strokeRoundedSourceCode
+                    : controller.schemaTables.contains(suggestion) ? HugeIcons.strokeRoundedTable01 : HugeIcons.strokeRoundedLayout3Column,
+                  size: AppStyle.iconSize, color: AppColor.muted),
                 const SizedBox(width: 6),
                 Expanded(child: Text.rich(TextSpan(children: [
                   for (var index = 0; index < suggestion.length; index++)

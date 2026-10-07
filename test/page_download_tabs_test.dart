@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:javit/app/core/app_pref.dart';
 import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/data/models/__javit_search_entity.dart';
@@ -15,6 +16,8 @@ import 'package:javit/app/modules/home/page_download/page_download_controller.da
 import 'package:javit/app/modules/home/page_download/page_download_search_tab.dart';
 import 'package:javit/app/modules/home/page_download/page_download_view.dart';
 import 'package:javit/app/utils/helper_opener.dart';
+
+import 'icon_finder.dart';
 
 class _Preferences implements GetSecureStorage {
   final values = <String, dynamic>{};
@@ -629,8 +632,8 @@ void main() {
     await tester.tap(find.byTooltip('New search tab'));
     await tester.pumpAndSettle();
     expect(controller.tabs.length, 2);
-    final addButton = find.widgetWithIcon(IconButton, Icons.add);
-    final lastClose = find.widgetWithIcon(IconButton, Icons.close).last;
+    final addButton = findHugeIconButton(HugeIcons.strokeRoundedAdd01).first;
+    final lastClose = findHugeIconButton(HugeIcons.strokeRoundedCancel01).last;
     expect(tester.getTopLeft(addButton).dx - tester.getTopRight(lastClose).dx, closeTo(4, 1));
     final second = controller.activeTab;
     expect(second.fnSearch.hasFocus, isTrue);

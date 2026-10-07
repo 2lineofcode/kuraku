@@ -6,10 +6,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:process_run/process_run.dart' as cmd;
-import 'package:uicons_pro/uicons_pro.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:video_player/video_player.dart';
 import 'package:zoom_hover_pinch_image/zoom_hover_pinch_image.dart';
@@ -38,6 +38,7 @@ import '../modules/widgets/widget_chiwie_custom.dart';
 import '../modules/widgets/widget_controls.dart';
 import '../modules/widgets/widget_download_method.dart';
 import '../modules/widgets/widget_media_stack.dart';
+import '../modules/widgets/widget_style.dart';
 import '../modules/widgets/widget_surfaces.dart';
 import '../modules/widgets/widget_thumbnail.dart';
 import '../routes/app_pages.dart';
@@ -233,7 +234,7 @@ mixin HelperOpener {
                     Container(
                       decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                       child: AppIconButton(
-                        icon: Icon(UIconsPro.regularRounded.comment_image, size: 16),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: AppStyle.iconSize),
                         onPressed: () async {
                           await openScreenshot(item);
                         },
@@ -244,7 +245,7 @@ mixin HelperOpener {
                     Container(
                       decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                       child: AppIconButton(
-                        icon: Icon(UIconsPro.regularRounded.arrow_square_down, size: 16),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload01, size: AppStyle.iconSize),
                         onPressed: () async {
                           WidgetsBinding.instance.scheduleFrame();
                           final method = await Overlayment.show<String>(
@@ -329,7 +330,7 @@ mixin HelperOpener {
                     Container(
                       decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                       child: AppIconButton(
-                        icon: Icon(UIconsPro.regularRounded.video_camera, size: 16),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedVideo01, size: AppStyle.iconSize),
                         onPressed: () async => await openTrailer(item),
                       ),
                     ).pOnly(right: 8).tooltip('Trailer'.tr),
@@ -347,7 +348,7 @@ mixin HelperOpener {
                       child: SingleChildScrollView(
                         child: VStack([
                           HStack([
-                            Icon(UIconsPro.regularRounded.square_code, size: 14).pOnly(right: 8),
+                            HugeIcon(icon: HugeIcons.strokeRoundedSourceCode, size: AppStyle.iconSize).pOnly(right: 8),
                             'Metadata'.tr.text.size(14).bold.make(),
                           ]).pOnly(bottom: 16),
 
@@ -589,7 +590,7 @@ mixin HelperOpener {
                       alignment: Alignment.centerRight,
                       child: Container(
                         decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                        child: Icon(UIconsPro.regularRounded.arrow_small_right).p12(),
+                        child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: AppStyle.iconSize).p12(),
                       ).onInkTap(() {
                         if (idxSelected.value < video.screenshot!.length - 1) {
                           idxSelected.value++;
@@ -600,7 +601,7 @@ mixin HelperOpener {
                       alignment: Alignment.centerLeft,
                       child: Container(
                         decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                        child: Icon(UIconsPro.regularRounded.arrow_small_left).p12(),
+                        child: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: AppStyle.iconSize).p12(),
                       ).onInkTap(() {
                         if (idxSelected.value > 0) {
                           idxSelected.value--;
@@ -611,7 +612,7 @@ mixin HelperOpener {
                       alignment: Alignment.topRight,
                       child: Container(
                         decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                        child: Icon(UIconsPro.regularRounded.cross_small).p8(),
+                        child: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize).p8(),
                       ).onInkTap(() {
                         Overlayment.dismissLast();
                       }),
@@ -756,7 +757,7 @@ mixin HelperOpener {
                 alignment: Alignment.topRight,
                 child: Container(
                   decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                  child: Icon(UIconsPro.regularRounded.cross_small).p8(),
+                  child: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize).p8(),
                 ).onInkTap(() {
                   Overlayment.dismissLast();
                 }),
@@ -825,7 +826,7 @@ mixin HelperOpener {
                 'Keyboard Shortcuts'.tr.text.bold.size(16).make().pOnly(left: 12),
                 Spacer(),
                 AppIconButton(
-                  icon: Icon(UIconsPro.regularRounded.cross, size: 14),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize),
                   onPressed: () => Overlayment.dismissLast(),
                 ),
               ],
@@ -1232,7 +1233,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                 Container(
                   padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(color: AppColor.selected, borderRadius: BorderRadius.circular(10)),
-                  child: Icon(Icons.tune_rounded, size: 19, color: _accent),
+                  child: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: AppStyle.iconSize, color: _accent),
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1240,7 +1241,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                   SizedBox(height: 3),
                   Text('Find exactly what you’re looking for'.tr, style: TextStyle(fontSize: 11, color: _muted)),
                 ])),
-                AppIconButton(tooltip: 'Cancel'.tr, onPressed: () => Navigator.pop(context), icon: Icon(Icons.close, size: 17, color: _muted)),
+                AppIconButton(tooltip: 'Cancel'.tr, onPressed: () => Navigator.pop(context), icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize, color: _muted)),
               ]),
             ),
             Flexible(
@@ -1304,7 +1305,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                                 side: BorderSide.none,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                 visualDensity: VisualDensity.compact,
-                                deleteIcon: Icon(Icons.close, size: 13, color: _accent),
+                                deleteIcon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize, color: _accent),
                                 onDeleted: () => setState(() => _categories.remove(category)),
                               )).toList(),
                             ),
@@ -1321,7 +1322,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                           Expanded(child: Text('Blacklist'.tr, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),
                           AppIconButton(
                             tooltip: 'Add blacklist rule'.tr, visualDensity: VisualDensity.compact,
-                            icon: Icon(Icons.add, size: 18, color: _accent),
+                            icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize, color: _accent),
                             onPressed: () => setState(() => _blacklist.add((field: VideoBlacklistField.videoCode, controller: TextEditingController()))),
                           ),
                         ]),
@@ -1347,7 +1348,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                               Expanded(child: _field(_blacklist[i].controller, _blacklist[i].field == VideoBlacklistField.videoCode ? 'AD-(.*)' : '(.*)VR(.*)')),
                               AppIconButton(
                                 tooltip: 'Remove blacklist rule'.tr, visualDensity: VisualDensity.compact,
-                                icon: Icon(Icons.close, size: 16, color: _muted),
+                                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize, color: _muted),
                                 onPressed: () => setState(() {
                                   final rule = _blacklist.removeAt(i);
                                   _blacklistErrors.remove(rule.controller);

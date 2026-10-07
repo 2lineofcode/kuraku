@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_popup/flutter_popup.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:kana_kit/kana_kit.dart';
-import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_translations.dart';
@@ -60,7 +60,7 @@ class PageExploreTabView extends StatelessWidget {
       () => controller.isFresh.isFalse || controller.isLoading.value || controller.error.value.isNotEmpty
           ? buildPage()
           : ExUiErrorOrEmpty(
-              illustration: Icon(UIconsPro.regularRounded.square_dashed_circle_plus, size: 128),
+              illustration: HugeIcon(icon: HugeIcons.strokeRoundedComputerAdd, size: AppStyle.emptyIconSize),
               title: '~ Fresh ~'.tr,
               message: 'Hi There, Select Or Drag & Drop your JAV Folder Here'.tr,
             ),
@@ -107,6 +107,14 @@ class PageExploreTabView extends StatelessWidget {
     );
   }
 
+  List<List<dynamic>> _customIcon(String? name) => switch (name) {
+    '🇮🇩 Sub Indonesia' || '🇬🇧 Sub English' => HugeIcons.strokeRoundedClosedCaption,
+    '✨ Reduce Mosaic' => HugeIcons.strokeRoundedFilm01,
+    '🚫 Non Jav' => HugeIcons.strokeRoundedUnavailable,
+    '💿 FHD' || '📺 HD' => HugeIcons.strokeRoundedTv01,
+    _ => HugeIcons.strokeRoundedFilter,
+  };
+
   Widget _buildLeftPart() {
     return Container(
       width: 200,
@@ -124,7 +132,7 @@ class PageExploreTabView extends StatelessWidget {
                   placeholder: controller.phSearchLeft.value.tr,
                   style: TextStyle(color: AppColor.text),
                   clearButtonMode: OverlayVisibilityMode.editing,
-                  prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+                  prefix: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: AppStyle.iconSize, color: Vx.neutral500).pOnly(left: 8),
                   onChanged: (s) => controller.onLeftListDoSearch(s),
                 ).expand(),
               ),
@@ -137,19 +145,21 @@ class PageExploreTabView extends StatelessWidget {
                     'Sort By:'.tr.text.bold.black.make(),
                     Divider(),
                     AppButton(
-                      label: controller.leftSortSelected.value == 'Name' ? '◉ Name'.tr : '◎ Name'.tr,
+                      label: 'Name'.tr,
+                      icon: HugeIcon(icon: controller.leftSortSelected.value == 'Name' ? HugeIcons.strokeRoundedCheckmarkCircle02 : HugeIcons.strokeRoundedCircle, size: AppStyle.iconSize, color: Vx.black),
                       labelSize: 13,
                       labelColor: Vx.black,
                       onPressed: () => {controller.onLeftSortChange('Name'), Get.back()},
                     ).pOnly(right: 6),
                     AppButton(
-                      label: controller.leftSortSelected.value == 'Count' ? '◉ Count'.tr : '◎ Count'.tr,
+                      label: 'Count'.tr,
+                      icon: HugeIcon(icon: controller.leftSortSelected.value == 'Count' ? HugeIcons.strokeRoundedCheckmarkCircle02 : HugeIcons.strokeRoundedCircle, size: AppStyle.iconSize, color: Vx.black),
                       labelSize: 13,
                       labelColor: Vx.black,
                       onPressed: () => {controller.onLeftSortChange('Count'), Get.back()},
                     ),
                   ]).w(100),
-                  child: Icon(UIconsPro.regularRounded.sort, size: 12, color: Vx.neutral500).pOnly(left: 8, right: 6),
+                  child: HugeIcon(icon: HugeIcons.strokeRoundedSortingZA01, size: AppStyle.iconSize, color: Vx.neutral500).pOnly(left: 8, right: 6),
                 ),
               ),
             ],
@@ -218,11 +228,12 @@ class PageExploreTabView extends StatelessWidget {
                                     ]
                                     // other ~
                                     else ...[
+                                      if (controller.currentMenuSelected.value == kCustom) HugeIcon(icon: _customIcon(item.name), size: AppStyle.iconSize).pOnly(left: 8),
                                       '${controller.currentMenuSelected.value == kCustom ? item.name?.tr : item.name} ${item.count != 0 ? '(${item.count})' : ''}'.text.size(12).maxLines(3).ellipsis.make().p8().expand()
                                     ],
                                     AppIconButton(
                                       tooltip: isPinned ? 'Unpin'.tr : 'Pin to top'.tr,
-                                      icon: Icon(isPinned ? Icons.push_pin : Icons.push_pin_outlined, size: 16),
+                                      icon: HugeIcon(icon: HugeIcons.strokeRoundedPin02, size: AppStyle.iconSize),
                                       color: isPinned ? Colors.amber : Vx.neutral500,
                                       padding: EdgeInsets.zero,
                                       constraints: const BoxConstraints(minWidth: 32, minHeight: 48),
@@ -256,7 +267,7 @@ class PageExploreTabView extends StatelessWidget {
               ? const Center(child: CupertinoActivityIndicator()).expand()
               : controller.rightListLocal.isEmpty
               ? ExUiErrorOrEmpty(
-                  illustration: Icon(CupertinoIcons.chevron_left_2, size: 64).pOnly(bottom: 12),
+                  illustration: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeftDouble, size: AppStyle.emptyIconSize).pOnly(bottom: 12),
                   message: 'Please select left area first'.tr,
                 ).expand()
               : controller.rightListViewMode.value == kLocal
@@ -272,7 +283,7 @@ class PageExploreTabView extends StatelessWidget {
   // ────────────────────────────────────────────────────────────────
   Widget _buildUiNoData() {
     return ExUiErrorOrEmpty(
-      illustration: Icon(UIconsPro.regularRounded.search, size: 64).pOnly(bottom: 24),
+      illustration: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: AppStyle.emptyIconSize).pOnly(bottom: 24),
       message: 'No Result Found, as you searched for "@{text}"'.trNamed({'text': '${controller.tecSearchLeft.text}'}),
     );
   }
@@ -299,6 +310,8 @@ class PageExploreTabView extends StatelessWidget {
                     fitUrl: BoxFit.cover,
                     withProxy: false,
                   ).cornerRadius(90).centered().pOnly(right: 12),
+          ] else if (controller.currentMenuSelected.value == kCustom) ...[
+            HugeIcon(icon: _customIcon(item.name), size: AppStyle.largeIconSize).wh(42, 42).pOnly(right: 12),
           ] else ...[
             ExAvatarView(
               source: '',
@@ -309,7 +322,7 @@ class PageExploreTabView extends StatelessWidget {
             ).centered().pOnly(right: 12),
           ],
           VStack([
-            '${KanaKit().isKana(HelperDecensor.decensor(item.name!.trim())) ? KanaKit().toRomaji(HelperDecensor.decensor(item.name!.trim())) : HelperDecensor.decensor(item.name!.trim())}'
+            '${controller.currentMenuSelected.value == kCustom ? item.name!.tr : KanaKit().isKana(HelperDecensor.decensor(item.name!.trim())) ? KanaKit().toRomaji(HelperDecensor.decensor(item.name!.trim())) : HelperDecensor.decensor(item.name!.trim())}'
                 .text
                 .bold
                 .size(12)
@@ -421,7 +434,7 @@ class PageExploreTabView extends StatelessWidget {
               clearButtonMode: OverlayVisibilityMode.editing,
               placeholder: 'Search (@{length}) Videos...'.trNamed({'length': '${controller.rightListR18Filtered.length}'}),
               style: TextStyle(color: AppColor.text),
-              prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+              prefix: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: AppStyle.iconSize, color: Vx.neutral500).pOnly(left: 8),
               onChanged: (q) => controller.onRightListDoSearch(q),
             ).expand(),
 
@@ -431,9 +444,9 @@ class PageExploreTabView extends StatelessWidget {
             Obx(
               () => ZStack([
                 AppIconButton(
-                  icon: Icon(
-                    controller.filter.isFiltered.isTrue ? UIconsPro.boldRounded.filter_list : UIconsPro.regularRounded.filter_list,
-                    size: controller.filter.isFiltered.isTrue ? 16 : 14,
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedFilter,
+                    size: AppStyle.iconSize,
                   ),
                   onPressed: () => controller.openDialogFilter(),
                 ).pOnly(left: 8),
@@ -513,19 +526,19 @@ class PageExploreTabView extends StatelessWidget {
                   Container(
                     color: AppColor.black180,
                     child: HStack([
-                      Icon(UIconsPro.solidRounded.calendar, size: 10).pOnly(right: 5),
+                      HugeIcon(icon: HugeIcons.strokeRoundedCalendar03, size: AppStyle.smallIconSize).pOnly(right: 5),
                       '${item['release_date'].toString().reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).align(TextAlign.center).ellipsis.makeCentered(),
                     ]).p4(),
                   ).cornerRadius(8).p2().positioned(left: 0),
                 ],
 
                 // ** open trailer
-                Icon(UIconsPro.regularRounded.play, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
+                HugeIcon(icon: HugeIcons.strokeRoundedPlay).p(6).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
                   HelperOpener.openTrailer(item);
                 }).positioned(right: 8, top: 4),
 
                 // ** open screenshot
-                Icon(UIconsPro.regularRounded.picture, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
+                HugeIcon(icon: HugeIcons.strokeRoundedImage01).p(6).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
                   HelperOpener.openScreenshot(item);
                 }).positioned(right: 8, top: 36),
               ],
@@ -565,7 +578,7 @@ class PageExploreTabView extends StatelessWidget {
             Container(
               color: Vx.blue600.withAlpha(200),
               child: HStack([
-                '🇮🇩'.text.size(10).minFontSize(10).make().tooltip('ID Sub'.tr),
+                const HugeIcon(icon: HugeIcons.strokeRoundedClosedCaption, size: AppStyle.smallIconSize).tooltip('ID Sub'.tr),
               ]).p4(),
             ).cornerRadius(8).p2().positioned(right: 0, top: 0),
           ],
@@ -575,7 +588,7 @@ class PageExploreTabView extends StatelessWidget {
             Container(
               color: Vx.purple600.withAlpha(200),
               child: HStack([
-                '🇬🇧'.text.size(10).minFontSize(10).make().tooltip('EN Sub'.tr),
+                const HugeIcon(icon: HugeIcons.strokeRoundedClosedCaption, size: AppStyle.smallIconSize).tooltip('EN Sub'.tr),
               ]).p4(),
             ).cornerRadius(8).p2().positioned(right: 0, top: 0),
           ],
@@ -585,7 +598,7 @@ class PageExploreTabView extends StatelessWidget {
             Container(
               color: Vx.red600.withAlpha(200),
               child: HStack([
-                '🎞️'.text.size(10).minFontSize(10).make().tooltip('Reduce Mosaic'.tr),
+                const HugeIcon(icon: HugeIcons.strokeRoundedFilm01, size: AppStyle.smallIconSize).tooltip('Reduce Mosaic'.tr),
               ]).p4(),
             ).cornerRadius(8).p2().positioned(right: 0, top: 0),
           ],
@@ -595,7 +608,7 @@ class PageExploreTabView extends StatelessWidget {
             Container(
               color: AppColor.black180,
               child: HStack([
-                Icon(UIconsPro.solidRounded.calendar, size: 10).pOnly(right: 5),
+                HugeIcon(icon: HugeIcons.strokeRoundedCalendar03, size: AppStyle.smallIconSize).pOnly(right: 5),
                 video.releaseDate.isNotEmptyAndNotNull
                     ? '${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Release date: @{kMdY}'.trNamed({'kMdY': '${video.releaseDate?.reformatDate(from: kYMd, to: kMdY)}'}))
                     : '${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).make().tooltip('Added at: @{kMdY}'.trNamed({'kMdY': '${video.updatedAt?.reformatDate(from: kYMd, to: kMdY)}'}))
@@ -618,7 +631,7 @@ class PageExploreTabView extends StatelessWidget {
             Container(
               color: AppColor.black120,
               child: HStack([
-                Icon(UIconsPro.solidRounded.eye, size: 10).pOnly(right: 5, top: 2),
+                HugeIcon(icon: HugeIcons.strokeRoundedView, size: AppStyle.smallIconSize).pOnly(right: 5, top: 2),
                 '${video.viewCount ?? 0}'.text.size(10).minFontSize(10).make(),
               ]).pSymmetric(h: 4, v: 2),
             ).cornerRadius(4).tooltip(video.viewCount != null ? 'View: @{count}'.trNamed({'count': '${video.viewCount}'}) : '').positioned(bottom: 24, right: 4),

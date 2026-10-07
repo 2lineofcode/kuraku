@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:javit/app/data/models/videos_entity.dart';
 import 'package:javit/app/modules/home/home_controller.dart';
 import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
 import 'package:javit/app/modules/home/page_search/page_search_view.dart';
+
+import 'icon_finder.dart';
 
 class _CartController extends GetxController implements HomeController {
   final HomeController home;
@@ -32,7 +35,7 @@ void main() {
       child: PageSearchTabView(controller: search).buildLayoutPoster(video, 150, 230, showReleaseDate: false),
     ))));
     await tester.pumpAndSettle();
-    final marker = find.byIcon(Icons.shopping_bag);
+    final marker = findHugeIcon(HugeIcons.strokeRoundedShoppingBag01);
     expect(marker, findsNothing);
 
     final stored = Videos(id: ' VIDEO-1 ', title: 'Stored copy');

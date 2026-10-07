@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:javit/app/core/app_pref.dart';
 import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/data/models/videos_entity.dart';
 import 'package:javit/app/modules/home/page_home/page_home_controller.dart';
 import 'package:javit/app/modules/home/page_home/page_home_view.dart';
+import 'package:javit/app/modules/widgets/widget_style.dart';
 
 class _Preferences implements GetSecureStorage {
   @override
@@ -33,6 +35,36 @@ class _HomeView extends PageHomeView {
 }
 
 void main() {
+  testWidgets('Home previews four Hugeicons at the shared size in both themes', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    Get.put(AppSettingService()..pref = _Preferences());
+    final controller = Get.put<PageHomeController>(_Controller());
+    addTearDown(Get.reset);
+    controller.totalVideo.value = 1;
+    controller.homeSectionOrder.assignAll([
+      AppPref.homeSecNewRelease, AppPref.homeSecRecommendation, AppPref.homeSecRandom, AppPref.homeSecFavorite,
+    ]);
+    for (final list in [controller.listNewRelease, controller.listRecommendation, controller.listRandom, controller.listFavorite]) {
+      list.add(Videos(title: 'Video'));
+    }
+    for (final brightness in Brightness.values) {
+      await tester.pumpWidget(MaterialApp(theme: ThemeData(brightness: brightness), home: Scaffold(body: _HomeView())));
+      await tester.pumpAndSettle();
+      final headingIcons = find.descendant(of: find.byType(ReorderableDragStartListener), matching: find.byType(HugeIcon));
+      final icons = tester.widgetList<HugeIcon>(headingIcons).toList();
+      expect(icons.map((icon) => icon.icon), [
+        HugeIcons.strokeRoundedFire, HugeIcons.strokeRoundedSparkles, HugeIcons.strokeRoundedShuffle, HugeIcons.strokeRoundedFavourite,
+      ]);
+      for (final icon in icons) expect(icon.size, AppStyle.iconSize);
+      for (final element in headingIcons.evaluate()) {
+        expect(tester.getSize(find.byWidget(element.widget)), const Size(AppStyle.iconSize, AppStyle.iconSize));
+      }
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('Home handles unknown sections in saved order', (tester) async {
     Get.put(AppSettingService()..pref = _Preferences());
     final controller = Get.put<PageHomeController>(_Controller());

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:javit/app/modules/home/home_panel/home_panel_log.dart';
 import 'package:javit/app/utils/helper_toast.dart';
 import 'package:toastification/toastification.dart';
@@ -34,6 +35,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text(toast.$3), findsOneWidget, reason: 'toast ${toast.$1}');
+      expect(find.byType(HugeIcon), findsNWidgets(2));
+      expect(find.byType(Icon), findsNothing);
       expect(HomePanelAppLog.appLogRuntime.first.type, toast.$4, reason: 'toast ${toast.$1}');
       expect(HomePanelAppLog.appLogRuntime.first.content, toast.$3, reason: 'toast ${toast.$1}');
 

@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:overlayment/overlayment.dart';
-import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
@@ -13,6 +13,7 @@ import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../player/player_multi_view.dart';
 import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_style.dart';
 import '../../widgets/widget_surfaces.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
@@ -41,11 +42,11 @@ mixin HomePanelCart {
           [
             HStack(
               [
-                Icon(UIconsPro.regularRounded.bags_shopping, size: 16).pOnly(right: 12, left: 8),
+                HugeIcon(icon: HugeIcons.strokeRoundedShoppingBag01, size: AppStyle.iconSize).pOnly(right: 12, left: 8),
                 Obx(() => 'Video Cart (@{length})'.trNamed({'length': '${_controller.cart.length}'}).text.bold.make()),
                 Spacer(),
                 AppIconButton(
-                  icon: Icon(UIconsPro.regularRounded.delete, size: 13).tooltip('Empty Cart'.tr),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize).tooltip('Empty Cart'.tr),
                   onPressed: () async {
                     _controller.cart.value = [];
                     await Overlayment.dismissLast();
@@ -56,7 +57,7 @@ mixin HomePanelCart {
             Divider(),
             Obx(
               () => _controller.cart.isEmpty
-                  ? ExUiErrorOrEmpty(illustration: Icon(UIconsPro.regularRounded.empty_set, size: 64).pOnly(bottom: 12), message: 'Cart is empty'.tr).expand()
+                  ? ExUiErrorOrEmpty(illustration: HugeIcon(icon: HugeIcons.strokeRoundedShoppingBag01, size: AppStyle.emptyIconSize).pOnly(bottom: 12), message: 'Cart is empty'.tr).expand()
                   : ListView.separated(
                       itemCount: _controller.cart.length,
                       separatorBuilder: (context, index) => Divider(color: AppColor.border),
@@ -111,14 +112,14 @@ mixin HomePanelCart {
                               VStack(
                                 [
                                   AppIconButton(
-                                    icon: Icon(UIconsPro.regularRounded.minus_circle, size: 14),
+                                    icon: HugeIcon(icon: HugeIcons.strokeRoundedRemoveCircle, size: AppStyle.iconSize),
                                     onPressed: () {
                                       _controller.cart.removeAt(index);
                                       _controller.cart.refresh();
                                     },
                                   ),
                                   AppIconButton(
-                                    icon: Icon(UIconsPro.regularRounded.trash, size: 14, color: Vx.red500),
+                                    icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize, color: Vx.red500),
                                     onPressed: () async {
                                       await _deleteVideo(__item);
                                     },
@@ -143,7 +144,7 @@ mixin HomePanelCart {
                 Container(
                   decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                   child: AppIconButton(
-                    icon: Icon(UIconsPro.regularRounded.trash, size: 16, color: Vx.red300),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize, color: Vx.red300),
                     onPressed: () async {
                       await _deleteVideos(_controller.cart);
                     },
@@ -153,21 +154,21 @@ mixin HomePanelCart {
                 Container(
                   decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                   child: HStack([
-                    Icon(UIconsPro.regularRounded.play, size: 14)
+                    HugeIcon(icon: HugeIcons.strokeRoundedPlay, size: AppStyle.iconSize)
                   ]).p(10).pSymmetric(h: 12),
                 ).onInkTap(() => _playVideos()).pOnly(right: 8).tooltip('Play as Playlist'.tr),
 
                 Container(
                   decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                   child: HStack([
-                    Icon(UIconsPro.regularRounded.camera_movie, size: 14)
+                    HugeIcon(icon: HugeIcons.strokeRoundedFilm01, size: AppStyle.iconSize)
                   ]).p(10).pSymmetric(h: 12),
                 ).onInkTap(() => _openInGridPlayer()).pOnly(right: 8).tooltip('Open in Grid Player'.tr),
 
                 Container(
                   decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                   child: AppIconButton(
-                    icon: Icon(UIconsPro.regularRounded.list_check, size: 16, color: Vx.orange300),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedPlaylist02, size: AppStyle.iconSize, color: Vx.orange300),
                     onPressed: () async {
                       // await Overlayment.dismissLast();
                       await HomePanelPlaylist.showDialogAddToPlaylistItem(_controller.cart);

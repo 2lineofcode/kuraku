@@ -1,12 +1,13 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../core/app_pref.dart';
 import '../../routes/app_pages.dart';
 import '../widgets/widget_controls.dart';
+import '../widgets/widget_style.dart';
 import 'player_controller.dart';
 import 'player_controls.dart';
 
@@ -179,30 +180,30 @@ class _MiniPlayerCard extends StatelessWidget {
             ),
           ),
           AppIconButton(
-            iconSize: 18,
+            iconSize: AppStyle.iconSize,
             tooltip: 'Previous'.tr,
-            icon: Icon(UIconsPro.regularRounded.angle_small_left, color: Colors.white),
+            icon: Icon(CupertinoIcons.chevron_left, color: Colors.white),
             onPressed: () => controller.prevVideo(),
           ),
           Obx(() {
             final isPlaying = controller.isPlaying.value;
             return AppIconButton(
-              iconSize: 20,
+              iconSize: AppStyle.iconSize,
               tooltip: isPlaying ? 'Pause'.tr : 'Play'.tr,
-              icon: Icon(isPlaying ? Icons.pause : Icons.play_arrow, color: Colors.white),
+              icon: Icon(isPlaying ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill, color: Colors.white),
               onPressed: () => controller.togglePlayPause(),
             );
           }),
           AppIconButton(
-            iconSize: 18,
+            iconSize: AppStyle.iconSize,
             tooltip: 'Next'.tr,
-            icon: Icon(UIconsPro.regularRounded.angle_small_right, color: Colors.white),
+            icon: Icon(CupertinoIcons.chevron_right, color: Colors.white),
             onPressed: () => controller.nextVideo(),
           ),
           AppIconButton(
-            iconSize: 18,
+            iconSize: AppStyle.iconSize,
             tooltip: 'Close'.tr,
-            icon: Icon(UIconsPro.regularRounded.cross_small, color: Colors.white),
+            icon: Icon(CupertinoIcons.xmark, color: Colors.white),
             onPressed: () async {
               await controller.stopPlayback();
             },

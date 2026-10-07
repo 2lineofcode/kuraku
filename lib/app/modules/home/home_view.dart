@@ -5,8 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_popup/flutter_popup.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
-import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../core/app_color.dart';
 import '../../data/database/_init_db.dart';
@@ -69,7 +69,7 @@ class HomeView extends GetView<HomeController> {
                   return ExUiErrorOrEmpty(
                     child: VStack(
                       [
-                        Icon(UIconsPro.regularRounded.check_circle, size: 48).centered().pOnly(bottom: 16),
+                        HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle02, size: AppStyle.emptyIconSize).centered().pOnly(bottom: 16),
                         'Task Done'.tr.text.bold.xl3.makeCentered().pOnly(bottom: 8),
                         '$error'.text.makeCentered().pOnly(bottom: 8),
                         AppButton(variant: AppButtonVariant.filled,
@@ -109,7 +109,7 @@ class HomeView extends GetView<HomeController> {
 
   Widget appBarTitle() {
     if (kDebugMode) {
-      return Obx(() => '🐞 ${controller.currentMenuSelected.value.tr}'.text.size(14).bold.make());
+      return Obx(() => HStack([const HugeIcon(icon: HugeIcons.strokeRoundedBug01, size: AppStyle.iconSize), 6.widthBox, controller.currentMenuSelected.value.tr.text.size(14).bold.make()]));
     } else {
       return Obx(() => '${controller.currentMenuSelected.value.tr}'.text.size(14).bold.make());
     }
@@ -127,7 +127,7 @@ class HomeView extends GetView<HomeController> {
             controller.topNavSearchRevision.value;
             if (controller.isTopNavSearchExpanded.isFalse) {
               return AppIconButton(
-                icon: Icon(UIconsPro.regularRounded.search, size: 14),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: AppStyle.iconSize),
                 onPressed: controller.focusTopNavSearch,
                 tooltip: 'Search: [/]'.tr,
               ).pOnly(right: 8);
@@ -140,14 +140,14 @@ class HomeView extends GetView<HomeController> {
               clearButtonMode: OverlayVisibilityMode.never,
               placeholder: 'Anything...'.tr,
               style: TextStyle(color: AppColor.text),
-              prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+              prefix: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: AppStyle.iconSize, color: Vx.neutral500).pOnly(left: 8),
               suffix: HStack(
                 [
                   if (controller.isTopNavSearching.isTrue)
                     CupertinoActivityIndicator(radius: 7).pOnly(right: 8),
                   if (controller.tecTopNavSearch.text.isNotEmpty && controller.isTopNavSearching.isFalse)
                     AppIconButton(
-                      icon: Icon(Icons.close_rounded, size: 14, color: Vx.neutral500),
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize, color: Vx.neutral500),
                       visualDensity: VisualDensity.compact,
                       splashRadius: 12,
                       tooltip: 'Clear'.tr,
@@ -174,7 +174,7 @@ class HomeView extends GetView<HomeController> {
                   ).w(250),
                   child: Container(
                     decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 90, fillColor: AppColor.selected.withAlpha(100)),
-                    child: HelperBadge.getBadgeTotVidIcons(controller.totalVideo.value).p(6),
+                    child: HelperBadge.getBadgeTotVidIcons(controller.totalVideo.value).p(8),
                   ),
                 )
               : 0.heightBox,
@@ -182,7 +182,7 @@ class HomeView extends GetView<HomeController> {
 
         Obx(
           () => AppIconButton(
-            icon: Icon(UIconsPro.regularRounded.bags_shopping, size: 14),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedShoppingBag01, size: AppStyle.iconSize),
             onPressed: () {
               HomePanelCart.open();
             },
@@ -190,18 +190,18 @@ class HomeView extends GetView<HomeController> {
         ).pOnly(right: 8),
 
         AppIconButton(
-          icon: Icon(UIconsPro.regularRounded.list, size: 14),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedPlaylist02, size: AppStyle.iconSize),
           onPressed: () => HomePanelPlaylist.open(),
           tooltip: 'Playlist: [⌘ + P]'.tr,
         ).pOnly(right: 8),
 
         AppIconButton(
-          icon: Icon(UIconsPro.regularRounded.banana, size: 14),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCorn, size: AppStyle.iconSize),
           onPressed: () => HomePanelRelapse.open(),
           tooltip: 'Relapse: [⌘ + .]'.tr,
         ).pOnly(right: 8),
         AppIconButton(
-          icon: Icon(UIconsPro.regularRounded.multiple_alt, size: 14),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedLayers01, size: AppStyle.iconSize),
           onPressed: () => HomePanelLibrary.open(),
           tooltip: 'Library'.tr,
         ).pOnly(right: 8),
@@ -228,7 +228,7 @@ class HomeView extends GetView<HomeController> {
                       borderColor: Colors.transparent,
                     ),
                     child: HStack([
-                      Icon(item['icon'], size: 16).centered(),
+                      HugeIcon(icon: item['icon'], size: AppStyle.iconSize).centered(),
                     ]).p(10),
                   ).pSymmetric(h: 10).pOnly(left: 0, bottom: 8),
                 ).tooltip(item['name']),
@@ -259,7 +259,7 @@ class HomeView extends GetView<HomeController> {
                     borderColor: Colors.transparent,
                   ),
                   child: HStack([
-                    Icon(item['icon'], size: 16).pSymmetric(h: 8),
+                    HugeIcon(icon: item['icon'], size: AppStyle.iconSize).pSymmetric(h: 8),
                     '${item['name']}'.tr.text.size(11).make().pOnly(left: 4),
                   ]).p8(),
                 ).pSymmetric(h: 10).pOnly(bottom: 8),
@@ -277,19 +277,19 @@ class HomeView extends GetView<HomeController> {
   Widget sqlEditorMenu() {
     return Obx(() => AppIconButton(
       style: IconButton.styleFrom(backgroundColor: controller.currentMenuSelected.value == kMenuSqlEditor ? AppColor.selected : Colors.transparent),
-      icon: Icon(Icons.data_object_rounded, size: 16, color: AppColor.text),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedSql, size: AppStyle.iconSize, color: AppColor.text),
       tooltip: kMenuSqlEditor,
       onPressed: () => controller.onMenuChange(kMenuSqlEditor),
-    )).pSymmetric(h: 10).w(double.infinity).pOnly(bottom: 4);
+    )).pSymmetric(h: 10).w(double.infinity).pOnly(bottom: 12);
   }
 
   Widget chatMenu() {
     return Obx(() => AppIconButton(
       style: IconButton.styleFrom(backgroundColor: controller.currentMenuSelected.value == kMenuChat ? AppColor.selected : Colors.transparent),
-      icon: Icon(UIconsPro.regularRounded.comment_alt_dots, size: 16, color: AppColor.text),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedBubbleChat, size: AppStyle.iconSize, color: AppColor.text),
       tooltip: kMenuChat,
       onPressed: () => controller.onMenuChange(kMenuChat),
-    )).pSymmetric(h: 10).w(double.infinity).pOnly(bottom: 4);
+    )).pSymmetric(h: 10).w(double.infinity).pOnly(bottom: 24);
   }
 
   Widget bodyContent() {
@@ -312,7 +312,7 @@ class HomeView extends GetView<HomeController> {
 
   Widget footerContent() {
     return HStack([
-      Obx(() => '👋🏻 ${controller.profile.value.name}'.text.size(11).make().onInkTap((){
+      Obx(() => HStack([const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: AppStyle.smallIconSize), 6.widthBox, '${controller.profile.value.name}'.text.size(11).make()]).onInkTap((){
         controller.onOpenProfile();
       })),
 
@@ -375,7 +375,7 @@ class HomeView extends GetView<HomeController> {
                   height: 150,
                   decoration: BoxDecoration(color: AppColor.appBar, borderRadius: BorderRadius.circular(12)),
                   child: VStack([
-                    Icon(UIconsPro.solidRounded.file_upload, size: 34, color: AppColor.text).pOnly(bottom: 12).centered(),
+                    HugeIcon(icon: HugeIcons.strokeRoundedUpload01, size: AppStyle.emptyIconSize, color: AppColor.text).pOnly(bottom: 12).centered(),
                     'Drop here'.tr.text.bold.size(16).makeCentered().pOnly(bottom: 6),
                     'Drop a folder to add Library\nDrop a .mp4 file to play instantly'.tr.text.size(12).align(TextAlign.center).color(AppColor.muted).makeCentered(),
                   ]).centered(),

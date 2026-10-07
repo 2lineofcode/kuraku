@@ -7,12 +7,14 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:javit/app/core/app_color.dart';
 import 'package:javit/app/modules/widgets/widget_controls.dart';
 import 'package:javit/app/modules/widgets/widget_style.dart';
 import 'package:javit/app/modules/widgets/widget_surfaces.dart';
 
 import '../tool/ui_catalog_flutter.dart';
+import 'icon_finder.dart';
 
 void main() {
   tearDown(() => Get.reset());
@@ -34,6 +36,34 @@ void main() {
     }
   });
 
+  testWidgets('shared actions use the same icon size across themes and text scales', (tester) async {
+    for (final brightness in Brightness.values) {
+      for (final scale in [1.0, 1.5]) {
+        await tester.pumpWidget(GetMaterialApp(theme: AppStyle.theme(brightness), home: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+          child: Scaffold(body: Column(children: [
+            AppButton(label: 'Save', icon: const HugeIcon(icon: HugeIcons.strokeRoundedTick02, size: null), onPressed: () {}),
+            AppIconButton(icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: null), onPressed: () {}),
+            const AppTextField(prefix: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: AppStyle.iconSize)),
+            AppIconButton(iconSize: AppStyle.largeIconSize, icon: const HugeIcon(icon: HugeIcons.strokeRoundedPlay, size: null), onPressed: () {}),
+            AppIconButton(icon: const HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: AppStyle.emptyIconSize), onPressed: () {}),
+            AppIconButton(iconSize: AppStyle.largeIconSize, icon: const Icon(CupertinoIcons.play_fill), onPressed: () {}),
+          ])),
+        )));
+        await tester.pumpAndSettle();
+        for (final icon in [HugeIcons.strokeRoundedTick02, HugeIcons.strokeRoundedAdd01, HugeIcons.strokeRoundedSearch01]) {
+          expect(tester.getSize(findHugeIcon(icon)), const Size(AppStyle.iconSize, AppStyle.iconSize));
+        }
+        expect(tester.getSize(findHugeIcon(HugeIcons.strokeRoundedPlay)), const Size(AppStyle.largeIconSize, AppStyle.largeIconSize));
+        expect(tester.getSize(findHugeIcon(HugeIcons.strokeRoundedImage01)), const Size(AppStyle.emptyIconSize, AppStyle.emptyIconSize));
+        expect(tester.getSize(find.byType(AppIconButton).at(2)), const Size(AppStyle.emptyIconSize, AppStyle.emptyIconSize));
+        expect(tester.getSize(find.byIcon(CupertinoIcons.play_fill)), const Size(AppStyle.largeIconSize, AppStyle.largeIconSize));
+        expect(tester.getSize(find.byType(AppIconButton).first), const Size(AppStyle.iconTarget, AppStyle.iconTarget));
+        expect(tester.takeException(), isNull);
+      }
+    }
+  });
+
   testWidgets('shared controls keep constraints, disabled actions and input behavior', (tester) async {
     final controller = TextEditingController();
     addTearDown(controller.dispose);
@@ -43,10 +73,10 @@ void main() {
       AppButton(label: 'Save', onPressed: () => presses++),
       const AppButton(label: 'Disabled', variant: AppButtonVariant.filled, onPressed: null),
       AppButton(label: 'Custom', onPressed: () {}, style: TextButton.styleFrom(foregroundColor: Colors.white, backgroundColor: Colors.black, minimumSize: const Size(0, 36))),
-      AppIconButton(tooltip: 'Compact action', icon: const Icon(Icons.add), onPressed: () {},
+      AppIconButton(tooltip: 'Compact action', icon: const Icon(CupertinoIcons.add), onPressed: () {},
         style: IconButton.styleFrom(minimumSize: const Size(28, 28), maximumSize: const Size(28, 28))),
       AppIconButton(tooltip: 'Small action', constraints: const BoxConstraints.tightFor(width: 24, height: 24),
-        icon: const Icon(Icons.add), onPressed: () => presses++),
+        icon: const Icon(CupertinoIcons.add), onPressed: () => presses++),
       AppTextField(controller: controller, obscureText: true, autocorrect: false,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly], onSubmitted: (value) => submitted = value),
     ]))));
@@ -135,7 +165,7 @@ void main() {
     if (font.isNotEmpty) {
       await tester.runAsync(() async {
         await (FontLoader('VisualQA')..addFont(File(font).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
-        await (FontLoader('MaterialIcons')..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+        await (FontLoader('packages/${CupertinoIcons.iconFontPackage}/${CupertinoIcons.iconFont}')..addFont(rootBundle.load('packages/cupertino_icons/assets/CupertinoIcons.ttf'))).load();
       });
     }
     final boundary = GlobalKey();

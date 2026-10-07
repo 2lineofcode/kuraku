@@ -4,8 +4,8 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:overlayment/overlayment.dart';
-import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
@@ -18,6 +18,7 @@ import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_media_stack.dart';
+import '../../widgets/widget_style.dart';
 import '../../widgets/widget_surfaces.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
@@ -60,12 +61,12 @@ mixin HomePanelPlaylist {
           [
             HStack(
               [
-                Icon(UIconsPro.regularRounded.list, size: 16).pOnly(right: 12, left: 8),
+                HugeIcon(icon: HugeIcons.strokeRoundedPlaylist02, size: AppStyle.iconSize).pOnly(right: 12, left: 8),
                 Obx(() => 'Playlist (@{length})'.trNamed({'length': '${_controller.playlist.length}'}).text.bold.make()),
                 Spacer(),
                 Obx(
                   () => AppIconButton(
-                    icon: Icon(Icons.chevron_left_rounded).tooltip('Back'.tr),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: AppStyle.iconSize).tooltip('Back'.tr),
                     onPressed: () {
                       _isDetailMode.value = false;
                       _isFavoriteMode.value = false;
@@ -74,7 +75,7 @@ mixin HomePanelPlaylist {
                 ),
                 Obx(
                   () => AppIconButton(
-                    icon: Icon(UIconsPro.regularRounded.plus, size: 13).tooltip('Add New Playlist'.tr),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize).tooltip('Add New Playlist'.tr),
                     onPressed: () => showDialogAddOrEditPlaylist(),
                   ).hide(isVisible: _isDetailMode.isFalse),
                 ),
@@ -135,14 +136,14 @@ mixin HomePanelPlaylist {
           controller: tecName,
           focusNode: fnName,
           placeholder: 'Name'.tr,
-          prefix: Icon(CupertinoIcons.tag, size: 16).pOnly(left: 8),
+          prefix: HugeIcon(icon: HugeIcons.strokeRoundedTag01, size: AppStyle.iconSize).pOnly(left: 8),
           style: TextStyle(color: AppColor.text),
           readOnly: isFavorite,
         ).disabled(isFavorite).pOnly(bottom: 8),
         AppTextField(
           controller: tecCover,
           placeholder: 'Paste image URL here...'.tr,
-          prefix: Icon(CupertinoIcons.photo, size: 16).pOnly(left: 8),
+          prefix: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: AppStyle.iconSize).pOnly(left: 8),
           style: TextStyle(color: AppColor.text),
         ),
       ]),
@@ -281,7 +282,7 @@ mixin HomePanelPlaylist {
                 withProxy: false ,
               ),
               Obx(() => 'Favorite (@{length})'.trNamed({'length': '${_listFavoriteVideo.length}'}).text.ellipsis.bold.size(12).make().pSymmetric(h: 8, v: 4).color(AppColor.black180).cornerRadius(90).positioned(bottom: 8, right: 8)),
-              Icon(UIconsPro.regularRounded.pen_clip, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
+              HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: AppStyle.iconSize).p(7).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
                 showDialogAddOrEditPlaylist(
                   playlist: Playlist(
                     name: 'Favorite',
@@ -315,7 +316,7 @@ mixin HomePanelPlaylist {
               withProxy: false,
             ),
             '${item.name} (${item.total})'.text.ellipsis.bold.size(12).make().pSymmetric(h: 8, v: 4).color(AppColor.black180).cornerRadius(90).positioned(bottom: 8, right: 8),
-            Icon(UIconsPro.regularRounded.pen_clip, size: 12).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() => showDialogAddOrEditPlaylist(playlist: item)).positioned(left: 8, top: 4),
+            HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: AppStyle.iconSize).p(7).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() => showDialogAddOrEditPlaylist(playlist: item)).positioned(left: 8, top: 4),
           ]),
         ).onInkTap(() {
           _isFavoriteMode.value = false;
@@ -344,7 +345,7 @@ mixin HomePanelPlaylist {
 
         if (items.isEmpty) {
           return VStack([
-            Icon(UIconsPro.regularRounded.list, size: 28, color: AppColor.muted).pOnly(bottom: 12).centered(),
+            HugeIcon(icon: HugeIcons.strokeRoundedPlaylist02, size: AppStyle.emptyIconSize, color: AppColor.muted).pOnly(bottom: 12).centered(),
             'Playlist still empty'.tr.text.size(13).color(AppColor.muted).makeCentered(),
           ]).centered();
         }
@@ -358,7 +359,7 @@ mixin HomePanelPlaylist {
 
             if (videoId.isNullOrEmpty) {
               return ListTile(
-                leading: Icon(UIconsPro.regularRounded.info_guide, size: 16, color: Vx.orange300),
+                leading: HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: AppStyle.iconSize, color: Vx.orange300),
                 title: 'Video not found'.tr.text.size(12).make(),
               );
             }
@@ -411,7 +412,7 @@ mixin HomePanelPlaylist {
                   VStack(
                     [
                       AppIconButton(
-                        icon: Icon(UIconsPro.regularRounded.minus_circle, size: 14),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedRemoveCircle, size: AppStyle.iconSize),
                         onPressed: () async {
                           if (_isFavoriteMode.isTrue) {
                             video.isFavorite = 0;

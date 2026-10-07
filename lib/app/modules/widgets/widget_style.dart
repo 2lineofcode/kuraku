@@ -7,6 +7,11 @@ class AppStyle {
   static const double radius = 6;
   static const double controlHeight = 30;
   static const double inputHeight = 32;
+  static const double iconSize = 16;
+  static const double smallIconSize = 12;
+  static const double largeIconSize = 24;
+  static const double playbackIconSize = 32;
+  static const double emptyIconSize = 48;
   static const double iconTarget = 32;
   static const double panelPadding = 12;
 
@@ -30,7 +35,7 @@ class AppStyle {
         titleSmall: theme.textTheme.titleSmall?.copyWith(fontSize: 13),
         titleMedium: theme.textTheme.titleMedium?.copyWith(fontSize: 14),
       ),
-      iconTheme: theme.iconTheme.copyWith(size: 16),
+      iconTheme: theme.iconTheme.copyWith(size: iconSize),
       menuTheme: MenuThemeData(style: MenuStyle(
         shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radius)))),
         backgroundColor: WidgetStatePropertyAll(theme.colorScheme.surface),

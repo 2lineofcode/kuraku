@@ -12,7 +12,6 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:path/path.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
-import 'package:uicons_pro/uicons_pro.dart';
 import 'package:uuid/v4.dart';
 
 import '../../../env.g.dart';
@@ -32,6 +31,7 @@ import '../home/home_controller.dart';
 import '../home/home_panel/home_panel_video_info.dart';
 import '../home/page_home/page_home_controller.dart';
 import '../widgets/widget_controls.dart';
+import '../widgets/widget_style.dart';
 import '../widgets/widget_thumbnail.dart';
 
 class PlayerController extends GetxController with StateMixin<Videos>, GetSingleTickerProviderStateMixin {
@@ -776,9 +776,9 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
               clearButtonMode: OverlayVisibilityMode.editing,
               placeholder: 'Search (@{length})...'.trNamed({'length': '${_videos.length}'}),
               style: TextStyle(color: AppColor.text),
-              prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+              prefix: Icon(CupertinoIcons.search, size: AppStyle.iconSize, color: Vx.neutral500).pOnly(left: 8),
               // suffix: AppIconButton(
-              //   icon: Icon(Icons.sort, size: 14, color: Vx.neutral300),
+              //   icon: Icon(CupertinoIcons.sort_down, size: AppStyle.iconSize, color: Vx.neutral300),
               //   onPressed: () {},
               // ).pOnly(right: 4),
               onSubmitted: (q) async {
@@ -855,9 +855,9 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
                             '${__item.filesize?.toFileSizeFormat()}'.text.color(Get.isDarkMode ? Colors.orange.shade300 : Colors.orange.shade900).size(11).minFontSize(11).ellipsis.make().tooltip('${__item.videoPath}').expand(),
                             HStack([
                               Icon(
-                                __item.isFavorite == 1 ? UIconsPro.solidRounded.star : UIconsPro.regularRounded.star,
+                                __item.isFavorite == 1 ? CupertinoIcons.star_fill : CupertinoIcons.star,
                                 color: __item.isFavorite == 1 ? Colors.orange : null,
-                                size: 13,
+                                size: AppStyle.iconSize,
                               ).onInkTap(() async {
                                 if (__item.isFavorite == 1) {
                                   __item.isFavorite = 0;
@@ -869,7 +869,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
                                 await Get.find<PageHomeController>().onRefresh();
                                 _videos.refresh();
                               }).pOnly(left: 8),
-                              Icon(UIconsPro.regularRounded.plus, size: 13).onInkTap(() async {
+                              Icon(CupertinoIcons.add, size: AppStyle.iconSize).onInkTap(() async {
                                 final homeController = Get.find<HomeController>();
                                 final isAdded = homeController.addToCart(__item);
                                 if (isAdded) {
@@ -879,14 +879,14 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
                                 }
                               }).tooltip('Add to Panel Cart'.tr).pOnly(left: 12),
                               if (!__item.actress.isEmptyOrNull) ...[
-                                Icon(UIconsPro.regularRounded.person_dolly, size: 13).pOnly(left: 12).onInkTap(() async {
+                                Icon(CupertinoIcons.person, size: AppStyle.iconSize).pOnly(left: 12).onInkTap(() async {
                                   final _fltr = await DBVideos.getByActress(__item.actress?[0].nameRomaji ?? '');
                                   _videos.value = _fltr;
                                   update();
                                 }).tooltip(__item.actress?[0].nameRomaji ?? ''),
                               ],
                               if (__item.series.isNotEmptyAndNotNull) ...[
-                                Icon(UIconsPro.regularRounded.tags, size: 13).pOnly(left: 12).onInkTap(() async {
+                                Icon(CupertinoIcons.tag, size: AppStyle.iconSize).pOnly(left: 12).onInkTap(() async {
                                   final _fltr = await DBVideos.getBySeries(__item.series ?? '');
                                   _videos.value = _fltr;
                                   update();

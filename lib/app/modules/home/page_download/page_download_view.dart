@@ -3,7 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:uicons_pro/uicons_pro.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_translations.dart';
@@ -14,6 +14,7 @@ import '../../widgets/widget_media_stack.dart';
 import '../../widgets/widget_search_history.dart';
 import '../../widgets/widget_search_suggestions_overlay.dart';
 import '../../widgets/widget_search_tab_bar.dart';
+import '../../widgets/widget_style.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
 import 'page_download_controller.dart';
@@ -79,7 +80,7 @@ class PageDownloadSearchView extends StatelessWidget {
                     clearButtonMode: OverlayVisibilityMode.editing,
                     placeholder: controller.phSearch.value.tr,
                     style: TextStyle(color: AppColor.text),
-                    prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
+                    prefix: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: AppStyle.iconSize, color: Vx.neutral500).pOnly(left: 8),
                     suffix: HStack(
                       [
                         // ** TODO
@@ -133,9 +134,9 @@ class PageDownloadSearchView extends StatelessWidget {
           Obx(
             () => ZStack([
               AppIconButton(
-                icon: Icon(
-                  controller.filter.isFiltered.isTrue ? UIconsPro.boldRounded.filter_list : UIconsPro.regularRounded.filter_list,
-                  size: controller.filter.isFiltered.isTrue ? 16: 14,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedFilter,
+                  size: AppStyle.iconSize,
                 ),
                 onPressed: () => controller.openDialogFilter(isAvailable: () => identical(Get.find<PageDownloadController>().activeTab, controller)),
               ).pOnly(left: 8),
@@ -145,12 +146,12 @@ class PageDownloadSearchView extends StatelessWidget {
           ),
           AppIconButton(
             tooltip: 'New download'.tr,
-            icon: Icon(UIconsPro.regularRounded.plus, size: 14),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
             onPressed: () => Get.find<PageDownloadController>().openDialogDownload(),
           ),
           AppIconButton(
             tooltip: 'Download history'.tr,
-            icon: Icon(UIconsPro.regularRounded.arrow_small_down, size: 18),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload03, size: AppStyle.iconSize),
             onPressed: () => Get.find<PageDownloadController>().openDownloadLog(),
           ).pOnly(left: 0),
 
@@ -205,7 +206,7 @@ class PageDownloadSearchView extends StatelessWidget {
               ? const Center(child: CircularProgressIndicator()).expand()
               : controller.videos.isEmpty
               ? ExUiErrorOrEmpty(
-                  illustration: Icon(UIconsPro.regularRounded.search, size: 128),
+                  illustration: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: AppStyle.emptyIconSize),
                   title: controller.havingOnly.isTrue ? 'No Owned Videos'.tr : controller.currentPage.value == 0 ? '~ Type Something ~'.tr : 'No Data Found'.tr,
                   message: controller.havingOnly.isTrue ? 'No owned videos in the loaded results. Click Result to show all.'.tr : controller.currentPage.value == 0 ? 'you can type "Video Code" or "Title" to search'.tr : 'No Result Found, as you searched for "@{text}"'.trNamed({'text': '${controller.tecSearch.text}'}),
                 ).expand()
@@ -280,7 +281,7 @@ class PageDownloadSearchView extends StatelessWidget {
             Container(
               color: AppColor.black180,
               child: HStack([
-                Icon(UIconsPro.solidRounded.calendar, size: 10).pOnly(right: 5),
+                HugeIcon(icon: HugeIcons.strokeRoundedCalendar03, size: AppStyle.smallIconSize).pOnly(right: 5),
                 '${item.durationFormated?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).maxLines(1).ellipsis.make(),
               ]).p4(),
             ).cornerRadius(8).p2().positioned(left: 0),
@@ -295,22 +296,14 @@ class PageDownloadSearchView extends StatelessWidget {
             ).positioned(right: 0, bottom: 62).hide(isVisible: item.isUncensoredLeak == true),
 
             // ** open trailer
-            Icon(UIconsPro.regularRounded.play, size: 12)
-                .wh(30, 30)
-                .color(Vx.black)
-                .cornerRadius(12)
-                .onInkTap(() => HelperOpener.openTrailer(item))
-                .positioned(right: 8, top: 4)
-                .hide(isVisible: item.videoCode?.isValidVideoCode() ?? false),
+            HugeIcon(icon: HugeIcons.strokeRoundedPlay).p(6).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
+              HelperOpener.openTrailer(item);
+            }).positioned(right: 8, top: 4),
 
             // ** open screenshot
-            Icon(UIconsPro.regularRounded.picture, size: 12)
-                .wh(30, 30)
-                .color(Vx.black)
-                .cornerRadius(12)
-                .onInkTap(() => HelperOpener.openScreenshot(item))
-                .positioned(right: 8, top: 36)
-                .hide(isVisible: item.videoCode?.isValidVideoCode() ?? false),
+            HugeIcon(icon: HugeIcons.strokeRoundedImage01).p(6).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
+              HelperOpener.openScreenshot(item);
+            }).positioned(right: 8, top: 36),
 
             Container(
               color: AppColor.black180,

@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
+import 'package:javit/app/modules/widgets/widget_style.dart';
 import 'package:javit/app/utils/helper_badge.dart';
 
 void main() {
@@ -112,19 +113,20 @@ void main() {
   });
 
   test('Collection icons stay hidden while empty and use the tier colors afterwards', () {
-    expect(HelperBadge.getBadgeTotVidIcons(0), isNot(isA<Icon>()));
+    expect(HelperBadge.getBadgeTotVidIcons(0), isNot(isA<HugeIcon>()));
 
     for (final count in [1, 100, 101, 200, 201, 300, 301, 400, 401, 1000, 1001]) {
       final widget = HelperBadge.getBadgeTotVidIcons(count);
-      expect(widget, isA<Icon>(), reason: 'count $count');
-      expect((widget as Icon).size, 12, reason: 'count $count');
+      expect(widget, isA<HugeIcon>(), reason: 'count $count');
+      expect((widget as HugeIcon).size, AppStyle.iconSize, reason: 'count $count');
       expect(widget.color, isNotNull, reason: 'count $count');
+      expect(widget.icon, isNotEmpty);
     }
 
-    final low = HelperBadge.getBadgeTotVidIcons(50) as Icon;
-    final mid = HelperBadge.getBadgeTotVidIcons(150) as Icon;
-    final high = HelperBadge.getBadgeTotVidIcons(900) as Icon;
-    final beyond = HelperBadge.getBadgeTotVidIcons(1001) as Icon;
+    final low = HelperBadge.getBadgeTotVidIcons(50) as HugeIcon;
+    final mid = HelperBadge.getBadgeTotVidIcons(150) as HugeIcon;
+    final high = HelperBadge.getBadgeTotVidIcons(900) as HugeIcon;
+    final beyond = HelperBadge.getBadgeTotVidIcons(1001) as HugeIcon;
     expect(low.icon, isNot(mid.icon));
     expect(high.icon, isNot(beyond.icon));
     expect(HelperBadge.getBadgeTotVidIcons(500).runtimeType, high.runtimeType);

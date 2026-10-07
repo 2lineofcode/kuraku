@@ -9,12 +9,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_tab.dart';
 import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_view.dart';
 import 'package:javit/app/modules/widgets/widgets.dart';
 import 'package:javit/app/utils/chat_service.dart';
+
+import 'icon_finder.dart';
 
 class _SqlApi extends ChatService {
   String sql = 'SELECT title FROM videos LIMIT 1;';
@@ -460,7 +463,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Thumbnail'), findsOneWidget);
     expect(tester.getTopLeft(find.text('Thumbnail')).dx, lessThan(tester.getTopLeft(find.text('dvd_id')).dx));
-    expect(find.byIcon(Icons.image_not_supported_outlined), findsNWidgets(3));
+    expect(findHugeIcon(HugeIcons.strokeRoundedImage01), findsNWidgets(3));
     expect(find.byType(CachedNetworkImage), findsNothing);
     expect(find.widgetWithText(TextButton, 'CODE-1'), findsOneWidget);
     final table = find.byKey(const ValueKey('sql-results-table'));

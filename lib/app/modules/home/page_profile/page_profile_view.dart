@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/app_color.dart';
@@ -8,6 +9,7 @@ import '../../../core/app_translations.dart';
 import '../../../data/database/db_gamification.dart';
 import '../../../utils/helper_badge.dart';
 import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_style.dart';
 import '../../widgets/widget_surfaces.dart';
 import 'page_profile_controller.dart';
 
@@ -48,7 +50,7 @@ class PageProfileView extends GetView<PageProfileController> {
                     Container(
                       width: 36, height: 36,
                       decoration: BoxDecoration(color: AppColor.container, border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(6)),
-                      child: Icon(CupertinoIcons.person, size: 18, color: AppColor.muted),
+                      child: HugeIcon(icon: HugeIcons.strokeRoundedUser, size: AppStyle.iconSize, color: AppColor.muted),
                     ),
                     const SizedBox(width: 16),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -69,16 +71,16 @@ class PageProfileView extends GetView<PageProfileController> {
                 const SizedBox(height: 24),
                 _heading('Activity overview'.tr),
                 _surface(Wrap(spacing: 12, runSpacing: 12, children: [
-                  _stat('Videos'.tr, '${home.totalVideo.value}', Icons.video_library_outlined, statWidth),
-                  _stat('Watch time'.tr, '@{hours}h @{minutes}m'.trNamed({'hours': '${watch.inHours}', 'minutes': '${watch.inMinutes.remainder(60)}'}), Icons.schedule_rounded, statWidth),
-                  _stat('Current streak'.tr, '@{streakDays} days'.trNamed({'streakDays': '${home.streakDays.value}'}), Icons.local_fire_department_outlined, statWidth),
-                  _stat('Total relapse'.tr, '@{totalRelapse} times'.trNamed({'totalRelapse': '${controller.totalRelapse.value}'}), Icons.history_rounded, statWidth),
+                  _stat('Videos'.tr, '${home.totalVideo.value}', HugeIcons.strokeRoundedFilm01, statWidth),
+                  _stat('Watch time'.tr, '@{hours}h @{minutes}m'.trNamed({'hours': '${watch.inHours}', 'minutes': '${watch.inMinutes.remainder(60)}'}), HugeIcons.strokeRoundedClock01, statWidth),
+                  _stat('Current streak'.tr, '@{streakDays} days'.trNamed({'streakDays': '${home.streakDays.value}'}), HugeIcons.strokeRoundedFire, statWidth),
+                  _stat('Total relapse'.tr, '@{totalRelapse} times'.trNamed({'totalRelapse': '${controller.totalRelapse.value}'}), HugeIcons.strokeRoundedClock01, statWidth),
                 ])),
                 const SizedBox(height: 24),
                 _heading('Badges & progress'.tr),
                 _surface(Wrap(spacing: 24, runSpacing: 20, children: [
-                  SizedBox(width: panelWidth, child: _badge('Collection'.tr, HelperBadge.getCollectionProgress(home.totalVideo.value), 'videos'.tr, Icons.collections_bookmark_outlined)),
-                  SizedBox(width: panelWidth, child: _badge('Watch time'.tr, HelperBadge.getWatchDurationProgress(profile.totalWatchDuration ?? 0), 'hours'.tr, Icons.ondemand_video_rounded)),
+                  SizedBox(width: panelWidth, child: _badge('Collection'.tr, HelperBadge.getCollectionProgress(home.totalVideo.value), 'videos'.tr, HugeIcons.strokeRoundedLayers01)),
+                  SizedBox(width: panelWidth, child: _badge('Watch time'.tr, HelperBadge.getWatchDurationProgress(profile.totalWatchDuration ?? 0), 'hours'.tr, HugeIcons.strokeRoundedPlaySquare)),
                 ])),
                 const SizedBox(height: 24),
                 _heading('Achievements'.tr, detail: '@{achievementCount} of @{length} unlocked'.trNamed({'achievementCount': '${home.achievementCount.value}', 'length': '${achievements.length}'})),
@@ -98,7 +100,7 @@ class PageProfileView extends GetView<PageProfileController> {
 
   Widget _editButton(BuildContext context) => AppButton(
     label: 'Edit profile'.tr,
-    icon: const Icon(CupertinoIcons.pencil),
+    icon: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: AppStyle.iconSize),
     onPressed: () => _editName(context),
   );
 
@@ -126,7 +128,7 @@ class PageProfileView extends GetView<PageProfileController> {
               style: TextStyle(color: AppColor.text),
               placeholder: 'Display name'.tr,
               placeholderStyle: TextStyle(fontSize: 12, color: AppColor.muted),
-              prefix: Padding(padding: const EdgeInsets.only(left: 8), child: Icon(CupertinoIcons.person, size: 14, color: AppColor.muted)),
+              prefix: Padding(padding: const EdgeInsets.only(left: 8), child: HugeIcon(icon: HugeIcons.strokeRoundedUser, size: AppStyle.iconSize, color: AppColor.muted)),
               onSubmitted: (_) => save(dialogContext),
             )),
             if (controller.nameError.value.isNotEmpty) Padding(
@@ -157,13 +159,13 @@ class PageProfileView extends GetView<PageProfileController> {
     child: AppSectionHeading(title: title, detail: detail),
   );
 
-  Widget _stat(String label, String value, IconData icon, double width) => SizedBox(
+  Widget _stat(String label, String value, List<List<dynamic>> icon, double width) => SizedBox(
     width: width,
     child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Icon(icon, size: 16, color: AppColor.muted),
+          HugeIcon(icon: icon, size: AppStyle.iconSize, color: AppColor.muted),
           const SizedBox(width: 6),
           Expanded(child: Text(label, style: TextStyle(fontSize: 11, color: AppColor.muted))),
         ]),
@@ -173,8 +175,8 @@ class PageProfileView extends GetView<PageProfileController> {
     ),
   );
 
-  Widget _badge(String label, BadgeProgress progress, String unit, IconData icon) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [Icon(icon, size: 20, color: (Get.isDarkMode ? Colors.amberAccent : Colors.orange.shade800)), const SizedBox(width: 8), Expanded(child: Text(label, style: TextStyle(fontSize: 11, color: AppColor.muted)))]),
+  Widget _badge(String label, BadgeProgress progress, String unit, List<List<dynamic>> icon) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [HugeIcon(icon: icon, size: AppStyle.iconSize, color: (Get.isDarkMode ? Colors.amberAccent : Colors.orange.shade800)), const SizedBox(width: 8), Expanded(child: Text(label, style: TextStyle(fontSize: 11, color: AppColor.muted)))]),
       const SizedBox(height: 12),
       Text(progress.currentTitle, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
       const SizedBox(height: 12),
@@ -191,7 +193,7 @@ class PageProfileView extends GetView<PageProfileController> {
       decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppColor.border, width: .5))),
       child: LayoutBuilder(builder: (context, constraints) {
         final details = Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(item.isUnlocked ? Icons.verified_outlined : Icons.lock_outline_rounded, size: 18, color: color),
+          HugeIcon(icon: item.isUnlocked ? HugeIcons.strokeRoundedCheckmarkBadge01 : HugeIcons.strokeRoundedSquareLock01, size: AppStyle.iconSize, color: color),
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [

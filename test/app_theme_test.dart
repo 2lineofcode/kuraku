@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -18,7 +19,7 @@ void main() {
         footerContent: const Text('Status'),
         bodyContent: Column(children: [
           Container(key: const Key('selection'), color: AppColor.selected, child: const Text('Selected')),
-          const MediaStack([Text('Media title'), Positioned(right: 0, child: Icon(Icons.play_arrow))]),
+          const MediaStack([Text('Media title'), Positioned(right: 0, child: Icon(CupertinoIcons.play_fill))]),
         ]),
       );
       }),
@@ -37,7 +38,7 @@ void main() {
       }
       expect(tester.widget<Container>(find.byKey(const Key('selection'))).color, AppColor.selected);
       expect(DefaultTextStyle.of(tester.element(find.text('Media title'))).style.color, Colors.white);
-      expect(IconTheme.of(tester.element(find.byIcon(Icons.play_arrow))).color, Colors.white);
+      expect(IconTheme.of(tester.element(find.byIcon(CupertinoIcons.play_fill))).color, Colors.white);
       expect(tester.takeException(), isNull);
     }
   });

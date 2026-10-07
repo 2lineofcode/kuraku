@@ -4,11 +4,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:javit/app/modules/home/page_download/page_download_search_tab.dart';
 import 'package:javit/app/modules/home/page_explore/page_explore_tab.dart';
 import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
 import 'package:javit/app/modules/widgets/widget_controls.dart';
 import 'package:javit/app/utils/helper_opener.dart';
+
+import 'icon_finder.dart';
 
 const adapter = VideoFilterAdapter<String>(
   videoCode: code,
@@ -146,7 +149,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Drunk'), findsOneWidget);
     expect(find.text('D***k'), findsNothing);
-    await tester.tap(find.descendant(of: find.byType(InputChip), matching: find.byIcon(Icons.close)));
+    await tester.tap(find.descendant(of: find.byType(InputChip), matching: findHugeIcon(HugeIcons.strokeRoundedCancel01)));
     await tester.pumpAndSettle();
     final field = find.byWidgetPredicate((widget) => widget is CupertinoTextField && widget.placeholder == 'Search and add categories...');
     await tester.enterText(field, 'Drunk');

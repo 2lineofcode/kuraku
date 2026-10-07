@@ -1,9 +1,8 @@
 import 'package:ex_kit/ex.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:overlayment/overlayment.dart';
-import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_translations.dart';
@@ -96,7 +95,7 @@ mixin HomePanelMetadata {
             VStack(
               [
                 HStack([
-                  Icon(UIconsPro.regularRounded.pen_square, size: 16).pOnly(right: 8),
+                  HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: AppStyle.iconSize).pOnly(right: 8),
                   'Edit Metadata @{videoCode}'.trNamed({'videoCode': '${video.videoCode.isNotEmptyAndNotNull ? '(${video.videoCode})' : ''}'}).text.bold.color(AppColor.text).make(),
                 ]).pOnly(bottom: 12),
 
@@ -119,7 +118,7 @@ mixin HomePanelMetadata {
                   'Actress'.tr.text.color(AppColor.muted).size(11).make(),
                   Spacer(),
                   AppIconButton(
-                    icon: Icon(CupertinoIcons.add, size: 16),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
                     tooltip: 'Add actress'.tr,
                     onPressed: () => _showDialogAddActress(actresses),
                   ),
@@ -143,10 +142,10 @@ mixin HomePanelMetadata {
                                       height: 56,
                                       fitUrl: BoxFit.cover,
                                       withProxy: false,
-                                      iconSize: 24,
+                                      iconSize: AppStyle.largeIconSize,
                                     ).cornerRadius(10).tooltip(actress.nameRomaji ?? actress.nameKana!).pOnly(right: 8),
 
-                                    Icon(UIconsPro.regularRounded.cross, size: 10)
+                                    HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.smallIconSize)
                                         .pOnly(right: 6, top: 6)
                                         .onInkTap(() {
                                       actresses.remove(actress);
@@ -165,7 +164,7 @@ mixin HomePanelMetadata {
                   'Category'.tr.text.color(AppColor.muted).size(11).make(),
                   Spacer(),
                   AppIconButton(
-                    icon: Icon(CupertinoIcons.add, size: 16),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
                     tooltip: 'Add category'.tr,
                     onPressed: () async => await _showDialogAddCategory(categories),
                   ),
@@ -185,7 +184,7 @@ mixin HomePanelMetadata {
                                   (cat) => HStack([
                                     '${cat.id ?? ''}'.text.size(10).color(Vx.neutral500).make().pOnly(right: 4),
                                     '${cat.category ?? ''}'.text.size(11).semiBold.color(AppColor.text).make(),
-                                    Icon(UIconsPro.regularRounded.cross, size: 10)
+                                    HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.smallIconSize)
                                         .pOnly(left: 6)
                                         .onInkTap(() {
                                       categories.remove(cat);

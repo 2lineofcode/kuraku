@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import 'package:hugeicons/hugeicons.dart';
 import 'package:javit/app/core/app_color.dart';
 import 'package:javit/app/modules/widgets/widget_controls.dart';
 import 'package:javit/app/modules/widgets/widget_style.dart';
@@ -53,7 +54,7 @@ class _UiCatalogState extends State<UiCatalog> {
           children: [
             Wrap(alignment: WrapAlignment.spaceBetween, spacing: 12, runSpacing: 8, children: [
               const Text('JavIt / Shared components', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-              AppButton(icon: const Icon(Icons.brightness_6_outlined), label: 'Toggle theme', onPressed: widget.onToggleTheme),
+              AppButton(icon: const HugeIcon(icon: HugeIcons.strokeRoundedDarkMode, size: AppStyle.iconSize), label: 'Toggle theme', onPressed: widget.onToggleTheme),
             ]),
             const SizedBox(height: 6),
             Text('Real Flutter widgets · radius 6 · controls 30 · inputs 32 · icons 32', style: TextStyle(color: AppColor.muted)),
@@ -70,19 +71,19 @@ class _UiCatalogState extends State<UiCatalog> {
             AppSectionHeading(title: 'Buttons', detail: '$presses actions'),
             const SizedBox(height: 10),
             AppPanel(bordered: true, child: Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-              AppButton(label: 'Edit profile', icon: const Icon(Icons.edit_outlined), onPressed: press),
+              AppButton(label: 'Edit profile', icon: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: AppStyle.iconSize), onPressed: press),
               AppButton(label: 'Save changes', variant: AppButtonVariant.filled, onPressed: press),
               AppButton(label: 'Cancel', variant: AppButtonVariant.outlined, onPressed: press),
-              AppButton(label: 'Add todo', icon: const Icon(Icons.add), variant: AppButtonVariant.tonal, onPressed: press),
+              AppButton(label: 'Add todo', icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize), variant: AppButtonVariant.tonal, onPressed: press),
               const AppButton(label: 'Disabled', variant: AppButtonVariant.filled, onPressed: null),
-              AppIconButton(icon: const Icon(Icons.refresh), tooltip: 'Refresh', onPressed: press),
-              const AppIconButton(icon: Icon(Icons.delete_outline), tooltip: 'Unavailable', onPressed: null),
+              AppIconButton(icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize), tooltip: 'Refresh', onPressed: press),
+              const AppIconButton(icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize), tooltip: 'Unavailable', onPressed: null),
             ])),
             const SizedBox(height: 24),
             const AppSectionHeading(title: 'Inputs & selection'),
             const SizedBox(height: 10),
             AppPanel(bordered: true, child: Form(key: form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              const AppTextField(placeholder: 'Search your library', prefix: Padding(padding: EdgeInsets.only(left: 10), child: Icon(Icons.search, size: 16))),
+              const AppTextField(placeholder: 'Search your library', prefix: Padding(padding: EdgeInsets.only(left: 10), child: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: AppStyle.iconSize))),
               const SizedBox(height: 10),
               AppTextFormField(placeholder: 'Profile name', validator: (value) => value == null || value.trim().isEmpty ? 'Name is required' : null),
               const SizedBox(height: 10),

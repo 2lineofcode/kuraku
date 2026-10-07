@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:javit/app/core/app_pref.dart';
 import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/data/models/videos_entity.dart';
@@ -15,6 +16,8 @@ import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
 import 'package:javit/app/modules/home/page_search/page_search_view.dart';
 import 'package:javit/app/modules/widgets/widget_controls.dart';
 import 'package:javit/app/utils/semantic_search_service.dart';
+
+import 'icon_finder.dart';
 
 class _Preferences implements GetSecureStorage {
   final values = <String, dynamic>{};
@@ -503,8 +506,8 @@ void main() {
     expect(second.filter.tecActressName.text, '');
     expect(second.sortBy.value, 'Random');
     expect(second.isSemanticMode.value, isFalse);
-    final plus = find.widgetWithIcon(IconButton, Icons.add);
-    final lastClose = find.widgetWithIcon(IconButton, Icons.close).last;
+    final plus = findHugeIconButton(HugeIcons.strokeRoundedAdd01);
+    final lastClose = findHugeIconButton(HugeIcons.strokeRoundedCancel01).last;
     expect(tester.getTopLeft(plus).dx - tester.getTopRight(lastClose).dx, closeTo(4, 1));
     await tester.enterText(find.byType(CupertinoTextField), 'Second draft');
     controller.selectTab(0);

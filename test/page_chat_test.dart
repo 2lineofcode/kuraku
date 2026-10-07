@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/data/database/_init_db.dart';
 import 'package:javit/app/data/database/db_chat.dart';
@@ -20,6 +21,8 @@ import 'package:javit/app/utils/chat_service.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 
 import 'chat_test_database.dart';
+
+import 'icon_finder.dart';
 
 class _ChatApi extends ChatService {
   _ChatApi({String apiKey = 'test-key', super.knowledge}) : super(apiKey: apiKey);
@@ -568,7 +571,7 @@ void main() {
     expect(controller.scrollController.offset, greaterThan(beforeScroll));
     expect(find.text('1–25 of 200 · Page 1/8'), findsOneWidget);
     expect(find.text('Image', findRichText: true), findsOneWidget);
-    expect(find.byIcon(Icons.image_not_supported_outlined), findsNWidgets(25));
+    expect(findHugeIcon(HugeIcons.strokeRoundedImage01), findsNWidgets(25));
     expect(find.textContaining('TEST-200', findRichText: true), findsNothing);
     final next = find.byTooltip('Next results');
     for (var i = 0; i < 7; i++) {
@@ -578,7 +581,7 @@ void main() {
       await tester.pumpAndSettle();
     }
     expect(find.text('176–200 of 200 · Page 8/8'), findsOneWidget);
-    expect(find.byIcon(Icons.image_not_supported_outlined), findsNWidgets(25));
+    expect(findHugeIcon(HugeIcons.strokeRoundedImage01), findsNWidgets(25));
     expect(find.textContaining('TEST-200', findRichText: true), findsOneWidget);
     final copy = find.byTooltip('Copy message').first;
     await tester.ensureVisible(copy);

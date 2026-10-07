@@ -1,11 +1,18 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:toastification/toastification.dart';
 
 import '../modules/home/home_panel/home_panel_log.dart';
+import '../modules/widgets/widget_controls.dart';
+import '../modules/widgets/widget_style.dart';
 
 mixin HelperToast {
+  static final _closeButton = ToastCloseButton(buttonBuilder: (context, onClose) => AppIconButton(
+    tooltip: 'Close'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize), onPressed: onClose,
+  ));
+
   static Future<void> error(
     String? message, {
     String? title = 'Ups',
@@ -16,6 +23,8 @@ mixin HelperToast {
     toastification.show(
       context: Get.context,
       type: ToastificationType.error,
+      icon: const HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: AppStyle.largeIconSize),
+      closeButton: _closeButton,
       title: '$message'.text.size(12).make(),
       animationDuration: 200.milliseconds,
       autoCloseDuration: duration,
@@ -37,6 +46,8 @@ mixin HelperToast {
     toastification.show(
       context: Get.context,
       type: ToastificationType.success,
+      icon: const HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle02, size: AppStyle.largeIconSize),
+      closeButton: _closeButton,
       title: '$message'.text.size(12).make(),
       animationDuration: 200.milliseconds,
       autoCloseDuration: duration,
@@ -58,6 +69,8 @@ mixin HelperToast {
     toastification.show(
       context: Get.context,
       type: ToastificationType.info,
+      icon: const HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: AppStyle.largeIconSize),
+      closeButton: _closeButton,
       title: '$message'.text.size(12).make(),
       animationDuration: 200.milliseconds,
       autoCloseDuration: duration,
@@ -79,6 +92,8 @@ mixin HelperToast {
     toastification.show(
       context: Get.context,
       type: ToastificationType.warning,
+      icon: const HugeIcon(icon: HugeIcons.strokeRoundedAlert02, size: AppStyle.largeIconSize),
+      closeButton: _closeButton,
       title: '$message'.text.size(12).make(),
       animationDuration: 200.milliseconds,
       autoCloseDuration: duration,

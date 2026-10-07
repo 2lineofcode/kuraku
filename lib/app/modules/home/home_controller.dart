@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
-import 'package:uicons_pro/uicons_pro.dart';
 import 'package:uuid/v4.dart';
 
 import '../../core/app_logging.dart';
@@ -37,12 +37,12 @@ import 'page_tools/page_tools_controller.dart';
 
 class HomeController extends GetxController with StateMixin {
   final menus = <Map<String, dynamic>>[
-    {'icon': UIconsPro.regularRounded.comet, 'name': kMenuHome},
-    {'icon': UIconsPro.regularRounded.magnifying_glass_wave, 'name': kMenuSearch},
-    {'icon': UIconsPro.regularRounded.book_alt, 'name': kMenuExplore},
-    {'icon': UIconsPro.regularRounded.display_arrow_down, 'name': kMenuDownload},
-    {'icon': UIconsPro.regularRounded.customization, 'name': kMenuTools},
-    {'icon': UIconsPro.regularRounded.settings, 'name': kMenuSetting},
+    {'icon': HugeIcons.strokeRoundedHouseWifi, 'name': kMenuHome},
+    {'icon': HugeIcons.strokeRoundedSearch01, 'name': kMenuSearch},
+    {'icon': HugeIcons.strokeRoundedBookOpen02, 'name': kMenuExplore},
+    {'icon': HugeIcons.strokeRoundedDownload01, 'name': kMenuDownload},
+    {'icon': HugeIcons.strokeRoundedLassoTool02, 'name': kMenuTools},
+    {'icon': HugeIcons.strokeRoundedSettings01, 'name': kMenuSetting},
   ];
   final currentMenuSelected = kMenuHome.obs;
   final tecTopNavSearch = TextEditingController();

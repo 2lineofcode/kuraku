@@ -22,6 +22,7 @@ import '../../core/app_pref.dart';
 import '../../core/app_translations.dart';
 import '../../data/models/videos_entity.dart';
 import '../../utils/helper.dart';
+import 'widget_style.dart';
 
 
 // --- Shortcut Intents ---
@@ -96,7 +97,7 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
   Widget build(BuildContext context) {
     AppColor.dependOn(context);
     if (_latestValue.hasError) {
-      return chewieController.errorBuilder?.call(context, chewieController.videoPlayerController.value.errorDescription!) ?? Center(child: Icon(Icons.error, color: Colors.white, size: 42));
+      return chewieController.errorBuilder?.call(context, chewieController.videoPlayerController.value.errorDescription!) ?? Center(child: Icon(CupertinoIcons.exclamationmark_circle_fill, color: Colors.white, size: AppStyle.emptyIconSize));
     }
 
     // --- Shortcuts Map ---
@@ -382,7 +383,7 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
               Icon(
                 _latestValue.volume == 0 ? CupertinoIcons.volume_off : CupertinoIcons.volume_up,
                 color: Colors.white,
-                size: 14,
+                size: AppStyle.iconSize,
               ).pOnly(right: 8),
               'Vol @{toInt}'.trNamed({'toInt': '${(controller.value.volume * 100).toInt()}'}).text.bold.size(11).minFontSize(11).make().pOnly(top: 0),
             ],
@@ -493,7 +494,7 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
           padding: EdgeInsets.only(left: 12.0, right: 12.0),
           child: HStack(
             [
-              Icon(Icons.speed, color: Colors.white, size: 16).pOnly(right: 8),
+              Icon(CupertinoIcons.speedometer, color: Colors.white, size: AppStyle.iconSize).pOnly(right: 8),
               '${_latestValue.playbackSpeed.toDoubleStringAsFixed(digit: 2)}x'.text.size(12).make(),
             ],
           ),

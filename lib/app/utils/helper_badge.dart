@@ -1,8 +1,9 @@
 import 'package:ex_kit/ex.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
-import 'package:uicons_pro/uicons_pro.dart';
+import 'package:hugeicons/hugeicons.dart';
 import '../core/app_translations.dart';
+import '../modules/widgets/widget_style.dart';
 
 
 class BadgeProgress {
@@ -102,19 +103,19 @@ mixin HelperBadge {
   static String getBadgeTotVidTooltip(int count) {
     if (count == 0) return '~';
     if (count > 0 && count <= 100) {
-      return 'Your JAV collection just @{count}, it\'s so Newbie 😅 you probably can\'t even remember any actress yet.'.trNamed({'count': '$count'});
+      return 'Your JAV collection just @{count}, it\'s so Newbie you probably can\'t even remember any actress yet.'.trNamed({'count': '$count'});
     } else if (count > 100 && count <= 200) {
-      return 'Nice! You have @{count} videos. You\'re now a real Jav Lover ❤️ maybe you already have a few favorite stars.'.trNamed({'count': '$count'});
+      return 'Nice! You have @{count} videos. You\'re now a real Jav Lover maybe you already have a few favorite stars.'.trNamed({'count': '$count'});
     } else if (count > 200 && count <= 300) {
-      return 'Woah @{count} videos?! You\'re becoming a true Jav Hunter 🔥 always on the lookout for new releases!'.trNamed({'count': '$count'});
+      return 'Woah @{count} videos?! You\'re becoming a true Jav Hunter always on the lookout for new releases!'.trNamed({'count': '$count'});
     } else if (count > 300 && count <= 400) {
-      return 'Damn @{count} vids... you\'re officially a Nolep 😬 take a break sometimes, bro.'.trNamed({'count': '$count'});
+      return 'Damn @{count} vids... you\'re officially a Nolep take a break sometimes, bro.'.trNamed({'count': '$count'});
     } else if (count > 400 && count <= 500) {
-      return 'You crossed @{count} videos. Degenerate tier reached 😵 keep your library organized.'.trNamed({'count': '$count'});
+      return 'You crossed @{count} videos. Degenerate tier reached keep your library organized.'.trNamed({'count': '$count'});
     } else if (count > 500 && count <= 1000) {
-      return 'You got @{count} videos... you\'re a certified Freak 😈 you probably know every actress by heart.'.trNamed({'count': '$count'});
+      return 'You got @{count} videos... you\'re a certified Freak you probably know every actress by heart.'.trNamed({'count': '$count'});
     } else {
-      return 'Bro... @{count} videos?? You\'re beyond saving 😭 Nolep x_x'.trNamed({'count': '$count'});
+      return 'Bro... @{count} videos?? You\'re beyond saving Nolep x_x'.trNamed({'count': '$count'});
     }
   }
 
@@ -122,17 +123,17 @@ mixin HelperBadge {
     if (count == 0) return 0.heightBox;
 
     if (count > 0 && count <= 100) {
-      return Icon(UIconsPro.solidRounded.face_smile_horns, size: 12, color: Vx.amber300);
+      return HugeIcon(icon: HugeIcons.strokeRoundedSmile, size: AppStyle.iconSize, color: Vx.amber300);
     } else if (count > 100 && count <= 200) {
-      return Icon(UIconsPro.solidRounded.leaf_heart, size: 12, color: Vx.red400);
+      return HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: AppStyle.iconSize, color: Vx.red400);
     } else if (count > 200 && count <= 300) {
-      return Icon(UIconsPro.solidRounded.tank_water, size: 12, color: Vx.amber300);
+      return HugeIcon(icon: HugeIcons.strokeRoundedTarget01, size: AppStyle.iconSize, color: Vx.amber300);
     } else if (count > 300 && count <= 400) {
-      return Icon(UIconsPro.solidRounded.sushi_roll, size: 12, color: Vx.amber500);
+      return HugeIcon(icon: HugeIcons.strokeRoundedMoon02, size: AppStyle.iconSize, color: Vx.amber500);
     } else if (count > 400 && count <= 1000) {
-      return Icon(UIconsPro.solidRounded.face_angry_horns, size: 12, color: Vx.red500);
+      return HugeIcon(icon: HugeIcons.strokeRoundedFire, size: AppStyle.iconSize, color: Vx.red500);
     } else {
-      return Icon(UIconsPro.solidRounded.face_sunglasses, size: 12, color: Vx.red500);
+      return HugeIcon(icon: HugeIcons.strokeRoundedAward01, size: AppStyle.iconSize, color: Vx.red500);
     }
   }
 }

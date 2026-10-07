@@ -3,8 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:markdown_widget/markdown_widget.dart';
-import 'package:uicons_pro/uicons_pro.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/app_color.dart';
@@ -15,6 +15,7 @@ import '../../../utils/chat_service.dart';
 import '../../../utils/helper_loading.dart';
 import '../../../utils/helper_opener.dart';
 import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_style.dart';
 import '../../widgets/widget_surfaces.dart';
 import '../../widgets/widget_thumbnail.dart';
 import 'page_chat_controller.dart';
@@ -54,7 +55,7 @@ class PageChatView extends GetView<PageChatController> {
                         visualDensity: VisualDensity.compact,
                         constraints: const BoxConstraints.tightFor(width: 32, height: 32),
                         padding: EdgeInsets.zero,
-                        icon: Icon(UIconsPro.regularRounded.sidebar, size: 14),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedSidebarLeft, size: AppStyle.iconSize),
                         onPressed: () => _toggleHistory(wide),
                       )),
                       const SizedBox(width: 8),
@@ -67,20 +68,20 @@ class PageChatView extends GetView<PageChatController> {
                         visualDensity: VisualDensity.compact,
                         constraints: const BoxConstraints.tightFor(width: 32, height: 32),
                         padding: EdgeInsets.zero,
-                        icon: const Icon(Icons.keyboard_outlined, size: 16)),
+                        icon: const HugeIcon(icon: HugeIcons.strokeRoundedKeyboard, size: AppStyle.iconSize)),
                       const SizedBox(width: 12),
                       AppIconButton(tooltip: 'Delete chat'.tr,
                         onPressed: () => _editChat(context, controller.activeChat.value, deleting: true),
                         visualDensity: VisualDensity.compact,
                         constraints: const BoxConstraints.tightFor(width: 32, height: 32),
                         padding: EdgeInsets.zero,
-                        icon: const Icon(Icons.delete_outline_rounded, size: 16)),
+                        icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize)),
                       const SizedBox(width: 12),
                       AppIconButton(tooltip: 'New chat'.tr, onPressed: controller.newChat,
                         visualDensity: VisualDensity.compact,
                         constraints: const BoxConstraints.tightFor(width: 32, height: 32),
                         padding: EdgeInsets.zero,
-                        icon: Icon(UIconsPro.regularRounded.plus, size: 14)),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize)),
 
                     ]),
                   ),
@@ -95,7 +96,7 @@ class PageChatView extends GetView<PageChatController> {
                             bottom: 8, left: 0, right: 0,
                             child: Center(child: AppButton(variant: AppButtonVariant.tonal,
                               onPressed: controller.scrollToLatest,
-                              icon: const Icon(Icons.arrow_downward_rounded, size: 16),
+                              icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowDown02, size: AppStyle.iconSize),
                               child: Text('Latest messages'.tr, style: const TextStyle(fontSize: 12)),
                             )),
                           ) : const SizedBox.shrink()),
@@ -195,7 +196,7 @@ class PageChatView extends GetView<PageChatController> {
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 32, height: 32),
             padding: EdgeInsets.zero,
-            icon: const Icon(Icons.delete_sweep_outlined, size: 16)),
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize)),
         ])),
         SizedBox(width: double.infinity, child: AppButton(variant: AppButtonVariant.outlined,
           height: 38,  labelSize: 12,
@@ -204,7 +205,7 @@ class PageChatView extends GetView<PageChatController> {
             controller.newChat();
             if (closeOnSelect) Navigator.pop(context);
           },
-          icon: Icon(UIconsPro.regularRounded.plus, size: 14, color: AppColor.text),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize, color: AppColor.text),
           label: 'New chat'.tr,
         )),
         const SizedBox(height: 12),
@@ -214,7 +215,7 @@ class PageChatView extends GetView<PageChatController> {
           onChanged: (value) => controller.search.value = value,
           style: TextStyle(color: AppColor.text),
           placeholder: 'Search chats'.tr,
-          prefix: Icon(UIconsPro.regularRounded.search, size: 12, color: AppColor.muted).pOnly(left: 8),
+          prefix: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: AppStyle.iconSize, color: AppColor.muted).pOnly(left: 8),
         ),
         Padding(padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
           child: Text('Your chats'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted))),
@@ -243,7 +244,7 @@ class PageChatView extends GetView<PageChatController> {
                     selectedColor: AppColor.text,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                     leading: responding == chat.id ? Tooltip(message: 'Responding...'.tr, child: const CupertinoActivityIndicator(radius: 6))
-                        : Icon(chat.isPinned ? Icons.push_pin_rounded : Icons.chat_bubble_outline_rounded, size: 13, color: AppColor.muted),
+                        : HugeIcon(icon: chat.isPinned ? HugeIcons.strokeRoundedPin02 : HugeIcons.strokeRoundedBubbleChat, size: AppStyle.smallIconSize, color: AppColor.muted),
                     minLeadingWidth: 14,
                     title: Text(chat.title == 'New chat' ? 'New chat'.tr : chat.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
                     onTap: () {
@@ -253,17 +254,17 @@ class PageChatView extends GetView<PageChatController> {
                     trailing: MenuAnchor(
                       menuChildren: [
                         MenuItemButton(
-                          leadingIcon: Icon(chat.isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined, size: 12),
+                          leadingIcon: HugeIcon(icon: chat.isPinned ? HugeIcons.strokeRoundedPin02 : HugeIcons.strokeRoundedPin02, size: AppStyle.smallIconSize),
                           onPressed: () => controller.togglePin(chat),
                           child: Text(chat.isPinned ? 'Unpin chat'.tr : 'Pin chat'.tr, style: const TextStyle(fontSize: 12)),
                         ),
                         MenuItemButton(
-                          leadingIcon: Icon(UIconsPro.regularRounded.edit, size: 12),
+                          leadingIcon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: AppStyle.iconSize),
                           onPressed: () => _editChat(context, chat, deleting: false),
                           child: Text('Rename'.tr, style: TextStyle(fontSize: 12)),
                         ),
                         MenuItemButton(
-                          leadingIcon: Icon(UIconsPro.regularRounded.trash, size: 12),
+                          leadingIcon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize),
                           onPressed: () => _editChat(context, chat, deleting: true),
                           child: Text('Delete'.tr, style: TextStyle(fontSize: 12)),
                         ),
@@ -273,7 +274,7 @@ class PageChatView extends GetView<PageChatController> {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints.tightFor(width: 32, height: 32),
                         visualDensity: VisualDensity.compact,
-                        icon: Icon(UIconsPro.regularRounded.menu_dots, size: 12),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: AppStyle.iconSize),
                         onPressed: () => menu.isOpen ? menu.close() : menu.open(),
                       ),
                     ),
@@ -293,7 +294,7 @@ class PageChatView extends GetView<PageChatController> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(color: AppColor.selected, borderRadius: BorderRadius.circular(8)),
-          child: Icon(UIconsPro.regularRounded.comment_alt_dots, size: 24, color: AppColor.text),
+          child: HugeIcon(icon: HugeIcons.strokeRoundedBubbleChat, size: AppStyle.largeIconSize, color: AppColor.text),
         ),
         const SizedBox(height: 12),
         Text('What would you like to explore?'.tr, textAlign: TextAlign.center,
@@ -304,10 +305,10 @@ class PageChatView extends GetView<PageChatController> {
         const SizedBox(height: 24),
         LayoutBuilder(builder: (context, constraints) => Wrap(spacing: 10, runSpacing: 10, children: [
           for (final suggestion in const [
-            (command: '/r18', icon: Icons.travel_explore_rounded, detail: 'Search across Japanese and English titles'),
-            (command: '/filter', icon: Icons.tune_rounded, detail: 'Combine themes and exclude videos you own'),
-            (command: '/similar', icon: Icons.auto_awesome_outlined, detail: 'Explore related themes from a video code'),
-            (command: '/translate', icon: Icons.translate_rounded, detail: 'Read a Japanese title in Indonesian'),
+            (command: '/r18', icon: HugeIcons.strokeRoundedGlobe02, detail: 'Search across Japanese and English titles'),
+            (command: '/filter', icon: HugeIcons.strokeRoundedFilter, detail: 'Combine themes and exclude videos you own'),
+            (command: '/similar', icon: HugeIcons.strokeRoundedSparkles, detail: 'Explore related themes from a video code'),
+            (command: '/translate', icon: HugeIcons.strokeRoundedTranslate, detail: 'Read a Japanese title in Indonesian'),
           ]) SizedBox(
             width: constraints.maxWidth >= 460 ? (constraints.maxWidth - 10) / 2 : constraints.maxWidth,
             child: AppButton(variant: AppButtonVariant.outlined,
@@ -318,7 +319,7 @@ class PageChatView extends GetView<PageChatController> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               child: Row(children: [
-                Icon(suggestion.icon, size: 20, color: AppColor.accent),
+                HugeIcon(icon: suggestion.icon, size: AppStyle.iconSize, color: AppColor.accent),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(PageChatController.templates[suggestion.command]!.label.tr, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
@@ -397,7 +398,7 @@ class PageChatView extends GetView<PageChatController> {
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: assistant ? CrossAxisAlignment.start : CrossAxisAlignment.end, children: [
                 if (assistant) ...[
                   Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.auto_awesome_outlined, size: 15, color: AppColor.muted),
+                    HugeIcon(icon: HugeIcons.strokeRoundedSparkles, size: AppStyle.iconSize, color: AppColor.muted),
                     const SizedBox(width: 8),
                     Text(message.provider == 'local' ? 'Local library'.tr : message.provider ?? 'AI', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                   ]),
@@ -421,10 +422,10 @@ class PageChatView extends GetView<PageChatController> {
                     Text('Page @{offset}'.trNamed({'offset': '${offset ~/ 25 + 1}'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
                     AppIconButton(tooltip: 'Previous database page'.tr, visualDensity: VisualDensity.compact,
                       onPressed: disabled || offset == 0 ? null : () => controller.loadTitleSearchPage(message, -1),
-                      icon: const Icon(Icons.chevron_left_rounded, size: 18)),
+                      icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: AppStyle.iconSize)),
                     AppIconButton(tooltip: 'Next database page'.tr, visualDensity: VisualDensity.compact,
                       onPressed: disabled || message.titleSearch!['has_more'] != true ? null : () => controller.loadTitleSearchPage(message, 1),
-                      icon: const Icon(Icons.chevron_right_rounded, size: 18)),
+                      icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: AppStyle.iconSize)),
                     if (controller.loadingPageId.value == message.id) const CupertinoActivityIndicator(radius: 6),
                   ]);
                 }),
@@ -433,7 +434,7 @@ class PageChatView extends GetView<PageChatController> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(color: AppColor.panel, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColor.border)),
                   child: Row(children: [
-                    Icon(Icons.info_outline_rounded, size: 16, color: AppColor.muted),
+                    HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: AppStyle.iconSize, color: AppColor.muted),
                     const SizedBox(width: 8),
                     Expanded(child: Text(invalid ? 'This older response could not be processed. Please retry.'.tr : message.errorMessage?.tr ?? 'Response stopped.'.tr,
                       style: TextStyle(fontSize: 12, color: AppColor.muted))),
@@ -443,20 +444,20 @@ class PageChatView extends GetView<PageChatController> {
                   if (content.isNotEmpty && !generating) AppIconButton(
                     tooltip: 'Copy message'.tr, visualDensity: VisualDensity.compact,
                     constraints: const BoxConstraints.tightFor(width: 30, height: 30), padding: EdgeInsets.zero,
-                    icon: Icon(Icons.copy_rounded, size: 14, color: AppColor.muted),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: AppStyle.iconSize, color: AppColor.muted),
                     onPressed: () => _copy(context, content),
                   ),
                   if (!assistant) Obx(() => AppIconButton(
                     tooltip: 'Edit message'.tr, visualDensity: VisualDensity.compact,
                     constraints: const BoxConstraints.tightFor(width: 30, height: 30), padding: EdgeInsets.zero,
-                    icon: Icon(Icons.edit_outlined, size: 14, color: AppColor.muted),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: AppStyle.iconSize, color: AppColor.muted),
                     onPressed: controller.busy.value || controller.respondingChatId.value != null
                         ? null : () => controller.editMessage(message),
                   )),
                   if (index == 0 && !generating)
                     Obx(() => controller.respondingChatId.value != null ? const SizedBox.shrink() : AppButton(
                       onPressed: controller.busy.value || controller.editingMessageId.value != null ? null : controller.retryResponse,
-                      icon: const Icon(Icons.refresh_rounded, size: 15),
+                      icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
                       child: Text(assistant && message.status == 'completed' && !invalid ? 'Regenerate response'.tr : 'Retry response'.tr, style: TextStyle(fontSize: 11)),
                     )),
                 ]),
@@ -484,10 +485,10 @@ class PageChatView extends GetView<PageChatController> {
               ? Tooltip(message: 'Preview image'.tr, child: Material(color: Colors.transparent, child: InkWell(
                   onTap: () => _previewImage(context, imageUrl, attributes['alt'] ?? 'Image', images),
                   child: ExThumbnail(imageUrl: imageUrl, videoCode: attributes['alt'], width: 96, height: 64,
-                    iconSize: 20, fitUrl: BoxFit.cover),
+                    iconSize: AppStyle.largeIconSize, fitUrl: BoxFit.cover),
                 )))
               : Container(width: 96, height: 64, color: AppColor.hover,
-                  child: Icon(Icons.image_not_supported_outlined, size: 20, color: AppColor.muted))),
+                  child: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: AppStyle.largeIconSize, color: AppColor.muted))),
           );
         }),
         TableConfig(
@@ -503,7 +504,7 @@ class PageChatView extends GetView<PageChatController> {
             Row(children: [
               Expanded(child: Text(language.isEmpty ? 'Code'.tr : language, style: TextStyle(fontSize: 11, color: AppColor.muted))),
               AppIconButton(tooltip: 'Copy code'.tr, visualDensity: VisualDensity.compact,
-                onPressed: () => _copy(context, code), icon: const Icon(Icons.copy_rounded, size: 14)),
+                onPressed: () => _copy(context, code), icon: const HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: AppStyle.iconSize)),
             ]),
             child,
           ]),
@@ -605,11 +606,11 @@ class PageChatView extends GetView<PageChatController> {
               ))),
               Text('${index + 1} / ${images.length}', style: TextStyle(fontSize: 11, color: AppColor.muted)),
               AppIconButton(tooltip: 'Previous image (←)'.tr, onPressed: index > 0 ? () => move(-1) : null,
-                icon: const Icon(Icons.chevron_left_rounded, size: 20)),
+                icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: AppStyle.iconSize)),
               AppIconButton(tooltip: 'Next image (→)'.tr, onPressed: index + 1 < images.length ? () => move(1) : null,
-                icon: const Icon(Icons.chevron_right_rounded, size: 20)),
+                icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: AppStyle.iconSize)),
               AppIconButton(tooltip: 'Close preview'.tr, onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded, size: 20)),
+                icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize)),
             ])),
             Expanded(child: LayoutBuilder(builder: (context, constraints) => InteractiveViewer(
               key: ValueKey(index), minScale: 1, maxScale: 5,
@@ -664,7 +665,7 @@ class PageChatView extends GetView<PageChatController> {
               child: SingleChildScrollView(child: SelectableText(controller.commandNotice.value.tr,
                 style: TextStyle(fontSize: 11, height: 1.6, color: AppColor.muted))))),
             AppIconButton(tooltip: 'Dismiss command result'.tr, visualDensity: VisualDensity.compact,
-              onPressed: () => controller.commandNotice.value = '', icon: const Icon(Icons.close_rounded, size: 14)),
+              onPressed: () => controller.commandNotice.value = '', icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize)),
           ]),
         ),
         if (matches.isNotEmpty) ConstrainedBox(
@@ -687,7 +688,7 @@ class PageChatView extends GetView<PageChatController> {
                       SizedBox(width: 88, child: Text(matches[index], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
                       Expanded(child: Text(PageChatController.commands[matches[index]]!.tr, maxLines: 1,
                         overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: AppColor.muted))),
-                      if (index == selected) const Icon(Icons.keyboard_return_rounded, size: 14),
+                      if (index == selected) const HugeIcon(icon: HugeIcons.strokeRoundedArrowTurnDown, size: AppStyle.iconSize),
                     ]),
                   )),
                 ),
@@ -722,7 +723,7 @@ class PageChatView extends GetView<PageChatController> {
           valueListenable: controller.input,
           builder: (context, value, _) => controller.templateFields(value.text).isEmpty ? const SizedBox.shrink() : AppButton(
             onPressed: controller.busy.value ? null : controller.selectTemplateField,
-            icon: const Icon(Icons.edit_note_rounded, size: 16),
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: AppStyle.iconSize),
             child: Text('Next template field'.tr, style: const TextStyle(fontSize: 11)),
           ),
         ),
@@ -730,13 +731,13 @@ class PageChatView extends GetView<PageChatController> {
           Expanded(child: Text('Enter to send · Shift + Enter newline · / commands'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted))),
           Obx(() => controller.respondingChatId.value != null
             ? AppIconButton(filled: true, tooltip: 'Stop response'.tr, onPressed: controller.stopResponse,
-                icon: const Icon(Icons.stop_rounded, size: 20))
+                icon: const HugeIcon(icon: HugeIcons.strokeRoundedStop, size: AppStyle.iconSize))
             : ValueListenableBuilder<TextEditingValue>(
               valueListenable: controller.input,
               builder: (context, value, _) => AppIconButton(filled: true,
                 tooltip: 'Send message'.tr,
                 onPressed: editing || value.text.trim().isEmpty || controller.busy.value || !controller.ready.value ? null : controller.submitInput,
-                icon: const Icon(Icons.arrow_upward_rounded, size: 20),
+                icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowUp02, size: AppStyle.iconSize),
               ),
             )),
         ]),
@@ -826,11 +827,11 @@ class _ChatActivityPanelState extends State<_ChatActivityPanel> {
           onTap: () => setState(() => expanded = !expanded),
           child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), child: Row(mainAxisSize: MainAxisSize.min, children: [
             if (widget.active) const CupertinoActivityIndicator(radius: 6)
-            else Icon(widget.status == 'completed' ? Icons.check_circle_outline_rounded : Icons.info_outline_rounded, size: 14, color: AppColor.muted),
+            else HugeIcon(icon: widget.status == 'completed' ? HugeIcons.strokeRoundedCheckmarkCircle02 : HugeIcons.strokeRoundedInformationCircle, size: AppStyle.smallIconSize, color: AppColor.muted),
             const SizedBox(width: 8),
             Text(label, style: TextStyle(fontSize: 12, color: AppColor.muted)),
             const SizedBox(width: 12),
-            Icon(expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded, size: 17, color: AppColor.muted),
+            HugeIcon(icon: expanded ? HugeIcons.strokeRoundedArrowUp01 : HugeIcons.strokeRoundedArrowDown01, size: AppStyle.iconSize, color: AppColor.muted),
           ])),
         )),
         if (expanded) Padding(
@@ -879,10 +880,10 @@ class _ChatTableState extends State<_ChatTable> {
         Text('@{start}–@{end} of @{count} · Page @{current}/@{pages}'.trNamed({'start': '${start + 1}', 'end': '$end', 'count': '$count', 'current': '${current + 1}', 'pages': '$pages'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
         AppIconButton(tooltip: 'Previous results'.tr, visualDensity: VisualDensity.compact,
           onPressed: current == 0 ? null : () => setState(() => page = current - 1),
-          icon: const Icon(Icons.chevron_left_rounded, size: 18)),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: AppStyle.iconSize)),
         AppIconButton(tooltip: 'Next results'.tr, visualDensity: VisualDensity.compact,
           onPressed: current == pages - 1 ? null : () => setState(() => page = current + 1),
-          icon: const Icon(Icons.chevron_right_rounded, size: 18)),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: AppStyle.iconSize)),
       ]),
     ]);
   }

@@ -1,10 +1,12 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/app_color.dart';
 import 'widget_controls.dart';
 import 'widget_search_suggestions_overlay.dart';
+import 'widget_style.dart';
 import 'widget_surfaces.dart';
 
 class SearchHistoryDropdown extends StatelessWidget {
@@ -48,14 +50,14 @@ class SearchHistoryDropdown extends StatelessWidget {
                   color: selectedIndex == index ? AppColor.selected.withAlpha(90) : Colors.transparent,
                   padding: const EdgeInsets.only(left: 8, right: 2),
                   child: Row(children: [
-                    const Icon(Icons.history, size: 12),
+                    const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: AppStyle.iconSize),
                     const SizedBox(width: 6),
                     Expanded(child: Text(query, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11))),
                     AppIconButton(
                       tooltip: 'Remove from history'.tr,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints.tightFor(width: 24, height: 24),
-                      icon: const Icon(Icons.close, size: 12),
+                      icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize),
                       onPressed: () => onDelete(query),
                     ),
                   ]),

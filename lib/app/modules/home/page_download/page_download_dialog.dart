@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../core/app_color.dart';
 import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_style.dart';
 import '../../widgets/widget_surfaces.dart';
 import 'page_download_controller.dart';
 
@@ -42,7 +44,7 @@ class PageDownloadDialog extends StatelessWidget {
           return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
               Expanded(child: Text('Download'.tr, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold))),
-              AppIconButton(tooltip: 'Close download dialog'.tr, visualDensity: VisualDensity.compact, icon: const Icon(Icons.close, size: 16), onPressed: () => Navigator.of(context).pop()),
+              AppIconButton(tooltip: 'Close download dialog'.tr, visualDensity: VisualDensity.compact, icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize), onPressed: () => Navigator.of(context).pop()),
             ]),
             Flexible(child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Row(children: [
@@ -64,13 +66,14 @@ class PageDownloadDialog extends StatelessWidget {
               const SizedBox(height: 8),
               Row(children: [
                 Expanded(child: _field('Save to folder'.tr, controller.tecDirectory, enabled: !running)),
-                AppIconButton(tooltip: 'Choose output folder'.tr, visualDensity: VisualDensity.compact, onPressed: running ? null : controller.pickDownloadDirectory, icon: const Icon(Icons.folder_open, size: 18)),
+                AppIconButton(tooltip: 'Choose output folder'.tr, visualDensity: VisualDensity.compact, onPressed: running ? null : controller.pickDownloadDirectory, icon: const HugeIcon(icon: HugeIcons.strokeRoundedFolderOpen, size: AppStyle.iconSize)),
               ]),
               const SizedBox(height: 8),
               _field(extract ? 'Filename (optional · use page title)'.tr : 'Filename'.tr, controller.tecFilename, enabled: !running),
               if (extract) Padding(padding: const EdgeInsets.only(top: 8), child: Text('Play the video in Chrome, then choose its media here.'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted))),
               if (!running) Theme(data: Theme.of(context).copyWith(dividerColor: Colors.transparent), child: ExpansionTile(
                 tilePadding: EdgeInsets.zero, minTileHeight: 34,
+                trailing: const HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: AppStyle.iconSize),
                 title: Text('Options'.tr, style: TextStyle(fontSize: 11)),
                 children: [
                   Row(children: [
@@ -116,7 +119,7 @@ class PageDownloadDialog extends StatelessWidget {
                     dense: true, visualDensity: VisualDensity.compact, contentPadding: EdgeInsets.zero,
                     title: Text('[${candidate.index}] ${candidate.type}', style: const TextStyle(fontSize: 11)),
                     subtitle: Tooltip(message: candidate.url, child: Text(candidate.url, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10))),
-                    trailing: AppIconButton(tooltip: candidate.supported ? 'Download this media'.tr : 'Unsupported stream'.tr, icon: const Icon(Icons.download, size: 16), onPressed: job.canSelect && candidate.supported ? () async {
+                    trailing: AppIconButton(tooltip: candidate.supported ? 'Download this media'.tr : 'Unsupported stream'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedDownload01, size: AppStyle.iconSize), onPressed: job.canSelect && candidate.supported ? () async {
                       try {
                         await job.select(candidate);
                       } catch (e) {
@@ -125,11 +128,12 @@ class PageDownloadDialog extends StatelessWidget {
                     } : null),
                   )).toList()))),
                 ],
-                if (job.status == 'Completed') AppButton(onPressed: () => controller.revealOutput(job.outputPath), icon: const Icon(Icons.folder_open, size: 16), child: Text(p.basename(job.outputPath), style: const TextStyle(fontSize: 11))),
+                if (job.status == 'Completed') AppButton(onPressed: () => controller.revealOutput(job.outputPath), icon: const HugeIcon(icon: HugeIcons.strokeRoundedFolderOpen, size: AppStyle.iconSize), child: Text(p.basename(job.outputPath), style: const TextStyle(fontSize: 11))),
               ],
               if (job.error.isNotEmpty || controller.formError.value.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: SelectableText((controller.formError.value.isNotEmpty ? controller.formError.value : job.error).tr, style: const TextStyle(fontSize: 11, color: Colors.redAccent))),
               if (job.logs.isNotEmpty) ExpansionTile(
                 tilePadding: EdgeInsets.zero, minTileHeight: 34,
+                trailing: const HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: AppStyle.iconSize),
                 title: Text('Log'.tr, style: TextStyle(fontSize: 11)),
                 children: [SizedBox(height: 120, width: double.infinity, child: SingleChildScrollView(reverse: true, child: SelectableText(job.logs.join('\n'), style: const TextStyle(fontSize: 10, fontFamily: 'monospace'))))],
               ),
@@ -161,12 +165,12 @@ class PageDownloadHistoryDialog extends StatelessWidget {
     child: SizedBox(width: 520, height: MediaQuery.sizeOf(context).height * .6, child: Padding(padding: const EdgeInsets.all(14), child: Column(children: [
       Row(children: [
         Expanded(child: Text('Downloads'.tr, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold))),
-        AppIconButton(tooltip: 'New download'.tr, icon: const Icon(Icons.add, size: 18), onPressed: () {
+        AppIconButton(tooltip: 'New download'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize), onPressed: () {
           Navigator.of(context).pop();
           controller.openDialogDownload();
         }),
-        AppIconButton(tooltip: 'Refresh history'.tr, icon: const Icon(Icons.refresh, size: 18), onPressed: controller.loadDownloadHistory),
-        AppIconButton(tooltip: 'Close history'.tr, icon: const Icon(Icons.close, size: 18), onPressed: () => Navigator.of(context).pop()),
+        AppIconButton(tooltip: 'Refresh history'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize), onPressed: controller.loadDownloadHistory),
+        AppIconButton(tooltip: 'Close history'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize), onPressed: () => Navigator.of(context).pop()),
       ]),
       Expanded(child: Obx(() => controller.history.isEmpty
           ? Center(child: Text('No download history yet.'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)))
@@ -181,16 +185,16 @@ class PageDownloadHistoryDialog extends StatelessWidget {
                 title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
                 subtitle: Tooltip(message: '${data['error'] ?? data['url'] ?? ''}', child: Text('${status.tr} · ${activity.updatedAt ?? ''}', style: const TextStyle(fontSize: 10))),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                  if (output.isNotEmpty && status == 'finish') AppIconButton(tooltip: 'Reveal output'.tr, icon: const Icon(Icons.folder_open, size: 16), onPressed: () => controller.revealOutput(output)),
+                  if (output.isNotEmpty && status == 'finish') AppIconButton(tooltip: 'Reveal output'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedFolderOpen, size: AppStyle.iconSize), onPressed: () => controller.revealOutput(output)),
                   Obx(() {
                     controller.jobRevision.value;
-                    return AppIconButton(tooltip: 'Load settings to retry'.tr, icon: const Icon(Icons.replay, size: 16), onPressed: controller.job.running ? null : () {
+                    return AppIconButton(tooltip: 'Load settings to retry'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowTurnBackward, size: AppStyle.iconSize), onPressed: controller.job.running ? null : () {
                       controller.restoreDownload(activity);
                       Navigator.of(context).pop();
                       controller.openDialogDownload();
                     });
                   }),
-                  AppIconButton(tooltip: 'Delete history entry'.tr, icon: const Icon(Icons.delete_outline, size: 16), onPressed: () => controller.deleteDownloadHistory(activity)),
+                  AppIconButton(tooltip: 'Delete history entry'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize), onPressed: () => controller.deleteDownloadHistory(activity)),
                 ]),
               );
             }))),

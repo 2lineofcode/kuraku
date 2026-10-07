@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:ex_kit/ex.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -18,6 +19,7 @@ import '../../data/models/videos_entity.dart';
 import '../../utils/semantic_search_service.dart';
 import '../../utils/watch_session_tracker.dart';
 import '../widgets/widget_controls.dart';
+import '../widgets/widget_style.dart';
 
 class PlayerMultiView extends StatefulWidget {
   const PlayerMultiView({super.key});
@@ -435,12 +437,12 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
           if (isExpandedMode)
             AppIconButton(
               onPressed: () => setState(() => _expandedIndex = null),
-              icon: const Icon(Icons.grid_view_rounded, color: Colors.white70),
+              icon: const Icon(CupertinoIcons.square_grid_2x2, color: Colors.white70),
               tooltip: 'Back to Grid'.tr,
             ),
           AppIconButton(
             onPressed: _closeAllPlayers,
-            icon: const Icon(Icons.close, color: Colors.white70),
+            icon: const Icon(CupertinoIcons.xmark, color: Colors.white70),
             tooltip: 'Close'.tr,
           ),
         ]).pOnly(top: 16, left: 12, right: 12).hide(),
@@ -682,9 +684,9 @@ class _GridTile extends StatelessWidget {
                             splashRadius: 16,
                             onPressed: onClose,
                             icon: const Icon(
-                              Icons.close_rounded,
+                              CupertinoIcons.xmark,
                               color: Colors.white,
-                              size: 18,
+                              size: AppStyle.iconSize,
                             ),
                             tooltip: 'Close Video'.tr,
                             style: IconButton.styleFrom(
@@ -755,9 +757,9 @@ class _MultiPlayerControls extends StatelessWidget {
                               }
                             },
                             icon: Icon(
-                              isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                              isPlaying ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
                               color: Colors.white,
-                              size: isCompact ? 18 : 24,
+                              size: isCompact ? AppStyle.iconSize : AppStyle.largeIconSize,
                             ),
                             tooltip: isPlaying ? 'Pause'.tr : 'Play'.tr,
                           );
@@ -819,9 +821,9 @@ class _MultiPlayerControls extends StatelessWidget {
                                 }
                               },
                               icon: Icon(
-                                isMute ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                                isMute ? CupertinoIcons.speaker_slash_fill : CupertinoIcons.speaker_3_fill,
                                 color: Colors.white,
-                                size: isCompact ? 18 : 24,
+                                size: isCompact ? AppStyle.iconSize : AppStyle.largeIconSize,
                               ),
                               tooltip: isMute ? 'Unmute'.tr : 'Mute'.tr,
                             );

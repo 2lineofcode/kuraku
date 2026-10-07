@@ -42,8 +42,11 @@ void main() {
   test('Indonesian covers every English key and preserves placeholders', () {
     expect(indonesianTranslations.keys.toSet(), englishTranslations.keys.toSet());
     final token = RegExp(r'@\{\w+\}');
+    final emoji = RegExp(r'[\u{1F000}-\u{1FAFF}\u2600-\u27BF\u2328\uFE0E\uFE0F]', unicode: true);
     for (final entry in indonesianTranslations.entries) {
       expect(entry.value.trim(), isNotEmpty, reason: entry.key);
+      expect(emoji.hasMatch(entry.value), isFalse, reason: entry.key);
+      expect(emoji.hasMatch(englishTranslations[entry.key]!), isFalse, reason: entry.key);
       final expected = token.allMatches(entry.key).map((match) => match[0]!).toList()..sort();
       final actual = token.allMatches(entry.value).map((match) => match[0]!).toList()..sort();
       expect(actual, expected, reason: entry.key);

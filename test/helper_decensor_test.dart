@@ -2,6 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:javit/app/utils/helper_decensor.dart';
 
 void main() {
+  test('Decensor decodes title entities while preserving literal text', () {
+    expect(HelperDecensor.decensor('Hikari Imada&#39;s Swimsuit'), "Hikari Imada's Swimsuit");
+    expect(HelperDecensor.decensor('Sister&#x27;s &amp; &quot;S*****t&quot;'), 'Sister\'s & "Student"');
+    expect(HelperDecensor.decensor('A <B> &lt;C&gt; &unknown;'), 'A <B> <C> &unknown;');
+    expect(HelperDecensor.decensor('Rock & Roll'), 'Rock & Roll');
+  });
+
   test('Decensor restores masked keywords and leaves the surrounding text untouched', () {
     expect(HelperDecensor.decensor('R**e'), 'Rape');
     expect(HelperDecensor.decensor('S********l'), 'Schoolgirl');

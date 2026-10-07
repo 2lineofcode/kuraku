@@ -6,9 +6,9 @@ import 'package:ex_kit/ex.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:path/path.dart' as p;
-import 'package:uicons_pro/uicons_pro.dart';
 import 'package:video_compress/video_compress.dart';
 
 import '../../../core/app_color.dart';
@@ -26,6 +26,7 @@ import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
 import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_style.dart';
 import '../../widgets/widget_surfaces.dart';
 import '../home_controller.dart';
 
@@ -176,11 +177,11 @@ mixin HomePanelLibrary {
         child: VStack([
           HStack(
             [
-              Icon(UIconsPro.regularRounded.multiple_alt, size: 18).pOnly(right: 12, left: 8),
+              HugeIcon(icon: HugeIcons.strokeRoundedLayers01, size: AppStyle.iconSize).pOnly(right: 12, left: 8),
               'Library'.tr.text.bold.make(),
               Spacer(),
               AppIconButton(
-                icon: Icon(UIconsPro.regularRounded.refresh, size: 13),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
                 tooltip: 'Rescan All Folders'.tr,
                 onPressed: () {
                   Overlayment.dismissLast();
@@ -188,7 +189,7 @@ mixin HomePanelLibrary {
                 },
               ),
               AppIconButton(
-                icon: Icon(UIconsPro.regularRounded.edit, size: 13),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: AppStyle.iconSize),
                 tooltip: 'Repair Metadata from R18'.tr,
                 onPressed: () async {
                   await Overlayment.dismissLast();
@@ -196,7 +197,7 @@ mixin HomePanelLibrary {
                 },
               ),
               AppIconButton(
-                icon: Icon(UIconsPro.regularRounded.plus, size: 13),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
                 tooltip: 'Add New Library'.tr,
                 onPressed: () {
                   Overlayment.dismissLast();
@@ -208,7 +209,7 @@ mixin HomePanelLibrary {
           Divider(),
           library.isEmpty
               ? ExUiErrorOrEmpty(
-                  illustration: Icon(UIconsPro.regularRounded.mug_hot_alt),
+                  illustration: HugeIcon(icon: HugeIcons.strokeRoundedInbox, size: AppStyle.emptyIconSize),
                   title: 'No Data'.tr,
                   message: 'No Library Found, Please Add New Library by Click Button `+`'.tr,
                 ).expand()
@@ -221,7 +222,7 @@ mixin HomePanelLibrary {
                       HStack([
                         AppIconButton(
                           onPressed: () => HelperOpener.openFolder(item.rootFolder ?? ''),
-                          icon: Icon(UIconsPro.regularRounded.folder, size: 14),
+                          icon: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: AppStyle.iconSize),
                           tooltip: 'Open Folder `@{alias}`'.trNamed({'alias': '${item.alias}'}),
                         ).pOnly(right: 8),
                         VStack([
@@ -235,7 +236,7 @@ mixin HomePanelLibrary {
                         child: ' ${item.totalVideo} '.text.size(11).minFontSize(11).make(),
                       ),
                       AppIconButton(
-                        icon: Icon(UIconsPro.regularRounded.refresh, size: 12),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
                         tooltip: 'Rescan Folder `@{alias}`'.trNamed({'alias': '${item.alias}'}),
                         onPressed: () async => {
                           await Overlayment.dismissLast(),
@@ -287,7 +288,7 @@ mixin HomePanelLibrary {
             textAlign: TextAlign.left,
             overflow: TextOverflow.ellipsis,
           ).expand(),
-          AppIconButton(tooltip: 'Close'.tr, icon: const Icon(Icons.close), onPressed: Get.back),
+          AppIconButton(tooltip: 'Close'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize), onPressed: Get.back),
         ],
       ).pOnly(bottom: 16),
       content: ConstrainedBox(
@@ -300,7 +301,7 @@ mixin HomePanelLibrary {
               focusNode: fnRootPath,
               placeholder: '<Select Path>'.tr,
               placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
-              prefix: Icon(UIconsPro.regularRounded.folder, size: 13).pOnly(left: 8),
+              prefix: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: AppStyle.iconSize).pOnly(left: 8),
               style: TextStyle(color: Vx.neutral500),
               onTap: () async {
                 if (isClicked.value) return;
@@ -325,7 +326,7 @@ mixin HomePanelLibrary {
               focusNode: fnAlias,
               placeholder: 'Alias'.tr,
               placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
-              prefix: Icon(UIconsPro.regularRounded.tags, size: 14).pOnly(left: 8),
+              prefix: HugeIcon(icon: HugeIcons.strokeRoundedTag01, size: AppStyle.iconSize).pOnly(left: 8),
               style: TextStyle(color: AppColor.text),
               onSubmitted: (value) async {
                 await _onSubmit(

@@ -5,8 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:javit/app/modules/img_viewer/img_viewer_controller.dart';
 import 'package:javit/app/modules/img_viewer/img_viewer_view.dart';
+
+import 'icon_finder.dart';
 
 /// A 1x1 PNG, enough for `Image.file` to take the real file branch.
 const _png =
@@ -53,26 +56,26 @@ void main() {
 
     expect(find.text('No image found'), findsOneWidget);
     expect(find.byType(InteractiveViewer), findsNothing);
-    expect(find.byIcon(Icons.chevron_right), findsNothing);
+    expect(findHugeIcon(HugeIcons.strokeRoundedArrowRight01), findsNothing);
   });
 
   testWidgets('only offers the navigation arrows that make sense', (tester) async {
     await pump(tester);
 
-    expect(find.byIcon(Icons.chevron_left), findsNothing, reason: 'already on the first image');
-    expect(find.byIcon(Icons.chevron_right), findsOneWidget);
+    expect(findHugeIcon(HugeIcons.strokeRoundedArrowLeft01), findsNothing, reason: 'already on the first image');
+    expect(findHugeIcon(HugeIcons.strokeRoundedArrowRight01), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.chevron_right));
+    await tester.tap(findHugeIcon(HugeIcons.strokeRoundedArrowRight01));
     await tester.pumpAndSettle();
     expect(find.text('second.png  2/3'), findsOneWidget);
-    expect(find.byIcon(Icons.chevron_left), findsOneWidget);
+    expect(findHugeIcon(HugeIcons.strokeRoundedArrowLeft01), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.chevron_right));
+    await tester.tap(findHugeIcon(HugeIcons.strokeRoundedArrowRight01));
     await tester.pumpAndSettle();
     expect(find.text('third.png  3/3'), findsOneWidget);
-    expect(find.byIcon(Icons.chevron_right), findsNothing, reason: 'last image reached');
+    expect(findHugeIcon(HugeIcons.strokeRoundedArrowRight01), findsNothing, reason: 'last image reached');
 
-    await tester.tap(find.byIcon(Icons.chevron_left));
+    await tester.tap(findHugeIcon(HugeIcons.strokeRoundedArrowLeft01));
     await tester.pumpAndSettle();
     expect(controller.selectedIndex.value, 1);
   });
