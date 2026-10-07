@@ -6,6 +6,7 @@ import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../core/app_pref.dart';
 import '../../routes/app_pages.dart';
+import '../widgets/widget_controls.dart';
 import 'player_controller.dart';
 import 'player_controls.dart';
 
@@ -177,7 +178,7 @@ class _MiniPlayerCard extends StatelessWidget {
               ),
             ),
           ),
-          IconButton(
+          AppIconButton(
             iconSize: 18,
             tooltip: 'Previous'.tr,
             icon: Icon(UIconsPro.regularRounded.angle_small_left, color: Colors.white),
@@ -185,20 +186,20 @@ class _MiniPlayerCard extends StatelessWidget {
           ),
           Obx(() {
             final isPlaying = controller.isPlaying.value;
-            return IconButton(
+            return AppIconButton(
               iconSize: 20,
               tooltip: isPlaying ? 'Pause'.tr : 'Play'.tr,
               icon: Icon(isPlaying ? Icons.pause : Icons.play_arrow, color: Colors.white),
               onPressed: () => controller.togglePlayPause(),
             );
           }),
-          IconButton(
+          AppIconButton(
             iconSize: 18,
             tooltip: 'Next'.tr,
             icon: Icon(UIconsPro.regularRounded.angle_small_right, color: Colors.white),
             onPressed: () => controller.nextVideo(),
           ),
-          IconButton(
+          AppIconButton(
             iconSize: 18,
             tooltip: 'Close'.tr,
             icon: Icon(UIconsPro.regularRounded.cross_small, color: Colors.white),

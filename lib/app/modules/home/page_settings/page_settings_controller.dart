@@ -20,6 +20,7 @@ import '../../../utils/helper_toast.dart';
 import '../../../utils/local_semantic_worker.dart';
 import '../../../utils/r18_updater.dart';
 import '../../../utils/semantic_search_service.dart';
+import '../../widgets/widget_surfaces.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_log.dart';
 import '../page_chat/page_chat_controller.dart';
@@ -348,12 +349,12 @@ class PageSettingsController extends GetxController {
     try {
       version = await R18Updater.update(
         onStatus: (message) => home.footerText.value = message,
-        confirm: (version, local) async => await Get.dialog<bool>(CupertinoAlertDialog(
+        confirm: (version, local) async => await Get.dialog<bool>(AppConfirmDialog(
           title: Text('Update R18 DB'.tr),
           content: Text((local ? 'Local R18 version @{version} is available. Import it?' : 'R18 version @{version} is available. Download and install?').trNamed({'version': '$version'})),
           actions: [
-            CupertinoDialogAction(onPressed: () => Get.back(result: false), child: Text('Cancel'.tr)),
-            CupertinoDialogAction(onPressed: () => Get.back(result: true), child: Text('Update'.tr)),
+            AppDialogAction(onPressed: () => Get.back(result: false), child: Text('Cancel'.tr)),
+            AppDialogAction(onPressed: () => Get.back(result: true), child: Text('Update'.tr)),
           ],
         )) ?? false,
       );
@@ -381,15 +382,15 @@ class PageSettingsController extends GetxController {
     String? title,
     String? message,
   }) async {
-    ExAlert.adaptive(
+    AppConfirmDialog.show(
       title: Text(title ?? 'Are you sure?'.tr, style: TextStyle(fontSize: 14)),
       content: message != null ? Text(message, style: TextStyle(fontSize: 12)).pOnly(top: 8) : null,
       actions: [
-        CupertinoDialogAction(
+        AppDialogAction(
           onPressed: onYes,
           child: Text('Yes'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
         ),
-        CupertinoDialogAction(
+        AppDialogAction(
           child: Text('No'.tr, style: TextStyle(fontSize: 13)),
           onPressed: () {
             Get.back();

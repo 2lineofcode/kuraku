@@ -81,13 +81,13 @@ class PageSearchTabView extends StatelessWidget {
                 SingleActivator(LogicalKeyboardKey.arrowUp): controller.onHistoryArrowUp,
                 SingleActivator(LogicalKeyboardKey.escape): controller.hideSuggestions,
               },
-              child: CupertinoTextField(
+              child: AppTextField(
                 controller: controller.tecSearch,
                 focusNode: controller.fnSearch,
                 selectAllOnFocus: false,
                 clearButtonMode: OverlayVisibilityMode.editing,
                 placeholder: controller.phSearch.value.tr,
-                style: TextStyle(color: AppColor.text, fontSize: 14),
+                style: TextStyle(color: AppColor.text),
                 prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
                 onTap: controller.showHistory,
                 onChanged: controller.onSearchTextChanged,
@@ -103,14 +103,14 @@ class PageSearchTabView extends StatelessWidget {
             )),
           ])).expand(),
 
-          Obx(() => IconButton(
+          Obx(() => AppIconButton(
             tooltip: controller.isListView.value ? 'Switch to grid view'.tr : 'Switch to list view'.tr,
             onPressed: controller.toggleViewMode,
             icon: Icon(controller.isListView.value ? Icons.grid_view_rounded : Icons.view_list_rounded, size: 18),
           ).pOnly(left: 4)),
 
           Obx(
-            () => IconButton(
+            () => AppIconButton(
               tooltip: controller.isSemanticMode.value ? 'Visual Search On'.tr : 'Visual Search Off'.tr,
               onPressed: controller.toggleSemanticMode,
               icon: controller.isSemanticBusy.value
@@ -132,7 +132,7 @@ class PageSearchTabView extends StatelessWidget {
           // filter
           Obx(
             () => ZStack([
-              IconButton(
+              AppIconButton(
                 icon: Icon(
                   controller.filter.isFiltered.isTrue ? UIconsPro.boldRounded.filter_list : UIconsPro.regularRounded.filter_list,
                   size: controller.filter.isFiltered.isTrue ? 16 : 14,
@@ -148,7 +148,7 @@ class PageSearchTabView extends StatelessWidget {
             final quality = controller.qualityFilter.value;
             return MenuAnchor(
               menuChildren: _sortMenuItems(),
-              builder: (context, menu, child) => TextButton.icon(
+              builder: (context, menu, child) => AppButton(
                 style: TextButton.styleFrom(
                   backgroundColor: AppColor.selected.withAlpha(150),
                   foregroundColor: AppColor.text,
@@ -163,12 +163,12 @@ class PageSearchTabView extends StatelessWidget {
                   menu.isOpen ? menu.close() : menu.open();
                 },
                 icon: Icon(UIconsPro.regularRounded.sort, size: 12),
-                label: Text('${controller.sortBy.value.tr}${quality == 'All qualities' ? '' : ' · ${quality.tr}'}', style: const TextStyle(fontSize: 11)),
+                child: Text('${controller.sortBy.value.tr}${quality == 'All qualities' ? '' : ' · ${quality.tr}'}', style: const TextStyle(fontSize: 11)),
               ),
             );
           }).pOnly(left: 8, right: 12),
 
-          
+
         ], crossAlignment: CrossAxisAlignment.center).pOnly(bottom: 8),
 
 
@@ -180,17 +180,16 @@ class PageSearchTabView extends StatelessWidget {
                     if (controller.isSemanticMode.value) ...[
                       Tooltip(
                         message: 'Visual matches'.tr,
-                        child: DropdownButton<String>(
+                        child: AppDropdown<String>(
                           value: controller.visualSensitivity.value,
                           isDense: true,
-                          underline: const SizedBox.shrink(),
-                          style: TextStyle(fontSize: 12, color: AppColor.text),
+                          style: TextStyle(color: AppColor.text),
                           dropdownColor: AppColor.panel,
                           items: ['Strict', 'Balanced', 'Broad'].map((value) => DropdownMenuItem(value: value, child: Text(value.tr))).toList(),
                           onChanged: (value) { if (value != null) controller.setVisualSensitivity(value); },
                         ),
                       ),
-                      IconButton(
+                      AppIconButton(
                         tooltip: 'Search settings\n@{value}'.trNamed({'value': '${controller.semanticCoverage.value.isEmpty ? 'Describe the image in English. Search uses one frame per video.'.tr : controller.semanticCoverage.value}'}),
                         visualDensity: VisualDensity.compact,
                         onPressed: Get.isRegistered<HomeController>() ? () => Get.find<HomeController>().onMenuChange(kMenuSetting) : null,
@@ -199,7 +198,7 @@ class PageSearchTabView extends StatelessWidget {
                     ],
                   ])),
                   if (controller.selectedVideos.isNotEmpty)
-                    TextButton(
+                    AppButton(
                       onPressed: controller.selectedVideos.clear,
                       child: Text(
                         '@{length} selected · Clear'.trNamed({'length': '${controller.selectedVideos.length}'}),
@@ -214,7 +213,7 @@ class PageSearchTabView extends StatelessWidget {
                 ],
               ).pOnly(bottom: 8)
             : 0.heightBox),
-        
+
         Obx(
           () => controller.isLoading.value
               ? const Center(child: CircularProgressIndicator()).expand()
@@ -225,8 +224,8 @@ class PageSearchTabView extends StatelessWidget {
                     Text(controller.error.value, textAlign: TextAlign.center),
                     const SizedBox(height: 12),
                     Wrap(spacing: 8, children: [
-                      OutlinedButton(onPressed: controller.onSearch, child: Text('Retry'.tr)),
-                      if (controller.isSemanticMode.value) TextButton(onPressed: controller.toggleSemanticMode, child: Text('Use regular search'.tr)),
+                      AppButton(variant: AppButtonVariant.outlined, onPressed: controller.onSearch, child: Text('Retry'.tr)),
+                      if (controller.isSemanticMode.value) AppButton(onPressed: controller.toggleSemanticMode, child: Text('Use regular search'.tr)),
                     ]),
                   ],
                 ))).expand()

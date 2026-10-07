@@ -29,6 +29,8 @@ import 'app/core/app_translations.dart';
 import 'app/data/database/_init_db.dart';
 import 'app/modules/home/home_controller.dart';
 import 'app/modules/home/page_chat/page_chat_controller.dart';
+import 'app/modules/widgets/widget_style.dart';
+import 'app/modules/widgets/widget_surfaces.dart';
 import 'app/routes/app_pages.dart';
 import 'app/utils/helper_toast.dart';
 import 'app/utils/r18_updater.dart';
@@ -131,10 +133,8 @@ class _JavItState extends State<JavIt> with WindowListener {
         supportedLocales: AppTranslations.languages.keys.map((code) => Locale(code)).toList(),
         initialRoute: AppPages.INITIAL,
         themeMode: AppPref.getAppTheme().resolve(),
-        theme: ThemeData.light(useMaterial3: true),
-        darkTheme: ThemeData.dark(useMaterial3: true).copyWith(
-          textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: Vx.blue300)),
-        ),
+        theme: AppStyle.theme(Brightness.light),
+        darkTheme: AppStyle.theme(Brightness.dark),
         getPages: AppPages.routes,
         defaultTransition: Transition.fadeIn,
         debugShowCheckedModeBanner: false,
@@ -183,12 +183,12 @@ class _JavItState extends State<JavIt> with WindowListener {
   Future<void> _checkApplicationIsReady() async {
     if (Get.find<DBService>().dbR18 == null) {
       AppLog.logW('!!! Database `r18` not found...');
-      ExAlert.adaptive(
+      AppConfirmDialog.show(
         isDismissible: false,
         title: Text('Ups'.tr),
         content: Text('Database `r18` not found, to use all features of this app, click download & install first'.tr),
         actions: [
-          CupertinoDialogAction(
+          AppDialogAction(
             child: Text('Download & Install'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () async {
               if (R18Updater.busy.value) return;

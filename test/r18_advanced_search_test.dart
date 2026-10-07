@@ -10,6 +10,7 @@ import 'package:javit/app/data/database/_init_db.dart';
 import 'package:javit/app/data/database/db_r18.dart';
 import 'package:javit/app/modules/home/page_tools/page_tools_controller.dart';
 import 'package:javit/app/modules/home/page_tools/page_tools_view.dart';
+import 'package:javit/app/modules/widgets/widget_controls.dart';
 import 'package:sqflite/sqflite.dart';
 
 class _Service extends DBService {
@@ -415,6 +416,8 @@ void main() {
         Get.changeThemeMode(theme);
         await tester.pumpAndSettle();
         expect(find.text('2 of 2 videos'), findsOneWidget);
+        expect(find.byType(AppDropdown<String>), findsNWidgets(4));
+        expect(find.byType(PopupMenuButton<String>), findsNothing);
         expect(find.text('In Library'), findsOneWidget);
         expect(find.text('Upcoming'), findsOneWidget);
         expect(find.byTooltip('Open trailer'), findsNWidgets(2));
@@ -430,8 +433,9 @@ void main() {
     expect(find.text('2 of 2 videos'), findsOneWidget);
     await tester.tap(find.byTooltip('Release'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Upcoming').last);
+    await tester.tap(find.widgetWithText(MenuItemButton, 'Upcoming'));
     await tester.pumpAndSettle();
+    expect(controller.releaseFilter.value, 'upcoming');
     expect(find.text('1 of 2 videos'), findsOneWidget);
     await tester.tap(find.byTooltip('More filters: video code, year and duration'));
     await tester.pumpAndSettle();

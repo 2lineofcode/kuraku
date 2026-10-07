@@ -16,7 +16,9 @@ import '../../../data/database/db_videos.dart';
 import '../../../data/models/playlist_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
+import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_media_stack.dart';
+import '../../widgets/widget_surfaces.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
 import '../page_home/page_home_controller.dart';
@@ -62,7 +64,7 @@ mixin HomePanelPlaylist {
                 Obx(() => 'Playlist (@{length})'.trNamed({'length': '${_controller.playlist.length}'}).text.bold.make()),
                 Spacer(),
                 Obx(
-                  () => IconButton(
+                  () => AppIconButton(
                     icon: Icon(Icons.chevron_left_rounded).tooltip('Back'.tr),
                     onPressed: () {
                       _isDetailMode.value = false;
@@ -71,7 +73,7 @@ mixin HomePanelPlaylist {
                   ).hide(isVisible: _isDetailMode.isTrue),
                 ),
                 Obx(
-                  () => IconButton(
+                  () => AppIconButton(
                     icon: Icon(UIconsPro.regularRounded.plus, size: 13).tooltip('Add New Playlist'.tr),
                     onPressed: () => showDialogAddOrEditPlaylist(),
                   ).hide(isVisible: _isDetailMode.isFalse),
@@ -84,7 +86,7 @@ mixin HomePanelPlaylist {
               () => _isDetailMode.isTrue
                   ? VStack([
                       Divider(),
-                      ExButtonText(
+                      AppButton(
                         label: 'Play This Playlist'.tr,
                         width: double.infinity,
                         onPressed: () async {
@@ -126,35 +128,35 @@ mixin HomePanelPlaylist {
     final isFavorite = playlist != null && playlist.id == null && playlist.name == 'Favorite';
     fnName.requestFocus();
 
-    ExAlert.adaptive(
+    AppConfirmDialog.show(
       title: Text(playlist == null ? 'New Playlist'.tr : 'Edit Playlist'.tr, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.left).pOnly(bottom: 16),
       content: VStack([
-        CupertinoTextField(
+        AppTextField(
           controller: tecName,
           focusNode: fnName,
           placeholder: 'Name'.tr,
           prefix: Icon(CupertinoIcons.tag, size: 16).pOnly(left: 8),
-          style: TextStyle(color: AppColor.text, fontSize: 12),
+          style: TextStyle(color: AppColor.text),
           readOnly: isFavorite,
         ).disabled(isFavorite).pOnly(bottom: 8),
-        CupertinoTextField(
+        AppTextField(
           controller: tecCover,
           placeholder: 'Paste image URL here...'.tr,
           prefix: Icon(CupertinoIcons.photo, size: 16).pOnly(left: 8),
-          style: TextStyle(fontSize: 12, color: AppColor.text),
+          style: TextStyle(color: AppColor.text),
         ),
       ]),
       actions: [
         if (playlist != null && !isFavorite) ...[
-          CupertinoDialogAction(
+          AppDialogAction(
             child: Text('Delete'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () async {
               Get.back();
-              ExAlert.adaptive(
+              AppConfirmDialog.show(
                 title: Text('Are you sure?'.tr, style: TextStyle(fontSize: 14)),
                 content: Text('Delete this playlist? this action can\'t be undo'.tr, style: TextStyle(fontSize: 12)).pOnly(top: 8),
                 actions: [
-                  CupertinoDialogAction(
+                  AppDialogAction(
                     child: Text('Yes'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
                     onPressed: () async {
                       Get.back();
@@ -162,7 +164,7 @@ mixin HomePanelPlaylist {
                       await _controller.getAllPlaylist();
                     },
                   ),
-                  CupertinoDialogAction(
+                  AppDialogAction(
                     child: Text('No'.tr, style: TextStyle(fontSize: 13)),
                     onPressed: () => Get.back(),
                   ),
@@ -171,7 +173,7 @@ mixin HomePanelPlaylist {
             },
           ),
         ],
-        CupertinoDialogAction(
+        AppDialogAction(
           child: Text('Submit'.tr, style: TextStyle(fontSize: 13)),
           onPressed: () async {
             if (isFavorite) {
@@ -263,7 +265,7 @@ mixin HomePanelPlaylist {
       itemCount: _controller.playlist.length + 1,
       separatorBuilder: (context, index) => 12.heightBox,
       itemBuilder: (context, index) {
-        
+
         // * favorite
         if (index == 0) {
           return Container(
@@ -408,7 +410,7 @@ mixin HomePanelPlaylist {
                   ]).h(110).expand(),
                   VStack(
                     [
-                      IconButton(
+                      AppIconButton(
                         icon: Icon(UIconsPro.regularRounded.minus_circle, size: 14),
                         onPressed: () async {
                           if (_isFavoriteMode.isTrue) {

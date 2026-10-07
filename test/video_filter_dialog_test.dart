@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:javit/app/modules/home/page_download/page_download_search_tab.dart';
 import 'package:javit/app/modules/home/page_explore/page_explore_tab.dart';
 import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
+import 'package:javit/app/modules/widgets/widget_controls.dart';
 import 'package:javit/app/utils/helper_opener.dart';
 
 const adapter = VideoFilterAdapter<String>(
@@ -180,7 +181,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(videos, ['ABC-123']);
     await open();
-    await tester.tap(find.byType(DropdownButton<VideoBlacklistField>));
+    await tester.tap(find.byType(AppDropdown<VideoBlacklistField>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Title').last);
     await tester.pumpAndSettle();

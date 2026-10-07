@@ -63,6 +63,7 @@ env.g.dart
 *.sqlite
 *.db
 *.html
+!tool/ui_catalog.html
 scripts/
 
 test*.dart

@@ -11,6 +11,7 @@ import '../../../core/app_translations.dart';
 import '../../../core/const.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/models/activity_entity.dart';
+import '../../widgets/widget_controls.dart';
 import '../home_controller.dart';
 import '../page_profile/page_profile_controller.dart';
 import '../page_settings/page_settings_controller.dart';
@@ -138,7 +139,7 @@ class _RelapsePanelState extends State<_RelapsePanel> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Expanded(child: Text('Relapse'.tr, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
-            IconButton(tooltip: 'Close'.tr, icon: const Icon(Icons.close, size: 18), onPressed: () => Overlayment.dismissLast()),
+            AppIconButton(tooltip: 'Close'.tr, icon: const Icon(Icons.close, size: 18), onPressed: () => Overlayment.dismissLast()),
           ]),
           const SizedBox(height: 12),
           Text('TODAY'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),
@@ -151,10 +152,10 @@ class _RelapsePanelState extends State<_RelapsePanel> {
           const SizedBox(height: 6),
           Text(latest == null ? 'No records yet'.tr : 'Last recorded @{latest}'.trNamed({'latest': '${_elapsed(latest)}'}), style: TextStyle(fontSize: 12, color: AppColor.muted)),
           const SizedBox(height: 16),
-          ExButtonOutline(
+          AppButton(variant: AppButtonVariant.outlined,
             width: double.infinity,
             height: 32,
-            radius: 4,
+
             label: 'Log relapse'.tr,
             labelSize: 12,
             labelColor: _busy || !_loaded ? AppColor.muted : AppColor.text,
@@ -168,11 +169,11 @@ class _RelapsePanelState extends State<_RelapsePanel> {
           if (_busy) const LinearProgressIndicator(minHeight: 2),
           if (_error.isNotEmpty) Row(children: [
             Expanded(child: Text(_error, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.error))),
-            TextButton(onPressed: _busy ? null : () => _run(), child: Text('Retry'.tr)),
+            AppButton(onPressed: _busy ? null : () => _run(), child: Text('Retry'.tr)),
           ]),
           if (_removed != null) Row(children: [
             Expanded(child: Text('Entry removed'.tr, style: TextStyle(fontSize: 12))),
-            TextButton(onPressed: _busy ? null : () => _run(() async {
+            AppButton(onPressed: _busy ? null : () => _run(() async {
               await DBActivity.restoreRelapse(_removed!);
               _removed = null;
             }), child: Text('Undo'.tr)),
@@ -206,7 +207,7 @@ class _RelapsePanelState extends State<_RelapsePanel> {
                       decoration: BoxDecoration(color: AppColor.selected, borderRadius: BorderRadius.circular(12)),
                       child: Text('${item.times ?? 1}×', style: const TextStyle(fontSize: 12))),
                     MenuAnchor(
-                      builder: (_, menu, child) => IconButton(
+                      builder: (_, menu, child) => AppIconButton(
                         tooltip: 'Entry actions'.tr, icon: const Icon(Icons.more_horiz, size: 18),
                         onPressed: _busy ? null : () => menu.isOpen ? menu.close() : menu.open(),
                       ),

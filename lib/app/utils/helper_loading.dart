@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import '../core/app_translations.dart';
+import '../modules/widgets/widget_controls.dart';
+import '../modules/widgets/widget_surfaces.dart';
 
 mixin HelperLoading {
   static final _stopwatch = Stopwatch();
@@ -48,19 +51,18 @@ mixin HelperLoading {
       Center(
         child: SizedBox(
           width: 200,
-          child: Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: AppDialog(
             child: Container(
               constraints: const BoxConstraints(maxWidth: 100),
               child: VStack(
                 [
                   LoadingAnimationWidget.discreteCircle(color: Theme.of(Get.context!).primaryColor, size: 32).centered(),
-          
+
                   Obx(() => Text(messageText.value, textAlign: TextAlign.center, style: TextStyle(fontSize: 10)).centered().pOnly(top: 16)),
 
                   Obx(
                     () => showCancel.value == true
-                        ? ExButtonText(
+                        ? AppButton(
                             label: 'Cancel'.tr,
                             height: 40,
                             labelSize: 11,

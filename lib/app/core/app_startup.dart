@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../modules/widgets/widget_style.dart';
 import 'app_logging.dart';
 import 'app_translations.dart';
 
@@ -38,7 +39,7 @@ class _AppStartupState extends State<AppStartup> {
     if (_ready) return widget.child;
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(useMaterial3: true),
+      theme: AppStyle.theme(Brightness.dark),
       home: Scaffold(
         body: Center(
           child: Padding(

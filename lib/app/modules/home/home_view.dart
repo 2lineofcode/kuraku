@@ -72,7 +72,7 @@ class HomeView extends GetView<HomeController> {
                         Icon(UIconsPro.regularRounded.check_circle, size: 48).centered().pOnly(bottom: 16),
                         'Task Done'.tr.text.bold.xl3.makeCentered().pOnly(bottom: 8),
                         '$error'.text.makeCentered().pOnly(bottom: 8),
-                        ExButtonElevated(
+                        AppButton(variant: AppButtonVariant.filled,
                             label: 'Restart App'.tr,
                             onPressed: () async {
                               controller.loadingText.value = 'Restarting...'.tr;
@@ -126,27 +126,27 @@ class HomeView extends GetView<HomeController> {
           () {
             controller.topNavSearchRevision.value;
             if (controller.isTopNavSearchExpanded.isFalse) {
-              return IconButton(
+              return AppIconButton(
                 icon: Icon(UIconsPro.regularRounded.search, size: 14),
                 onPressed: controller.focusTopNavSearch,
                 tooltip: 'Search: [/]'.tr,
               ).pOnly(right: 8);
             }
 
-            return CupertinoTextField(
+            return AppTextField(
               controller: controller.tecTopNavSearch,
               focusNode: controller.fnTopNavSearch,
               enabled: controller.isTopNavSearching.isFalse,
               clearButtonMode: OverlayVisibilityMode.never,
               placeholder: 'Anything...'.tr,
-              style: TextStyle(color: AppColor.text, fontSize: 14),
+              style: TextStyle(color: AppColor.text),
               prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
               suffix: HStack(
                 [
                   if (controller.isTopNavSearching.isTrue)
                     CupertinoActivityIndicator(radius: 7).pOnly(right: 8),
                   if (controller.tecTopNavSearch.text.isNotEmpty && controller.isTopNavSearching.isFalse)
-                    IconButton(
+                    AppIconButton(
                       icon: Icon(Icons.close_rounded, size: 14, color: Vx.neutral500),
                       visualDensity: VisualDensity.compact,
                       splashRadius: 12,
@@ -181,26 +181,26 @@ class HomeView extends GetView<HomeController> {
         ).pOnly(right: 8),
 
         Obx(
-          () => IconButton(
+          () => AppIconButton(
             icon: Icon(UIconsPro.regularRounded.bags_shopping, size: 14),
             onPressed: () {
               HomePanelCart.open();
             },
           ).badge(count: controller.cart.length, color: Vx.red500).tooltip('Cart: ⌘ + E'.tr).hide(isVisible: controller.cart.isNotEmpty),
-        ),
+        ).pOnly(right: 8),
 
-        IconButton(
+        AppIconButton(
           icon: Icon(UIconsPro.regularRounded.list, size: 14),
           onPressed: () => HomePanelPlaylist.open(),
           tooltip: 'Playlist: [⌘ + P]'.tr,
-        ),
+        ).pOnly(right: 8),
 
-        IconButton(
+        AppIconButton(
           icon: Icon(UIconsPro.regularRounded.banana, size: 14),
           onPressed: () => HomePanelRelapse.open(),
           tooltip: 'Relapse: [⌘ + .]'.tr,
-        ),
-        IconButton(
+        ).pOnly(right: 8),
+        AppIconButton(
           icon: Icon(UIconsPro.regularRounded.multiple_alt, size: 14),
           onPressed: () => HomePanelLibrary.open(),
           tooltip: 'Library'.tr,
@@ -275,7 +275,7 @@ class HomeView extends GetView<HomeController> {
   }
 
   Widget sqlEditorMenu() {
-    return Obx(() => IconButton(
+    return Obx(() => AppIconButton(
       style: IconButton.styleFrom(backgroundColor: controller.currentMenuSelected.value == kMenuSqlEditor ? AppColor.selected : Colors.transparent),
       icon: Icon(Icons.data_object_rounded, size: 16, color: AppColor.text),
       tooltip: kMenuSqlEditor,
@@ -284,7 +284,7 @@ class HomeView extends GetView<HomeController> {
   }
 
   Widget chatMenu() {
-    return Obx(() => IconButton(
+    return Obx(() => AppIconButton(
       style: IconButton.styleFrom(backgroundColor: controller.currentMenuSelected.value == kMenuChat ? AppColor.selected : Colors.transparent),
       icon: Icon(UIconsPro.regularRounded.comment_alt_dots, size: 16, color: AppColor.text),
       tooltip: kMenuChat,
@@ -315,7 +315,7 @@ class HomeView extends GetView<HomeController> {
       Obx(() => '👋🏻 ${controller.profile.value.name}'.text.size(11).make().onInkTap((){
         controller.onOpenProfile();
       })),
-      
+
       Obx(() => footerStatusText().onInkTap((){
         controller.onOpenSettingsAppLog();
       }).expand()),
@@ -331,7 +331,7 @@ class HomeView extends GetView<HomeController> {
     }
 
     final usedPct = controller.footerStorageUsedPct.value;
-    var color = Vx.green500;
+    var color = AppColor.success;
     if (usedPct >= 90) {
       color = Vx.red600;
     } else if (usedPct > 85) {

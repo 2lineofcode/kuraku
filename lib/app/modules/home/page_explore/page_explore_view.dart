@@ -3,7 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_popup/flutter_popup.dart';
-
 import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:uicons_pro/uicons_pro.dart';
@@ -93,7 +92,7 @@ class PageExploreTabView extends StatelessWidget {
           itemCount: controller.menus.length,
           itemBuilder: (context, index) {
             return Obx(
-              () => ExButtonOutline(
+              () => AppButton(variant: AppButtonVariant.outlined,
                 label: controller.menus[index].tr,
                 labelSize: 12,
                 labelColor: controller.currentMenuSelected.value == controller.menus[index] ? AppColor.text : AppColor.muted,
@@ -119,11 +118,11 @@ class PageExploreTabView extends StatelessWidget {
           HStack(
             [
               Obx(
-                () => CupertinoTextField(
+                () => AppTextField(
                   controller: controller.tecSearchLeft,
                   focusNode: controller.fnSearchLeft,
                   placeholder: controller.phSearchLeft.value.tr,
-                  style: TextStyle(color: AppColor.text, fontSize: 12),
+                  style: TextStyle(color: AppColor.text),
                   clearButtonMode: OverlayVisibilityMode.editing,
                   prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
                   onChanged: (s) => controller.onLeftListDoSearch(s),
@@ -132,17 +131,18 @@ class PageExploreTabView extends StatelessWidget {
 
               Obx(
                 () => CustomPopup(
+                  animationDuration: Duration.zero,
                   contentPadding: EdgeInsets.all(12),
                   content: VStack([
                     'Sort By:'.tr.text.bold.black.make(),
                     Divider(),
-                    ExButtonText(
+                    AppButton(
                       label: controller.leftSortSelected.value == 'Name' ? '◉ Name'.tr : '◎ Name'.tr,
                       labelSize: 13,
                       labelColor: Vx.black,
                       onPressed: () => {controller.onLeftSortChange('Name'), Get.back()},
                     ).pOnly(right: 6),
-                    ExButtonText(
+                    AppButton(
                       label: controller.leftSortSelected.value == 'Count' ? '◉ Count'.tr : '◎ Count'.tr,
                       labelSize: 13,
                       labelColor: Vx.black,
@@ -220,7 +220,7 @@ class PageExploreTabView extends StatelessWidget {
                                     else ...[
                                       '${controller.currentMenuSelected.value == kCustom ? item.name?.tr : item.name} ${item.count != 0 ? '(${item.count})' : ''}'.text.size(12).maxLines(3).ellipsis.make().p8().expand()
                                     ],
-                                    IconButton(
+                                    AppIconButton(
                                       tooltip: isPinned ? 'Unpin'.tr : 'Pin to top'.tr,
                                       icon: Icon(isPinned ? Icons.push_pin : Icons.push_pin_outlined, size: 16),
                                       color: isPinned ? Colors.amber : Vx.neutral500,
@@ -398,14 +398,12 @@ class PageExploreTabView extends StatelessWidget {
             Obx(() => Container(
               width: 154,
               margin: const EdgeInsets.only(right: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: ExDecorator.box(borderColor: AppColor.border, fillColor: AppColor.container, borderRadius: 6),
-              child: DropdownButtonHideUnderline(child: DropdownButton<ActressMode>(
+              child: AppDropdown<ActressMode>(
                 value: controller.actressMode.value,
                 isExpanded: true,
                 isDense: true,
                 dropdownColor: AppColor.container,
-                style: TextStyle(fontSize: 12, color: AppColor.text),
+                style: TextStyle(color: AppColor.text),
                 items: const {ActressMode.all: 'All', ActressMode.single: 'Single Actress', ActressMode.multi: 'Multi Actress'}.entries.map((option) => DropdownMenuItem(
                   value: option.key,
                   child: Text(option.value.tr),
@@ -415,14 +413,14 @@ class PageExploreTabView extends StatelessWidget {
                   controller.actressMode.value = mode;
                   controller.onSectionR18Tap();
                 },
-              )),
+              ),
             )),
-            CupertinoTextField(
+            AppTextField(
               controller: controller.tecSearchRight,
               focusNode: controller.fnSearchRight,
               clearButtonMode: OverlayVisibilityMode.editing,
               placeholder: 'Search (@{length}) Videos...'.trNamed({'length': '${controller.rightListR18Filtered.length}'}),
-              style: TextStyle(color: AppColor.text, fontSize: 14),
+              style: TextStyle(color: AppColor.text),
               prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
               onChanged: (q) => controller.onRightListDoSearch(q),
             ).expand(),
@@ -432,7 +430,7 @@ class PageExploreTabView extends StatelessWidget {
             // filter
             Obx(
               () => ZStack([
-                IconButton(
+                AppIconButton(
                   icon: Icon(
                     controller.filter.isFiltered.isTrue ? UIconsPro.boldRounded.filter_list : UIconsPro.regularRounded.filter_list,
                     size: controller.filter.isFiltered.isTrue ? 16 : 14,

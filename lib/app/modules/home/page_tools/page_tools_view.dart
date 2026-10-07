@@ -13,6 +13,7 @@ import '../../../data/database/db_videos.dart';
 import '../../../data/models/activity_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
+import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_media_stack.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
@@ -53,7 +54,7 @@ class PageToolsView extends GetView<PageToolsController> {
       itemBuilder: (context, index) {
         final item = controller.menus[index];
         return Obx(
-          () => ExButtonOutline(
+          () => AppButton(variant: AppButtonVariant.outlined,
             label: item.tr,
             labelSize: 12,
             labelColor: controller.currentMenuSelected.value == item ? AppColor.text : AppColor.muted,
@@ -98,7 +99,7 @@ class PageToolsView extends GetView<PageToolsController> {
           )),
         Tooltip(
           message: running ? 'Keep completed results'.tr : 'Scan missing video resolutions'.tr,
-          child: TextButton(
+          child: AppButton(
             style: TextButton.styleFrom(
               minimumSize: const Size(0, 28), padding: const EdgeInsets.symmetric(horizontal: 8),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -126,47 +127,25 @@ class PageToolsView extends GetView<PageToolsController> {
           Obx(() => 'Top @{length} Large File'.trNamed({'length': '${controller.topLargeFileSizeList.length}'}).text.make()),
           Spacer(),
 
-          HStack([
-            GestureDetector(
-              onTapDown: (details) async {
-                final value = await showMenu<String>(
-                  context: Get.context!,
-                  position: RelativeRect.fromLTRB(details.globalPosition.dx, details.globalPosition.dy, details.globalPosition.dx, details.globalPosition.dy),
-                  items: [
-                    PopupMenuItem(value: 'all', child: Text('All'.tr, style: TextStyle(fontSize: 12))),
-                    PopupMenuItem(value: 'internal', child: Text('Internal'.tr, style: TextStyle(fontSize: 12))),
-                    PopupMenuItem(value: 'external', child: Text('External'.tr, style: TextStyle(fontSize: 12))),
-                  ],
-                );
+          Obx(() => AppDropdown<String>(
+            value: controller.topLargeFilterMode.value,
+            prefix: Icon(UIconsPro.regularRounded.filter, size: 12),
+            items: [
+              DropdownMenuItem(value: 'all', child: Text('All'.tr)),
+              DropdownMenuItem(value: 'internal', child: Text('Internal'.tr)),
+              DropdownMenuItem(value: 'external', child: Text('External'.tr)),
+            ],
+            onChanged: (value) async {
+              if (value == null) return;
+              controller.topLargeFilterMode.value = value;
+              await controller.getTopLargeFileSize(mode: value);
+            },
+          )).pOnly(right: 12),
 
-                if (value != null) {
-                  controller.topLargeFilterMode.value = value;
-                  await controller.getTopLargeFileSize(mode: value);
-                }
-              },
-              child: Container(
-                width: 100,
-                decoration: ExDecorator.box(borderColor: AppColor.border, fillColor: AppColor.container, borderRadius: 6),
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: HStack(
-                  [
-                    Icon(UIconsPro.regularRounded.filter, size: 12).pOnly(right: 12),
-                    Obx(
-                      () => Text(
-                        controller.topLargeFilterMode.value.isEmpty ? '<select>'.tr : controller.topLargeFilterMode.value.toTitleCase!.tr,
-                        style: TextStyle(fontSize: 12, color: AppColor.text),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          ]).pOnly(right: 12),
 
-          
         ]).pOnly(bottom: 12),
 
-        // ** content 
+        // ** content
         Expanded(
           child: Container(
             decoration: BoxDecoration(
@@ -263,10 +242,10 @@ class PageToolsView extends GetView<PageToolsController> {
       ],
     ).pOnly(left: 8);
   }
- 
+
   Widget uiDuplicateVideo() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
     Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-      for (final mode in controller.duplicateModes) Obx(() => ExButtonOutline(
+      for (final mode in controller.duplicateModes) Obx(() => AppButton(variant: AppButtonVariant.outlined,
         label: mode == 'exact' ? 'Same Video'.tr : 'Probable'.tr,
         labelSize: 11,
         labelColor: controller.duplicateMode.value == mode ? AppColor.text : AppColor.muted,
@@ -274,7 +253,7 @@ class PageToolsView extends GetView<PageToolsController> {
         backgroundColor: controller.duplicateMode.value == mode ? AppColor.selected : AppColor.container,
         onPressed: () => controller.setDuplicateMode(mode),
       )),
-      Obx(() => IconButton(
+      Obx(() => AppIconButton(
         tooltip: 'Refresh'.tr,
         icon: const Icon(Icons.refresh_rounded, size: 16),
         onPressed: controller.duplicateLoading.value ? null : controller.getDuplicateVideos,
@@ -288,11 +267,10 @@ class PageToolsView extends GetView<PageToolsController> {
       style: TextStyle(fontSize: 11, color: AppColor.muted),
     )),
     const SizedBox(height: 12),
-    CupertinoTextField(
+    AppTextField(
       controller: controller.tecDuplicateSearch,
       placeholder: 'Search code, title, path or resolution...'.tr,
-      style: TextStyle(fontSize: 12, color: AppColor.text),
-      padding: const EdgeInsets.all(8),
+      style: TextStyle(color: AppColor.text),
       prefix: Padding(padding: const EdgeInsets.only(left: 8), child: Icon(Icons.search_rounded, size: 16, color: AppColor.muted)),
       clearButtonMode: OverlayVisibilityMode.editing,
       onChanged: (value) => controller.duplicateQuery.value = value,
@@ -302,7 +280,7 @@ class PageToolsView extends GetView<PageToolsController> {
       if (controller.duplicateLoading.value) return const Center(child: CupertinoActivityIndicator());
       if (controller.duplicateError.value.isNotEmpty) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
         Text(controller.duplicateError.value, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
-        TextButton(onPressed: controller.getDuplicateVideos, child: Text('Retry'.tr)),
+        AppButton(onPressed: controller.getDuplicateVideos, child: Text('Retry'.tr)),
       ]));
       final groups = controller.filteredDuplicateGroups;
       if (groups.isEmpty) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -369,18 +347,18 @@ class PageToolsView extends GetView<PageToolsController> {
       ])),
       const SizedBox(width: 4),
       Column(mainAxisSize: MainAxisSize.min, children: [
-        IconButton(tooltip: 'Open Info'.tr, icon: const Icon(Icons.info_outline_rounded, size: 16),
+        AppIconButton(tooltip: 'Open Info'.tr, icon: const Icon(Icons.info_outline_rounded, size: 16),
           style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           onPressed: () => HomePanelVideoInfo.open(video),
         ),
-        IconButton(tooltip: 'Open File Path'.tr, icon: const Icon(Icons.folder_open_rounded, size: 16),
+        AppIconButton(tooltip: 'Open File Path'.tr, icon: const Icon(Icons.folder_open_rounded, size: 16),
           style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           onPressed: available ? () => HelperOpener.openFilePath(path) : null,
         ),
         if (Get.isRegistered<HomeController>()) Obx(() {
           final home = Get.find<HomeController>();
           final added = home.isInCart(video);
-          return IconButton(tooltip: added ? 'Already in panel cart'.tr : 'Add to Panel Cart'.tr,
+          return AppIconButton(tooltip: added ? 'Already in panel cart'.tr : 'Add to Panel Cart'.tr,
             icon: Icon(added ? Icons.check_rounded : Icons.add_rounded, size: 16),
             style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
             onPressed: added ? null : () => home.addToCart(video),
@@ -399,7 +377,7 @@ class PageToolsView extends GetView<PageToolsController> {
     return Column(children: [
       Row(children: [
         Expanded(child: Text('Total Todo: @{length}'.trNamed({'length': '${controller.todoList.length}'}), style: TextStyle(fontSize: 12, color: AppColor.muted))),
-        IconButton(
+        AppIconButton(
           tooltip: 'Refresh'.tr,
           icon: const Icon(Icons.refresh_rounded, size: 16),
           onPressed: controller.getTodos,
@@ -407,15 +385,10 @@ class PageToolsView extends GetView<PageToolsController> {
         const SizedBox(width: 4),
         Tooltip(
           message: 'Add Todo: [⌘ + T]'.tr,
-          child: CupertinoButton(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            minimumSize: const Size(0, 30),
+          child: AppButton(
+            label: 'Add New Todo'.tr,
+            icon: const Icon(CupertinoIcons.plus),
             onPressed: controller.addTodo,
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(CupertinoIcons.plus, size: 13, color: AppColor.muted),
-              const SizedBox(width: 6),
-              Text('Add New Todo'.tr, style: TextStyle(fontSize: 12, color: AppColor.text)),
-            ]),
           ),
         ),
       ]),
@@ -472,7 +445,7 @@ class PageToolsView extends GetView<PageToolsController> {
             SizedBox(width: 64, height: 80, child: _buildTodoThumbnail(text)),
             const SizedBox(width: 10),
             Expanded(child: Tooltip(message: text, child: Text(text, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: isVideo ? FontWeight.w600 : FontWeight.normal)))),
-            IconButton(
+            AppIconButton(
               tooltip: 'Delete'.tr,
               style: IconButton.styleFrom(minimumSize: const Size(32, 32), padding: EdgeInsets.zero),
               icon: Icon(Icons.close_rounded, size: 16, color: AppColor.muted),
@@ -569,10 +542,9 @@ class PageToolsView extends GetView<PageToolsController> {
           // filter by
           HStack([
             'Browse'.tr.text.size(12).bold.make().expand(),
-            PopupMenuButton<String>(
-              tooltip: 'Browse catalog by'.tr,
-              initialValue: controller.currentFilterBy.value,
-              onSelected: (kind) {
+            Obx(() => AppDropdown<String>(
+              value: controller.currentFilterBy.value,
+              onChanged: (kind) {
                 switch (kind) {
                   case kActress: controller.filterByActress(); break;
                   case kSeries: controller.filterBySeries(); break;
@@ -580,33 +552,29 @@ class PageToolsView extends GetView<PageToolsController> {
                   case kYear: controller.filterByYear(); break;
                 }
               },
-              itemBuilder: (_) => [for (final kind in [kActress, kSeries, kCategory, kYear])
-                PopupMenuItem(value: kind, child: Text(kind.tr, style: const TextStyle(fontSize: 12))),
+              items: [for (final kind in [kActress, kSeries, kCategory, kYear])
+                DropdownMenuItem(value: kind, child: Text(kind.tr)),
               ],
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(controller.currentFilterBy.value.tr, style: const TextStyle(fontSize: 11)),
-                const Icon(Icons.expand_more, size: 16),
-              ]).pSymmetric(h: 8, v: 4).box.color(AppColor.selected).make().cornerRadius(4),
-            ),
+            )).tooltip('Browse catalog by'.tr),
           ]),
 
-          // search 
-          CupertinoTextField(
+          // search
+          AppTextField(
             controller: controller.tecFilterSearchLeft,
             focusNode: controller.fnFilterSearchLeft,
             placeholder: 'Search @{toLowerCase}...'.trNamed({'toLowerCase': '${controller.currentFilterBy.value.tr.toLowerCase()}'}),
-            style: TextStyle(color: AppColor.text, fontSize: 12),
+            style: TextStyle(color: AppColor.text),
             clearButtonMode: OverlayVisibilityMode.editing,
             prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
             onChanged: controller.searchAdvancedGroups,
             onSubmitted: (s) async => await controller.onLeftListDoSearch(s),
           ).pSymmetric(v: 12),
           '@{length} items · ↑ ↓ to browse'.trNamed({'length': '${controller.leftList.length}'}).text.size(10).color(AppColor.muted).make().pOnly(bottom: 8),
-          
+
           if (controller.leftListLoading.value) const LinearProgressIndicator(minHeight: 2),
           if (controller.leftListError.value.isNotEmpty) Column(children: [
             Text(controller.leftListError.value, style: const TextStyle(fontSize: 11)),
-            TextButton(onPressed: () => controller.onLeftListDoSearch(controller.tecFilterSearchLeft.text), child: Text('Retry'.tr)),
+            AppButton(onPressed: () => controller.onLeftListDoSearch(controller.tecFilterSearchLeft.text), child: Text('Retry'.tr)),
           ]),
           if (!controller.leftListLoading.value && controller.leftListError.value.isEmpty && controller.leftList.isEmpty)
             'No matching items'.tr.text.size(11).color(AppColor.muted).make().p8(),
@@ -697,7 +665,7 @@ class PageToolsView extends GetView<PageToolsController> {
                 Text(HelperDecensor.decensor(controller.leftListSelected.value), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 Text('@{length} of @{length2} videos'.trNamed({'length': '${controller.rightListFiltered.length}', 'length2': '${controller.rightList.length}'}), style: TextStyle(fontSize: 10, color: AppColor.muted)),
               ])),
-              if (controller.hasAdvancedFilters) TextButton(
+              if (controller.hasAdvancedFilters) AppButton(
                 onPressed: controller.clearAdvancedFilters,
                 child: Text('Clear'.tr, style: TextStyle(fontSize: 11)),
               ),
@@ -705,7 +673,7 @@ class PageToolsView extends GetView<PageToolsController> {
               // 2
               Obx(
                 () => ZStack([
-                  IconButton(
+                  AppIconButton(
                     tooltip: 'More filters: video code, year and duration'.tr,
                     icon: Icon(
                       controller.filter.isFiltered.isTrue ? UIconsPro.boldRounded.filter_list : UIconsPro.regularRounded.filter_list,
@@ -717,10 +685,10 @@ class PageToolsView extends GetView<PageToolsController> {
                 ]),
               ),
             ]).pOnly(bottom: 8),
-            CupertinoTextField(
+            AppTextField(
               controller: controller.tecResultSearch,
               placeholder: 'Search video code or title...'.tr,
-              style: TextStyle(fontSize: 12, color: AppColor.text),
+              style: TextStyle(color: AppColor.text),
               clearButtonMode: OverlayVisibilityMode.editing,
               prefix: Icon(Icons.search, size: 16, color: AppColor.muted).pOnly(left: 8),
               onChanged: (value) {
@@ -753,25 +721,17 @@ class PageToolsView extends GetView<PageToolsController> {
   }
 
   Widget _advancedOption(String label, String selected, Map<String, String> options, void Function(String) onSelected) {
-    return PopupMenuButton<String>(
-      tooltip: label,
-      initialValue: selected,
-      onSelected: (value) {
+    return AppDropdown<String>(
+      value: selected,
+      items: options.entries.map((item) => DropdownMenuItem(
+        value: item.key, child: Text(item.value),
+      )).toList(),
+      onChanged: (value) {
+        if (value == null) return;
         onSelected(value);
         controller.applyAdvancedFilters();
       },
-      itemBuilder: (_) => options.entries.map((item) => PopupMenuItem(
-        value: item.key, child: Text(item.value, style: const TextStyle(fontSize: 12)),
-      )).toList(),
-      child: Container(
-        decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(options[selected]!, style: const TextStyle(fontSize: 11)),
-          const Icon(Icons.expand_more, size: 14),
-        ]),
-      ),
-    );
+    ).tooltip(label);
   }
 
   Widget _buildVideoList() {
@@ -822,14 +782,14 @@ class PageToolsView extends GetView<PageToolsController> {
               ]),
             )),
             Positioned(right: 6, top: 6, child: Column(children: [
-              IconButton(
+              AppIconButton(
                 tooltip: 'Open trailer'.tr,
                 style: IconButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
                 icon: const Icon(Icons.play_arrow_outlined, size: 16),
                 onPressed: () => HelperOpener.openTrailer(item),
               ),
               const SizedBox(height: 4),
-              IconButton(
+              AppIconButton(
                 tooltip: 'Open screenshots'.tr,
                 style: IconButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
                 icon: const Icon(Icons.photo_outlined, size: 16),

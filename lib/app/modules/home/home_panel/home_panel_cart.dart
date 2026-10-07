@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:ex_kit/ex.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
@@ -13,6 +12,8 @@ import '../../../core/app_translations.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../player/player_multi_view.dart';
+import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_surfaces.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
 import 'home_panel_library.dart';
@@ -43,7 +44,7 @@ mixin HomePanelCart {
                 Icon(UIconsPro.regularRounded.bags_shopping, size: 16).pOnly(right: 12, left: 8),
                 Obx(() => 'Video Cart (@{length})'.trNamed({'length': '${_controller.cart.length}'}).text.bold.make()),
                 Spacer(),
-                IconButton(
+                AppIconButton(
                   icon: Icon(UIconsPro.regularRounded.delete, size: 13).tooltip('Empty Cart'.tr),
                   onPressed: () async {
                     _controller.cart.value = [];
@@ -109,14 +110,14 @@ mixin HomePanelCart {
                               ]).h(110).expand(),
                               VStack(
                                 [
-                                  IconButton(
+                                  AppIconButton(
                                     icon: Icon(UIconsPro.regularRounded.minus_circle, size: 14),
                                     onPressed: () {
                                       _controller.cart.removeAt(index);
                                       _controller.cart.refresh();
                                     },
                                   ),
-                                  IconButton(
+                                  AppIconButton(
                                     icon: Icon(UIconsPro.regularRounded.trash, size: 14, color: Vx.red500),
                                     onPressed: () async {
                                       await _deleteVideo(__item);
@@ -141,7 +142,7 @@ mixin HomePanelCart {
 
                 Container(
                   decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                  child: IconButton(
+                  child: AppIconButton(
                     icon: Icon(UIconsPro.regularRounded.trash, size: 16, color: Vx.red300),
                     onPressed: () async {
                       await _deleteVideos(_controller.cart);
@@ -165,7 +166,7 @@ mixin HomePanelCart {
 
                 Container(
                   decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                  child: IconButton(
+                  child: AppIconButton(
                     icon: Icon(UIconsPro.regularRounded.list_check, size: 16, color: Vx.orange300),
                     onPressed: () async {
                       // await Overlayment.dismissLast();
@@ -188,12 +189,12 @@ mixin HomePanelCart {
   // ────────────────────────────────────────────────────────────────
   static Future<void> _deleteVideo(Videos videos) async {
     await Overlayment.dismissLast();
-    ExAlert.adaptive(
+    AppConfirmDialog.show(
       isDismissible: false,
       title: Text('Are you sure?'.tr, style: TextStyle(fontSize: 14)),
       content: Text('Delete "@{title}"? this action can\'t be undo'.trNamed({'title': '${videos.title}'}), style: TextStyle(fontSize: 12)).pOnly(top: 8),
       actions: [
-        CupertinoDialogAction(
+        AppDialogAction(
           child: Text('Yes'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
           onPressed: () async {
             Get.back();
@@ -212,9 +213,9 @@ mixin HomePanelCart {
             await _refreshState();
           },
         ),
-        CupertinoDialogAction(
+        AppDialogAction(
           child: Text('No'.tr, style: TextStyle(fontSize: 13)),
-          onPressed: () async => {Get.back(), await open()}, 
+          onPressed: () async => {Get.back(), await open()},
         ),
       ],
     );
@@ -226,11 +227,11 @@ mixin HomePanelCart {
   static Future<void> _deleteVideos(List<Videos> videos) async {
     await Overlayment.dismissLast();
 
-    ExAlert.adaptive(
+    AppConfirmDialog.show(
       title: Text('Are you sure?'.tr, style: TextStyle(fontSize: 14)),
       content: Text('Delete this video files? this action can\'t be undo'.tr, style: TextStyle(fontSize: 12)).pOnly(top: 8),
       actions: [
-        CupertinoDialogAction(
+        AppDialogAction(
           child: Text('Yes'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
           onPressed: () async {
             Get.back();
@@ -252,7 +253,7 @@ mixin HomePanelCart {
             await _refreshState();
           },
         ),
-        CupertinoDialogAction(
+        AppDialogAction(
           child: Text('No'.tr, style: TextStyle(fontSize: 13)),
           onPressed: () => Get.back(),
         ),

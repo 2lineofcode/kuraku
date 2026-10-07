@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 
 import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_controller.dart';
 import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_view.dart';
+import 'package:javit/app/modules/widgets/widgets.dart';
 
 void main() {
   testWidgets('Results expand to fill the page and restore the query and tabs', (tester) async {
@@ -22,13 +23,13 @@ void main() {
     expect(find.byTooltip('New SQL tab'), findsOneWidget);
     await tester.tap(find.byTooltip('Expand results'));
     await tester.pumpAndSettle();
-    expect(find.byType(TextField), findsNothing);
+    expect(find.byType(AppTextField), findsNothing);
     expect(find.byTooltip('New SQL tab'), findsNothing);
     expect(tester.getSize(find.byKey(const ValueKey('sql-results-table'))).height, greaterThan(normalHeight));
     expect(find.text('value'), findsOneWidget);
     await tester.tap(find.byTooltip('Restore query editor'));
     await tester.pumpAndSettle();
-    expect(find.byType(TextField), findsOneWidget);
+    expect(find.byType(AppTextField), findsOneWidget);
     expect(find.byTooltip('New SQL tab'), findsOneWidget);
     expect(tab.input.text, 'SELECT 1;');
     expect(find.text('value'), findsOneWidget);

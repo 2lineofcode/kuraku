@@ -13,7 +13,7 @@ import 'package:get/get.dart';
 import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_tab.dart';
 import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_view.dart';
-import 'package:javit/app/modules/widgets/widget_thumbnail.dart';
+import 'package:javit/app/modules/widgets/widgets.dart';
 import 'package:javit/app/utils/chat_service.dart';
 
 class _SqlApi extends ChatService {
@@ -30,7 +30,7 @@ void main() {
       'r18*.db': null,
     }));
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageSqleditorTabView(controller: controller))));
-    final editor = find.byType(TextField);
+    final editor = find.byType(AppTextField);
     await tester.tap(editor);
     await tester.enterText(editor, 'SELECT *\nFRom videos;');
     controller.input.selection = const TextSelection.collapsed(offset: 11);
@@ -48,7 +48,7 @@ void main() {
     await tester.pump();
     expect(controller.input.text, 'SELECT');
 
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.tap(find.byType(AppDropdownFormField<String>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('r18*.db').last);
     await tester.pumpAndSettle();
@@ -85,7 +85,11 @@ void main() {
     final controller = Get.put(PageSqleditorTab(sources: {'javit.db': '/javit.db'}, loadSchema: (_) async => schema));
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageSqleditorTabView(controller: controller))));
     await tester.pumpAndSettle();
-    final editor = find.byType(TextField);
+    final source = tester.getRect(find.byType(AppDropdownFormField<String>));
+    final refresh = tester.getRect(find.byTooltip('Refresh table and column suggestions'));
+    expect(refresh.size, const Size(32, 32));
+    expect(refresh.left - source.right, 8);
+    final editor = find.byType(AppTextField);
     await tester.enterText(editor, 'SELECT v.t FROM videos v;');
     controller.input.selection = const TextSelection.collapsed(offset: 10);
     await tester.pumpAndSettle();
@@ -145,7 +149,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageSqleditorTabView(controller: controller))));
     await tester.pumpAndSettle();
-    final editor = find.byType(TextField);
+    final editor = find.byType(AppTextField);
     final popupFinder = find.byKey(const ValueKey('sql-completion-popup'));
     await tester.enterText(editor, 'SELECT * FROM videos v;\nSELECT v.t FROM videos v;');
     controller.input.selection = const TextSelection.collapsed(offset: 33);
@@ -159,7 +163,7 @@ void main() {
     await tester.enterText(editor, '${'-- comment\n' * 40}SELECT * FROM de');
     await tester.pumpAndSettle();
     expect(find.text('derived_video', findRichText: true), findsOneWidget);
-    final scroll = tester.widget<TextField>(editor).scrollController!;
+    final scroll = tester.widget<AppTextField>(editor).scrollController!;
     expect(scroll.offset, greaterThan(0));
     final bottom = scroll.offset;
     scroll.jumpTo(0);
@@ -212,7 +216,7 @@ void main() {
     await tester.tap(find.text('Ask AI'));
     await tester.pumpAndSettle();
     expect(find.text('Generate SQL with AI'), findsOneWidget);
-    final prompt = find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField));
+    final prompt = find.descendant(of: find.byType(AppDialog), matching: find.byType(AppTextField));
     await tester.enterText(prompt, 'Show the newest videos');
     expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Generate')).onPressed, isNotNull);
     expect(tester.widget<TextButton>(find.widgetWithText(TextButton, 'Insert SQL')).onPressed, isNull);
@@ -252,7 +256,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ask AI'));
     await tester.pumpAndSettle();
-    final prompt = find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField));
+    final prompt = find.descendant(of: find.byType(AppDialog), matching: find.byType(AppTextField));
     await tester.enterText(prompt, 'Read one video');
     await tester.tap(find.text('Generate'));
     await tester.pumpAndSettle();
@@ -340,8 +344,8 @@ void main() {
       return pending.future;
     }));
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageSqleditorTabView(controller: controller))));
-    await tester.tap(find.byType(TextField));
-    await tester.enterText(find.byType(TextField), 'SELECT 1;\nSELECT 2;');
+    await tester.tap(find.byType(AppTextField));
+    await tester.enterText(find.byType(AppTextField), 'SELECT 1;\nSELECT 2;');
     controller.input.selection = const TextSelection(baseOffset: 10, extentOffset: 19);
     await tester.pump();
     expect(find.text('Run selection'), findsOneWidget);
@@ -374,7 +378,7 @@ void main() {
     final controller = Get.put(PageSqleditorTab(sources: {'javit.db': '/javit.db'}));
     await tester.binding.setSurfaceSize(const Size(420, 520));
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageSqleditorTabView(controller: controller, openVideoInfo: (item) async { opened.add(item); }))));
-    await tester.enterText(find.byType(TextField), 'select dvd_id from derived_video');
+    await tester.enterText(find.byType(AppTextField), 'select dvd_id from derived_video');
     await tester.tap(find.byTooltip('Format SQL (selection or entire query)'));
     await tester.pump();
     expect(controller.input.text, contains('SELECT\n'));
@@ -499,11 +503,11 @@ void main() {
     expect(find.text('No saved queries in javit.db'), findsOneWidget);
     await tester.tap(find.text('Save current query'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextFormField), 'Second query');
+    await tester.enterText(find.byType(AppTextFormField), 'Second query');
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     expect(stored['javit.db'], {'Second query': 'SELECT 2;'});
-    expect(find.byType(TextFormField), findsNothing);
+    expect(find.byType(AppTextFormField), findsNothing);
     expect(find.widgetWithText(ListTile, 'Second query'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('Load snippet'));
@@ -520,7 +524,7 @@ void main() {
     expect(controller.input.text, 'SELECT 1; SELECT 2;\n\nSELECT 3;');
     await tester.tap(find.text('Save as new'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextFormField), 'Copy');
+    await tester.enterText(find.byType(AppTextFormField), 'Copy');
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     expect(stored['javit.db'], {'Second query': 'SELECT 3;', 'Copy': 'SELECT 3;'});

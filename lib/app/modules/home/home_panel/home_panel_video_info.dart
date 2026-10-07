@@ -16,6 +16,7 @@ import '../../../core/app_logging.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
+import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
 import '../page_explore/page_explore_controller.dart';
@@ -121,7 +122,7 @@ mixin HomePanelVideoInfo {
                         // play
                         Container(
                           decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                          child: IconButton(
+                          child: AppIconButton(
                             icon: Icon(UIconsPro.regularRounded.play, size: 14),
                             onPressed: () => {
                               Overlayment.dismissLast(),
@@ -135,7 +136,7 @@ mixin HomePanelVideoInfo {
                           init: _controller,
                           builder: (b) => Container(
                             decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                            child: IconButton(
+                            child: AppIconButton(
                               icon: video.isFavorite == 1 ? Icon(UIconsPro.solidRounded.star, size: 14, color: Vx.orange500) : Icon(UIconsPro.regularRounded.star, size: 14, color: null),
                               onPressed: () {
                                 final current = video.isFavorite ?? 0;
@@ -153,10 +154,10 @@ mixin HomePanelVideoInfo {
 
                         // renew metadata
                         // video.videoCode?.isNotBlank ?? false
-                        //     ? 
+                        //     ?
                             Container(
                                 decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                                child: IconButton(
+                                child: AppIconButton(
                                   icon: Icon(UIconsPro.regularRounded.refresh, size: 14),
                                   onPressed: () => _controller.renewMetadata(video),
                                 ),
@@ -165,7 +166,7 @@ mixin HomePanelVideoInfo {
 
                         Container(
                           decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                          child: IconButton(
+                          child: AppIconButton(
                             icon: Icon(UIconsPro.regularRounded.folder, size: 16),
                             onPressed: () => HelperOpener.openFilePath(video.videoPath ?? ''),
                           ),
@@ -173,7 +174,7 @@ mixin HomePanelVideoInfo {
 
                         Container(
                           decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                          child: IconButton(
+                          child: AppIconButton(
                             icon: Icon(UIconsPro.regularRounded.plus, size: 14),
                             onPressed: () {
                               final homeController = Get.find<HomeController>();
@@ -204,7 +205,7 @@ mixin HomePanelVideoInfo {
                           HStack([
                             '# Metadata'.tr.text.size(14).bold.make().expand(),
 
-                            IconButton(
+                            AppIconButton(
                               icon: Icon(UIconsPro.regularRounded.plus_hexagon , size: 16),
                               tooltip: 'Add To Playlist'.tr,
                               onPressed: () async {
@@ -213,7 +214,7 @@ mixin HomePanelVideoInfo {
                               },
                             ),
 
-                            IconButton(
+                            AppIconButton(
                               icon: Icon(UIconsPro.regularRounded.pen_square , size: 16),
                               tooltip: 'Edit Metadata'.tr,
                               onPressed: () async {

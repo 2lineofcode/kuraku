@@ -24,6 +24,7 @@ import '../../data/models/videos_entity.dart';
 import '../../routes/app_pages.dart';
 import '../../utils/helper.dart';
 import '../player/player_multi_view.dart';
+import '../widgets/widget_surfaces.dart';
 import 'home_panel/home_panel_library.dart';
 import 'page_chat/page_chat_controller.dart';
 import 'page_download/page_download_controller.dart';
@@ -115,13 +116,13 @@ class HomeController extends GetxController with StateMixin {
   // playlist
   final playlist = <Playlist>[].obs;
 
-  
+
 
   @override
   Future<void> onInit() async {
     super.onInit();
     fnTopNavSearch.addListener(_onTopNavSearchFocusChanged);
-    
+
     change(200, status: RxStatus.loading());
     AppLog.logI('root home ==> onInit called');
 
@@ -200,11 +201,11 @@ class HomeController extends GetxController with StateMixin {
       change(200, status: RxStatus.success());
     } catch (e) {
       AppLog.logE('Refresh all content failed: $e');
-      ExAlert.adaptive(
+      AppConfirmDialog.show(
         title: Text('Ups'.tr),
         content: Text('${e.toString()}'),
         actions: [
-          CupertinoDialogAction(
+          AppDialogAction(
             child: Text('Refresh'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () async {
               await onRefreshAllContent();
@@ -460,8 +461,8 @@ class HomeController extends GetxController with StateMixin {
 
     final ext = path.toLowerCase().split('.').last;
     return {
-      'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'heic', 'heif', 
-      'tiff', 'tif', 'svg', 'avif', 'apng', 'ico', 'raw', 'arw', 
+      'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'heic', 'heif',
+      'tiff', 'tif', 'svg', 'avif', 'apng', 'ico', 'raw', 'arw',
       'cr2', 'nef', 'orf', 'sr2'
     }.contains(ext);
   }
@@ -571,12 +572,12 @@ class HomeController extends GetxController with StateMixin {
       return;
     }
 
-    ExAlert.adaptive(
+    AppConfirmDialog.show(
       isDismissible: false,
       title: Text('Open Videos'.tr),
       content: Text('Choose how to play your videos.'.tr),
       actions: [
-        CupertinoDialogAction(
+        AppDialogAction(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -590,7 +591,7 @@ class HomeController extends GetxController with StateMixin {
             await HelperOpener.openVideoFile(videos.first, playlist: videos);
           },
         ),
-        CupertinoDialogAction(
+        AppDialogAction(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -604,7 +605,7 @@ class HomeController extends GetxController with StateMixin {
             await Get.to(() => const PlayerMultiView(), arguments: videos);
           },
         ),
-        CupertinoDialogAction(
+        AppDialogAction(
           child: Text('Cancel'.tr, style: TextStyle(fontSize: 13)),
           onPressed: () => Get.back(),
         ),

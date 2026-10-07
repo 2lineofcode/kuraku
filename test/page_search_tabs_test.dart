@@ -13,6 +13,7 @@ import 'package:javit/app/data/models/videos_entity.dart';
 import 'package:javit/app/modules/home/page_search/page_search_controller.dart';
 import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
 import 'package:javit/app/modules/home/page_search/page_search_view.dart';
+import 'package:javit/app/modules/widgets/widget_controls.dart';
 import 'package:javit/app/utils/semantic_search_service.dart';
 
 class _Preferences implements GetSecureStorage {
@@ -429,11 +430,11 @@ void main() {
       final button = tester.widget<TextButton>(find.ancestor(of: find.text('Relevance'), matching: find.byType(TextButton)));
       final foreground = button.style!.foregroundColor!.resolve({})!;
       final background = Color.alphaBlend(button.style!.backgroundColor!.resolve({})!, Get.theme.scaffoldBackgroundColor);
-      final dropdown = tester.widget<DropdownButton<String>>(find.byType(DropdownButton<String>));
+      final dropdown = tester.widget<AppDropdown<String>>(find.byType(AppDropdown<String>));
       expect(find.text('Visual matches'), findsNothing);
       expect(find.text('Search settings'), findsNothing);
       expect(tester.getCenter(find.text('0 videos')).dy,
-          closeTo(tester.getCenter(find.byType(DropdownButton<String>)).dy, 1));
+          closeTo(tester.getCenter(find.byType(AppDropdown<String>)).dy, 1));
       for (final pair in [(foreground, background), (dropdown.style!.color!, dropdown.dropdownColor!)]) {
         final a = pair.$1.computeLuminance(), b = pair.$2.computeLuminance();
         expect(a > b ? (a + .05) / (b + .05) : (b + .05) / (a + .05), greaterThanOrEqualTo(4.5));
@@ -449,6 +450,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: _SearchView(controller: tab))));
     final button = find.ancestor(of: find.text('Random'), matching: find.byType(TextButton));
     expect(tester.getSize(button).height, 32);
+    expect(tester.getSize(find.byType(CupertinoTextField)).height, tester.getSize(button).height);
     expect(tester.getCenter(button).dy, tester.getCenter(find.byType(CupertinoTextField)).dy);
     expect(tester.getCenter(button).dy, tester.getCenter(find.byTooltip('Switch to list view')).dy);
     await tester.tap(find.text('Random'));

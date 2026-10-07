@@ -31,6 +31,7 @@ import '../../utils/watch_session_tracker.dart';
 import '../home/home_controller.dart';
 import '../home/home_panel/home_panel_video_info.dart';
 import '../home/page_home/page_home_controller.dart';
+import '../widgets/widget_controls.dart';
 import '../widgets/widget_thumbnail.dart';
 
 class PlayerController extends GetxController with StateMixin<Videos>, GetSingleTickerProviderStateMixin {
@@ -214,7 +215,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     _watchVideoReady = false;
     _watchTracker.setPlaying(false);
     await _persistWatchDuration();
-    try { await player.stop(); } 
+    try { await player.stop(); }
     catch (_) {}
     playlist.clear();
     _externalPlaylist = null;
@@ -769,14 +770,14 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
         ),
         child: VStack(
           [
-            CupertinoTextField(
+            AppTextField(
               controller: _tecSearch,
               focusNode: _fnSearch,
               clearButtonMode: OverlayVisibilityMode.editing,
               placeholder: 'Search (@{length})...'.trNamed({'length': '${_videos.length}'}),
-              style: TextStyle(color: AppColor.text, fontSize: 14),
+              style: TextStyle(color: AppColor.text),
               prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
-              // suffix: IconButton(
+              // suffix: AppIconButton(
               //   icon: Icon(Icons.sort, size: 14, color: Vx.neutral300),
               //   onPressed: () {},
               // ).pOnly(right: 4),

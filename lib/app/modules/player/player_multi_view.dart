@@ -17,6 +17,7 @@ import '../../data/database/db_gamification.dart';
 import '../../data/models/videos_entity.dart';
 import '../../utils/semantic_search_service.dart';
 import '../../utils/watch_session_tracker.dart';
+import '../widgets/widget_controls.dart';
 
 class PlayerMultiView extends StatefulWidget {
   const PlayerMultiView({super.key});
@@ -432,12 +433,12 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
               ? '@{length} Videos • Focus @{expandedIndex}'.trNamed({'length': '${_items.length}', 'expandedIndex': '${_expandedIndex! + 1}'}).text.white.size(14).make().expand()
               : '@{length} Videos'.trNamed({'length': '${_items.length}'}).text.white.size(14).make().expand(),
           if (isExpandedMode)
-            IconButton(
+            AppIconButton(
               onPressed: () => setState(() => _expandedIndex = null),
               icon: const Icon(Icons.grid_view_rounded, color: Colors.white70),
               tooltip: 'Back to Grid'.tr,
             ),
-          IconButton(
+          AppIconButton(
             onPressed: _closeAllPlayers,
             icon: const Icon(Icons.close, color: Colors.white70),
             tooltip: 'Close'.tr,
@@ -676,7 +677,7 @@ class _GridTile extends StatelessWidget {
                         Positioned(
                           right: 8,
                           top: 8,
-                          child: IconButton(
+                          child: AppIconButton(
                             visualDensity: VisualDensity.compact,
                             splashRadius: 16,
                             onPressed: onClose,
@@ -743,7 +744,7 @@ class _MultiPlayerControls extends StatelessWidget {
                         initialData: player.state.playing,
                         builder: (context, playingSnap) {
                           final isPlaying = playingSnap.data ?? false;
-                          return IconButton(
+                          return AppIconButton(
                             visualDensity: VisualDensity.compact,
                             splashRadius: isCompact ? 12 : 16,
                             onPressed: () async {
@@ -807,7 +808,7 @@ class _MultiPlayerControls extends StatelessWidget {
                           builder: (context, volumeSnap) {
                             final volume = (volumeSnap.data ?? 0).clamp(0, 100);
                             final isMute = volume == 0;
-                            return IconButton(
+                            return AppIconButton(
                               visualDensity: VisualDensity.compact,
                               splashRadius: isCompact ? 12 : 16,
                               onPressed: () async {

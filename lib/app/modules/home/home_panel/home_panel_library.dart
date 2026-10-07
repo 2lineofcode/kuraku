@@ -4,7 +4,6 @@ import 'dart:math' as math;
 
 import 'package:ex_kit/ex.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:overlayment/overlayment.dart';
@@ -26,6 +25,8 @@ import '../../../utils/helper_file_picker.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
+import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_surfaces.dart';
 import '../home_controller.dart';
 
 /// A mixin for managing library-related functionalities in the home screen.
@@ -178,7 +179,7 @@ mixin HomePanelLibrary {
               Icon(UIconsPro.regularRounded.multiple_alt, size: 18).pOnly(right: 12, left: 8),
               'Library'.tr.text.bold.make(),
               Spacer(),
-              IconButton(
+              AppIconButton(
                 icon: Icon(UIconsPro.regularRounded.refresh, size: 13),
                 tooltip: 'Rescan All Folders'.tr,
                 onPressed: () {
@@ -186,7 +187,7 @@ mixin HomePanelLibrary {
                   doRescanAllVideoFromLibrary(library, recoverVideoCodes: true);
                 },
               ),
-              IconButton(
+              AppIconButton(
                 icon: Icon(UIconsPro.regularRounded.edit, size: 13),
                 tooltip: 'Repair Metadata from R18'.tr,
                 onPressed: () async {
@@ -194,7 +195,7 @@ mixin HomePanelLibrary {
                   await _repairAllMetadata(library);
                 },
               ),
-              IconButton(
+              AppIconButton(
                 icon: Icon(UIconsPro.regularRounded.plus, size: 13),
                 tooltip: 'Add New Library'.tr,
                 onPressed: () {
@@ -218,7 +219,7 @@ mixin HomePanelLibrary {
                     final item = library[index];
                     return HStack([
                       HStack([
-                        IconButton(
+                        AppIconButton(
                           onPressed: () => HelperOpener.openFolder(item.rootFolder ?? ''),
                           icon: Icon(UIconsPro.regularRounded.folder, size: 14),
                           tooltip: 'Open Folder `@{alias}`'.trNamed({'alias': '${item.alias}'}),
@@ -233,7 +234,7 @@ mixin HomePanelLibrary {
                         decoration: ExDecorator.box(borderRadius: 90, fillColor: AppColor.selected, borderColor: AppColor.selected),
                         child: ' ${item.totalVideo} '.text.size(11).minFontSize(11).make(),
                       ),
-                      IconButton(
+                      AppIconButton(
                         icon: Icon(UIconsPro.regularRounded.refresh, size: 12),
                         tooltip: 'Rescan Folder `@{alias}`'.trNamed({'alias': '${item.alias}'}),
                         onPressed: () async => {
@@ -257,7 +258,7 @@ mixin HomePanelLibrary {
               'Total Video: @{getCount}'.trNamed({'getCount': '${await DBVideos.getCount()}'}).text.size(12).make(),
             ]).p12(),
           ).pSymmetric(v: 12),
-          
+
         ]).p8(),
       ),
     );
@@ -276,7 +277,7 @@ mixin HomePanelLibrary {
 
     if (isFromDrop) fnAlias.requestFocus();
 
-    ExAlert.adaptive(
+    AppConfirmDialog.show(
       isDismissible: false,
       title: HStack(
         [
@@ -286,21 +287,21 @@ mixin HomePanelLibrary {
             textAlign: TextAlign.left,
             overflow: TextOverflow.ellipsis,
           ).expand(),
-          ExCloseButton(),
+          AppIconButton(tooltip: 'Close'.tr, icon: const Icon(Icons.close), onPressed: Get.back),
         ],
       ).pOnly(bottom: 16),
       content: ConstrainedBox(
         constraints: BoxConstraints(minHeight: 90),
         child: VStack(
           [
-            CupertinoTextField(
+            AppTextField(
               readOnly: true,
               controller: tfRootPath,
               focusNode: fnRootPath,
               placeholder: '<Select Path>'.tr,
               placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
               prefix: Icon(UIconsPro.regularRounded.folder, size: 13).pOnly(left: 8),
-              style: TextStyle(fontSize: 13, color: Vx.neutral500),
+              style: TextStyle(color: Vx.neutral500),
               onTap: () async {
                 if (isClicked.value) return;
                 if (library == null) {
@@ -314,18 +315,18 @@ mixin HomePanelLibrary {
                     }
                     isClicked.value = false;
                   });
-        
+
                   fnAlias.requestFocus();
                 }
               },
             ).pOnly(bottom: 16),
-            CupertinoTextField(
+            AppTextField(
               controller: tfAlias,
               focusNode: fnAlias,
               placeholder: 'Alias'.tr,
               placeholderStyle: TextStyle(fontSize: 13, color: Vx.neutral500),
               prefix: Icon(UIconsPro.regularRounded.tags, size: 14).pOnly(left: 8),
-              style: TextStyle(fontSize: 13, color: AppColor.text),
+              style: TextStyle(color: AppColor.text),
               onSubmitted: (value) async {
                 await _onSubmit(
                   alias: tfAlias.text,
@@ -342,7 +343,7 @@ mixin HomePanelLibrary {
       ),
       actions: [
         if (library != null && !isFromDrop) ...[
-          CupertinoDialogAction(
+          AppDialogAction(
             child: Text('Delete'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () {
               DBLibrary.delete(library);
@@ -352,7 +353,7 @@ mixin HomePanelLibrary {
           ),
         ],
 
-        CupertinoDialogAction(
+        AppDialogAction(
           child: Text('Submit'.tr, style: TextStyle(fontSize: 13)),
           onPressed: () async {
             await _onSubmit(
@@ -595,8 +596,8 @@ mixin HomePanelLibrary {
       }
 
       return newVideo;
-    } 
-    
+    }
+
     // case: not detect as JAV
     else {
       final newVideo = Videos();

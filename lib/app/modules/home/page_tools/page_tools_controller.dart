@@ -18,6 +18,8 @@ import '../../../data/database/db_videos.dart';
 import '../../../data/models/activity_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
+import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_surfaces.dart';
 import '../page_explore/page_explore_controller.dart';
 
 class PageToolsController extends GetxController with StateMixin {
@@ -187,7 +189,7 @@ class PageToolsController extends GetxController with StateMixin {
   Future<void> getTopLargeFileSize({String mode = 'all'}) async {
     topLargeFileSizeList.clear();
     topLargeHoveredIndex.value = -1;
-    
+
     var whereQ = 'filesize > 0';
     switch (mode) {
       case 'all': whereQ = 'filesize > 0'; break;
@@ -409,14 +411,14 @@ class PageToolsController extends GetxController with StateMixin {
 
     fnTodo.requestFocus();
 
-    ExAlert.adaptive(
+    AppConfirmDialog.show(
       title: Text('New Todo'.tr, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.left).pOnly(bottom: 16),
       content: ConstrainedBox(
         constraints: BoxConstraints(minHeight: 30),
-        child: CupertinoTextField(
+        child: AppTextField(
           controller: tecTodo,
           focusNode: fnTodo,
-          style: TextStyle(color: AppColor.text, fontSize: 12),
+          style: TextStyle(color: AppColor.text),
           placeholder: 'TODO'.tr,
           onSubmitted: (value) async {
             final newTodo = Activity(type: kActivityTypeTodo, content: value);
@@ -427,7 +429,7 @@ class PageToolsController extends GetxController with StateMixin {
         ).pOnly(bottom: 8),
       ),
       actions: [
-        CupertinoDialogAction(
+        AppDialogAction(
           child: Text('Save'.tr, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           onPressed: () async {
             final newTodo = Activity(type: kActivityTypeTodo, content: tecTodo.text);

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:get/get.dart';
 
+import 'widget_controls.dart';
+
 class ExAutoComplate extends StatelessWidget {
   const ExAutoComplate({
     super.key,
@@ -40,12 +42,12 @@ class ExAutoComplate extends StatelessWidget {
         }).toList();
       },
       builder: fieldBuilder ?? (context, controller, focusNode) {
-        return CupertinoTextField(
+        return AppTextField(
           controller: controller,
           focusNode: focusNode,
           clearButtonMode: OverlayVisibilityMode.editing,
           placeholder: placeHolder ?? 'Search...'.tr,
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: fontSize ?? 14),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: fontSize),
         );
       },
       itemBuilder: (context, s) {

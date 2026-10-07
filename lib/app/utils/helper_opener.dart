@@ -9,7 +9,6 @@ import 'package:get/get.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:process_run/process_run.dart' as cmd;
-// import 'package:process_run/process_run.dart' as shell;
 import 'package:uicons_pro/uicons_pro.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:video_player/video_player.dart';
@@ -36,8 +35,10 @@ import '../modules/home/page_tools/page_tools_controller.dart';
 import '../modules/player/player_controller.dart';
 import '../modules/widgets/widget_auto_complate.dart';
 import '../modules/widgets/widget_chiwie_custom.dart';
+import '../modules/widgets/widget_controls.dart';
 import '../modules/widgets/widget_download_method.dart';
 import '../modules/widgets/widget_media_stack.dart';
+import '../modules/widgets/widget_surfaces.dart';
 import '../modules/widgets/widget_thumbnail.dart';
 import '../routes/app_pages.dart';
 import 'helper.dart';
@@ -231,7 +232,7 @@ mixin HelperOpener {
                     // screenshot
                     Container(
                       decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                      child: IconButton(
+                      child: AppIconButton(
                         icon: Icon(UIconsPro.regularRounded.comment_image, size: 16),
                         onPressed: () async {
                           await openScreenshot(item);
@@ -242,7 +243,7 @@ mixin HelperOpener {
                     // download
                     Container(
                       decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                      child: IconButton(
+                      child: AppIconButton(
                         icon: Icon(UIconsPro.regularRounded.arrow_square_down, size: 16),
                         onPressed: () async {
                           WidgetsBinding.instance.scheduleFrame();
@@ -327,7 +328,7 @@ mixin HelperOpener {
                     // trailer
                     Container(
                       decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                      child: IconButton(
+                      child: AppIconButton(
                         icon: Icon(UIconsPro.regularRounded.video_camera, size: 16),
                         onPressed: () async => await openTrailer(item),
                       ),
@@ -806,7 +807,7 @@ mixin HelperOpener {
       {'key': '⌘ + .',  'action': 'Open relapse panel'.tr},
     ];
 
-    
+
     WidgetsBinding.instance.scheduleFrame();
     await Overlayment.show(
       context: Get.context,
@@ -823,7 +824,7 @@ mixin HelperOpener {
               [
                 'Keyboard Shortcuts'.tr.text.bold.size(16).make().pOnly(left: 12),
                 Spacer(),
-                IconButton(
+                AppIconButton(
                   icon: Icon(UIconsPro.regularRounded.cross, size: 14),
                   onPressed: () => Overlayment.dismissLast(),
                 ),
@@ -1181,18 +1182,12 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
     child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColor.text)),
   );
 
-  Widget _field(TextEditingController controller, String placeholder, {FocusNode? focusNode, bool submit = false}) => CupertinoTextField(
+  Widget _field(TextEditingController controller, String placeholder, {FocusNode? focusNode, bool submit = false}) => AppTextField(
     controller: controller,
     focusNode: focusNode,
     placeholder: placeholder,
     clearButtonMode: OverlayVisibilityMode.editing,
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-    decoration: BoxDecoration(
-      color: AppColor.container,
-      border: Border.all(color: AppColor.border),
-      borderRadius: BorderRadius.circular(8),
-    ),
-    style: TextStyle(color: AppColor.text, fontSize: 12),
+    style: TextStyle(color: AppColor.text),
     placeholderStyle: TextStyle(color: AppColor.muted, fontSize: 12),
     onSubmitted: submit ? (_) => _apply() : null,
   );
@@ -1217,11 +1212,10 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
         onSelected: (name) => _actress.text = HelperDecensor.decensor(name),
       ),
     ]);
-    return Dialog(
+    return AppDialog(
       backgroundColor: AppColor.panel,
       surfaceTintColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: AppColor.border)),
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -1246,7 +1240,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                   SizedBox(height: 3),
                   Text('Find exactly what you’re looking for'.tr, style: TextStyle(fontSize: 11, color: _muted)),
                 ])),
-                IconButton(tooltip: 'Cancel'.tr, onPressed: () => Navigator.pop(context), icon: Icon(Icons.close, size: 17, color: _muted)),
+                AppIconButton(tooltip: 'Cancel'.tr, onPressed: () => Navigator.pop(context), icon: Icon(Icons.close, size: 17, color: _muted)),
               ]),
             ),
             Flexible(
@@ -1325,7 +1319,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                         Row(children: [
                           Expanded(child: Text('Blacklist'.tr, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),
-                          IconButton(
+                          AppIconButton(
                             tooltip: 'Add blacklist rule'.tr, visualDensity: VisualDensity.compact,
                             icon: Icon(Icons.add, size: 18, color: _accent),
                             onPressed: () => setState(() => _blacklist.add((field: VideoBlacklistField.videoCode, controller: TextEditingController()))),
@@ -1341,17 +1335,17 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                           padding: const EdgeInsets.only(top: 10),
                           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                             Row(children: [
-                              SizedBox(width: 100, child: DropdownButtonHideUnderline(child: DropdownButton<VideoBlacklistField>(
+                              SizedBox(width: 100, child: AppDropdown<VideoBlacklistField>(
                                 value: _blacklist[i].field, isExpanded: true, isDense: true,
                                 dropdownColor: AppColor.panel,
-                                style: TextStyle(fontSize: 11, color: AppColor.text),
+                                style: TextStyle(color: AppColor.text),
                                 items: {VideoBlacklistField.videoCode: 'Video Code'.tr, VideoBlacklistField.title: 'Title'.tr}.entries
                                     .map((entry) => DropdownMenuItem(value: entry.key, child: Text(entry.value))).toList(),
                                 onChanged: (field) { if (field != null) setState(() => _blacklist[i] = (field: field, controller: _blacklist[i].controller)); },
-                              ))),
+                              )),
                               const SizedBox(width: 8),
                               Expanded(child: _field(_blacklist[i].controller, _blacklist[i].field == VideoBlacklistField.videoCode ? 'AD-(.*)' : '(.*)VR(.*)')),
-                              IconButton(
+                              AppIconButton(
                                 tooltip: 'Remove blacklist rule'.tr, visualDensity: VisualDensity.compact,
                                 icon: Icon(Icons.close, size: 16, color: _muted),
                                 onPressed: () => setState(() {
@@ -1372,24 +1366,20 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                     const SizedBox(height: 20),
                     _label('Duration (minutes)'.tr),
                     Row(children: [
-                      Expanded(child: CupertinoTextField(
+                      Expanded(child: AppTextField(
                         key: const ValueKey('filter-duration-min'), controller: _durationMin,
                         placeholder: 'Min · Any', keyboardType: TextInputType.number,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                        style: TextStyle(color: AppColor.text, fontSize: 12),
+                        style: TextStyle(color: AppColor.text),
                         placeholderStyle: TextStyle(color: _muted, fontSize: 12),
-                        decoration: BoxDecoration(color: AppColor.container, border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(8)),
                       )),
                       Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('–', style: TextStyle(color: _muted))),
-                      Expanded(child: CupertinoTextField(
+                      Expanded(child: AppTextField(
                         key: const ValueKey('filter-duration-max'), controller: _durationMax,
                         placeholder: 'Max · Any', keyboardType: TextInputType.number,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                        style: TextStyle(color: AppColor.text, fontSize: 12),
+                        style: TextStyle(color: AppColor.text),
                         placeholderStyle: TextStyle(color: _muted, fontSize: 12),
-                        decoration: BoxDecoration(color: AppColor.container, border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(8)),
                       )),
                     ]),
                     if (_durationError != null) Padding(padding: const EdgeInsets.only(top: 6),
@@ -1434,19 +1424,19 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(color: AppColor.container, border: Border(top: BorderSide(color: AppColor.border))),
               child: Row(children: [
-                TextButton(
+                AppButton(
                   style: TextButton.styleFrom(foregroundColor: _muted, textStyle: TextStyle(fontSize: 12)),
                   onPressed: _reset,
                   child: Text('Reset'.tr),
                 ),
                 const Spacer(),
-                TextButton(
+                AppButton(
                   style: TextButton.styleFrom(foregroundColor: AppColor.text, textStyle: TextStyle(fontSize: 12)),
                   onPressed: () => Navigator.pop(context),
                   child: Text('Cancel'.tr),
                 ),
                 const SizedBox(width: 8),
-                FilledButton(
+                AppButton(variant: AppButtonVariant.filled,
                   style: FilledButton.styleFrom(
                     backgroundColor: _accent,
                     foregroundColor: AppColor.onAccent,

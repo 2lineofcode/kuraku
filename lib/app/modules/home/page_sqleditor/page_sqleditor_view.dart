@@ -10,7 +10,10 @@ import '../../../core/app_logging.dart';
 import '../../../core/app_translations.dart';
 import '../../../utils/helper_loading.dart';
 import '../../../utils/helper_opener.dart';
+import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_search_tab_bar.dart';
+import '../../widgets/widget_style.dart';
+import '../../widgets/widget_surfaces.dart';
 import '../../widgets/widget_thumbnail.dart';
 import 'page_sqleditor_controller.dart';
 import 'page_sqleditor_tab.dart';
@@ -30,7 +33,7 @@ class PageSqleditorView extends GetView<PageSqleditorController> {
     ))),
     Obx(() => controller.saveError.value.isEmpty ? const SizedBox.shrink() : Row(children: [
       Expanded(child: Text(controller.saveError.value, style: TextStyle(fontSize: 11, color: Get.theme.colorScheme.error))),
-      TextButton(onPressed: controller.saveTabs, child: Text('Retry'.tr, style: TextStyle(fontSize: 11))),
+      AppButton(onPressed: controller.saveTabs, child: Text('Retry'.tr, style: TextStyle(fontSize: 11))),
     ])),
     Expanded(child: Obx(() {
       final tab = controller.activeTab;
@@ -52,19 +55,16 @@ class PageSqleditorTabView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SizedBox(
-          height: 30,
+          height: AppStyle.inputHeight,
           child: Row(children: [
             Expanded(child: Obx(() => Tooltip(
               message: controller.sources[controller.source.value] ?? 'No R18 database is loaded'.tr,
-              child: DropdownButtonFormField<String>(
+              child: AppDropdownFormField<String>(
                 initialValue: controller.source.value,
                 isExpanded: true,
-                style: TextStyle(fontSize: 12, color: AppColor.text),
+                style: TextStyle(color: AppColor.text),
                 iconSize: 16,
                 decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   prefixIcon: Icon(Icons.storage_rounded, size: 14, color: AppColor.muted),
                   prefixIconConstraints: const BoxConstraints(minWidth: 30, minHeight: 28),
                 ),
@@ -72,21 +72,22 @@ class PageSqleditorTabView extends StatelessWidget {
                 onChanged: controller.running.value || controller.generating.value ? null : (value) { if (value != null) controller.selectSource(value); },
               ),
             ))),
-            Obx(() => IconButton(
+            const SizedBox(width: 8),
+            Obx(() => AppIconButton(
               tooltip: controller.schemaLoading.value ? 'Loading schema…'.tr
                   : controller.schemaError.value.isNotEmpty ? controller.schemaError.value : 'Refresh table and column suggestions'.tr,
-              visualDensity: VisualDensity.compact,
-              icon: Icon(controller.schemaError.value.isEmpty ? Icons.refresh_rounded : Icons.error_outline, size: 14),
+              constraints: const BoxConstraints.tightFor(width: AppStyle.inputHeight, height: AppStyle.inputHeight),
+              icon: Icon(controller.schemaError.value.isEmpty ? Icons.refresh_rounded : Icons.error_outline, size: 18),
               onPressed: controller.schemaLoading.value ? null : controller.refreshSchema,
             )),
-            const SizedBox(width: 4),
+            const SizedBox(width: 8),
             Obx(() {
               controller.revision.value;
               final selection = controller.input.selection;
               final hasSelection = selection.isValid && !selection.isCollapsed;
               return Tooltip(
                 message: controller.running.value ? 'Stop query'.tr : '⌘ + Enter: @{query}. DELETE is blocked.'.trNamed({'query': '${hasSelection ? 'run selection'.tr : 'run query'.tr}'}),
-                child: FilledButton.icon(
+                child: AppButton(variant: AppButtonVariant.filled,
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(0, 30),
                     padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -97,7 +98,7 @@ class PageSqleditorTabView extends StatelessWidget {
                   onPressed: controller.committing.value ? null : controller.running.value ? controller.stopQuery
                       : controller.query == null ? null : () => _runQuery(context),
                   icon: Icon(controller.running.value ? Icons.stop_rounded : Icons.play_arrow_rounded, size: 14),
-                  label: Text(controller.committing.value ? 'Saving…'.tr : controller.running.value ? 'Stop'.tr : hasSelection ? 'Run selection'.tr : 'Run'.tr),
+                  child: Text(controller.committing.value ? 'Saving…'.tr : controller.running.value ? 'Stop'.tr : hasSelection ? 'Run selection'.tr : 'Run'.tr),
                 ),
               );
             }),
@@ -115,7 +116,7 @@ class PageSqleditorTabView extends StatelessWidget {
                 child: Row(children: [
                   Text('Query'.tr, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                   const Spacer(),
-                  IconButton(
+                  AppIconButton(
                     tooltip: 'Format SQL (selection or entire query)'.tr,
                     style: IconButton.styleFrom(minimumSize: const Size(28, 28), maximumSize: const Size(28, 28),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap),
@@ -125,27 +126,25 @@ class PageSqleditorTabView extends StatelessWidget {
                     icon: const Icon(Icons.format_align_left_rounded, size: 14),
                     onPressed: controller.formatQuery,
                   ),
-                  IconButton(
+                  AppIconButton(
                     tooltip: 'Query parameters (JSON)'.tr,
                     visualDensity: VisualDensity.compact,
                     icon: const Icon(Icons.tune_rounded, size: 14),
                     onPressed: () => _showParameters(context),
                   ),
-                  TextButton.icon(
+                  AppButton(
                     style: TextButton.styleFrom(minimumSize: const Size(0, 28), padding: const EdgeInsets.symmetric(horizontal: 8),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap, textStyle: const TextStyle(fontSize: 11)),
                     icon: const Icon(Icons.code_rounded, size: 14),
-                    label: Text('Snippets'.tr),
                     onPressed: () => _showSnippets(context),
-                  ),
-                  TextButton.icon(
+                   child: Text('Snippets'.tr),),
+                  AppButton(
                     style: TextButton.styleFrom(minimumSize: const Size(0, 28), padding: const EdgeInsets.symmetric(horizontal: 8),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap, textStyle: const TextStyle(fontSize: 11)),
                     icon: const Icon(Icons.auto_awesome_outlined, size: 14),
-                    label: Text('Ask AI'.tr),
                     onPressed: () => _showAi(context),
-                  ),
-                  IconButton(
+                   child: Text('Ask AI'.tr),),
+                  AppIconButton(
                     tooltip: 'Clear query'.tr,
                     visualDensity: VisualDensity.compact,
                     constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -187,7 +186,7 @@ class PageSqleditorTabView extends StatelessWidget {
 
   Future<bool> _confirmWrite(BuildContext context, String sql, String source, String parameters) async {
     if (!context.mounted) return false;
-    return await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+    return await showDialog<bool>(context: context, builder: (context) => AppDialog(
       title: Text('Confirm database change'.tr, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
       content: SizedBox(width: 480, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -201,20 +200,20 @@ class PageSqleditorTabView extends StatelessWidget {
         ],
       ))),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text('Apply changes'.tr)),
+        AppButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
+        AppButton(variant: AppButtonVariant.filled, onPressed: () => Navigator.pop(context, true), child: Text('Apply changes'.tr)),
       ],
     )) ?? false;
   }
 
-  Future<void> _showParameters(BuildContext context) => showDialog<void>(context: context, builder: (context) => AlertDialog(
+  Future<void> _showParameters(BuildContext context) => showDialog<void>(context: context, builder: (context) => AppDialog(
     title: Text('Query parameters'.tr, style: TextStyle(fontSize: 14)),
-    content: SizedBox(width: 400, child: TextField(
+    content: SizedBox(width: 400, child: AppTextField(
       controller: controller.parameters, minLines: 3, maxLines: 6,
       style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
       decoration: InputDecoration(border: OutlineInputBorder(), helperText: 'Named: {"value": "example"} · Positional: [1, "text"]'.tr, helperMaxLines: 2),
     )),
-    actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('Done'.tr))],
+    actions: [AppButton(onPressed: () => Navigator.pop(context), child: Text('Done'.tr))],
   ));
 
   Widget _results() => Obx(() {
@@ -236,7 +235,7 @@ class PageSqleditorTabView extends StatelessWidget {
           Expanded(child: Text(result == null ? ''
               : '@{resultSource} · @{changed}@{length} rows · @{elapsed_ms} ms@{truncated}'.trNamed({'resultSource': '${controller.resultSource.value}', 'changed': '${result['write'] == true ? '${result['affected_rows']} changed · ' : ''}', 'length': '${rows.length}', 'elapsed_ms': '${result['elapsed_ms']}', 'truncated': '${result['truncated'] == true ? ' · truncated' : ''}'}),
             maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: AppColor.muted))),
-          IconButton(
+          AppIconButton(
             tooltip: controller.resultsExpanded.value ? 'Restore query editor'.tr : 'Expand results'.tr,
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
@@ -290,7 +289,7 @@ class PageSqleditorTabView extends StatelessWidget {
   Widget _resultCell(BuildContext context, String column, dynamic value) {
     final text = value == null ? 'NULL' : '$value';
     if (['dvd_id', 'video_code'].contains(column.trim().toLowerCase()) && value is String && value.trim().isNotEmpty) {
-      return TextButton(
+      return AppButton(
         style: TextButton.styleFrom(alignment: Alignment.centerLeft, padding: EdgeInsets.zero,
           minimumSize: const Size(0, 28), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
         onPressed: () async {
@@ -332,8 +331,7 @@ class PageSqleditorTabView extends StatelessWidget {
     final currentSql = loadedSql ?? (selection.isValid && !selection.isCollapsed ? selection.textInside(controller.input.text) : controller.input.text);
     var name = '';
     final sql = await showDialog<String>(context: context, builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: AppColor.border)),
+      builder: (context, setState) => AppDialog(
         insetPadding: const EdgeInsets.all(16),
         titlePadding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
         contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -343,6 +341,7 @@ class PageSqleditorTabView extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(child: Text('SQL snippets'.tr, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
           PopupMenuButton<String>(
+            popUpAnimationStyle: AnimationStyle.noAnimation,
             tooltip: 'Snippet source'.tr, enabled: !busy && !controller.running.value && !controller.generating.value,
             onSelected: (value) { if (value != source) { nextSource = value; Navigator.pop(context); } },
             itemBuilder: (_) => [for (final item in controller.sources.keys)
@@ -368,8 +367,7 @@ class PageSqleditorTabView extends StatelessWidget {
                 Row(children: [
                   Expanded(child: Text('Editing: @{loadedName}'.trNamed({'loadedName': '$loadedName'}), maxLines: 1, overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
-                  TextButton.icon(icon: const Icon(Icons.save_outlined, size: 14),
-                    label: Text('Update snippet'.tr, style: TextStyle(fontSize: 11)),
+                  AppButton(icon: const Icon(Icons.save_outlined, size: 14),
                     onPressed: busy || loadedSql == null || loadedSql.trim().isEmpty || loadedSql.trim() == controller.snippetsFor(source)[loadedName] ? null : () async {
                       setState(() { busy = true; error = ''; });
                       try {
@@ -380,24 +378,23 @@ class PageSqleditorTabView extends StatelessWidget {
                       } finally {
                         if (context.mounted) setState(() => busy = false);
                       }
-                    }),
+                    }, child: Text('Update snippet'.tr, style: TextStyle(fontSize: 11))),
                 ]),
               Row(children: [
                 Expanded(child: Text('@{length} saved queries'.trNamed({'length': '${controller.snippetsFor(source).length}'}), style: TextStyle(fontSize: 11, color: AppColor.muted))),
-                TextButton.icon(
+                AppButton(
                   style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
                   icon: Icon(adding ? Icons.close : Icons.add, size: 14),
-                  label: Text(adding ? 'Cancel save'.tr : loadedName != null ? 'Save as new'.tr : 'Save current query'.tr, style: const TextStyle(fontSize: 11)),
-                  onPressed: busy || currentSql.trim().isEmpty ? null : () => setState(() { adding = !adding; error = ''; })),
+                  onPressed: busy || currentSql.trim().isEmpty ? null : () => setState(() { adding = !adding; error = ''; }), child: Text(adding ? 'Cancel save'.tr : loadedName != null ? 'Save as new'.tr : 'Save current query'.tr, style: const TextStyle(fontSize: 11))),
               ]),
               if (adding) ...[
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Expanded(child: TextFormField(initialValue: name, autofocus: true, style: const TextStyle(fontSize: 12), enabled: !busy,
+                  Expanded(child: AppTextFormField(initialValue: name, autofocus: true, style: const TextStyle(fontSize: 12), enabled: !busy,
                     decoration: InputDecoration(hintText: 'Snippet name'.tr, hintStyle: TextStyle(fontSize: 12), isDense: true,
                       contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 9), border: OutlineInputBorder()),
                     onChanged: (value) => name = value)),
                   const SizedBox(width: 8),
-                  FilledButton(
+                  AppButton(variant: AppButtonVariant.filled,
                     style: FilledButton.styleFrom(minimumSize: const Size(0, 32), visualDensity: VisualDensity.compact,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))),
                     onPressed: busy ? null : () async {
@@ -424,7 +421,7 @@ class PageSqleditorTabView extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text('No saved queries in @{source}'.trNamed({'source': '$source'}), style: const TextStyle(fontSize: 12)),
                   for (final item in controller.sources.keys.where((item) => item != source && controller.snippetsFor(item).isNotEmpty))
-                    TextButton(onPressed: busy || controller.running.value || controller.generating.value ? null : () { nextSource = item; Navigator.pop(context); },
+                    AppButton(onPressed: busy || controller.running.value || controller.generating.value ? null : () { nextSource = item; Navigator.pop(context); },
                       child: Text('View @{length} saved in @{item}'.trNamed({'length': '${controller.snippetsFor(item).length}', 'item': '$item'}), style: const TextStyle(fontSize: 11))),
                   const SizedBox(height: 4),
                   Text(currentSql.trim().isEmpty ? 'Write a query in the editor to save it here.'.tr : 'Save your current query to reuse it later.'.tr,
@@ -450,9 +447,9 @@ class PageSqleditorTabView extends StatelessWidget {
                   decoration: BoxDecoration(color: AppColor.container, borderRadius: BorderRadius.circular(6)),
                   child: SingleChildScrollView(child: SelectableText(controller.snippetsFor(source)[selected] ?? '',
                     style: const TextStyle(fontFamily: 'monospace', fontSize: 11, height: 1.5)))),
-                Align(alignment: Alignment.centerRight, child: TextButton.icon(
+                Align(alignment: Alignment.centerRight, child: AppButton(
                   style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: AppColor.muted),
-                  icon: const Icon(Icons.delete_outline, size: 14), label: Text('Delete snippet'.tr, style: TextStyle(fontSize: 12)),
+                  icon: const Icon(Icons.delete_outline, size: 14),
                   onPressed: busy ? null : () async {
                     setState(() { busy = true; error = ''; });
                     try {
@@ -463,7 +460,7 @@ class PageSqleditorTabView extends StatelessWidget {
                     } finally {
                       if (context.mounted) setState(() => busy = false);
                     }
-                  })),
+                  }, child: Text('Delete snippet'.tr, style: TextStyle(fontSize: 12)))),
               ],
               if (error.isNotEmpty) Text(error, style: TextStyle(fontSize: 11, color: Get.theme.colorScheme.error)),
               if (selected != null) Text('Adds to editor · Does not run'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted)),
@@ -472,11 +469,9 @@ class PageSqleditorTabView extends StatelessWidget {
                 SizedBox(width: 110, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('Operation'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted)),
                   const SizedBox(height: 5),
-                  DropdownButtonFormField<String>(
+                  AppDropdownFormField<String>(
                     key: const ValueKey('snippet-operation'), initialValue: action, isExpanded: true, iconSize: 16,
-                    style: TextStyle(fontSize: 11, color: AppColor.text),
-                    decoration: InputDecoration(isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6))),
+                    style: TextStyle(color: AppColor.text),
                     items: PageSqleditorTab.snippetActions.where((item) => item != 'DELETE')
                         .map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
                     onChanged: (value) { if (value != null) setState(() => action = value); }),
@@ -485,11 +480,9 @@ class PageSqleditorTabView extends StatelessWidget {
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('Table'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted)),
                   const SizedBox(height: 5),
-                  DropdownButtonFormField<String>(
+                  AppDropdownFormField<String>(
                     initialValue: table, isExpanded: true, iconSize: 16, menuMaxHeight: 260,
-                    style: TextStyle(fontSize: 12, color: AppColor.text),
-                    decoration: InputDecoration(isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6))),
+                    style: TextStyle(color: AppColor.text),
                     items: (tables.isEmpty ? ['table_name'] : tables).map((name) => DropdownMenuItem(value: name,
                       child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis))).toList(),
                     onChanged: (value) { if (value != null) setState(() => table = value); }),
@@ -514,8 +507,8 @@ class PageSqleditorTabView extends StatelessWidget {
           ],
         ))),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr, style: TextStyle(fontSize: 12))),
-          FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(0, 30), visualDensity: VisualDensity.compact,
+          AppButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr, style: TextStyle(fontSize: 12))),
+          AppButton(variant: AppButtonVariant.filled, style: FilledButton.styleFrom(minimumSize: const Size(0, 30), visualDensity: VisualDensity.compact,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))), onPressed: busy || (saved && selected == null) ? null : () => Navigator.pop(context, saved ? controller.snippetsFor(source)[selected] : controller.buildSnippet(action, table)),
             child: Text(saved ? 'Load snippet'.tr : 'Add to editor'.tr, style: const TextStyle(fontSize: 12))),
         ],
@@ -530,7 +523,7 @@ class PageSqleditorTabView extends StatelessWidget {
   }
 
   Future<void> _showAi(BuildContext context) {
-    return showDialog<void>(context: context, builder: (context) => AlertDialog(
+    return showDialog<void>(context: context, builder: (context) => AppDialog(
       title: Text('Generate SQL with AI'.tr, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
       content: SizedBox(width: 480, child: SingleChildScrollView(child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -542,7 +535,7 @@ class PageSqleditorTabView extends StatelessWidget {
               style: TextStyle(fontSize: 11, color: AppColor.muted)),
           )),
           const SizedBox(height: 12),
-          TextField(
+          AppTextField(
             controller: controller.aiPrompt,
             onChanged: (_) { controller.stopGeneration(); controller.aiSql.value = ''; controller.aiError.value = ''; },
             minLines: 3,
@@ -573,12 +566,12 @@ class PageSqleditorTabView extends StatelessWidget {
         ],
       ))),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: Text('Close'.tr, style: TextStyle(fontSize: 12))),
-        Obx(() => TextButton(onPressed: controller.generating.value || controller.aiSql.value.isEmpty ? null : () {
+        AppButton(onPressed: () => Navigator.pop(context), child: Text('Close'.tr, style: TextStyle(fontSize: 12))),
+        Obx(() => AppButton(onPressed: controller.generating.value || controller.aiSql.value.isEmpty ? null : () {
           Navigator.pop(context);
           controller.insertGeneratedSql();
         }, child: Text('Insert SQL'.tr, style: TextStyle(fontSize: 12)))),
-        Obx(() => FilledButton(onPressed: controller.generating.value ? controller.stopGeneration : controller.generateSql,
+        Obx(() => AppButton(variant: AppButtonVariant.filled, onPressed: controller.generating.value ? controller.stopGeneration : controller.generateSql,
           child: Text(controller.generating.value ? 'Stop'.tr : controller.aiError.value.isEmpty ? 'Generate'.tr : 'Retry'.tr, style: const TextStyle(fontSize: 12)))),
       ],
     )).whenComplete(controller.stopGeneration);
@@ -646,7 +639,7 @@ class _SqlQueryInputState extends State<_SqlQueryInput> {
     return Stack(key: _stackKey, children: [
       Positioned.fill(child: Focus(
         onKeyEvent: controller.onKeyEvent,
-        child: TextField(
+        child: AppTextField(
           controller: controller.input,
           focusNode: controller.focusNode,
           scrollController: _scroll,

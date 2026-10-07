@@ -7,6 +7,8 @@ import '../../../core/app_color.dart';
 import '../../../core/app_translations.dart';
 import '../../../data/database/db_gamification.dart';
 import '../../../utils/helper_badge.dart';
+import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_surfaces.dart';
 import 'page_profile_controller.dart';
 
 class PageProfileView extends GetView<PageProfileController> {
@@ -21,7 +23,7 @@ class PageProfileView extends GetView<PageProfileController> {
         return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text(controller.error.value),
           const SizedBox(height: 12),
-          CupertinoButton(onPressed: controller.onRefresh, child: Text('Retry'.tr, style: const TextStyle(fontSize: 12))),
+          AppButton(onPressed: controller.onRefresh, child: Text('Retry'.tr, style: const TextStyle(fontSize: 12))),
         ]));
       }
       final home = controller.home;
@@ -61,7 +63,7 @@ class PageProfileView extends GetView<PageProfileController> {
                     Padding(padding: const EdgeInsets.only(top: 12), child: _editButton(context)),
                   if (controller.notice.value.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    Text(controller.notice.value, style: TextStyle(fontSize: 12, color: (Get.isDarkMode ? Colors.greenAccent : Colors.green.shade700))),
+                    Text(controller.notice.value, style: TextStyle(fontSize: 12, color: AppColor.success)),
                   ],
                 ])),
                 const SizedBox(height: 24),
@@ -94,15 +96,10 @@ class PageProfileView extends GetView<PageProfileController> {
     });
   }
 
-  Widget _editButton(BuildContext context) => CupertinoButton(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    minimumSize: const Size(0, 30),
+  Widget _editButton(BuildContext context) => AppButton(
+    label: 'Edit profile'.tr,
+    icon: const Icon(CupertinoIcons.pencil),
     onPressed: () => _editName(context),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(CupertinoIcons.pencil, size: 13, color: AppColor.muted),
-      const SizedBox(width: 6),
-      Text('Edit profile'.tr, style: TextStyle(fontSize: 12, color: AppColor.text)),
-    ]),
   );
 
   Future<void> _editName(BuildContext context) async {
@@ -113,25 +110,23 @@ class PageProfileView extends GetView<PageProfileController> {
     }
     await showDialog<void>(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (dialogContext) => Obx(() => PopScope(
         canPop: !controller.isSaving.value,
-        child: CupertinoAlertDialog(
+        child: AppConfirmDialog(
           title: Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: Text('Edit profile'.tr, textAlign: TextAlign.left, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
           ),
           content: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Semantics(label: 'Display name'.tr, child: CupertinoTextField(
+            Semantics(label: 'Display name'.tr, child: AppTextField(
               controller: controller.tecName,
               autofocus: true,
               enabled: !controller.isSaving.value,
-              style: TextStyle(fontSize: 12, color: AppColor.text),
+              style: TextStyle(color: AppColor.text),
               placeholder: 'Display name'.tr,
               placeholderStyle: TextStyle(fontSize: 12, color: AppColor.muted),
               prefix: Padding(padding: const EdgeInsets.only(left: 8), child: Icon(CupertinoIcons.person, size: 14, color: AppColor.muted)),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              decoration: BoxDecoration(color: AppColor.body, border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(5)),
               onSubmitted: (_) => save(dialogContext),
             )),
             if (controller.nameError.value.isNotEmpty) Padding(
@@ -140,11 +135,11 @@ class PageProfileView extends GetView<PageProfileController> {
             ),
           ]),
           actions: [
-            CupertinoDialogAction(
+            AppDialogAction(
               onPressed: controller.isSaving.value ? null : () => Navigator.of(dialogContext).pop(),
               child: Text('Cancel'.tr, style: const TextStyle(fontSize: 13)),
             ),
-            CupertinoDialogAction(
+            AppDialogAction(
               onPressed: controller.isSaving.value ? null : () => save(dialogContext),
               child: Text(controller.isSaving.value ? 'Saving...'.tr : 'Save changes'.tr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
             ),
@@ -155,20 +150,11 @@ class PageProfileView extends GetView<PageProfileController> {
     if (!controller.isClosed && controller.isEditing.value) controller.cancelEdit();
   }
 
-  Widget _surface(Widget child) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(color: AppColor.text.withValues(alpha: .025), borderRadius: BorderRadius.circular(6)),
-    child: child,
-  );
+  Widget _surface(Widget child) => SizedBox(width: double.infinity, child: AppPanel(child: child));
 
   Widget _heading(String title, {String? detail}) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
-    child: Wrap(spacing: 12, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-      Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-      if (detail != null) Text(detail, style: TextStyle(fontSize: 11, color: AppColor.muted)),
-      SizedBox(width: double.infinity, child: Divider(height: 1, thickness: .5, color: AppColor.border)),
-    ]),
+    child: AppSectionHeading(title: title, detail: detail),
   );
 
   Widget _stat(String label, String value, IconData icon, double width) => SizedBox(
@@ -199,7 +185,7 @@ class PageProfileView extends GetView<PageProfileController> {
   );
 
   Widget _achievement(AchievementProgress item) {
-    final color = item.isUnlocked ? (Get.isDarkMode ? Colors.greenAccent : Colors.green.shade700) : AppColor.muted;
+    final color = item.isUnlocked ? AppColor.success : AppColor.muted;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppColor.border, width: .5))),

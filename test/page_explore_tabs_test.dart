@@ -12,6 +12,7 @@ import 'package:javit/app/data/database/db_r18.dart';
 import 'package:javit/app/data/models/videos_entity.dart';
 import 'package:javit/app/modules/home/page_explore/page_explore_controller.dart';
 import 'package:javit/app/modules/home/page_explore/page_explore_view.dart';
+import 'package:javit/app/modules/widgets/widget_controls.dart';
 
 class _Preferences implements GetSecureStorage {
   final values = <String, dynamic>{};
@@ -129,7 +130,7 @@ void main() {
       await tester.pumpAndSettle();
       for (final option in const {'All': ActressMode.all, 'Multi Actress': ActressMode.multi, 'Single Actress': ActressMode.single}.entries) {
         tab.currentPage.value = 3;
-        await tester.tap(find.byType(DropdownButton<ActressMode>));
+        await tester.tap(find.byType(AppDropdown<ActressMode>));
         await tester.pumpAndSettle();
         await tester.tap(find.text(option.key).last);
         await tester.pumpAndSettle();

@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:glassmorphism_ui/glassmorphism_ui.dart';
 
 import '../../core/app_color.dart';
+import 'widget_controls.dart';
 
 class MyLayout extends StatelessWidget {
   const MyLayout({
@@ -110,7 +111,7 @@ class MyLayout extends StatelessWidget {
       centerTitle: false,
       leading: isShowAppBarLeading == true
           ? appBarLeading?.pOnly(right: 8) ??
-              IconButton(
+              AppIconButton(
                 icon: Icon(CupertinoIcons.arrow_left, size: 22),
                 onPressed: Get.back,
               ).pOnly(right: 8)

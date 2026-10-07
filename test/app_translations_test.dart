@@ -13,6 +13,7 @@ import 'package:javit/app/core/translations/en.dart';
 import 'package:javit/app/core/translations/id.dart';
 import 'package:javit/app/modules/home/page_settings/page_settings_controller.dart';
 import 'package:javit/app/modules/home/page_settings/page_settings_view.dart';
+import 'package:javit/app/modules/widgets/widget_controls.dart';
 
 class _Preferences implements GetSecureStorage {
   final values = <String, dynamic>{};
@@ -128,10 +129,10 @@ void main() {
       }))),
     ));
     expect(find.text('Language'), findsOneWidget);
-    expect(MaterialLocalizations.of(tester.element(find.byType(DropdownButton<String>))).okButtonLabel, 'OK');
-    await tester.tap(find.byType(DropdownButton<String>));
+    expect(MaterialLocalizations.of(tester.element(find.byType(AppDropdown<String>))).okButtonLabel, 'OK');
+    await tester.tap(find.byType(AppDropdown<String>));
     await tester.pumpAndSettle();
-    final options = tester.widget<DropdownButton<String>>(find.byType(DropdownButton<String>)).items!;
+    final options = tester.widget<AppDropdown<String>>(find.byType(AppDropdown<String>)).items;
     expect(options.map((item) => item.value), ['en', 'id']);
     await tester.tap(find.text('English').last);
     await tester.pumpAndSettle();
@@ -141,7 +142,7 @@ void main() {
     final recreated = _Settings();
     expect(recreated.appLanguage.value, 'en');
     recreated.onClose();
-    await tester.tap(find.byType(DropdownButton<String>));
+    await tester.tap(find.byType(AppDropdown<String>));
     await tester.pumpAndSettle();
     await tester.runAsync(() async { await tester.tap(find.text('Bahasa Indonesia').last); });
     await tester.pumpAndSettle();
@@ -149,11 +150,11 @@ void main() {
     expect(pref.read<String>('_kAppLanguage'), 'id');
     expect(controller.appLanguage.value, 'id');
     expect(Get.locale, const Locale('id'));
-    expect(MaterialLocalizations.of(tester.element(find.byType(DropdownButton<String>))).cancelButtonLabel, 'Batal');
+    expect(MaterialLocalizations.of(tester.element(find.byType(AppDropdown<String>))).cancelButtonLabel, 'Batal');
     final restored = _Settings();
     expect(restored.appLanguage.value, 'id');
     restored.onClose();
-    await tester.tap(find.byType(DropdownButton<String>));
+    await tester.tap(find.byType(AppDropdown<String>));
     await tester.pumpAndSettle();
     await tester.runAsync(() async { await tester.tap(find.text('English').last); });
     await tester.pumpAndSettle();

@@ -14,6 +14,7 @@ import '../../core/app_color.dart';
 import '../../core/app_pref.dart';
 import '../../core/app_translations.dart';
 import '../../utils/helper.dart';
+import '../widgets/widget_controls.dart';
 import 'player_controller.dart';
 import 'player_seek_preview.dart';
 
@@ -162,7 +163,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     final shortcuts = <LogicalKeySet, Intent>{
       // Playback controls
       LogicalKeySet(LogicalKeyboardKey.space): PlayPauseIntent(),
-      
+
       // Seeking
       LogicalKeySet(LogicalKeyboardKey.arrowRight): SeekForward5sIntent(),
       LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowRight): SeekForward30sIntent(),
@@ -170,22 +171,22 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       LogicalKeySet(LogicalKeyboardKey.arrowLeft): SeekBackward5sIntent(),
       LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowLeft): SeekBackward30sIntent(),
       LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.arrowLeft): SeekBackward60sIntent(),
-      
+
       // Volume (ArrowUp conflicts with screenshot, so only ArrowDown)
       LogicalKeySet(LogicalKeyboardKey.arrowUp): VolumeUpIntent(),
       LogicalKeySet(LogicalKeyboardKey.arrowDown): VolumeDownIntent(),
-      
+
       // Speed
       LogicalKeySet(LogicalKeyboardKey.bracketRight): SpeedUpIntent(),
       LogicalKeySet(LogicalKeyboardKey.bracketLeft): SpeedDownIntent(),
-      
+
       // Other
       LogicalKeySet(LogicalKeyboardKey.keyM): MuteIntent(),
       LogicalKeySet(LogicalKeyboardKey.equal): EqualTapIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyA): ToggleVideoFitIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyP): MiniPlayerIntent(),
       LogicalKeySet(LogicalKeyboardKey.comma): ToggleVideoAdjustmentsIntent(),
-      
+
       // Navigation shortcuts from player_view
       LogicalKeySet(LogicalKeyboardKey.keyL): OpenListIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyQ): BackIntent(),
@@ -249,14 +250,14 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                       top: 78,
                       left: 12,
                       child: Obx(() => widget.controller.videoZoom.value > 1
-                          ? TextButton(
+                          ? AppButton(
                               style: TextButton.styleFrom(foregroundColor: Colors.white, backgroundColor: Colors.black54),
                               onPressed: () => widget.controller.setVideoZoom(1),
                               child: Text('Zoom @{round}% · Reset'.trNamed({'round': '${(widget.controller.videoZoom.value * 100).round()}'})),
                             )
                           : SizedBox.shrink()),
                     ),
-                    
+
                     // ** Top Bar
                     _buildTopBar(),
 
@@ -329,7 +330,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
             [
 
               // if ((video.videoCode ?? '').isNotEmpty) ...[
-                
+
               // ],
 
               Container(
@@ -394,6 +395,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               8.widthBox,
 
               PopupMenuButton<String>(
+                popUpAnimationStyle: AnimationStyle.noAnimation,
                 tooltip: 'Subtitles'.tr,
                 child: Container(
                   decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
@@ -485,7 +487,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                         style: TextStyle(fontSize: 12, color: Colors.white),
                       ).tooltip(video.videoPath ?? '').opacity(value: .90),
                     ),
-                    
+
                   ],
                 ),
                 SizedBox(height: 12),
@@ -729,7 +731,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     String? tooltip,
     double size = 28,
   }) {
-    return IconButton(
+    return AppIconButton(
       iconSize: size,
       splashRadius: size,
       tooltip: tooltip,
@@ -747,7 +749,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     required bool enabled,
     String? tooltip,
   }) {
-    return IconButton(
+    return AppIconButton(
       iconSize: 24,
       splashRadius: 26,
       tooltip: tooltip,
@@ -789,7 +791,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
+          AppIconButton(
             tooltip: 'Mute (M)'.tr,
             icon: Icon(icon, color: Colors.white),
             splashRadius: 24,
@@ -862,6 +864,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     const speeds = <double>[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
     return PopupMenuButton<double>(
+      popUpAnimationStyle: AnimationStyle.noAnimation,
       tooltip: 'Playback speed'.tr,
       offset: Offset(0, -8),
       initialValue: currentSpeed,
@@ -969,7 +972,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   }
 
   Widget _buildSettingsButton() {
-    return IconButton(
+    return AppIconButton(
       tooltip: 'Video Adjustments (,)'.tr,
       splashRadius: 24,
       icon: Icon(Icons.settings, color: Colors.white),
@@ -988,20 +991,20 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
             Row(
               children: [
                 Text('Adjustments'.tr, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)).expand(),
-                
-                IconButton(
+
+                AppIconButton(
                   icon: const Icon(Icons.refresh, color: Colors.white, size: 18),
                   tooltip: 'Reset'.tr,
                   onPressed: _resetVideoAdjustments,
                 ),
 
-                IconButton(
+                AppIconButton(
                   icon: const Icon(Icons.bookmark_add, color: Colors.white, size: 18),
                   tooltip: 'Save current as custom'.tr,
                   onPressed: _saveCurrentCustomPreset,
                 ),
 
-                IconButton(
+                AppIconButton(
                   icon: const Icon(Icons.close, color: Colors.white, size: 18),
                   tooltip: 'Close'.tr,
                   onPressed: _toggleVideoAdjustments,
@@ -1091,12 +1094,12 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
             Row(
               children: [
                 Text('Rotation'.tr, style: TextStyle(color: Colors.white, fontSize: 12)).expand(),
-                IconButton(
+                AppIconButton(
                   tooltip: 'Rotate left 90°'.tr,
                   icon: const Icon(Icons.rotate_left, color: Colors.white, size: 18),
                   onPressed: () => _rotateVideo(clockwise: false),
                 ),
-                IconButton(
+                AppIconButton(
                   tooltip: 'Rotate right 90°'.tr,
                   icon: const Icon(Icons.rotate_right, color: Colors.white, size: 18),
                   onPressed: () => _rotateVideo(clockwise: true),
@@ -1366,7 +1369,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
 
   Widget _buildFullscreenButton(bool isFullscreen) {
-    return IconButton(
+    return AppIconButton(
       splashRadius: 24,
       tooltip: isFullscreen ? 'Exit fullscreen'.tr : 'Fullscreen'.tr,
       icon: Icon(

@@ -3,10 +3,10 @@ import 'dart:io';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import 'package:get/get.dart';
 
 import '../../core/app_color.dart';
+import '../widgets/widget_controls.dart';
 import '../widgets/widget_thumbnail.dart';
 import 'img_viewer_controller.dart';
 
@@ -43,7 +43,7 @@ class ImgViewerView extends GetView<ImgViewerController> {
           alignment: Alignment.centerLeft,
           child: Padding(
             padding: EdgeInsets.only(left: macBackInset),
-            child: const BackButton(),
+            child: AppIconButton(tooltip: 'Back'.tr, icon: const BackButtonIcon(), onPressed: () => Navigator.of(context).maybePop()),
           ),
         ),
         bottom: PreferredSize(
@@ -197,7 +197,7 @@ class ImgViewerView extends GetView<ImgViewerController> {
     required VoidCallback onPressed,
     required IconData icon,
   }) {
-    return IconButton(
+    return AppIconButton(
       tooltip: tooltip,
       onPressed: onPressed,
       icon: Icon(icon, size: 18),
@@ -219,7 +219,7 @@ class ImgViewerView extends GetView<ImgViewerController> {
 
     return Align(
       alignment: alignment,
-      child: IconButton(
+      child: AppIconButton(
         onPressed: onPressed,
         style: IconButton.styleFrom(backgroundColor: AppColor.black120),
         icon: Icon(icon, size: 38),
@@ -252,7 +252,7 @@ class ImgViewerView extends GetView<ImgViewerController> {
                 margin: const EdgeInsets.only(right: 6),
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: selected ? Colors.green : Colors.transparent,
+                    color: selected ? AppColor.success : Colors.transparent,
                     width: 2,
                   ),
                 ),

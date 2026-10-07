@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../core/app_color.dart';
+import 'widget_controls.dart';
 import 'widget_search_suggestions_overlay.dart';
+import 'widget_surfaces.dart';
 
 class SearchHistoryDropdown extends StatelessWidget {
   const SearchHistoryDropdown({super.key, required this.suggestions, required this.selectedIndex,
@@ -49,7 +51,7 @@ class SearchHistoryDropdown extends StatelessWidget {
                     const Icon(Icons.history, size: 12),
                     const SizedBox(width: 6),
                     Expanded(child: Text(query, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11))),
-                    IconButton(
+                    AppIconButton(
                       tooltip: 'Remove from history'.tr,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints.tightFor(width: 24, height: 24),
@@ -65,7 +67,7 @@ class SearchHistoryDropdown extends StatelessWidget {
             height: 28,
             decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColor.border, width: .5))),
             alignment: Alignment.centerRight,
-            child: TextButton(
+            child: AppButton(
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 minimumSize: const Size(0, 28),
@@ -74,11 +76,11 @@ class SearchHistoryDropdown extends StatelessWidget {
               onPressed: () async {
                 final confirmed = await showCupertinoDialog<bool>(
                   context: context,
-                  builder: (context) => CupertinoAlertDialog(
+                  builder: (context) => AppConfirmDialog(
                     title: Text('Are you sure you want to clear all history?'.tr, style: TextStyle(fontSize: 13)),
                     actions: [
-                      CupertinoDialogAction(onPressed: () => Navigator.pop(context, false), child: Text('No'.tr)),
-                      CupertinoDialogAction(isDestructiveAction: true, onPressed: () => Navigator.pop(context, true), child: Text('Yes'.tr)),
+                      AppDialogAction(onPressed: () => Navigator.pop(context, false), child: Text('No'.tr)),
+                      AppDialogAction(isDestructiveAction: true, onPressed: () => Navigator.pop(context, true), child: Text('Yes'.tr)),
                     ],
                   ),
                 );

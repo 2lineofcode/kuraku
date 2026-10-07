@@ -11,6 +11,8 @@ import '../../../core/app_pref.dart';
 import '../../../core/app_translations.dart';
 import '../../../utils/helper.dart';
 import '../../../utils/r18_updater.dart';
+import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_surfaces.dart';
 import '../home_controller.dart';
 import 'page_settings_controller.dart';
 
@@ -21,8 +23,8 @@ class PageSettingsView extends GetView<PageSettingsController> {
   Widget build(BuildContext context) {
     AppColor.dependOn(context);
     return Obx(
-      () => controller.appLogMode.value == false 
-        ? uiMainContent(context).scrollVertical() 
+      () => controller.appLogMode.value == false
+        ? uiMainContent(context).scrollVertical()
         : uiAppLog(context).scrollVertical(),
     );
   }
@@ -75,7 +77,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                 ))),
                 _settingRow('Daily relapse limit'.tr, _numberField(controller.tecAppMaxColi,
                   onSubmitted: (_) => controller.saveRelapseLimit(),
-                  suffix: IconButton(
+                  suffix: AppIconButton(
                     tooltip: 'Save daily limit (0 blocks playback)'.tr,
                     icon: const Icon(Icons.check_rounded, size: 18),
                     onPressed: controller.saveRelapseLimit,
@@ -151,11 +153,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
     );
   }
 
-  Widget _sectionBackground(Widget child) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(color: AppColor.text.withValues(alpha: .025), borderRadius: BorderRadius.circular(6)),
-    child: child,
-  );
+  Widget _sectionBackground(Widget child) => AppPanel(child: child);
 
   Widget buildPinSetting() => _section('Security'.tr, [
     _settingRow('PIN lock'.tr, Obx(() => Align(
@@ -168,7 +166,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
     ))),
     Obx(() => controller.appPinEnabled.value ? _settingRow('PIN'.tr, Align(
       alignment: Alignment.centerRight,
-      child: TextButton(onPressed: _editPin, child: Text('Change PIN'.tr)),
+      child: AppButton(onPressed: _editPin, child: Text('Change PIN'.tr)),
     )) : const SizedBox.shrink()),
   ]);
 
@@ -176,7 +174,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
     final saved = await showDialog<bool>(
       context: Get.context!,
       barrierDismissible: false,
-      builder: (context) => Dialog(child: SingleChildScrollView(
+      builder: (context) => AppDialog(child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: SizedBox(width: 320, child: AppPinForm(
           disable: disable,
@@ -187,18 +185,10 @@ class PageSettingsView extends GetView<PageSettingsController> {
     if (saved == true) controller.appPinEnabled.value = AppPref.getAppPinEnabled();
   }
 
-  Widget _section(String title, List<Widget> children, {Widget? action}) => _sectionBackground(Column(
+  Widget _section(String title, List<Widget> children, {Widget? action}) => AppPanel(child: Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 32),
-        child: Row(children: [
-          Flexible(child: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-          const SizedBox(width: 12),
-          Expanded(child: Divider(height: 1, thickness: .5, color: AppColor.border)),
-          if (action != null) ...[const SizedBox(width: 8), action],
-        ]),
-      ),
+      AppSectionHeading(title: title, action: action),
       const SizedBox(height: 8),
       ...children,
     ],
@@ -220,23 +210,13 @@ class PageSettingsView extends GetView<PageSettingsController> {
     }),
   );
 
-  Widget _dropdown<T>({required T value, required List<DropdownMenuItem<T>> items, required ValueChanged<T?> onChanged}) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-    decoration: BoxDecoration(color: AppColor.body, border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(4)),
-    child: DropdownButtonHideUnderline(child: DropdownButton<T>(
-      value: value, items: items, onChanged: onChanged,
-      isExpanded: true, isDense: true, borderRadius: BorderRadius.circular(10),
-      dropdownColor: AppColor.panel,
-      style: Get.textTheme.bodyMedium?.copyWith(fontSize: 12, color: AppColor.text),
-      icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColor.muted),
-    )),
+  Widget _dropdown<T>({required T value, required List<DropdownMenuItem<T>> items, required ValueChanged<T?> onChanged}) => AppDropdown<T>(
+    value: value, items: items, onChanged: onChanged, isExpanded: true,
   );
 
-  Widget _numberField(TextEditingController textController, {Widget? suffix, ValueChanged<String>? onChanged, ValueChanged<String>? onSubmitted}) => CupertinoTextField(
+  Widget _numberField(TextEditingController textController, {Widget? suffix, ValueChanged<String>? onChanged, ValueChanged<String>? onSubmitted}) => AppTextField(
     controller: textController,
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-    style: Get.textTheme.bodyMedium?.copyWith(fontSize: 12, color: AppColor.text),
-    decoration: BoxDecoration(color: AppColor.body, border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(4)),
+    style: TextStyle(color: AppColor.text),
     keyboardType: TextInputType.number,
     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
     suffix: suffix, onChanged: onChanged, onSubmitted: onSubmitted,
@@ -285,7 +265,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
         Text('No storage detected'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted))
       else for (final item in controller.storageList) _storageRow(item),
     ])),
-  ], action: Obx(() => TextButton.icon(
+  ], action: Obx(() => AppButton(
     style: TextButton.styleFrom(
       foregroundColor: AppColor.muted,
       textStyle: Get.textTheme.labelSmall?.copyWith(fontSize: 11),
@@ -294,7 +274,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     ),
     onPressed: controller.isLoadingStorage.value ? null : controller.onRefreshStorage,
-    icon: const Icon(Icons.refresh_rounded, size: 14), label: Text('Refresh'.tr),
+    icon: const Icon(Icons.refresh_rounded, size: 14), child: Text('Refresh'.tr),
   )));
 
   Widget _storageRow(StorageUsage item) {
@@ -327,7 +307,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
     return VStack(
       [
         HStack([
-          IconButton(
+          AppIconButton(
             onPressed: () {
               controller.appLogMode.value = false;
             },
@@ -336,52 +316,28 @@ class PageSettingsView extends GetView<PageSettingsController> {
           'APP LOG'.tr.text.bold.make(),
           Spacer(),
 
-          CupertinoTextField(
+          AppTextField(
             controller: controller.tecAppLogFilter,
-            style: TextStyle(fontSize: 13, color: AppColor.text),
+            style: TextStyle(color: AppColor.text),
             placeholder: 'Filter logs...'.tr,
             placeholderStyle: TextStyle(fontSize: 12, color: Vx.neutral500),
             onChanged: (s) => controller.appLogKeyword.value = s,
           ).w(150).pOnly(right: 12),
 
 
-          GestureDetector(
-            onTapDown: (details) async {
-              final value = await showMenu<String>(
-                context: context,
-                position: RelativeRect.fromLTRB(details.globalPosition.dx, details.globalPosition.dy, details.globalPosition.dx, details.globalPosition.dy),
-                items: [
-                  PopupMenuItem(value: 'ALL', child: Text('ALL'.tr, style: TextStyle(fontSize: 12))),
-                  PopupMenuItem(value: 'DEBUG', child: Text('DEBUG', style: TextStyle(fontSize: 12))),
-                  PopupMenuItem(value: 'INFO', child: Text('INFO', style: TextStyle(fontSize: 12))),
-                  PopupMenuItem(value: 'WARN', child: Text('WARN', style: TextStyle(fontSize: 12))),
-                  PopupMenuItem(value: 'ERROR', child: Text('ERROR', style: TextStyle(fontSize: 12))),
-                ],
-              );
-
-              if (value != null) {
-                controller.appLogLevelSelected.value = value;
-              }
+          Obx(() => AppDropdown<String>(
+            value: controller.appLogLevelSelected.value,
+            prefix: const Icon(CupertinoIcons.list_dash, size: 16),
+            items: [for (final level in ['ALL', 'DEBUG', 'INFO', 'WARN', 'ERROR'])
+              DropdownMenuItem(value: level, child: Text(level.tr)),
+            ],
+            onChanged: (value) {
+              if (value != null) controller.appLogLevelSelected.value = value;
             },
-            child: Container(
-              decoration: ExDecorator.box(borderColor: AppColor.border, fillColor: AppColor.container, borderRadius: 6),
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: HStack(
-                [
-                  Icon(CupertinoIcons.list_dash, size: 16).pOnly(right: 8),
-                  Obx(
-                    () => Text(
-                      controller.appLogLevelSelected.value.isEmpty ? 'Select Level'.tr : controller.appLogLevelSelected.value.tr,
-                      style: TextStyle(fontSize: 12, color: AppColor.text),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ).w(100),
-          
+          )),
+
           8.widthBox,
-          ExButtonText(
+          AppButton(
             label: 'Clear'.tr,
             labelSize: 11,
             height: 28,
@@ -396,10 +352,10 @@ class PageSettingsView extends GetView<PageSettingsController> {
           Color _badgeText(String level) {
             switch (level) {
               case 'DEBUG': return Color(0xFF60A5FA);
-              case 'INFO': return Color(0xFF34D399);
+              case 'INFO': return AppColor.success;
               case 'WARN': return Color(0xFFF59E0B);
               case 'ERROR': return Color(0xFFEF4444);
-              case 'OK': return Color(0xFF10B981);
+              case 'OK': return AppColor.success;
               default: return Color(0xFF9CA3AF);
             }
           }
@@ -509,7 +465,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
         const SizedBox(width: 8),
         Tooltip(
           message: busy ? 'Keep completed work'.tr : ready ? (missing == 0 ? 'All videos are indexed'.tr : 'Index pending videos only'.tr) : 'Download and set up local search'.tr,
-          child: OutlinedButton(
+          child: AppButton(variant: AppButtonVariant.outlined,
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(0, 28), padding: const EdgeInsets.symmetric(horizontal: 10),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -519,6 +475,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
           ),
         ),
         PopupMenuButton<String>(
+          popUpAnimationStyle: AnimationStyle.noAnimation,
           tooltip: 'Visual Search options'.tr,
           enabled: !busy,
           padding: EdgeInsets.zero,

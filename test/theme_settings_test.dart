@@ -7,6 +7,7 @@ import 'package:javit/app/core/app_pref.dart';
 import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/modules/home/page_settings/page_settings_controller.dart';
 import 'package:javit/app/modules/home/page_settings/page_settings_view.dart';
+import 'package:javit/app/modules/widgets/widget_controls.dart';
 
 class _Preferences implements GetSecureStorage {
   final values = <String, dynamic>{};
@@ -64,9 +65,9 @@ void main() {
     ));
     expect(find.text('Theme'), findsOneWidget);
     for (final theme in [AppTheme.system, AppTheme.schedule, AppTheme.dark, AppTheme.light]) {
-      await tester.tap(find.byType(DropdownButton<AppTheme>));
+      await tester.tap(find.byType(AppDropdown<AppTheme>));
       await tester.pumpAndSettle();
-      final options = tester.widget<DropdownButton<AppTheme>>(find.byType(DropdownButton<AppTheme>)).items!;
+      final options = tester.widget<AppDropdown<AppTheme>>(find.byType(AppDropdown<AppTheme>)).items;
       expect(options.map((item) => item.value), AppTheme.values);
       final label = theme.label;
       await tester.tap(find.text(label).last);

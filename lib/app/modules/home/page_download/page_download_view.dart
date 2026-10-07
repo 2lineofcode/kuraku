@@ -9,6 +9,7 @@ import '../../../core/app_color.dart';
 import '../../../core/app_translations.dart';
 import '../../../core/const.dart';
 import '../../../utils/helper.dart';
+import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_media_stack.dart';
 import '../../widgets/widget_search_history.dart';
 import '../../widgets/widget_search_suggestions_overlay.dart';
@@ -45,7 +46,7 @@ class PageDownloadView extends GetView<PageDownloadController> {
       Obx(() => controller.downloadStdout.value.isNotEmpty
           ? HStack([
               '${controller.downloadStdout}'.text.size(11).minFontSize(11).maxLines(1).make().expand(),
-              ExButtonText(label: 'Show download'.tr, labelSize: 12, onPressed: controller.openDialogDownload),
+              AppButton(label: 'Show download'.tr, labelSize: 12, onPressed: controller.openDialogDownload),
             ]).pOnly(top: 12)
           : 0.heightBox),
     ])),
@@ -71,13 +72,13 @@ class PageDownloadSearchView extends StatelessWidget {
                     SingleActivator(LogicalKeyboardKey.arrowUp): () => controller.onCommandArrowUp(),
                     SingleActivator(LogicalKeyboardKey.escape): controller.hideSuggestions,
                   },
-                  child: CupertinoTextField(
+                  child: AppTextField(
                     controller: controller.tecSearch,
                     focusNode: controller.fnSearch,
                     selectAllOnFocus: false,
                     clearButtonMode: OverlayVisibilityMode.editing,
                     placeholder: controller.phSearch.value.tr,
-                    style: TextStyle(color: AppColor.text, fontSize: 14),
+                    style: TextStyle(color: AppColor.text),
                     prefix: Icon(UIconsPro.regularRounded.search, size: 14, color: Vx.neutral500).pOnly(left: 8),
                     suffix: HStack(
                       [
@@ -131,7 +132,7 @@ class PageDownloadSearchView extends StatelessWidget {
           ),
           Obx(
             () => ZStack([
-              IconButton(
+              AppIconButton(
                 icon: Icon(
                   controller.filter.isFiltered.isTrue ? UIconsPro.boldRounded.filter_list : UIconsPro.regularRounded.filter_list,
                   size: controller.filter.isFiltered.isTrue ? 16: 14,
@@ -139,20 +140,20 @@ class PageDownloadSearchView extends StatelessWidget {
                 onPressed: () => controller.openDialogFilter(isAvailable: () => identical(Get.find<PageDownloadController>().activeTab, controller)),
               ).pOnly(left: 8),
 
-              controller.filter.isFiltered.isTrue ? Container(height: 6, width: 6, color: Vx.red500).cornerRadius(90).positioned(right: 8, top: 8) : 0.heightBox, 
+              controller.filter.isFiltered.isTrue ? Container(height: 6, width: 6, color: Vx.red500).cornerRadius(90).positioned(right: 8, top: 8) : 0.heightBox,
             ]),
           ),
-          IconButton(
+          AppIconButton(
             tooltip: 'New download'.tr,
             icon: Icon(UIconsPro.regularRounded.plus, size: 14),
             onPressed: () => Get.find<PageDownloadController>().openDialogDownload(),
           ),
-          IconButton(
+          AppIconButton(
             tooltip: 'Download history'.tr,
             icon: Icon(UIconsPro.regularRounded.arrow_small_down, size: 18),
             onPressed: () => Get.find<PageDownloadController>().openDownloadLog(),
           ).pOnly(left: 0),
-          
+
         ], crossAlignment: CrossAxisAlignment.start).pOnly(bottom: 12),
 
         Obx(() => controller.isLoading.value
@@ -164,7 +165,7 @@ class PageDownloadSearchView extends StatelessWidget {
 
         // header
         HStack([
-          Obx(() => TextButton(
+          Obx(() => AppButton(
             style: TextButton.styleFrom(
               foregroundColor: AppColor.text,
               backgroundColor: controller.havingOnly.isFalse ? AppColor.selected : Colors.transparent,
@@ -176,9 +177,9 @@ class PageDownloadSearchView extends StatelessWidget {
             child: Text('Result : @{totalResults}'.trNamed({'totalResults': '${controller.totalResults}'})),
           ).pOnly(bottom: 12).hide(isVisible: controller.allVideos.isNotEmpty)),
           12.widthBox,
-          Obx(() => TextButton(
+          Obx(() => AppButton(
             style: TextButton.styleFrom(
-              foregroundColor: Vx.green400,
+              foregroundColor: AppColor.success,
               backgroundColor: controller.havingOnly.isTrue ? AppColor.selected : Colors.transparent,
               minimumSize: Size(0, 32),
               padding: EdgeInsets.symmetric(horizontal: 8),

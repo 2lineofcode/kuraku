@@ -42,7 +42,7 @@ class PageHomeView extends GetView<PageHomeController> {
           final item = controller.homeSectionOrder.removeAt(oldIndex);
           controller.homeSectionOrder.insert(newIndex, item);
           AppPref.setHomeOrderList(controller.homeSectionOrder.value);
-          
+
         },
         itemCount: controller.homeSectionOrder.length,
         itemBuilder: (context, index) {
@@ -141,7 +141,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 key: ValueKey(AppPref.homeSecNeverWatch),
                 () => _buildVideoSection(
                   title: 'Never Watch'.tr,
-                  icon: Icon(UIconsPro.solidRounded.popcorn, size: 12, color: Vx.green400),
+                  icon: Icon(UIconsPro.solidRounded.popcorn, size: 12, color: AppColor.success),
                   list: controller.listNeverWatch,
                   prefKey: AppPref.homeSecNeverWatch,
                   refreshAction: controller.getListNeverWatch,
@@ -212,13 +212,13 @@ class PageHomeView extends GetView<PageHomeController> {
           ),
           Spacer(),
 
-          IconButton(
+          AppIconButton(
             icon: Icon(UIconsPro.regularRounded.rotate_right, size: 12),
             onPressed: refreshAction,
           ),
 
           if (showDirectToExplore == true) ...[
-            IconButton(
+            AppIconButton(
               icon: Icon(UIconsPro.regularRounded.book_alt, size: 12),
               onPressed: () async {
                 await Get.find<HomeController>().onMenuChange(kMenuExplore);
@@ -231,7 +231,7 @@ class PageHomeView extends GetView<PageHomeController> {
           GetBuilder(
             init: controller,
             builder: (controller) {
-              return IconButton(
+              return AppIconButton(
                 icon: Icon(
                   AppPref.getBool(prefKey) ? UIconsPro.regularRounded.eye_crossed : UIconsPro.regularRounded.eye,
                   size: 12,

@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
 
+import '../modules/widgets/widget_controls.dart';
+import '../modules/widgets/widget_style.dart';
 import 'app_pref.dart';
 import 'app_translations.dart';
 
@@ -36,8 +38,8 @@ class _AppPinGateState extends State<AppPinGate> {
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: AppTranslations.languages.keys.map((code) => Locale(code)).toList(),
       themeMode: AppPref.getAppTheme().resolve(),
-      theme: ThemeData.light(useMaterial3: true),
-      darkTheme: ThemeData.dark(useMaterial3: true),
+      theme: AppStyle.theme(Brightness.light),
+      darkTheme: AppStyle.theme(Brightness.dark),
       home: Scaffold(body: Center(child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: SizedBox(width: 320, child: AppPinForm(
@@ -109,7 +111,7 @@ class _AppPinFormState extends State<AppPinForm> {
 
   Widget _field(String label, TextEditingController controller, {bool autofocus = false, bool last = false}) => Padding(
     padding: const EdgeInsets.only(top: 12),
-    child: TextField(
+    child: AppTextField(
       controller: controller,
       autofocus: autofocus,
       enabled: !_busy,
@@ -144,11 +146,11 @@ class _AppPinFormState extends State<AppPinForm> {
         child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
       ),
       const SizedBox(height: 16),
-      FilledButton(
+      AppButton(variant: AppButtonVariant.filled,
         onPressed: _busy ? null : _submit,
         child: Text(widget.unlock ? 'Unlock'.tr : widget.disable ? 'Disable'.tr : 'Save'.tr),
       ),
-      if (!widget.unlock) TextButton(
+      if (!widget.unlock) AppButton(
         onPressed: _busy ? null : () => Navigator.of(context).pop(false),
         child: Text('Cancel'.tr),
       ),

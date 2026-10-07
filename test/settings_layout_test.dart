@@ -15,6 +15,8 @@ import 'package:javit/app/core/app_translations.dart';
 import 'package:javit/app/modules/home/home_controller.dart';
 import 'package:javit/app/modules/home/page_settings/page_settings_controller.dart';
 import 'package:javit/app/modules/home/page_settings/page_settings_view.dart';
+import 'package:javit/app/modules/widgets/widget_controls.dart';
+import 'package:javit/app/modules/widgets/widget_surfaces.dart';
 import 'package:javit/app/utils/r18_updater.dart';
 
 class _Preferences implements GetSecureStorage {
@@ -104,11 +106,14 @@ void main() {
           expect(find.text('Playback & Search'.tr), findsOneWidget);
           expect(find.text('Utilities'.tr), findsOneWidget);
           expect(tester.getCenter(find.text('Storage Usage'.tr)).dy, closeTo(tester.getCenter(find.text('Refresh'.tr)).dy, 1));
+          final storageHeading = find.ancestor(of: find.text('Storage Usage'.tr), matching: find.byType(AppSectionHeading));
+          final refresh = find.widgetWithText(AppButton, 'Refresh'.tr);
+          expect(tester.getRect(refresh).right, closeTo(tester.getRect(storageHeading).right, 1));
           expect(tester.getTopLeft(find.text('Application Info'.tr)).dy, lessThan(tester.getTopLeft(find.text('Appearance'.tr)).dy));
           expect(find.text('Personalize your experience and manage your library.'.tr), findsNothing);
           if (width == 1100) {
-            final theme = find.byType(DropdownButton<AppTheme>);
-            final languageControl = find.byWidgetPredicate((widget) => widget is DropdownButton<String> && widget.value == language);
+            final theme = find.byType(AppDropdown<AppTheme>);
+            final languageControl = find.byWidgetPredicate((widget) => widget is AppDropdown<String> && widget.value == language);
             expect(tester.getTopLeft(theme).dx, tester.getTopLeft(languageControl).dx);
             expect(tester.getSize(theme).width, lessThanOrEqualTo(320));
           }
@@ -130,7 +135,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(home.sideMenuWidth.value, 65);
     expect(AppPref.getAppHideSideMenu(), isTrue);
-    final player = find.byWidgetPredicate((widget) => widget is DropdownButton<String> && widget.value == 'In App');
+    final player = find.byWidgetPredicate((widget) => widget is AppDropdown<String> && widget.value == 'In App');
     await tester.tap(player);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Default System').last);
@@ -165,6 +170,17 @@ void main() {
     expect(tester.widget<ListTile>(update).onTap, isNotNull);
     expect(find.text('R18 update failed. Please retry.'.tr), findsOneWidget);
     expect(find.text('Utilities'.tr), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    controller.appLogMode.value = true;
+    await tester.pumpAndSettle();
+    final level = find.byType(AppDropdown<String>);
+    expect(level, findsOneWidget);
+    await tester.tap(level);
+    await tester.pump();
+    expect(find.byType(MenuItemButton), findsNWidgets(5));
+    await tester.tap(find.widgetWithText(MenuItemButton, 'ERROR'));
+    await tester.pumpAndSettle();
+    expect(controller.appLogLevelSelected.value, 'ERROR');
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });

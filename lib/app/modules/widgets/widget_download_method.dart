@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../core/app_color.dart';
+import 'widget_controls.dart';
 
 class DownloadMethodDialog extends StatelessWidget {
   const DownloadMethodDialog({super.key, required this.onSelected});
@@ -29,7 +30,7 @@ class DownloadMethodDialog extends StatelessWidget {
             ])
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: TextButton(
+                child: AppButton(
                   style: TextButton.styleFrom(
                     foregroundColor: AppColor.text,
                     backgroundColor: AppColor.container,
@@ -63,7 +64,7 @@ class DownloadMethodDialog extends StatelessWidget {
                 ),
               ),
             Divider(height: 16, color: AppColor.border),
-            TextButton(
+            AppButton(
               style: TextButton.styleFrom(foregroundColor: AppColor.muted, textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 12)),
               onPressed: () => onSelected(null),
               child: Text('Cancel'.tr),

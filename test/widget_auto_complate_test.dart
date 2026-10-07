@@ -48,12 +48,13 @@ void main() {
     expect(find.text('Drama'), findsNothing, reason: 'suggestions stay closed until the user types');
   });
 
-  testWidgets('uses the given placeholder and font size', (tester) async {
+  testWidgets('uses the given placeholder and compact default font size', (tester) async {
     await pump(tester, placeHolder: 'Pick a category');
 
     final field = tester.widget<CupertinoTextField>(find.byType(CupertinoTextField));
     expect(field.placeholder, 'Pick a category');
-    expect((field.style!.fontSize), 14);
+    expect(field.style!.fontSize, 12);
+    expect(tester.getSize(find.byType(CupertinoTextField)).height, 32);
   });
 
   testWidgets('suggests every case insensitive match while typing', (tester) async {

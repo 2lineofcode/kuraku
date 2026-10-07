@@ -9,6 +9,7 @@ import 'package:uicons_pro/uicons_pro.dart';
 import '../../../core/app_color.dart';
 import '../../../core/const.dart';
 import '../../../utils/helper.dart';
+import '../../widgets/widget_controls.dart';
 
 mixin HomePanelAppLog {
 
@@ -40,7 +41,7 @@ mixin HomePanelAppLog {
           [
             HStack([
               'APP LOG'.tr.text.bold.make().expand(),
-              IconButton(
+              AppIconButton(
                 icon: Icon(UIconsPro.regularRounded.cross, size: 13),
                 tooltip: 'Close'.tr,
                 onPressed: () => Overlayment.dismissLast(),
@@ -59,7 +60,7 @@ mixin HomePanelAppLog {
                   else if (item.type?.toLowerCase() == 'warning') tColor = Vx.yellow400;
                   else if (item.type?.toLowerCase() == 'info') tColor = Vx.blue400;
                   else if (item.type?.toLowerCase() == 'debug') tColor = Vx.gray400;
-                  else tColor = Vx.green400;
+                  else tColor = AppColor.success;
 
                   return HStack(
                     [
@@ -81,7 +82,7 @@ mixin HomePanelAppLog {
             ),
 
             // Spacer(),
-            ExButtonText(
+            AppButton(
               label: 'Clear'.tr,
               height: 32,
               width: double.infinity,

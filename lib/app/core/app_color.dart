@@ -21,6 +21,7 @@ mixin AppColor {
   static Color get muted => Get.isDarkMode ? Vx.neutral400 : Vx.neutral600;
   static Color get onAccent => Get.theme.colorScheme.onPrimary;
   static Color get accent => Get.theme.colorScheme.primary;
+  static Color get success => Get.isDarkMode ? Vx.green400 : Colors.green.shade900;
   static Color get text => Get.theme.colorScheme.onSurface;
 
   static Color get black120 => Colors.black.withAlpha(120);

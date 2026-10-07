@@ -34,12 +34,10 @@ mixin HomePanelMetadata {
         DecoratedBox(
           decoration: ExDecorator.box(borderRadius: 8, borderColor: AppColor.border, fillColor: AppColor.container.withValues(alpha: .65)),
           child: HStack([
-            CupertinoTextField(
+            AppTextField(
               controller: controller,
               placeholder: placeholder,
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              style: TextStyle(fontSize: 13, color: AppColor.text),
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
+              style: TextStyle(color: AppColor.text),
             ).expand(),
             if (suffix != null) suffix.pOnly(right: 10),
           ]),
@@ -120,7 +118,7 @@ mixin HomePanelMetadata {
                 HStack([
                   'Actress'.tr.text.color(AppColor.muted).size(11).make(),
                   Spacer(),
-                  IconButton(
+                  AppIconButton(
                     icon: Icon(CupertinoIcons.add, size: 16),
                     tooltip: 'Add actress'.tr,
                     onPressed: () => _showDialogAddActress(actresses),
@@ -166,7 +164,7 @@ mixin HomePanelMetadata {
                 HStack([
                   'Category'.tr.text.color(AppColor.muted).size(11).make(),
                   Spacer(),
-                  IconButton(
+                  AppIconButton(
                     icon: Icon(CupertinoIcons.add, size: 16),
                     tooltip: 'Add category'.tr,
                     onPressed: () async => await _showDialogAddCategory(categories),
@@ -322,7 +320,7 @@ mixin HomePanelMetadata {
               placeHolder: 'Type something...'.tr,
               onSelected: (cat) => tecCategory.text = cat,
             ).pOnly(bottom: 12),
-            ExButtonElevated(
+            AppButton(variant: AppButtonVariant.filled,
               width: double.infinity,
               label: 'Submit'.tr,
               onPressed: () async {
@@ -378,7 +376,7 @@ mixin HomePanelMetadata {
               placeHolder: 'Type something...'.tr,
               onSelected: (actress) => tecActress.text = actress,
             ).pOnly(bottom: 12),
-            ExButtonElevated(
+            AppButton(variant: AppButtonVariant.filled,
               width: double.infinity,
               label: 'Submit'.tr,
               onPressed: () async {
