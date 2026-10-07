@@ -126,7 +126,7 @@ void main() {
     }
     tester.view.physicalSize = const Size(1100, 1500);
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(Switch));
+    await tester.tap(find.byWidgetPredicate((widget) => widget is Switch && widget.key != const ValueKey('app-pin-switch')));
     await tester.pumpAndSettle();
     expect(home.sideMenuWidth.value, 65);
     expect(AppPref.getAppHideSideMenu(), isTrue);

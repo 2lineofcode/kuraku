@@ -352,7 +352,7 @@ class PageToolsView extends GetView<PageToolsController> {
       )),
       const SizedBox(width: 10),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Tooltip(message: path, child: Text(p.basename(path), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+        Text(p.basename(path), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
         Wrap(spacing: 10, runSpacing: 4, children: [
           Text((video.quality ?? '').isEmpty ? 'Unknown resolution'.tr : HelperMisc.formatVideoQuality(video.quality!), style: TextStyle(fontSize: 11, color: AppColor.muted)),
@@ -360,7 +360,7 @@ class PageToolsView extends GetView<PageToolsController> {
           if ((video.duration ?? 0) > 0) Text(HelperMisc.durationFormatDB(video.duration!), style: TextStyle(fontSize: 11, color: AppColor.muted)),
         ]),
         const SizedBox(height: 6),
-        Tooltip(message: path, child: Text(path, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: AppColor.muted))),
+        Text(path, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: AppColor.muted)),
         const SizedBox(height: 4),
         Wrap(spacing: 8, runSpacing: 4, children: [
           Text(HelperMisc.isExternalDrive(path) ? 'External drive'.tr : 'Local drive'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted)),
@@ -407,10 +407,15 @@ class PageToolsView extends GetView<PageToolsController> {
         const SizedBox(width: 4),
         Tooltip(
           message: 'Add Todo: [⌘ + T]'.tr,
-          child: OutlinedButton.icon(
+          child: CupertinoButton(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            minimumSize: const Size(0, 30),
             onPressed: controller.addTodo,
-            icon: const Icon(Icons.add_rounded, size: 16),
-            label: Text('Add New Todo'.tr, style: const TextStyle(fontSize: 12)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(CupertinoIcons.plus, size: 13, color: AppColor.muted),
+              const SizedBox(width: 6),
+              Text('Add New Todo'.tr, style: TextStyle(fontSize: 12, color: AppColor.text)),
+            ]),
           ),
         ),
       ]),

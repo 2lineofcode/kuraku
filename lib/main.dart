@@ -21,6 +21,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'app/core/app_logging.dart';
 import 'app/core/app_notification.dart';
+import 'app/core/app_pin.dart';
 import 'app/core/app_pref.dart';
 import 'app/core/app_setting.dart';
 import 'app/core/app_startup.dart';
@@ -36,7 +37,10 @@ import 'env.g.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(AppStartup(initialize: _initializeApp, child: const JavIt()));
+  runApp(AppStartup(
+    initialize: _initializeApp,
+    child: const AppPinGate(child: JavIt()),
+  ));
 }
 
 Future<void> _initializeApp() async {
@@ -51,6 +55,14 @@ Future<void> _initializeApp() async {
   AppLog.logD('Startup settings ready: ${sw.elapsedMilliseconds}ms');
   await Get.putAsync(() => DBService().init(), permanent: true);
   AppLog.logD('Startup dependencies ready: ${sw.elapsedMilliseconds}ms');
+}
+
+Future<void> _initializeHotkeys() async {
+  try {
+    await Get.find<AppSettingService>().setupHotkey();
+  } catch (e) {
+    AppLog.logE('Hotkey setup failed: $e');
+  }
 }
 
 class JavIt extends StatefulWidget {
@@ -128,6 +140,7 @@ class _JavItState extends State<JavIt> with WindowListener {
         debugShowCheckedModeBanner: false,
         onReady: () {
           Get.find<AppSettingService>().refreshTheme();
+          unawaited(_initializeHotkeys());
           unawaited(_initializeNotifications());
           unawaited(_checkApplicationIsReady());
         },

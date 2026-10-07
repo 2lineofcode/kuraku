@@ -1,3 +1,11 @@
+import 'dart:convert';
+import 'dart:ffi' as ffi;
+import 'dart:io';
+import 'dart:isolate';
+import 'dart:math';
+
+import 'package:cryptography/cryptography.dart';
+import 'package:ffi/ffi.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -58,6 +66,88 @@ mixin AppPref {
   }
 
   // ** [app]
+  static bool getAppPinEnabled() => _pref.read('_kAppPin') != null;
+  static bool isValidAppPin(String pin) => pin.length >= 4 && pin.length <= 8 && !RegExp(r'[^0-9]').hasMatch(pin);
+  static int _pinFailures = 0;
+  static DateTime? _pinRetryAt;
+  // ponytail: session-only cooldown; persist attempts if restart-based guessing becomes a concern.
+  static bool get appPinCoolingDown => _pinRetryAt?.isAfter(DateTime.now()) ?? false;
+
+  static Future<String> _hashAppPin(String pin, String salt) => Isolate.run(() async {
+    final saltBytes = base64Decode(salt);
+    if (Platform.isMacOS) {
+      final derive = ffi.DynamicLibrary.open('/usr/lib/system/libcommonCrypto.dylib').lookupFunction<
+        ffi.Int32 Function(ffi.Uint32, ffi.Pointer<Utf8>, ffi.Size, ffi.Pointer<ffi.Uint8>, ffi.Size,
+            ffi.Uint32, ffi.Uint32, ffi.Pointer<ffi.Uint8>, ffi.Size),
+        int Function(int, ffi.Pointer<Utf8>, int, ffi.Pointer<ffi.Uint8>, int,
+            int, int, ffi.Pointer<ffi.Uint8>, int)
+      >('CCKeyDerivationPBKDF');
+      final password = pin.toNativeUtf8();
+      final nonce = calloc<ffi.Uint8>(saltBytes.length);
+      final output = calloc<ffi.Uint8>(32);
+      try {
+        nonce.asTypedList(saltBytes.length).setAll(0, saltBytes);
+        // CommonCrypto: PBKDF2 = 2, HMAC-SHA256 = 3. Keep existing PIN hashes compatible.
+        final status = derive(2, password, utf8.encode(pin).length, nonce, saltBytes.length, 3, 600000, output, 32);
+        if (status != 0) throw StateError('PIN key derivation failed');
+        return base64Encode(output.asTypedList(32));
+      } finally {
+        calloc.free(password);
+        calloc.free(nonce);
+        calloc.free(output);
+      }
+    }
+    final key = await Pbkdf2(macAlgorithm: Hmac.sha256(), iterations: 600000, bits: 256)
+        .deriveKeyFromPassword(password: pin, nonce: saltBytes);
+    return base64Encode(await key.extractBytes());
+  });
+
+  static Future<bool> verifyAppPin(String pin) async {
+    if (appPinCoolingDown || !getAppPinEnabled()) return false;
+    final stored = _pref.read<Map>('_kAppPin');
+    var matches = false;
+    if (isValidAppPin(pin) && stored != null) {
+      final actual = base64Decode(await _hashAppPin(pin, stored['salt'] as String));
+      final expected = base64Decode(stored['hash'] as String);
+      var difference = actual.length ^ expected.length;
+      for (var i = 0; i < actual.length && i < expected.length; i++) {
+        difference |= actual[i] ^ expected[i];
+      }
+      matches = difference == 0;
+    }
+    if (matches) {
+      _pinFailures = 0;
+      _pinRetryAt = null;
+    } else if (++_pinFailures >= 5) {
+      _pinFailures = 0;
+      _pinRetryAt = DateTime.now().add(const Duration(seconds: 30));
+    }
+    return matches;
+  }
+
+  static Future<bool> setAppPin(String? pin, {String? currentPin}) async {
+    if (pin != null && !isValidAppPin(pin)) throw ArgumentError('PIN must contain 4–8 digits');
+    if (getAppPinEnabled() && !await verifyAppPin(currentPin ?? '')) return false;
+    final previous = _pref.read('_kAppPin');
+    Map<String, String>? value;
+    if (pin != null) {
+      final random = Random.secure();
+      final salt = base64Encode(List.generate(16, (_) => random.nextInt(256)));
+      value = {'salt': salt, 'hash': await _hashAppPin(pin, salt)};
+    }
+    try {
+      await _pref.write('_kAppPin', value);
+      // write() schedules the disk flush; wait before confirming the PIN change.
+      await _pref.queue.add<void>(() {});
+    } catch (_) {
+      _pref.writeInMemory('_kAppPin', previous);
+      rethrow;
+    }
+    _pinFailures = 0;
+    _pinRetryAt = null;
+    return true;
+  }
+
   static String getAppLanguage() {
     final code = _pref.read('_kAppLanguage');
     return AppTranslations.resolveLanguage(code is String ? code : null);

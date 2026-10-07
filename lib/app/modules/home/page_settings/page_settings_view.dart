@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 
 import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
+import '../../../core/app_pin.dart';
 import '../../../core/app_pref.dart';
 import '../../../core/app_translations.dart';
 import '../../../utils/helper.dart';
@@ -50,6 +51,8 @@ class PageSettingsView extends GetView<PageSettingsController> {
                   ),
                 ))),
               ]),
+              const SizedBox(height: 24),
+              buildPinSetting(),
               const SizedBox(height: 24),
               _section('Playback & Search'.tr, [
                 _settingRow('Default Player'.tr, Obx(() => _dropdown<String>(
@@ -154,13 +157,43 @@ class PageSettingsView extends GetView<PageSettingsController> {
     child: child,
   );
 
+  Widget buildPinSetting() => _section('Security'.tr, [
+    _settingRow('PIN lock'.tr, Obx(() => Align(
+      alignment: Alignment.centerRight,
+      child: Switch.adaptive(
+        key: const ValueKey('app-pin-switch'),
+        value: controller.appPinEnabled.value,
+        onChanged: (value) => _editPin(disable: !value),
+      ),
+    ))),
+    Obx(() => controller.appPinEnabled.value ? _settingRow('PIN'.tr, Align(
+      alignment: Alignment.centerRight,
+      child: TextButton(onPressed: _editPin, child: Text('Change PIN'.tr)),
+    )) : const SizedBox.shrink()),
+  ]);
+
+  Future<void> _editPin({bool disable = false}) async {
+    final saved = await showDialog<bool>(
+      context: Get.context!,
+      barrierDismissible: false,
+      builder: (context) => Dialog(child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: SizedBox(width: 320, child: AppPinForm(
+          disable: disable,
+          onSuccess: () => Navigator.of(context).pop(true),
+        )),
+      )),
+    );
+    if (saved == true) controller.appPinEnabled.value = AppPref.getAppPinEnabled();
+  }
+
   Widget _section(String title, List<Widget> children, {Widget? action}) => _sectionBackground(Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 32),
         child: Row(children: [
-          Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          Flexible(child: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
           const SizedBox(width: 12),
           Expanded(child: Divider(height: 1, thickness: .5, color: AppColor.border)),
           if (action != null) ...[const SizedBox(width: 8), action],

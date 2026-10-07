@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -15,12 +16,12 @@ class PageProfileView extends GetView<PageProfileController> {
   Widget build(BuildContext context) {
     AppColor.dependOn(context);
     return Obx(() {
-      if (controller.isLoading.value) return const Center(child: CircularProgressIndicator());
+      if (controller.isLoading.value) return const Center(child: CupertinoActivityIndicator());
       if (controller.error.value.isNotEmpty) {
         return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text(controller.error.value),
           const SizedBox(height: 12),
-          OutlinedButton(onPressed: controller.onRefresh, child: Text('Retry'.tr)),
+          CupertinoButton(onPressed: controller.onRefresh, child: Text('Retry'.tr, style: const TextStyle(fontSize: 12))),
         ]));
       }
       final home = controller.home;
@@ -29,85 +30,62 @@ class PageProfileView extends GetView<PageProfileController> {
       final achievements = home.achievementProgress.toList();
       return SingleChildScrollView(
         key: const PageStorageKey('profile'),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Align(
-          alignment: Alignment.topCenter,
+          alignment: Alignment.topLeft,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1040),
+            constraints: const BoxConstraints(maxWidth: 960),
             child: LayoutBuilder(builder: (context, constraints) => Obx(() {
               final wide = constraints.maxWidth >= 700;
-              final columns = constraints.maxWidth >= 900 ? 4 : constraints.maxWidth >= 400 ? 2 : 1;
-              final statWidth = (constraints.maxWidth - (columns - 1) * 12) / columns;
-              final panelWidth = wide ? (constraints.maxWidth - 16) / 2 : constraints.maxWidth;
+              final columns = constraints.maxWidth >= 700 ? 4 : constraints.maxWidth >= 320 ? 2 : 1;
+              final statWidth = (constraints.maxWidth - 24 - (columns - 1) * 12) / columns;
+              final panelWidth = wide ? (constraints.maxWidth - 48) / 2 : constraints.maxWidth - 24;
               return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    CircleAvatar(radius: 25, backgroundColor: AppColor.selected, child: Icon(Icons.person_outline_rounded, size: 28)),
+                    Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(color: AppColor.container, border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(6)),
+                      child: Icon(CupertinoIcons.person, size: 18, color: AppColor.muted),
+                    ),
                     const SizedBox(width: 16),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(profile.name?.trim().isNotEmpty == true ? profile.name! : 'Your profile'.tr, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+                      Text(profile.name?.trim().isNotEmpty == true ? profile.name! : 'Your profile'.tr, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
                       Text('Member since @{createdAt}'.trNamed({'createdAt': '${_date(profile.createdAt)}'}), style: TextStyle(fontSize: 12, color: AppColor.muted)),
                     ])),
-                    if (!controller.isEditing.value && wide)
-                      TextButton.icon(onPressed: controller.editName, icon: Icon(Icons.edit_outlined, size: 16), label: Text('Edit profile'.tr)),
+                    if (wide)
+                      _editButton(context),
                   ]),
-                  if (!controller.isEditing.value && !wide)
-                    Padding(padding: const EdgeInsets.only(top: 12), child: TextButton.icon(onPressed: controller.editName, icon: Icon(Icons.edit_outlined, size: 16), label: Text('Edit profile'.tr))),
-                  if (controller.isEditing.value) ...[
-                    const SizedBox(height: 24),
-                    Text('Display name'.tr, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 440),
-                      child: TextField(
-                        controller: controller.tecName,
-                        autofocus: true,
-                        enabled: !controller.isSaving.value,
-                        style: const TextStyle(fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'Your name'.tr,
-                          isDense: true,
-                          border: const OutlineInputBorder(),
-                          errorText: controller.nameError.value.isEmpty ? null : controller.nameError.value,
-                        ),
-                        onSubmitted: (_) => controller.saveName(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(children: [
-                      FilledButton(onPressed: controller.isSaving.value ? null : controller.saveName, child: Text(controller.isSaving.value ? 'Saving...'.tr : 'Save changes'.tr)),
-                      const SizedBox(width: 8),
-                      TextButton(onPressed: controller.isSaving.value ? null : controller.cancelEdit, child: Text('Cancel'.tr)),
-                    ]),
-                  ],
+                  if (!wide)
+                    Padding(padding: const EdgeInsets.only(top: 12), child: _editButton(context)),
                   if (controller.notice.value.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text(controller.notice.value, style: TextStyle(fontSize: 12, color: (Get.isDarkMode ? Colors.greenAccent : Colors.green.shade700))),
                   ],
                 ])),
                 const SizedBox(height: 24),
-                _heading('Activity overview'.tr, 'Your collection and activity so far'.tr),
-                Wrap(spacing: 12, runSpacing: 12, children: [
+                _heading('Activity overview'.tr),
+                _surface(Wrap(spacing: 12, runSpacing: 12, children: [
                   _stat('Videos'.tr, '${home.totalVideo.value}', Icons.video_library_outlined, statWidth),
                   _stat('Watch time'.tr, '@{hours}h @{minutes}m'.trNamed({'hours': '${watch.inHours}', 'minutes': '${watch.inMinutes.remainder(60)}'}), Icons.schedule_rounded, statWidth),
                   _stat('Current streak'.tr, '@{streakDays} days'.trNamed({'streakDays': '${home.streakDays.value}'}), Icons.local_fire_department_outlined, statWidth),
                   _stat('Total relapse'.tr, '@{totalRelapse} times'.trNamed({'totalRelapse': '${controller.totalRelapse.value}'}), Icons.history_rounded, statWidth),
-                ]),
+                ])),
                 const SizedBox(height: 24),
-                _heading('Badges & progress'.tr, 'Your current levels and next milestones'.tr),
-                Wrap(spacing: 16, runSpacing: 16, children: [
+                _heading('Badges & progress'.tr),
+                _surface(Wrap(spacing: 24, runSpacing: 20, children: [
                   SizedBox(width: panelWidth, child: _badge('Collection'.tr, HelperBadge.getCollectionProgress(home.totalVideo.value), 'videos'.tr, Icons.collections_bookmark_outlined)),
                   SizedBox(width: panelWidth, child: _badge('Watch time'.tr, HelperBadge.getWatchDurationProgress(profile.totalWatchDuration ?? 0), 'hours'.tr, Icons.ondemand_video_rounded)),
-                ]),
+                ])),
                 const SizedBox(height: 24),
-                _heading('Achievements'.tr, '@{achievementCount} of @{length} unlocked'.trNamed({'achievementCount': '${home.achievementCount.value}', 'length': '${achievements.length}'})),
+                _heading('Achievements'.tr, detail: '@{achievementCount} of @{length} unlocked'.trNamed({'achievementCount': '${home.achievementCount.value}', 'length': '${achievements.length}'})),
                 if (home.latestAchievementTitles.isNotEmpty)
                   Padding(padding: const EdgeInsets.only(bottom: 16), child: Text('Latest: @{join}'.trNamed({'join': '${home.latestAchievementTitles.map((title) => title.tr).join(' · ')}'}), style: TextStyle(fontSize: 12, color: AppColor.muted))),
                 if (achievements.isEmpty)
-                  _card(Text('No achievements yet. Your progress will appear here.'.tr, style: TextStyle(fontSize: 13, color: AppColor.muted)))
+                  Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text('No achievements yet. Your progress will appear here.'.tr, style: TextStyle(fontSize: 13, color: AppColor.muted)))
                 else
-                  Wrap(spacing: 16, runSpacing: 16, children: achievements.map((item) => SizedBox(width: panelWidth, child: _achievement(item))).toList()),
+                  Column(children: achievements.map(_achievement).toList()),
               ]);
             })),
           ),
@@ -116,66 +94,145 @@ class PageProfileView extends GetView<PageProfileController> {
     });
   }
 
-  Widget _card(Widget child) => Container(
+  Widget _editButton(BuildContext context) => CupertinoButton(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    minimumSize: const Size(0, 30),
+    onPressed: () => _editName(context),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(CupertinoIcons.pencil, size: 13, color: AppColor.muted),
+      const SizedBox(width: 6),
+      Text('Edit profile'.tr, style: TextStyle(fontSize: 12, color: AppColor.text)),
+    ]),
+  );
+
+  Future<void> _editName(BuildContext context) async {
+    controller.editName();
+    Future<void> save(BuildContext dialogContext) async {
+      await controller.saveName();
+      if (dialogContext.mounted && !controller.isEditing.value) Navigator.of(dialogContext).pop();
+    }
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Obx(() => PopScope(
+        canPop: !controller.isSaving.value,
+        child: CupertinoAlertDialog(
+          title: Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text('Edit profile'.tr, textAlign: TextAlign.left, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          ),
+          content: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Semantics(label: 'Display name'.tr, child: CupertinoTextField(
+              controller: controller.tecName,
+              autofocus: true,
+              enabled: !controller.isSaving.value,
+              style: TextStyle(fontSize: 12, color: AppColor.text),
+              placeholder: 'Display name'.tr,
+              placeholderStyle: TextStyle(fontSize: 12, color: AppColor.muted),
+              prefix: Padding(padding: const EdgeInsets.only(left: 8), child: Icon(CupertinoIcons.person, size: 14, color: AppColor.muted)),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              decoration: BoxDecoration(color: AppColor.body, border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(5)),
+              onSubmitted: (_) => save(dialogContext),
+            )),
+            if (controller.nameError.value.isNotEmpty) Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(controller.nameError.value, style: const TextStyle(fontSize: 11, color: CupertinoColors.systemRed)),
+            ),
+          ]),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: controller.isSaving.value ? null : () => Navigator.of(dialogContext).pop(),
+              child: Text('Cancel'.tr, style: const TextStyle(fontSize: 13)),
+            ),
+            CupertinoDialogAction(
+              onPressed: controller.isSaving.value ? null : () => save(dialogContext),
+              child: Text(controller.isSaving.value ? 'Saving...'.tr : 'Save changes'.tr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      )),
+    );
+    if (!controller.isClosed && controller.isEditing.value) controller.cancelEdit();
+  }
+
+  Widget _surface(Widget child) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(color: AppColor.appBar, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColor.border)),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: AppColor.text.withValues(alpha: .025), borderRadius: BorderRadius.circular(6)),
     child: child,
   );
 
-  Widget _heading(String title, String subtitle) => Padding(
-    padding: const EdgeInsets.only(bottom: 14),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 4),
-      Text(subtitle, style: TextStyle(fontSize: 12, color: AppColor.muted)),
+  Widget _heading(String title, {String? detail}) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Wrap(spacing: 12, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+      Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      if (detail != null) Text(detail, style: TextStyle(fontSize: 11, color: AppColor.muted)),
+      SizedBox(width: double.infinity, child: Divider(height: 1, thickness: .5, color: AppColor.border)),
     ]),
   );
 
-  Widget _stat(String label, String value, IconData icon, double width) => SizedBox(width: width, child: _card(
-    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Icon(icon, size: 20, color: AppColor.muted),
-      const SizedBox(height: 14),
-      Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 4),
-      Text(label, style: TextStyle(fontSize: 12, color: AppColor.muted)),
-    ]),
-  ));
+  Widget _stat(String label, String value, IconData icon, double width) => SizedBox(
+    width: width,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(icon, size: 16, color: AppColor.muted),
+          const SizedBox(width: 6),
+          Expanded(child: Text(label, style: TextStyle(fontSize: 11, color: AppColor.muted))),
+        ]),
+        const SizedBox(height: 8),
+        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+      ]),
+    ),
+  );
 
-  Widget _badge(String label, BadgeProgress progress, String unit, IconData icon) => _card(
-    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [Icon(icon, size: 20, color: (Get.isDarkMode ? Colors.amberAccent : Colors.orange.shade800)), const SizedBox(width: 10), Text(label, style: TextStyle(fontSize: 12, color: AppColor.muted))]),
+  Widget _badge(String label, BadgeProgress progress, String unit, IconData icon) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [Icon(icon, size: 20, color: (Get.isDarkMode ? Colors.amberAccent : Colors.orange.shade800)), const SizedBox(width: 8), Expanded(child: Text(label, style: TextStyle(fontSize: 11, color: AppColor.muted)))]),
       const SizedBox(height: 12),
-      Text(progress.currentTitle, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 16),
+      Text(progress.currentTitle, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 12),
       _progress(progress.percent, (Get.isDarkMode ? Colors.amberAccent : Colors.orange.shade800)),
       const SizedBox(height: 8),
       Text(progress.isMaxLevel ? 'Max level reached'.tr : '@{currentValue}/@{targetValue} @{unit} · Next: @{nextTitle}'.trNamed({'currentValue': '${progress.currentValue}', 'targetValue': '${progress.targetValue}', 'unit': '$unit', 'nextTitle': '${progress.nextTitle}'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
-    ]),
+    ],
   );
 
   Widget _achievement(AchievementProgress item) {
     final color = item.isUnlocked ? (Get.isDarkMode ? Colors.greenAccent : Colors.green.shade700) : AppColor.muted;
-    return _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Icon(item.isUnlocked ? Icons.verified_outlined : Icons.lock_outline_rounded, size: 20, color: color),
-        const SizedBox(width: 10),
-        Expanded(child: Text(item.title.tr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
-        const SizedBox(width: 8),
-        Text(item.group.tr, style: TextStyle(fontSize: 10, color: color)),
-      ]),
-      const SizedBox(height: 10),
-      Text(item.description.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),
-      const SizedBox(height: 16),
-      _progress(item.percent, color),
-      const SizedBox(height: 8),
-      Text(item.isUnlocked ? 'Unlocked @{unlockedAt}'.trNamed({'unlockedAt': '${_date(item.unlockedAt)}'}) : '@{currentValue}/@{targetValue} · In progress'.trNamed({'currentValue': '${item.currentValue}', 'targetValue': '${item.targetValue}'}), style: TextStyle(fontSize: 11, color: color)),
-    ]));
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppColor.border, width: .5))),
+      child: LayoutBuilder(builder: (context, constraints) {
+        final details = Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(item.isUnlocked ? Icons.verified_outlined : Icons.lock_outline_rounded, size: 18, color: color),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              Text(item.title.tr, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              Text(item.group.tr, style: TextStyle(fontSize: 10, color: AppColor.muted)),
+            ]),
+            const SizedBox(height: 4),
+            Text(item.description.tr, style: TextStyle(fontSize: 11, color: AppColor.muted)),
+          ])),
+        ]);
+        final progress = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _progress(item.percent, color),
+          const SizedBox(height: 6),
+          Text(item.isUnlocked ? 'Unlocked @{unlockedAt}'.trNamed({'unlockedAt': '${_date(item.unlockedAt)}'}) : '@{currentValue}/@{targetValue} · In progress'.trNamed({'currentValue': '${item.currentValue}', 'targetValue': '${item.targetValue}'}), style: TextStyle(fontSize: 11, color: color)),
+        ]);
+        if (constraints.maxWidth < 600) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          details,
+          Padding(padding: const EdgeInsets.only(left: 28, top: 12), child: progress),
+        ]);
+        return Row(children: [Expanded(child: details), const SizedBox(width: 24), SizedBox(width: 220, child: progress)]);
+      }),
+    );
   }
 
   Widget _progress(int percent, Color color) => LinearProgressIndicator(
     value: percent / 100,
-    minHeight: 5,
+    minHeight: 4,
     borderRadius: BorderRadius.circular(8),
     color: color,
     backgroundColor: AppColor.hover,

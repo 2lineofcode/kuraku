@@ -57,6 +57,7 @@ class PageSettingsController extends GetxController {
   final appMiniMode = false.obs;
   final appTheme = AppPref.getAppTheme().obs;
   final appLanguage = AppPref.getAppLanguage().obs;
+  final appPinEnabled = AppPref.getAppPinEnabled().obs;
 
 
   // ** storage

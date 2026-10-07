@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -86,23 +87,26 @@ void main() {
     await tester.tap(find.text('👋🏻 PA'));
     await tester.pumpAndSettle();
     expect(home.currentMenuSelected.value, kMenuProfile);
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(CupertinoAlertDialog), findsNothing);
     expect(find.text('10h 28m'), findsOneWidget);
     expect(find.text('49 times'), findsOneWidget);
     await tester.tap(find.text('Edit profile'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '   ');
+    expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+    await tester.enterText(find.byType(CupertinoTextField), '   ');
     await tester.tap(find.text('Save changes'));
     await tester.pumpAndSettle();
     expect(find.text('Please enter your name.'), findsOneWidget);
     expect(database.writes, isEmpty);
-    await tester.enterText(find.byType(TextField), 'Discarded');
+    await tester.enterText(find.byType(CupertinoTextField), 'Discarded');
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(home.profile.value.name, 'PA');
+    expect(find.byType(CupertinoAlertDialog), findsNothing);
+    expect(controller.isEditing.value, isFalse);
     await tester.tap(find.text('Edit profile'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '  New name  ');
+    await tester.enterText(find.byType(CupertinoTextField), '  New name  ');
     database.failSave = true;
     await tester.tap(find.text('Save changes'));
     await tester.pumpAndSettle();
@@ -114,10 +118,15 @@ void main() {
     await tester.pump();
     await controller.saveName();
     expect(database.writes, hasLength(1));
+    expect(tester.widget<CupertinoDialogAction>(find.widgetWithText(CupertinoDialogAction, 'Cancel')).onPressed, isNull);
+    await Navigator.of(tester.element(find.byType(CupertinoAlertDialog))).maybePop();
+    await tester.pump();
+    expect(find.byType(CupertinoAlertDialog), findsOneWidget);
     database.pending!.complete();
     await tester.pumpAndSettle();
     expect(find.text('👋🏻 New name'), findsOneWidget);
     expect(find.text('Profile saved'), findsOneWidget);
+    expect(find.byType(CupertinoAlertDialog), findsNothing);
     expect(home.profile.value.totalWatchDuration, 37680);
     expect(database.writes.single.keys, unorderedEquals(['name', 'updated_at']));
     expect(database.writes.single['name'], 'New name');
@@ -144,6 +153,36 @@ void main() {
     }
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('Compact profile supports both themes, long names and empty achievements', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    home.profile.value = Profile(name: 'A long display name that should wrap in a narrow profile header');
+    for (final brightness in [Brightness.dark, Brightness.light]) {
+      for (final width in [320.0, 640.0, 1000.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 900));
+        await tester.pumpWidget(GetMaterialApp(theme: ThemeData(brightness: brightness), home: const Scaffold(body: PageProfileView())));
+        await tester.pumpAndSettle();
+        expect(find.text(home.profile.value.name!), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.text('Edit profile'));
+        await tester.pumpAndSettle();
+        expect(find.byType(CupertinoTextField), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+      }
+    }
+    home.achievementProgress.clear();
+    home.latestAchievementTitles.clear();
+    home.achievementCount.value = 0;
+    home.totalVideo.value = 0;
+    await tester.pumpAndSettle();
+    expect(find.text('No achievements yet. Your progress will appear here.'), findsOneWidget);
+    expect(find.text('0 of 0 unlocked'), findsOneWidget);
+    expect(find.text('Noobless'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   test('Name updates reject empty input and a missing profile', () async {

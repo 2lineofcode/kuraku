@@ -53,7 +53,6 @@ class AppSettingService extends GetxService {
 
 
     await setupAppPref();
-    await setupHotkey();
     return this;
   }
 

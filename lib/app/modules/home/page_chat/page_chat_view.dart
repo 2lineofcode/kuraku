@@ -185,13 +185,13 @@ class PageChatView extends GetView<PageChatController> {
   Widget _sidebar({bool closeOnSelect = false}) {
     return Builder(builder: (context) => Container(
       decoration: BoxDecoration(color: AppColor.appBar, border: Border(right: BorderSide(color: AppColor.border))),
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Padding(padding: const EdgeInsets.fromLTRB(4, 0, 0, 4), child: Row(children: [
+        Padding(padding: const EdgeInsets.fromLTRB(4, 0, 8, 8), child: Row(children: [
           const Expanded(child: Text('JavIt AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
           IconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),
             visualDensity: VisualDensity.compact,
-            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
             padding: EdgeInsets.zero,
             icon: const Icon(Icons.delete_sweep_outlined, size: 16)),
         ])),
@@ -205,7 +205,7 @@ class PageChatView extends GetView<PageChatController> {
           icon: Icon(UIconsPro.regularRounded.plus, size: 14, color: AppColor.text),
           label: 'New chat'.tr,
         )),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         CupertinoTextField(
           controller: controller.searchInput,
           focusNode: controller.searchFocusNode,
@@ -214,7 +214,7 @@ class PageChatView extends GetView<PageChatController> {
           placeholder: 'Search chats'.tr,
           prefix: Icon(UIconsPro.regularRounded.search, size: 12, color: AppColor.muted).pOnly(left: 8),
         ),
-        Padding(padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
+        Padding(padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
           child: Text('Your chats'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted))),
         Expanded(child: Obx(() {
           final query = controller.search.value.trim().toLowerCase();
@@ -235,11 +235,11 @@ class PageChatView extends GetView<PageChatController> {
                   child: ListTile(
                     dense: true,
                     visualDensity: VisualDensity.compact,
-                    minTileHeight: 32,
-                    minVerticalPadding: 0,
+                    minTileHeight: 40,
+                    minVerticalPadding: 4,
                     selected: chat == active,
                     selectedColor: AppColor.text,
-                    contentPadding: const EdgeInsets.only(left: 8),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                     leading: responding == chat.id ? Tooltip(message: 'Responding...'.tr, child: const CupertinoActivityIndicator(radius: 6))
                         : Icon(chat.isPinned ? Icons.push_pin_rounded : Icons.chat_bubble_outline_rounded, size: 13, color: AppColor.muted),
                     minLeadingWidth: 14,
@@ -269,7 +269,7 @@ class PageChatView extends GetView<PageChatController> {
                       builder: (context, menu, _) => IconButton(
                         tooltip: 'Chat options'.tr,
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+                        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
                         visualDensity: VisualDensity.compact,
                         icon: Icon(UIconsPro.regularRounded.menu_dots, size: 12),
                         onPressed: () => menu.isOpen ? menu.close() : menu.open(),
