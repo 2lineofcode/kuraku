@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../modules/widgets/widget_style.dart';
 import 'app_logging.dart';
+import 'app_scroll_behavior.dart';
 import 'app_translations.dart';
 
 class AppStartup extends StatefulWidget {
@@ -38,6 +39,7 @@ class _AppStartupState extends State<AppStartup> {
   Widget build(BuildContext context) {
     if (_ready) return widget.child;
     return MaterialApp(
+      scrollBehavior: appScrollBehavior,
       debugShowCheckedModeBanner: false,
       theme: AppStyle.theme(Brightness.dark),
       home: Scaffold(

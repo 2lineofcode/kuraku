@@ -16,6 +16,7 @@ import '../../../data/database/_init_db.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/models/activity_entity.dart';
 import '../../../utils/helper_misc.dart';
+import '../../../utils/helper_tabs.dart';
 import '../home_controller.dart';
 import 'page_download_dialog.dart';
 import 'page_download_job.dart';
@@ -92,8 +93,22 @@ class PageDownloadController extends GetxController {
     _saveTabs();
   }
 
-  void closeTab(int index) {
+  void reorderTab(int oldIndex, int newIndex) {
+    activeTabIndex.value = moveTab(tabs, activeTabIndex.value, oldIndex, newIndex, (tab) => tab.isPinned.value);
+    _saveTabs();
+  }
+
+  void toggleTabPin(int index) {
     if (index < 0 || index >= tabs.length) return;
+    final tab = tabs[index];
+    tab.isPinned.toggle();
+    final destination = tabs.where((tab) => tab.isPinned.value).length - (tab.isPinned.value ? 1 : 0);
+    activeTabIndex.value = moveTab(tabs, activeTabIndex.value, index, destination, (tab) => tab.isPinned.value);
+    _saveTabs();
+  }
+
+  void closeTab(int index) {
+    if (index < 0 || index >= tabs.length || tabs[index].isPinned.value) return;
     final tab = tabs.removeAt(index);
     tab.close();
     if (tabs.isEmpty) {

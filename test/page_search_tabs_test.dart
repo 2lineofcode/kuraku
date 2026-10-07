@@ -108,6 +108,44 @@ void main() {
   });
   tearDown(Get.reset);
 
+  testWidgets('search tabs reorder and pin without changing the active tab', (tester) async {
+    final controller = Get.put<PageSearchController>(_Controller());
+    final first = controller.activeTab;
+    controller.addTab();
+    final second = controller.activeTab;
+    controller.addTab();
+    final third = controller.activeTab;
+    controller.reorderTab(2, 0);
+    expect(controller.tabs, [third, first, second]);
+    expect(controller.activeTab, same(third));
+    controller.toggleTabPin(2);
+    expect(second.isPinned.value, isTrue);
+    expect(controller.tabs, [second, third, first]);
+    expect(controller.activeTab, same(third));
+    controller.closeTab(0);
+    expect(controller.tabs.length, 3);
+    controller.reorderTab(0, 2);
+    controller.reorderTab(2, 0);
+    expect(controller.tabs, [second, first, third]);
+    expect(controller.activeTab, same(third));
+    final saved = AppPref.getSearchTabs();
+    expect((saved['tabs'] as List).first['pinned'], isTrue);
+    expect(saved['activeTab'], 2);
+    final restored = _Controller();
+    restored.onStart();
+    expect(restored.tabs.map((tab) => tab.isPinned.value), [true, false, false]);
+    expect(restored.activeTabIndex.value, 2);
+    restored.onDelete();
+    controller.toggleTabPin(0);
+    controller.closeTab(0);
+    expect(controller.tabs, [first, third]);
+    expect(controller.activeTab, same(third));
+    controller.reorderTab(0, 1);
+    expect(controller.tabs, [third, first]);
+    expect(controller.activeTab, same(third));
+    await tester.pump();
+  });
+
   testWidgets('Search history supports selection, deletion, confirmation and preserves drafts', (tester) async {
     final tab = _HistoryTab(0)..isFresh.value = false;
     addTearDown(tab.dispose);

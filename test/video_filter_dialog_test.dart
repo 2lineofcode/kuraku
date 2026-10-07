@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:javit/app/core/app_color.dart';
 import 'package:javit/app/modules/home/page_download/page_download_search_tab.dart';
 import 'package:javit/app/modules/home/page_explore/page_explore_tab.dart';
 import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
 import 'package:javit/app/modules/widgets/widget_controls.dart';
+import 'package:javit/app/modules/widgets/widget_style.dart';
 import 'package:javit/app/utils/helper_opener.dart';
 
 import 'icon_finder.dart';
@@ -25,6 +27,47 @@ String? date(String value) => null;
 
 void main() {
   tearDown(Get.reset);
+
+  testWidgets('filter foregrounds contrast with their backgrounds in both themes', (tester) async {
+    double contrast(Color foreground, Color background) {
+      final a = Color.alphaBlend(foreground, background).computeLuminance();
+      final b = background.computeLuminance();
+      return a > b ? (a + .05) / (b + .05) : (b + .05) / (a + .05);
+    }
+    for (final brightness in Brightness.values) {
+      final state = VideoFilterState();
+      state.actresses.add('Actress');
+      state.categories.add('Category');
+      state.categoriesSelected.add('Category');
+      await tester.pumpWidget(GetMaterialApp(
+        key: ValueKey(brightness), theme: AppStyle.theme(brightness),
+        home: Scaffold(body: TextButton(
+          onPressed: () => HelperOpener.openFilterDialog(state: state, allVideos: <String>[], videos: <String>[].obs,
+            adapter: adapter), child: const Text('Open'))),
+      ));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      final filterIcon = tester.widget<HugeIcon>(findHugeIcon(HugeIcons.strokeRoundedFilter));
+      expect(contrast(filterIcon.color!, AppColor.selected), greaterThanOrEqualTo(4.5));
+      final chip = tester.widget<InputChip>(find.byType(InputChip));
+      expect(contrast((chip.label as Text).style!.color!, chip.backgroundColor!), greaterThanOrEqualTo(4.5));
+      expect(contrast((chip.deleteIcon as HugeIcon).color!, chip.backgroundColor!), greaterThanOrEqualTo(4.5));
+      for (final label in ['Match any', 'Any year']) {
+        final text = tester.widget<Text>(find.text(label));
+        expect(contrast(text.style!.color!, label == 'Match any' ? AppColor.container : AppColor.panel), greaterThanOrEqualTo(4.5));
+      }
+      final addIcon = tester.widget<HugeIcon>(findHugeIcon(HugeIcons.strokeRoundedAdd01));
+      expect(contrast(addIcon.color!, AppColor.container), greaterThanOrEqualTo(3));
+      final slider = SliderTheme.of(tester.element(find.byType(RangeSlider)));
+      expect(contrast(slider.thumbColor!, AppColor.panel), greaterThanOrEqualTo(3));
+      expect(contrast(slider.activeTrackColor!, AppColor.panel), greaterThanOrEqualTo(3));
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      Get.reset();
+    }
+  });
 
   test('empty filters preserve undated videos; reset retains loaded options', () {
     final state = VideoFilterState();

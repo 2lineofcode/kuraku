@@ -79,14 +79,14 @@ mixin HelperMisc {
     Duration? toastDuration,
     Alignment? alignment,
   }) {
-    if (text == null) return;
+    if (text == null || text.isEmpty) return;
 
     final data = ClipboardData(text: text);
     Clipboard.setData(data);
 
     if (showToast == true) {
       toastMessage ??= '[@{text}] Copied to clipboard'.trNamed({'text': '$text'});
-      HelperToast.info(toastMessage, duration: toastDuration ?? 2.seconds, alignment: alignment);
+      HelperToast.info(toastMessage, duration: toastDuration ?? 2.seconds, alignment: alignment, addToAppLog: false);
     }
   }
 

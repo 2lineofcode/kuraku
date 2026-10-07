@@ -2,6 +2,8 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 
@@ -42,6 +44,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
             final preferences = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               _section('Appearance'.tr, [
                 buildThemeSetting(),
+                buildAccentSetting(),
                 buildLanguageSetting(),
                 _settingRow('Mini Mode'.tr, Obx(() => Align(
                   alignment: Alignment.centerRight,
@@ -122,7 +125,14 @@ class PageSettingsView extends GetView<PageSettingsController> {
               _action(HugeIcons.strokeRoundedNote, 'Open App Log'.tr, controller.onOpenAppLog),
               _action(HugeIcons.strokeRoundedKeyboard, 'Keyboard Shortcuts'.tr, () => HelperOpener.openKeyboardShortcuts()),
               _action(HugeIcons.strokeRoundedFolderCog, 'Go App Folder'.tr, () => HelperOpener.openFolder(controller.appSetting.appPath)),
-              _action(HugeIcons.strokeRoundedFolderKanban, 'Go Cache Folder'.tr, () => HelperOpener.openFolder('/Users/adit/Library/Caches/net_thumbnail')),
+              _action(HugeIcons.strokeRoundedFolderKanban, 'Go Cache Folder'.tr, () async {
+                try {
+                  final directory = await IOFileSystem.createDirectory('net_thumbnail');
+                  await HelperOpener.openFolder(directory.path);
+                } catch (e) {
+                  await HelperToast.error('$e');
+                }
+              }),
               Divider(height: 20, color: AppColor.border),
               Obx(() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 _action(HugeIcons.strokeRoundedLoading03, 'Update R18 DB'.tr, R18Updater.busy.value ? null : controller.updateR18DB),
@@ -173,16 +183,13 @@ class PageSettingsView extends GetView<PageSettingsController> {
   ]);
 
   Future<void> _editPin({bool disable = false}) async {
-    final saved = await showDialog<bool>(
+    final saved = await showCupertinoDialog<bool>(
       context: Get.context!,
       barrierDismissible: false,
-      builder: (context) => AppDialog(child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: SizedBox(width: 320, child: AppPinForm(
-          disable: disable,
-          onSuccess: () => Navigator.of(context).pop(true),
-        )),
-      )),
+      builder: (context) => AppPinForm(
+        disable: disable,
+        onSuccess: () => Navigator.of(context).pop(true),
+      ),
     );
     if (saved == true) controller.appPinEnabled.value = AppPref.getAppPinEnabled();
   }
@@ -448,6 +455,65 @@ class PageSettingsView extends GetView<PageSettingsController> {
     items: AppTheme.values.map((theme) => DropdownMenuItem(value: theme, child: Text(theme.label))).toList(),
     onChanged: (theme) { if (theme != null) controller.setTheme(theme); },
   ), description: controller.appTheme.value == AppTheme.schedule ? 'Light 06:00–17:00 · Dark 17:00–06:00'.tr : null));
+
+  Future<void> pickAccent() async {
+    var hsv = HSVColor.fromColor(colorFromHex(controller.tecAppAccent.text.trim()) ?? AppColor.accent);
+    final picked = await showDialog<Color>(context: Get.context!, builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AppDialog(
+        maxWidth: 360,
+        title: Text('Accent color'.tr),
+        content: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          ClipRRect(borderRadius: BorderRadius.circular(AppStyle.radius), child: AspectRatio(
+            aspectRatio: 1.6,
+            child: ColorPickerArea(hsv, (value) => setState(() => hsv = value), PaletteType.hsvWithHue),
+          )),
+          const SizedBox(height: 16),
+          for (final track in [TrackType.hue, TrackType.alpha]) ...[
+            Row(children: [
+              Expanded(child: Text((track == TrackType.hue ? 'Hue' : 'Opacity').tr, style: const TextStyle(fontSize: 11))),
+              Text(track == TrackType.hue ? '${hsv.hue.round()}°' : '${(hsv.alpha * 100).round()}%',
+                style: TextStyle(fontSize: 11, color: AppColor.muted)),
+            ]),
+            Semantics(label: (track == TrackType.hue ? 'Hue' : 'Opacity').tr, child: SizedBox(
+              height: 32,
+              child: ColorPickerSlider(track, hsv, (value) => setState(() => hsv = value), displayThumbColor: true),
+            )),
+            const SizedBox(height: 8),
+          ],
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(
+            color: AppColor.body, borderRadius: BorderRadius.circular(AppStyle.radius), border: Border.all(color: AppColor.border),
+          ), child: Row(children: [
+            ColorIndicator(hsv, width: 32, height: 32),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Preview'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted)),
+              SelectableText(colorToHex(hsv.toColor(), includeHashSign: true), style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
+            ])),
+          ])),
+        ]),
+        actions: [
+          AppButton(label: 'Cancel'.tr, onPressed: () => Navigator.pop(context)),
+          AppButton(label: 'Save'.tr, variant: AppButtonVariant.outlined, onPressed: () => Navigator.pop(context, hsv.toColor())),
+        ],
+      ),
+    ));
+    if (picked == null || controller.isClosed) return;
+    controller.tecAppAccent.text = colorToHex(picked, enableAlpha: picked.a < 1);
+    await controller.setAccent();
+  }
+
+  Widget buildAccentSetting() => Obx(() => _settingRow('Accent color'.tr, Row(children: [
+    AppIconButton(tooltip: 'Pick accent color'.tr, onPressed: pickAccent,
+      icon: ColorIndicator(HSVColor.fromColor(AppColor.accent), width: 20, height: 20)),
+    const SizedBox(width: 8),
+    Expanded(child: AppTextField(controller: controller.tecAppAccent,
+      placeholder: colorToHex(AppColor.accent, includeHashSign: true, enableAlpha: AppColor.accent.a < 1),
+      decoration: InputDecoration(errorText: controller.appAccentError.value.isEmpty ? null : controller.appAccentError.value),
+      onSubmitted: (_) => controller.setAccent(),
+    )),
+    AppIconButton(tooltip: 'Save'.tr, icon: const Icon(Icons.check, size: AppStyle.iconSize), onPressed: () => controller.setAccent()),
+    AppIconButton(tooltip: 'Reset accent color'.tr, icon: const Icon(Icons.restart_alt, size: AppStyle.iconSize), onPressed: () => controller.setAccent(reset: true)),
+  ])));
 
   Widget buildVisualSearchSettings() => _sectionBackground(Obx(() {
     final ready = controller.semanticReady.value;

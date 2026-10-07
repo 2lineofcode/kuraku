@@ -1,6 +1,8 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_color.dart';
+import '../../core/app_pref.dart';
 
 class AppStyle {
   static const double fontSize = 12;
@@ -26,7 +28,12 @@ class AppStyle {
 
   static ThemeData theme(Brightness brightness) {
     final theme = ThemeData(brightness: brightness, useMaterial3: true);
+    final storedAccent = AppPref.getAppAccent();
+    final accent = storedAccent == null ? AppColor.defaultAccent(brightness) : Color(storedAccent);
     return theme.copyWith(
+      cupertinoOverrideTheme: const CupertinoThemeData(primaryColor: CupertinoColors.activeBlue, primaryContrastingColor: CupertinoColors.white),
+      colorScheme: theme.colorScheme.copyWith(primary: accent,
+        onPrimary: Color.alphaBlend(accent, theme.colorScheme.surface).computeLuminance() > .179 ? Colors.black : Colors.white),
       textTheme: theme.textTheme.copyWith(
         bodyMedium: theme.textTheme.bodyMedium?.copyWith(fontSize: fontSize),
         bodySmall: theme.textTheme.bodySmall?.copyWith(fontSize: 11),

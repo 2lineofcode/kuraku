@@ -13,6 +13,7 @@ import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_loading.dart';
 import '../../../utils/helper_misc.dart';
+import '../../../utils/helper_tabs.dart';
 import '../../../utils/helper_toast.dart';
 import 'page_search_tab.dart';
 
@@ -74,8 +75,22 @@ class PageSearchController extends GetxController {
     _saveTabs();
   }
 
-  void closeTab(int index) {
+  void reorderTab(int oldIndex, int newIndex) {
+    activeTabIndex.value = moveTab(tabs, activeTabIndex.value, oldIndex, newIndex, (tab) => tab.isPinned.value);
+    _saveTabs();
+  }
+
+  void toggleTabPin(int index) {
     if (index < 0 || index >= tabs.length) return;
+    final tab = tabs[index];
+    tab.isPinned.toggle();
+    final destination = tabs.where((tab) => tab.isPinned.value).length - (tab.isPinned.value ? 1 : 0);
+    activeTabIndex.value = moveTab(tabs, activeTabIndex.value, index, destination, (tab) => tab.isPinned.value);
+    _saveTabs();
+  }
+
+  void closeTab(int index) {
+    if (index < 0 || index >= tabs.length || tabs[index].isPinned.value) return;
     final tab = tabs.removeAt(index);
     tab.close();
     if (tabs.isEmpty) {

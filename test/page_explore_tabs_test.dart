@@ -15,6 +15,7 @@ import 'package:javit/app/data/models/videos_entity.dart';
 import 'package:javit/app/modules/home/page_explore/page_explore_controller.dart';
 import 'package:javit/app/modules/home/page_explore/page_explore_view.dart';
 import 'package:javit/app/modules/widgets/widget_controls.dart';
+import 'package:javit/app/modules/widgets/widget_style.dart';
 
 import 'icon_finder.dart';
 
@@ -87,6 +88,85 @@ void main() {
   });
   tearDown(Get.reset);
 
+  testWidgets('Explore sort menu follows the theme and closes after sorting', (tester) async {
+    for (final brightness in Brightness.values) {
+      final tab = _Tab(99);
+      tab.isFresh.value = false;
+      tab.currentMenuSelected.value = kSeries;
+      final items = [LeftListModel(name: 'Alpha', count: 1), LeftListModel(name: 'Beta', count: 2)];
+      tab.leftList.assignAll(items);
+      tab.leftListFiltered.assignAll(items);
+      await tester.pumpWidget(GetMaterialApp(
+        key: ValueKey(brightness), theme: AppStyle.theme(brightness),
+        home: Scaffold(body: _View(controller: tab)),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Sort by'));
+      await tester.pumpAndSettle();
+      final nameItem = find.ancestor(of: find.text('Name'), matching: find.byType(MenuItemButton));
+      final countItem = find.ancestor(of: find.text('Count'), matching: find.byType(MenuItemButton));
+      expect(tester.widget<HugeIcon>(find.descendant(of: nameItem, matching: find.byType(HugeIcon))).icon, HugeIcons.strokeRoundedCheckmarkCircle02);
+      final context = tester.element(find.text('Name'));
+      expect(DefaultTextStyle.of(context).style.color, Theme.of(context).colorScheme.onSurface);
+      expect(find.ancestor(of: nameItem, matching: find.byWidgetPredicate((widget) => widget is Material
+          && widget.color == Theme.of(context).colorScheme.surface)), findsWidgets);
+      await tester.tap(countItem);
+      await tester.pumpAndSettle();
+      expect(tab.leftSortSelected.value, 'Count');
+      expect(tab.leftListFiltered.map((item) => item.name), ['Beta', 'Alpha']);
+      expect(find.byType(MenuItemButton), findsNothing);
+      expect(find.byType(_View), findsOneWidget);
+      await tester.tap(find.byTooltip('Sort by'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<HugeIcon>(find.descendant(of: countItem, matching: find.byType(HugeIcon))).icon, HugeIcons.strokeRoundedCheckmarkCircle02);
+      await tester.tap(nameItem);
+      await tester.pumpAndSettle();
+      expect(tab.leftListFiltered.map((item) => item.name), ['Alpha', 'Beta']);
+      expect(find.byType(MenuItemButton), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      tab.dispose();
+    }
+  });
+
+  testWidgets('explore tabs reorder and pin without changing the active tab', (tester) async {
+    final controller = Get.put<PageExploreController>(_Controller());
+    final first = controller.activeTab;
+    controller.addTab();
+    final second = controller.activeTab;
+    controller.addTab();
+    final third = controller.activeTab;
+    controller.reorderTab(2, 0);
+    expect(controller.tabs, [third, first, second]);
+    expect(controller.activeTab, same(third));
+    controller.toggleTabPin(2);
+    expect(second.isPinned.value, isTrue);
+    expect(controller.tabs, [second, third, first]);
+    expect(controller.activeTab, same(third));
+    controller.closeTab(0);
+    expect(controller.tabs.length, 3);
+    controller.reorderTab(0, 2);
+    controller.reorderTab(2, 0);
+    expect(controller.tabs, [second, first, third]);
+    expect(controller.activeTab, same(third));
+    final saved = AppPref.getExploreTabs();
+    expect((saved['tabs'] as List).first['pinned'], isTrue);
+    expect(saved['activeTab'], 2);
+    final restored = _Controller();
+    restored.onStart();
+    expect(restored.tabs.map((tab) => tab.isPinned.value), [true, false, false]);
+    expect(restored.activeTabIndex.value, 2);
+    restored.onDelete();
+    controller.toggleTabPin(0);
+    controller.closeTab(0);
+    expect(controller.tabs, [first, third]);
+    expect(controller.activeTab, same(third));
+    controller.reorderTab(0, 1);
+    expect(controller.tabs, [third, first]);
+    expect(controller.activeTab, same(third));
+    await tester.pump();
+  });
+
   testWidgets('legacy Custom filter keys render as Hugeicons and localized text', (tester) async {
     final tab = _Tab(99);
     addTearDown(tab.dispose);
@@ -104,6 +184,11 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(findHugeIcon(HugeIcons.strokeRoundedClosedCaption), findsNWidgets(2));
+    final headerIcon = findHugeIcon(HugeIcons.strokeRoundedClosedCaption).last;
+    final header = find.byKey(const ValueKey('explore-section-header'));
+    final headerRow = find.ancestor(of: headerIcon, matching: find.byType(Row)).first;
+    expect(tester.getSize(headerIcon), const Size.square(AppStyle.largeIconSize));
+    expect(tester.getCenter(headerIcon), Offset(tester.getRect(headerRow).left + 21, tester.getRect(header).center.dy));
     expect(find.textContaining('Sub Indonesia'), findsNWidgets(2));
     expect(find.textContaining('🇮🇩'), findsNothing);
     expect(tab.leftListSelected.value.name, '🇮🇩 Sub Indonesia');

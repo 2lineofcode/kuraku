@@ -12,9 +12,13 @@ import 'package:javit/app/core/app_pref.dart';
 import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/data/models/__javit_search_entity.dart';
 import 'package:javit/app/data/models/__javmost_new_release.dart';
+import 'package:javit/app/data/models/activity_entity.dart';
 import 'package:javit/app/modules/home/page_download/page_download_controller.dart';
+import 'package:javit/app/modules/home/page_download/page_download_dialog.dart';
 import 'package:javit/app/modules/home/page_download/page_download_search_tab.dart';
 import 'package:javit/app/modules/home/page_download/page_download_view.dart';
+import 'package:javit/app/modules/widgets/widget_controls.dart';
+import 'package:javit/app/modules/widgets/widget_style.dart';
 import 'package:javit/app/utils/helper_opener.dart';
 
 import 'icon_finder.dart';
@@ -40,6 +44,20 @@ class _DownloadController extends _Controller {
   int starts = 0;
   @override
   Future<void> startDownload() async { starts++; }
+}
+
+class _HistoryController extends _Controller {
+  String? revealed;
+  int refreshes = 0;
+  int opened = 0;
+  @override
+  Future<void> revealOutput(String path) async { revealed = path; }
+  @override
+  Future<void> deleteDownloadHistory(Activity activity) async { history.remove(activity); }
+  @override
+  Future<void> loadDownloadHistory() async { refreshes++; }
+  @override
+  Future<void> openDialogDownload() async { opened++; }
 }
 
 class _SearchTab extends PageDownloadSearchTab {
@@ -111,6 +129,44 @@ void main() {
     Get.put(AppSettingService()..pref = preferences);
   });
   tearDown(Get.reset);
+
+  testWidgets('download tabs reorder and pin without changing the active tab', (tester) async {
+    final controller = Get.put<PageDownloadController>(_Controller());
+    final first = controller.activeTab;
+    controller.addTab();
+    final second = controller.activeTab;
+    controller.addTab();
+    final third = controller.activeTab;
+    controller.reorderTab(2, 0);
+    expect(controller.tabs, [third, first, second]);
+    expect(controller.activeTab, same(third));
+    controller.toggleTabPin(2);
+    expect(second.isPinned.value, isTrue);
+    expect(controller.tabs, [second, third, first]);
+    expect(controller.activeTab, same(third));
+    controller.closeTab(0);
+    expect(controller.tabs.length, 3);
+    controller.reorderTab(0, 2);
+    controller.reorderTab(2, 0);
+    expect(controller.tabs, [second, first, third]);
+    expect(controller.activeTab, same(third));
+    final saved = AppPref.getDownloadTabs();
+    expect((saved['tabs'] as List).first['pinned'], isTrue);
+    expect(saved['activeTab'], 2);
+    final restored = _Controller();
+    restored.onStart();
+    expect(restored.tabs.map((tab) => tab.isPinned.value), [true, false, false]);
+    expect(restored.activeTabIndex.value, 2);
+    restored.onDelete();
+    controller.toggleTabPin(0);
+    controller.closeTab(0);
+    expect(controller.tabs, [first, third]);
+    expect(controller.activeTab, same(third));
+    controller.reorderTab(0, 1);
+    expect(controller.tabs, [third, first]);
+    expect(controller.activeTab, same(third));
+    await tester.pump();
+  });
 
   testWidgets('picking online by click or Enter keeps the search field ready for typing', (tester) async {
     final tab = _SearchTab(1);
@@ -234,7 +290,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('Download restores tab preferences and Having without restarting downloads', (tester) async {
+  testWidgets('Download restores tab preferences and In Library without restarting downloads', (tester) async {
     await AppPref.setSearchTabs({'tabs': [{'query': 'Local query'}]});
     final controller = Get.put<PageDownloadController>(_Controller());
     final first = controller.activeTab;
@@ -349,7 +405,7 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('Download blacklist survives Result Having and incoming pages', (tester) async {
+  testWidgets('Download blacklist survives Result In Library and incoming pages', (tester) async {
     final tab = _SearchTab(1);
     addTearDown(tab.dispose);
     tab.filter.blacklist.addAll([
@@ -380,7 +436,7 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('Result and Having filter loaded videos and recover from empty matches', (tester) async {
+  testWidgets('Result and In Library filter loaded videos and recover from empty matches', (tester) async {
     final tab = _SearchTab(1);
     final other = _SearchTab(2);
     addTearDown(tab.dispose);
@@ -393,7 +449,7 @@ void main() {
     await search;
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: _SearchView(controller: tab))));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Having: 1'));
+    await tester.tap(find.text('In Library: 1'));
     await tester.pumpAndSettle();
     expect(tab.videos.map((video) => video.videoCode), ['SSIS-001']);
     expect(tab.allVideos.length, 2);
@@ -404,7 +460,7 @@ void main() {
     expect(tab.videos.length, 2);
 
     tab.allVideos.first.match = false;
-    await tester.tap(find.text('Having: 1'));
+    await tester.tap(find.text('In Library: 1'));
     await tester.pumpAndSettle();
     expect(tab.videos, isEmpty);
     expect(find.text('No Owned Videos'), findsOneWidget);
@@ -558,6 +614,102 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('Cupertino download history fits narrow windows and preserves actions', (tester) async {
+    tester.view.physicalSize = const Size(340, 450);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = Get.put<PageDownloadController>(_HistoryController()) as _HistoryController;
+    for (final brightness in Brightness.values) {
+      final completed = Activity(id: '1', updatedAt: '2026-10-07T12:34:56', content: jsonEncode({
+        'ev': 'finish', 'output_path': '/tmp/A very long completed video filename.mp4',
+        'url': 'https://example.com/completed',
+      }));
+      final cancelled = Activity(id: '2', updatedAt: '2026-10-07T12:30:00', content: jsonEncode({
+        'ev': 'cancelled', 'url': 'https://example.com/a-very-long-cancelled-download', 'mode': 'file',
+      }));
+      controller.history.assignAll([completed, cancelled]);
+      await tester.pumpWidget(GetMaterialApp(key: ValueKey(brightness), theme: AppStyle.theme(brightness),
+        home: const Scaffold(body: Text('Home'))));
+      Future<void> open() async {
+        unawaited(Get.dialog<void>(PageDownloadHistoryDialog(controller: controller)));
+        await tester.pumpAndSettle();
+      }
+      await open();
+      expect(find.byType(CupertinoPopupSurface), findsOneWidget);
+      expect(find.byType(CupertinoListTile), findsNWidgets(2));
+      expect(find.text('Completed · 2026-10-07 12:34:56'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byTooltip('Reveal output'));
+      expect(controller.revealed, '/tmp/A very long completed video filename.mp4');
+      await tester.tap(find.byTooltip('Refresh history'));
+      expect(controller.refreshes, greaterThan(0));
+      controller.job.running = true;
+      controller.jobRevision.value++;
+      await tester.pump();
+      final retry = find.descendant(of: find.byTooltip('Load settings to retry').last, matching: find.byType(CupertinoButton));
+      expect(tester.widget<CupertinoButton>(retry).onPressed, isNull);
+      controller.job.running = false;
+      controller.jobRevision.value++;
+      await tester.pump();
+      await tester.tap(find.byTooltip('Load settings to retry').last);
+      await tester.pumpAndSettle();
+      expect(controller.mode.value, 'file');
+      expect(controller.tecUrl.text, 'https://example.com/a-very-long-cancelled-download');
+      expect(controller.opened, greaterThan(0));
+      expect(find.byType(Dialog), findsNothing);
+      await open();
+      await tester.tap(find.byTooltip('Delete history entry').last);
+      await tester.pumpAndSettle();
+      expect(controller.history, [completed]);
+      await tester.tap(find.byTooltip('Delete history entry'));
+      await tester.pumpAndSettle();
+      expect(find.text('No download history yet.'), findsOneWidget);
+      await tester.tap(find.byTooltip('Close history'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
+  testWidgets('Cupertino download form fits both themes and narrow windows', (tester) async {
+    addTearDown(tester.view.reset);
+    tester.view.devicePixelRatio = 1;
+    final controller = Get.put<PageDownloadController>(_Controller());
+    for (final brightness in Brightness.values) {
+      for (final size in [const Size(700, 600), const Size(340, 450)]) {
+        tester.view.physicalSize = size;
+        await tester.pumpWidget(GetMaterialApp(
+          key: ValueKey('$brightness-$size'), theme: AppStyle.theme(brightness),
+          home: Scaffold(body: PageDownloadDialog(controller: controller)),
+        ));
+        await tester.pumpAndSettle();
+        final segmented = tester.widget<CupertinoSlidingSegmentedControl<String>>(find.byType(CupertinoSlidingSegmentedControl<String>));
+        segmented.onValueChanged('file');
+        await tester.pumpAndSettle();
+        expect(controller.mode.value, 'file');
+        await tester.tap(find.text('Options'));
+        await tester.pumpAndSettle();
+        expect(find.text('User-Agent (optional)'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        controller.mode.value = 'extract';
+        await tester.pumpAndSettle();
+        expect(find.byType(CupertinoSwitch), findsNWidgets(2));
+        expect(find.text('Capture').hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        controller.job.running = true;
+        controller.jobRevision.value++;
+        await tester.pumpAndSettle();
+        expect(tester.widget<AppTextField>(find.byWidgetPredicate((widget) => widget is AppTextField
+            && widget.controller == controller.tecUrl)).enabled, isFalse);
+        expect(find.text('Options'), findsNothing);
+        expect(find.text('Cancel download').hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        controller.job.running = false;
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    }
+  });
+
   testWidgets('Download opens a compact dialog, keeps drafts and continues when closed', (tester) async {
     tester.view.physicalSize = const Size(700, 600);
     tester.view.devicePixelRatio = 1;
@@ -572,6 +724,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(Dialog), findsOneWidget);
     expect(find.text('Capture'), findsOneWidget);
+    expect(find.byType(CupertinoPopupSurface), findsOneWidget);
+    expect(find.byType(CupertinoSlidingSegmentedControl<String>), findsOneWidget);
+    expect(find.byType(CupertinoFormSection), findsOneWidget);
     final dialogBody = find.byWidgetPredicate((widget) => widget is ConstrainedBox && widget.constraints.maxWidth == 460);
     expect(tester.getSize(dialogBody).height, lessThan(360));
     controller.tecUrl.text = 'https://example.com/watch';
@@ -581,6 +736,12 @@ void main() {
     await tester.tap(find.text('Options'));
     await tester.pumpAndSettle();
     expect(find.text('Workers (1–64)'), findsWidgets);
+    await tester.ensureVisible(find.byType(CupertinoSwitch).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(CupertinoSwitch).first);
+    await tester.pumpAndSettle();
+    expect(controller.headless.value, isTrue);
+    expect(find.text('Capture duration (seconds)'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.byTooltip('Close download dialog'));
     await tester.pumpAndSettle();

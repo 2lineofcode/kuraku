@@ -615,16 +615,18 @@ class _ExThumbnailState extends State<ExThumbnail> {
       final fixImageUrl = widget.imageUrl!.trim();
 
       final double fastImageRenderWidth = widget.width * (widget.prefix ?? 1);
-      child = OverflowBox(
-        alignment: Alignment.centerRight,
-        maxWidth: fastImageRenderWidth,
-        maxHeight: widget.height,
-        child: CachedNetworkImage(
+      child = CachedNetworkImage(
           key: Key(widget.withProxy == true ? '${fixImageUrl.genImageUrl()}' : '$fixImageUrl'),
           imageUrl: widget.withProxy == true ? '${fixImageUrl.genImageUrl()}' : '$fixImageUrl',
           fit: widget.fitUrl,
-          width: fastImageRenderWidth,
+          width: widget.width,
           height: widget.height,
+          imageBuilder: (context, imageProvider) => OverflowBox(
+            alignment: Alignment.centerRight,
+            maxWidth: fastImageRenderWidth,
+            maxHeight: widget.height,
+            child: Image(image: imageProvider, fit: widget.fitUrl, width: fastImageRenderWidth, height: widget.height),
+          ),
           memCacheWidth: (fastImageRenderWidth * MediaQuery.devicePixelRatioOf(context)).round(),
           fadeInDuration: 300.milliseconds,
           cacheManager: CacheManager(
@@ -643,8 +645,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
             if (progress.progress != null) ' ${(progress.progress! * 100).toDoubleStringAsFixed(digit: 0)}%'.text.xs.align(TextAlign.center).makeCentered(),
           ]),
           errorWidget: (c, e, s) => HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: iconSize).centered().wh(widget.width, widget.height).color(AppColor.selected),
-        ),
-      ).color(widget.backdropColor ?? AppColor.container).wh(widget.width, widget.height);
+      ).wh(widget.width, widget.height).color(widget.backdropColor ?? AppColor.container);
     }
 
     return scm.ContextMenuWidget(

@@ -126,6 +126,40 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('Video clicks toggle controls while mouse hover and playback actions still work', (tester) async {
+    addTearDown(tester.view.reset);
+    controller.infoAnimationController = AnimationController(vsync: tester);
+    addTearDown(controller.infoAnimationController.dispose);
+    await pump(tester);
+    final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(380, 250));
+    await tester.pumpAndSettle();
+    for (final visible in [false, true, false]) {
+      await mouse.down(const Offset(380, 250));
+      await mouse.up();
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Play (Space)').hitTestable(), visible ? findsOneWidget : findsNothing);
+      expect(controller.isPlaying.value, isFalse);
+    }
+    await mouse.moveTo(const Offset(390, 250));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Play (Space)').hitTestable(), findsOneWidget);
+    await tester.tap(find.byTooltip('Play (Space)'));
+    await tester.pumpAndSettle();
+    expect(controller.isPlaying.value, isTrue);
+    expect(find.byTooltip('Pause (Space)').hitTestable(), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Pause (Space)').hitTestable(), findsNothing);
+    await mouse.down(const Offset(390, 250));
+    await mouse.up();
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Pause (Space)').hitTestable(), findsOneWidget);
+    expect(controller.isPlaying.value, isTrue);
+    await mouse.removePointer();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('Cupertino seeking and menus keep playback usable through auto-hide', (tester) async {
     addTearDown(tester.view.reset);
     controller.infoAnimationController = AnimationController(vsync: tester);

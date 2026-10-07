@@ -215,7 +215,7 @@ class PageHomeView extends GetView<PageHomeController> {
           AppIconButton(
             icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
             onPressed: refreshAction,
-          ),
+          ).pOnly(right: 4),
 
           if (showDirectToExplore == true) ...[
             AppIconButton(
@@ -225,7 +225,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 final exploreC = Get.find<PageExploreController>();
                 await exploreC.openSelection(kCustom, title);
               },
-            ),
+            ).pOnly(right: 4),
           ],
 
           GetBuilder(
@@ -243,7 +243,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 },
               );
             },
-          ),
+          ).pOnly(right: 8),
 
         ]).pSymmetric(v: 12),
         GetBuilder(

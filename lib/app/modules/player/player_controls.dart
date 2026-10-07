@@ -74,6 +74,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   double _gamma = 0;
   String _activeAdjustmentPreset = 'Custom';
   bool _hasSavedCustomPreset = AppPref.hasPlayerCustomAdjustment();
+  bool _savingPreset = false;
+  String _presetNotice = '';
   static const List<String> _videoPresetNames = [
     'Cinematic',
     'Vivid',
@@ -333,7 +335,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
           child: Container(
             padding: padding,
             decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E).withValues(alpha: .72),
+              color: const Color(0xFF1C1C1E).withValues(alpha: .58),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.white.withValues(alpha: .12)),
             ),
@@ -486,7 +488,6 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       if (dur > Duration.zero) _seekPreview.request(widget.controller.currentVideo.value.videoPath ?? '', second);
     }
     final sliderValue = (_scrubValue ?? pos.inMilliseconds.toDouble()).clamp(0.0, maxPosition.toDouble());
-    final playedFraction = sliderValue / maxPosition;
     final bufferedFraction = bufferPercent.isNaN ? 0.0 : bufferPercent.clamp(0.0, 100.0) / 100.0;
 
     return LayoutBuilder(
@@ -529,19 +530,13 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               clipBehavior: Clip.none,
               alignment: Alignment.centerLeft,
               children: [
-                Positioned(
-                  left: 22, right: 22, bottom: 5,
-                  child: Align(alignment: Alignment.centerLeft, child: FractionallySizedBox(
-                    widthFactor: bufferedFraction.clamp(playedFraction, 1.0),
-                    child: Container(height: 1, color: Colors.white24),
-                  )),
-                ),
                 SizedBox(
                   width: double.infinity,
                   child: _buildCompactSlider(
                     min: 0,
                     max: maxPosition.toDouble(),
                     value: sliderValue,
+                    secondaryTrackValue: bufferedFraction * maxPosition,
                     onChangeStart: (value) {
                       _cancelHideTimer();
                       setState(() {
@@ -637,6 +632,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
   Widget _buildCompactSlider({
     required double value,
+    double? secondaryTrackValue,
     double min = 0,
     double max = 1,
     ValueChanged<double>? onChanged,
@@ -650,6 +646,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       overlayShape: SliderComponentShape.noOverlay,
       activeTrackColor: Colors.white,
       inactiveTrackColor: Colors.white24,
+      secondaryActiveTrackColor: Colors.white38,
       disabledActiveTrackColor: Colors.white24,
       disabledInactiveTrackColor: Colors.white24,
       thumbColor: Colors.white,
@@ -659,6 +656,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     child: Slider(
       padding: const EdgeInsets.symmetric(horizontal: 22),
       value: value, min: min, max: max,
+      secondaryTrackValue: secondaryTrackValue,
       onChanged: onChanged, onChangeStart: onChangeStart, onChangeEnd: onChangeEnd,
     ),
   );
@@ -913,33 +911,42 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
                 _buildControlIcon(icon: CupertinoIcons.arrow_clockwise, size: 16, tooltip: 'Reset'.tr, onTap: _resetVideoAdjustments),
 
-                _buildControlIcon(icon: CupertinoIcons.bookmark, size: 16, tooltip: 'Save current as custom'.tr, onTap: _saveCurrentCustomPreset),
-
                 _buildControlIcon(icon: CupertinoIcons.xmark, size: 16, tooltip: 'Close'.tr, onTap: _toggleVideoAdjustments),
 
               ],
             ),
             const SizedBox(height: 4),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  if (_hasSavedCustomPreset) ...[
-                    _buildPresetChip('Saved'),
-                    6.widthBox,
-                  ],
-                  for (var i = 0; i < _videoPresetNames.length; i++) ...[
-                    _buildPresetChip(_videoPresetNames[i]),
-                    if (i != _videoPresetNames.length - 1) 6.widthBox,
-                  ],
-                ],
-              ),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              for (final name in _videoPresetNames) _buildPresetChip(name),
+            ]),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: CupertinoButton(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                minimumSize: const Size(32, 32), color: Colors.white.withValues(alpha: .12),
+                onPressed: _savingPreset ? null : _saveCurrentCustomPreset,
+                child: Text((_hasSavedCustomPreset ? 'Update preset' : 'Save preset').tr,
+                  style: const TextStyle(fontSize: 12, color: Colors.white)),
+              )),
+              const SizedBox(width: 8),
+              Expanded(child: CupertinoButton(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                minimumSize: const Size(32, 32), color: Colors.white.withValues(alpha: .12),
+                onPressed: !_hasSavedCustomPreset || _savingPreset ? null : () => _applyVideoAdjustmentPreset('Saved'),
+                child: Text('Load preset'.tr, style: TextStyle(fontSize: 12,
+                  color: _hasSavedCustomPreset ? Colors.white : Colors.white38)),
+              )),
+            ]),
+            if (_presetNotice.isNotEmpty) Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_presetNotice.tr, style: const TextStyle(fontSize: 11, color: Colors.white70)),
             ),
             const SizedBox(height: 16),
             _buildAdjustmentSlider('Brightness'.tr, _brightness, -100, 100, (v) async {
               _setAdjustmentState(() {
                 _brightness = v;
                 _activeAdjustmentPreset = 'Custom';
+                _presetNotice = '';
               });
               final p = widget.controller.player.platform;
               if (p is NativePlayer) await p.setProperty('brightness', v.toStringAsFixed(0));
@@ -948,6 +955,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               _setAdjustmentState(() {
                 _contrast = v;
                 _activeAdjustmentPreset = 'Custom';
+                _presetNotice = '';
               });
               final p = widget.controller.player.platform;
               if (p is NativePlayer) await p.setProperty('contrast', v.toStringAsFixed(0));
@@ -956,6 +964,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               _setAdjustmentState(() {
                 _saturation = v;
                 _activeAdjustmentPreset = 'Custom';
+                _presetNotice = '';
               });
               final p = widget.controller.player.platform;
               if (p is NativePlayer) await p.setProperty('saturation', v.toStringAsFixed(0));
@@ -964,6 +973,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               _setAdjustmentState(() {
                 _hue = v;
                 _activeAdjustmentPreset = 'Custom';
+                _presetNotice = '';
               });
               final p = widget.controller.player.platform;
               if (p is NativePlayer) await p.setProperty('hue', v.toStringAsFixed(0));
@@ -972,6 +982,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               _setAdjustmentState(() {
                 _gamma = v;
                 _activeAdjustmentPreset = 'Custom';
+                _presetNotice = '';
               });
               final p = widget.controller.player.platform;
               if (p is NativePlayer) await p.setProperty('gamma', v.toStringAsFixed(0));
@@ -998,6 +1009,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               ),
               'Audio Normalization'.tr.text.white.size(12).make().pOnly(left: 8).expand(),
             ]),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Text('Rotation'.tr, style: TextStyle(color: Colors.white, fontSize: 12)).expand(),
@@ -1039,8 +1051,10 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
             ),
           ],
         ),
+        const SizedBox(height: 4),
         SizedBox(
           width: double.infinity,
+          height: 32,
           child: _buildCompactSlider(
             min: min,
             max: max,
@@ -1053,6 +1067,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
             },
           ),
         ),
+        const SizedBox(height: 8),
       ],
     );
   }
@@ -1086,17 +1101,25 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   }
 
   Future<void> _saveCurrentCustomPreset() async {
-    AppPref.setPlayerCustomAdjustment({
-      'brightness': _brightness,
-      'contrast': _contrast,
-      'saturation': _saturation,
-      'hue': _hue,
-      'gamma': _gamma,
-    });
-    if (!_hasSavedCustomPreset) {
-      _setAdjustmentState(() => _hasSavedCustomPreset = true);
+    _setAdjustmentState(() { _savingPreset = true; _presetNotice = ''; });
+    try {
+      await AppPref.setPlayerCustomAdjustment({
+        'brightness': _brightness,
+        'contrast': _contrast,
+        'saturation': _saturation,
+        'hue': _hue,
+        'gamma': _gamma,
+      });
+      _setAdjustmentState(() {
+        _hasSavedCustomPreset = true;
+        _activeAdjustmentPreset = 'Saved';
+        _presetNotice = 'Custom preset saved';
+      });
+    } catch (_) {
+      _setAdjustmentState(() => _presetNotice = 'Could not save preset. Please retry.');
+    } finally {
+      _setAdjustmentState(() => _savingPreset = false);
     }
-    _showInfo('Custom preset saved'.tr);
   }
 
   Widget _buildPresetChip(String name) {
@@ -1126,6 +1149,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
         gamma: values['gamma'] ?? 0,
         presetName: 'Saved',
       );
+      _setAdjustmentState(() => _presetNotice = 'Saved preset loaded');
       return;
     }
 
@@ -1227,6 +1251,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     required String presetName,
   }) async {
     _setAdjustmentState(() {
+      _presetNotice = '';
       _brightness = brightness;
       _contrast = contrast;
       _saturation = saturation;
@@ -1259,7 +1284,12 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   );
 
   void _onUserInteraction() {
-    _showControls();
+    if (_controlsVisible) {
+      _hideControls();
+      _restoreFocus();
+    } else {
+      _showControls();
+    }
   }
 
   void _onPointerActivity() {
@@ -1269,13 +1299,16 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   void _startHideTimer() {
     _hideTimer?.cancel();
     if (_isSeekPreviewVisible || _isMenuOpen || _isVolumePointerInside || _isVolumeDragging) return;
-    _hideTimer = Timer(_autoHideDuration, () {
-      if (!mounted) return;
-      _seekPreview.clear();
-      setState(() {
-        _controlsVisible = false;
-        _isSeekPreviewVisible = false;
-      });
+    _hideTimer = Timer(_autoHideDuration, _hideControls);
+  }
+
+  void _hideControls() {
+    _cancelHideTimer();
+    if (!mounted) return;
+    _seekPreview.clear();
+    setState(() {
+      _controlsVisible = false;
+      _isSeekPreviewVisible = false;
     });
   }
 

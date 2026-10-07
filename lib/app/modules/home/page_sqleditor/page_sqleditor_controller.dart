@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../utils/chat_service.dart';
+import '../../../utils/helper_tabs.dart';
 import 'page_sqleditor_tab.dart';
 
 class PageSqleditorController extends GetxController {
@@ -88,8 +89,22 @@ class PageSqleditorController extends GetxController {
     });
   }
 
-  void closeTab(int index) {
+  void reorderTab(int oldIndex, int newIndex) {
+    activeTabIndex.value = moveTab(tabs, activeTabIndex.value, oldIndex, newIndex, (tab) => tab.isPinned.value);
+    unawaited(saveTabs());
+  }
+
+  void toggleTabPin(int index) {
     if (index < 0 || index >= tabs.length) return;
+    final tab = tabs[index];
+    tab.isPinned.toggle();
+    final destination = tabs.where((tab) => tab.isPinned.value).length - (tab.isPinned.value ? 1 : 0);
+    activeTabIndex.value = moveTab(tabs, activeTabIndex.value, index, destination, (tab) => tab.isPinned.value);
+    unawaited(saveTabs());
+  }
+
+  void closeTab(int index) {
+    if (index < 0 || index >= tabs.length || tabs[index].isPinned.value) return;
     final tab = tabs[index];
     if (tab.committing.value) {
       tab.queryError.value = 'Wait for the write to finish before closing this tab.'.tr;

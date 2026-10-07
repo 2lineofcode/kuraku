@@ -33,9 +33,10 @@ class PageDownloadView extends GetView<PageDownloadController> {
     },
     child: Focus(autofocus: true, child: Column(children: [
       Obx(() => SearchTabBar(
-        tabs: controller.tabs.map((tab) => (title: tab.title.value, isLoading: tab.isLoading.value)).toList(),
+        tabs: controller.tabs.map((tab) => (id: tab.id, isPinned: tab.isPinned.value, title: tab.title.value, isLoading: tab.isLoading.value)).toList(),
         activeIndex: controller.activeTabIndex.value,
         scrollController: controller.tabScrollController,
+        onReorder: controller.reorderTab, onPin: controller.toggleTabPin,
         onSelect: controller.selectTab,
         onClose: controller.closeTab,
         onAdd: controller.addTab,
@@ -187,7 +188,7 @@ class PageDownloadSearchView extends StatelessWidget {
               textStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
             ),
             onPressed: () => controller.showHavingOnly(true),
-            child: Text('Having: @{havingVideos}'.trNamed({'havingVideos': '${controller.havingVideos}'})),
+            child: Text('In Library: @{havingVideos}'.trNamed({'havingVideos': '${controller.havingVideos}'})),
           ).pOnly(bottom: 12).hide(isVisible: controller.allVideos.isNotEmpty)),
 
           Spacer(),

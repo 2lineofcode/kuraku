@@ -25,6 +25,7 @@ class PageSearchTab {
   }
 
   final int id;
+  final isPinned = false.obs;
   final title = 'New search'.obs;
   final error = ''.obs;
   final isLoading = false.obs;
@@ -67,7 +68,7 @@ class PageSearchTab {
     if (_closed || selected.isEmpty) return;
     switch (action) {
       case 'play':
-        await HelperOpener.openVideoFile(selected.first, playlist: selected);
+        await HelperOpener.openVideoPlaylist(selected);
         break;
       case 'playMulti':
         await Get.to(() => const PlayerMultiView(), arguments: selected);
@@ -123,6 +124,7 @@ class PageSearchTab {
   }
 
   Map<String, dynamic> toPreferences() => {
+    'pinned': isPinned.value,
     'query': tecSearch.text,
     'listView': isListView.value,
     'semantic': isSemanticMode.value,
@@ -143,6 +145,7 @@ class PageSearchTab {
   };
 
   void restorePreferences(Map<String, dynamic> value) {
+    isPinned.value = value['pinned'] == true;
     tecSearch.text = value['query'] is String ? value['query'] : '';
     isListView.value = value['listView'] == true;
     isSemanticMode.value = value['semantic'] == true;

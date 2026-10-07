@@ -312,13 +312,20 @@ class HomeView extends GetView<HomeController> {
 
   Widget footerContent() {
     return HStack([
-      Obx(() => HStack([const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: AppStyle.smallIconSize), 6.widthBox, '${controller.profile.value.name}'.text.size(11).make()]).onInkTap((){
-        controller.onOpenProfile();
-      })),
+      Obx(
+        () =>
+            HStack([const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: AppStyle.smallIconSize), 6.widthBox, '${controller.profile.value.name}'.text.size(11).make()])
+                .pSymmetric(h: 10, v: 6)
+                .color(AppColor.hover)
+                .cornerRadius(6)
+                .onInkTap(() => controller.onOpenProfile()),
+      ),
 
-      Obx(() => footerStatusText().onInkTap((){
-        controller.onOpenSettingsAppLog();
-      }).expand()),
+      8.widthBox,
+      Obx(() => Align(
+        alignment: Alignment.centerRight,
+        child: footerStatusText().pSymmetric(h: 10, v: 6).color(AppColor.hover).cornerRadius(6),
+      )).expand(),
     ]).p12();
   }
 

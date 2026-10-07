@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -331,15 +332,25 @@ void main() {
       of: find.ancestor(of: find.text('Brightness'), matching: find.byType(Column)).first,
       matching: find.byType(Slider),
     );
+    expect(tester.widget<CupertinoButton>(find.widgetWithText(CupertinoButton, 'Load preset')).onPressed, isNull);
+    expect(find.text('Flat').hitTestable(), findsOneWidget);
     await tester.tap(find.text('Cinematic'));
     await tester.pumpAndSettle();
     expect(tester.widget<Slider>(brightnessSlider).value, double.parse(native.properties['brightness']!));
     await tester.drag(brightnessSlider, const Offset(40, 0));
     await tester.pumpAndSettle();
     expect(tester.widget<Slider>(brightnessSlider).value.round(), int.parse(native.properties['brightness']!));
-    await tester.tap(find.byTooltip('Save current as custom'));
+    final savedBrightness = tester.widget<Slider>(brightnessSlider).value;
+    await tester.tap(find.text('Save preset'));
     await tester.pumpAndSettle();
-    expect(find.text('Saved'), findsOneWidget);
+    expect(find.text('Update preset'), findsOneWidget);
+    expect(find.text('Custom preset saved'), findsOneWidget);
+    await tester.tap(find.text('Vivid'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Load preset'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Slider>(brightnessSlider).value, savedBrightness);
+    expect(find.text('Saved preset loaded'), findsOneWidget);
     await tester.tap(find.byTooltip('Rotate right 90°'));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.byTooltip('Rotate left 90°'));

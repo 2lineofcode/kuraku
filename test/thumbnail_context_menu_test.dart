@@ -1,7 +1,13 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/data/database/_init_db.dart';
 import 'package:javit/app/modules/widgets/widget_style.dart';
 import 'package:javit/app/modules/widgets/widget_thumbnail.dart';
@@ -30,6 +36,50 @@ class _Database implements Database {
 }
 
 void main() {
+  testWidgets('network error icon stays centered in the actual thumbnail frame', (tester) async {
+    final directory = Directory.systemTemp.createTempSync('javit-thumbnail-test-');
+    final previousFactory = databaseFactoryOrNull;
+    databaseFactory = databaseFactorySqflitePlugin;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('com.tekartik.sqflite'), (call) async {
+      switch (call.method) {
+        case 'getDatabasesPath': return directory.path;
+        case 'openDatabase': return {'id': 1};
+        case 'query': return (call.arguments as Map)['sql'] == 'PRAGMA user_version' ? [{'user_version': 3}] : <Map<String, Object?>>[];
+        case 'batch': return [];
+        default: return null;
+      }
+    });
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('dev.irondash.engine_context'), (_) => Completer<Object?>().future);
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (_) async => directory.path);
+    Get.put(AppSettingService()..appPath = directory.path);
+    addTearDown(() async {
+      Get.reset();
+      databaseFactory = previousFactory;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('com.tekartik.sqflite'), null);
+      debugDefaultTargetPlatformOverride = null;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('dev.irondash.engine_context'), null);
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), null);
+      await directory.delete(recursive: true);
+    });
+    for (final prefix in [1.0, 1.9]) {
+      await tester.pumpWidget(MaterialApp(home: Center(child: SizedBox(
+        width: 200, height: 200,
+        child: ExThumbnail(key: ValueKey(prefix), imageUrl: 'invalid-url', withProxy: false, width: 300, height: 200, prefix: prefix),
+      ))));
+      for (var attempt = 0; attempt < 20 && findHugeIcon(HugeIcons.strokeRoundedImage01).evaluate().isEmpty; attempt++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(tester.getCenter(findHugeIcon(HugeIcons.strokeRoundedImage01)), tester.getCenter(find.byType(ExThumbnail)));
+      expect(tester.getSize(findHugeIcon(HugeIcons.strokeRoundedImage01)), const Size.square(AppStyle.emptyIconSize));
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 11));
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   testWidgets('thumbnail placeholder icons fit small frames and keep the shared default', (tester) async {
     addTearDown(Get.reset);
     for (final dimensions in [(20.0, 16.0, null, 16.0), (80.0, 64.0, null, AppStyle.emptyIconSize),

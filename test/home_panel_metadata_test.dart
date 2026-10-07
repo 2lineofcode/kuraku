@@ -16,6 +16,13 @@ import 'package:overlayment/overlayment.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:toastification/toastification.dart';
 
+class _MetadataBinding extends AutomatedTestWidgetsFlutterBinding {
+  // Get.forceAppUpdate uses hot reload, which conflicts with fake animation frames.
+  @override
+  // ignore: must_call_super
+  Future<void> performReassemble() async {}
+}
+
 class _Preferences implements GetSecureStorage {
   final values = <String, dynamic>{};
 
@@ -112,6 +119,7 @@ Videos _video() => Videos(
     );
 
 void main() {
+  _MetadataBinding();
   late _MainDatabase database;
   late _Home home;
 
@@ -125,23 +133,31 @@ void main() {
     Get.put<HomeController>(home);
     HomePanelAppLog.clear();
   });
-  tearDown(() async {
-    while (Overlayment.count > 0) {
-      await Overlayment.dismissLast();
-    }
-    Get.reset();
-  });
+  void metadataTest(String description, Future<void> Function(WidgetTester) body) {
+    testWidgets(description, (tester) async {
+      try {
+        await body(tester);
+      } finally {
+        while (Overlayment.count > 0) {
+          unawaited(Overlayment.dismissLast());
+          await tester.pumpAndSettle();
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        Get.reset();
+      }
+    });
+  }
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {Brightness brightness = Brightness.dark}) async {
     await tester.pumpWidget(ToastificationWrapper(
-      child: GetMaterialApp(theme: ThemeData.dark(), home: const Scaffold(body: Text('Home'))),
+      child: GetMaterialApp(theme: ThemeData(brightness: brightness), home: const Scaffold(body: Text('Home'))),
     ));
     await tester.pumpAndSettle();
   }
 
   Finder field(int index) => find.byType(CupertinoTextField).at(index);
 
-  testWidgets('prefills every field, actress and category of the video', (tester) async {
+  metadataTest('prefills every field, actress and category of the video', (tester) async {
     await pump(tester);
 
     unawaited(HomePanelMetadata.open(_video()));
@@ -161,7 +177,7 @@ void main() {
     expect(find.text('No category added'), findsNothing);
   });
 
-  testWidgets('shows the empty hints when there is no cast or tag yet', (tester) async {
+  metadataTest('shows the empty hints when there is no cast or tag yet', (tester) async {
     await pump(tester);
 
     unawaited(HomePanelMetadata.open(Videos(id: 'video-2', videoCode: '', title: 'Untagged')));
@@ -172,7 +188,7 @@ void main() {
     expect(find.text('No category added'), findsOneWidget);
   });
 
-  testWidgets('submitting saves the edited values and closes the panel', (tester) async {
+  metadataTest('submitting saves the edited values and closes the panel', (tester) async {
     final video = _video();
     await pump(tester);
 
@@ -197,7 +213,7 @@ void main() {
     expect(Overlayment.count, 0);
   });
 
-  testWidgets('an invalid video code is rejected before anything is written', (tester) async {
+  metadataTest('an invalid video code is rejected before anything is written', (tester) async {
     await pump(tester);
 
     unawaited(HomePanelMetadata.open(_video()));
@@ -213,7 +229,7 @@ void main() {
     expect(HomePanelAppLog.appLogRuntime.map((entry) => entry.content), contains('Video code not valid'));
   });
 
-  testWidgets('an empty video code is allowed for non JAV videos', (tester) async {
+  metadataTest('an empty video code is allowed for non JAV videos', (tester) async {
     await pump(tester);
 
     unawaited(HomePanelMetadata.open(_video()));
@@ -228,7 +244,7 @@ void main() {
     expect(Overlayment.count, 0);
   });
 
-  testWidgets('delete removes the video and closes the panel', (tester) async {
+  metadataTest('delete removes the video and closes the panel', (tester) async {
     await pump(tester);
 
     unawaited(HomePanelMetadata.open(_video()));
@@ -242,7 +258,7 @@ void main() {
     expect(Overlayment.count, 0);
   });
 
-  testWidgets('a category chip can be removed and the change is persisted', (tester) async {
+  metadataTest('a category chip can be removed and the change is persisted', (tester) async {
     final video = _video();
     await pump(tester);
 
@@ -251,6 +267,7 @@ void main() {
     expect(find.text('Drama'), findsOneWidget);
 
     final chip = find.ancestor(of: find.text('Drama'), matching: find.byType(Row)).first;
+    await tester.ensureVisible(chip);
     await tester.tap(find.descendant(of: chip, matching: find.byWidgetPredicate((widget) => widget is Icon && widget.size == 10)));
     await tester.pumpAndSettle();
 
@@ -262,13 +279,14 @@ void main() {
     expect(jsonDecode('${database.updates.single['category']}'), isEmpty);
   });
 
-  testWidgets('a category can be picked from the R18 catalogue', (tester) async {
+  metadataTest('a category can be picked from the R18 catalogue', (tester) async {
     final video = Videos(id: 'video-3', videoCode: 'ABP-002', title: 'Fresh');
     await pump(tester);
 
     unawaited(HomePanelMetadata.open(video));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.byTooltip('Add category'));
     await tester.tap(find.byTooltip('Add category'));
     await tester.pumpAndSettle();
     expect(find.text('Add Category'), findsOneWidget);
@@ -293,4 +311,39 @@ void main() {
     expect(video.category!.single.id, 22);
     expect('${database.updates.single['category']}', contains('Cosplay'));
   });
+
+  for (final brightness in Brightness.values) {
+    metadataTest('compact ${brightness.name} form keeps actions visible and discards draft on close', (tester) async {
+      tester.view.physicalSize = const Size(420, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final video = _video();
+      await pump(tester, brightness: brightness);
+      unawaited(HomePanelMetadata.open(video));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CupertinoFormSection), findsNWidgets(3));
+      final header = tester.getTopLeft(find.text('Edit Metadata (ABP-001)'));
+      final submit = tester.getTopLeft(find.text('Submit'));
+      await tester.ensureVisible(find.byTooltip('Delete Drama'));
+      await tester.tap(find.byTooltip('Delete Drama'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byTooltip('Delete Yua Mikami'));
+      await tester.tap(find.byTooltip('Delete Yua Mikami'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(field(8));
+      await tester.pumpAndSettle();
+
+      expect(tester.getTopLeft(find.text('Edit Metadata (ABP-001)')), header);
+      expect(tester.getTopLeft(find.text('Submit')), submit);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      expect(video.category!.single.category, 'Drama');
+      expect(video.actress!.single.nameRomaji, 'Yua Mikami');
+      expect(database.updates, isEmpty);
+      expect(Overlayment.count, 0);
+    });
+  }
 }

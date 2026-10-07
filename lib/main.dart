@@ -23,6 +23,7 @@ import 'app/core/app_logging.dart';
 import 'app/core/app_notification.dart';
 import 'app/core/app_pin.dart';
 import 'app/core/app_pref.dart';
+import 'app/core/app_scroll_behavior.dart';
 import 'app/core/app_setting.dart';
 import 'app/core/app_startup.dart';
 import 'app/core/app_translations.dart';
@@ -124,6 +125,7 @@ class _JavItState extends State<JavIt> with WindowListener {
   Widget build(BuildContext context) {
     return ToastificationWrapper(
       child: GetMaterialApp(
+        scrollBehavior: appScrollBehavior,
         enableLog: Env.logLvl == 'debug' ? true : false,
         title: Env.appName,
         translations: AppTranslations(),

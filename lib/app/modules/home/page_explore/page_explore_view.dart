@@ -2,7 +2,6 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_popup/flutter_popup.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:kana_kit/kana_kit.dart';
@@ -32,9 +31,10 @@ class PageExploreView extends GetView<PageExploreController> {
       },
       child: Focus(autofocus: true, child: Column(children: [
       Obx(() => SearchTabBar(
-        tabs: controller.tabs.map((tab) => (title: tab.currentMenuSelected.value == kCustom || tab.leftListSelected.value.name == null ? tab.title.tr : tab.title, isLoading: tab.isLoading.value || tab.isLoadingSelection.value || tab.isLoadingR18.value)).toList(),
+        tabs: controller.tabs.map((tab) => (id: tab.id, isPinned: tab.isPinned.value, title: tab.currentMenuSelected.value == kCustom || tab.leftListSelected.value.name == null ? tab.title.tr : tab.title, isLoading: tab.isLoading.value || tab.isLoadingSelection.value || tab.isLoadingR18.value)).toList(),
         activeIndex: controller.activeTabIndex.value,
         scrollController: controller.tabScrollController,
+        onReorder: controller.reorderTab, onPin: controller.toggleTabPin,
         onSelect: controller.selectTab,
         onClose: controller.closeTab,
         onAdd: controller.addTab,
@@ -138,29 +138,24 @@ class PageExploreTabView extends StatelessWidget {
               ),
 
               Obx(
-                () => CustomPopup(
-                  animationDuration: Duration.zero,
-                  contentPadding: EdgeInsets.all(12),
-                  content: VStack([
-                    'Sort By:'.tr.text.bold.black.make(),
-                    Divider(),
-                    AppButton(
-                      label: 'Name'.tr,
-                      icon: HugeIcon(icon: controller.leftSortSelected.value == 'Name' ? HugeIcons.strokeRoundedCheckmarkCircle02 : HugeIcons.strokeRoundedCircle, size: AppStyle.iconSize, color: Vx.black),
-                      labelSize: 13,
-                      labelColor: Vx.black,
-                      onPressed: () => {controller.onLeftSortChange('Name'), Get.back()},
-                    ).pOnly(right: 6),
-                    AppButton(
-                      label: 'Count'.tr,
-                      icon: HugeIcon(icon: controller.leftSortSelected.value == 'Count' ? HugeIcons.strokeRoundedCheckmarkCircle02 : HugeIcons.strokeRoundedCircle, size: AppStyle.iconSize, color: Vx.black),
-                      labelSize: 13,
-                      labelColor: Vx.black,
-                      onPressed: () => {controller.onLeftSortChange('Count'), Get.back()},
-                    ),
-                  ]).w(100),
-                  child: HugeIcon(icon: HugeIcons.strokeRoundedSortingZA01, size: AppStyle.iconSize, color: Vx.neutral500).pOnly(left: 8, right: 6),
-                ),
+                () => MenuAnchor(
+                  animated: false,
+                  consumeOutsideTap: true,
+                  menuChildren: [
+                    Padding(padding: EdgeInsets.fromLTRB(12, 8, 12, 4), child: Text('Sort by'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted))),
+                    for (final sort in controller.leftSortOptions)
+                      MenuItemButton(
+                        onPressed: () => controller.onLeftSortChange(sort),
+                        leadingIcon: HugeIcon(icon: controller.leftSortSelected.value == sort ? HugeIcons.strokeRoundedCheckmarkCircle02 : HugeIcons.strokeRoundedCircle, size: AppStyle.iconSize),
+                        child: Text(sort.tr, style: const TextStyle(fontSize: 13)),
+                      ),
+                  ],
+                  builder: (context, menu, child) => AppIconButton(
+                    tooltip: 'Sort by'.tr,
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedSortingZA01, size: AppStyle.iconSize),
+                    onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+                  ),
+                ).pOnly(left: 4),
               ),
             ],
           ).pSymmetric(v: 8),
@@ -292,12 +287,13 @@ class PageExploreTabView extends StatelessWidget {
     if (controller.rightListLocal.isEmpty) return Container();
     final item = controller.leftListSelected.value;
     return Container(
+      key: const ValueKey('explore-section-header'),
       width: double.infinity,
-      height: 56,
+      height: 68,
       decoration: ExDecorator.box(borderColor: AppColor.border),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // ** actress only
           if (controller.currentMenuSelected.value == kActress) ...[
@@ -311,7 +307,7 @@ class PageExploreTabView extends StatelessWidget {
                     withProxy: false,
                   ).cornerRadius(90).centered().pOnly(right: 12),
           ] else if (controller.currentMenuSelected.value == kCustom) ...[
-            HugeIcon(icon: _customIcon(item.name), size: AppStyle.largeIconSize).wh(42, 42).pOnly(right: 12),
+            HugeIcon(icon: _customIcon(item.name), size: AppStyle.largeIconSize).centered().wh(42, 42).centered().pOnly(right: 12),
           ] else ...[
             ExAvatarView(
               source: '',
@@ -321,57 +317,57 @@ class PageExploreTabView extends StatelessWidget {
               textSize: 12,
             ).centered().pOnly(right: 12),
           ],
-          VStack([
-            '${controller.currentMenuSelected.value == kCustom ? item.name!.tr : KanaKit().isKana(HelperDecensor.decensor(item.name!.trim())) ? KanaKit().toRomaji(HelperDecensor.decensor(item.name!.trim())) : HelperDecensor.decensor(item.name!.trim())}'
-                .text
-                .bold
-                .size(12)
-                .ellipsis
-                .make()
-                .onInkTap(() {
-              HelperMisc.copyToClipboard(HelperDecensor.decensor(item.name!.trim()), showToast: true);
-            }).pOnly(top: 6, bottom: 6),
-            Obx(
-              () => HStack([
-                '${kLocal.tr}: ${item.count}'
-                    .text
-                    .size(11)
-                    .minFontSize(11)
-                    .maxLines(1)
-                    .make()
-                    .pOnly(left: 12, right: 12)
-                    .color(controller.rightListViewMode.value == kLocal ? AppColor.selected : AppColor.unselected)
-                    .cornerRadius(8)
-                    .onInkTap(() async => await controller.onSectionLocalTap())
-                    .pOnly(right: 12),
-                '$kR18: ${controller.rightListR18TotalVideo}'
-                    .text
-                    .size(11)
-                    .minFontSize(11)
-                    .maxLines(1)
-                    .make()
-                    .pOnly(left: 12, right: 12)
-                    .color(controller.rightListViewMode.value == kR18 ? AppColor.selected : AppColor.unselected)
-                    .cornerRadius(8)
-                    .pOnly(right: 12)
-                    .onInkTap(() async => await controller.onSectionR18Tap())
-                    .pOnly(right: 12)
-                    .hide(isVisible: controller.rightListR18TotalVideo.value != 0),
-                controller.rightListLocalTotalSize.toFileSizeFormat()
-                    .text
-                    .size(10)
-                    .minFontSize(10)
-                    .maxLines(1)
-                    .ellipsis
-                    .align(TextAlign.right)
-                    .make()
-                    .tooltip('Total filesize'.tr)
-                    .pOnly(right: 12)
-                    .expand(),
-              ]),
+          Expanded(child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              '${controller.currentMenuSelected.value == kCustom ? item.name!.tr : KanaKit().isKana(HelperDecensor.decensor(item.name!.trim())) ? KanaKit().toRomaji(HelperDecensor.decensor(item.name!.trim())) : HelperDecensor.decensor(item.name!.trim())}'
+                  .text
+                  .bold
+                  .size(12)
+                  .ellipsis
+                  .make()
+                  .onInkTap(() {
+                HelperMisc.copyToClipboard(HelperDecensor.decensor(item.name!.trim()), showToast: true);
+              }).pOnly(top: 6, bottom: 6),
+              Obx(
+                () => Wrap(spacing: 8, runSpacing: 4, children: [
+                  '${kLocal.tr}: ${item.count} (${controller.rightListLocalTotalSize.toFileSizeFormat(decimals: 1).replaceAll(' ', '')})'
+                      .text
+                      .size(11)
+                      .minFontSize(11)
+                      .maxLines(1)
+                      .make()
+                      .pOnly(left: 12, right: 12)
+                      .color(controller.rightListViewMode.value == kLocal ? AppColor.selected : AppColor.unselected)
+                      .cornerRadius(8)
+                      .onInkTap(() async => await controller.onSectionLocalTap()),
+                  '$kR18: ${controller.rightListR18TotalVideo}'
+                      .text
+                      .size(11)
+                      .minFontSize(11)
+                      .maxLines(1)
+                      .make()
+                      .pOnly(left: 12, right: 12)
+                      .color(controller.rightListViewMode.value == kR18 ? AppColor.selected : AppColor.unselected)
+                      .cornerRadius(8)
+                      .onInkTap(() async => await controller.onSectionR18Tap())
+                      .hide(isVisible: controller.rightListR18TotalVideo.value != 0),
+                ]),
+              ),
+            ],
+          )),
+          const SizedBox(width: 12),
+          if (controller.rightListViewMode.value == kLocal)
+            AppButton(
+              key: const ValueKey('explore-play-all'),
+              onPressed: controller.isLoadingSelection.value ? null : () => HelperOpener.openVideoPlaylist(controller.rightListLocal.toList()),
+              variant: AppButtonVariant.tonal,
+              height: 28,
+              label: 'PLAY ALL'.tr,
+              labelSize: 11,
+              icon: const HugeIcon(icon: HugeIcons.strokeRoundedPlay, size: 14),
             ),
-          ]).expand(),
-
         ],
       ).pSymmetric(h: 8),
     ).pOnly(bottom: 12);

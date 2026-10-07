@@ -22,6 +22,7 @@ class PageExploreTab {
   }
 
   final int id;
+  final isPinned = false.obs;
   bool isClosed = false;
   final isLoading = false.obs;
   final isLoadingSelection = false.obs;
@@ -78,6 +79,7 @@ class PageExploreTab {
 
 
   Map<String, dynamic> toPreferences() => {
+    'pinned': isPinned.value,
     'menu': currentMenuSelected.value,
     'selectedId': currentMenuSelected.value == kActress ? leftListSelected.value.id : null,
     'selectedName': leftListSelected.value.name,
@@ -98,6 +100,7 @@ class PageExploreTab {
   };
 
   void restorePreferences(Map<String, dynamic> value) {
+    isPinned.value = value['pinned'] == true;
     if (menus.contains(value['menu'])) currentMenuSelected.value = value['menu'];
     leftListSelected.value = LeftListModel(
       id: value['selectedId'] is num || value['selectedId'] is String ? value['selectedId'] : null,

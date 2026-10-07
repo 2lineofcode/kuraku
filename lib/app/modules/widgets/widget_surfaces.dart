@@ -57,6 +57,7 @@ class AppSectionHeading extends StatelessWidget {
 
 class AppDialog extends StatelessWidget {
   const AppDialog({super.key, this.child, this.title, this.content, this.actions = const [],
+    this.maxWidth = 520,
     this.backgroundColor, this.surfaceTintColor,
     this.insetPadding = const EdgeInsets.all(16), this.clipBehavior = Clip.antiAlias,
     this.titlePadding = const EdgeInsets.fromLTRB(16, 16, 16, 12),
@@ -64,6 +65,7 @@ class AppDialog extends StatelessWidget {
     this.actionsPadding = const EdgeInsets.all(12)});
 
   final Widget? child, title, content;
+  final double maxWidth;
   final List<Widget> actions;
   final Color? backgroundColor, surfaceTintColor;
   final EdgeInsets insetPadding, titlePadding, contentPadding, actionsPadding;
@@ -78,7 +80,7 @@ class AppDialog extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppStyle.radius + 2), side: BorderSide(color: AppColor.border)),
       insetPadding: insetPadding, clipBehavior: clipBehavior,
       child: child ?? ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 520, maxHeight: MediaQuery.sizeOf(context).height * .85),
+        constraints: BoxConstraints(maxWidth: maxWidth, maxHeight: MediaQuery.sizeOf(context).height * .85),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           if (title != null) Padding(padding: titlePadding, child: DefaultTextStyle.merge(
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600), child: title!,

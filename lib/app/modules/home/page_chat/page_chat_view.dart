@@ -319,7 +319,7 @@ class PageChatView extends GetView<PageChatController> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               child: Row(children: [
-                HugeIcon(icon: suggestion.icon, size: AppStyle.iconSize, color: AppColor.accent),
+                HugeIcon(icon: suggestion.icon, size: AppStyle.iconSize, color: AppColor.text),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(PageChatController.templates[suggestion.command]!.label.tr, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
@@ -352,7 +352,7 @@ class PageChatView extends GetView<PageChatController> {
           AppTextField(
             key: const ValueKey('edit-message-input'), controller: controller.editInput,
             autofocus: true, minLines: 2, maxLines: 10, readOnly: disabled,
-            style: TextStyle(fontSize: 13, color: AppColor.text),
+            style: TextStyle(fontSize: AppStyle.fontSize, height: 1.5, color: AppColor.text),
             placeholder: 'Edit message'.tr,
           ),
           const SizedBox(height: 8),
@@ -440,7 +440,7 @@ class PageChatView extends GetView<PageChatController> {
                       style: TextStyle(fontSize: 12, color: AppColor.muted))),
                   ]),
                 ),
-                Row(mainAxisSize: MainAxisSize.min, children: [
+                Row(mainAxisSize: MainAxisSize.min, spacing: 4, children: [
                   if (content.isNotEmpty && !generating) AppIconButton(
                     tooltip: 'Copy message'.tr, visualDensity: VisualDensity.compact,
                     constraints: const BoxConstraints.tightFor(width: 30, height: 30), padding: EdgeInsets.zero,
@@ -460,7 +460,7 @@ class PageChatView extends GetView<PageChatController> {
                       icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
                       child: Text(assistant && message.status == 'completed' && !invalid ? 'Regenerate response'.tr : 'Retry response'.tr, style: TextStyle(fontSize: 11)),
                     )),
-                ]),
+                ]).pSymmetric(h: 8, v: 4),
               ]),
             ),
           ),
@@ -476,7 +476,13 @@ class PageChatView extends GetView<PageChatController> {
     return MarkdownBlock(
       data: content,
       config: (dark ? MarkdownConfig.darkConfig : MarkdownConfig.defaultConfig).copy(configs: [
-        PConfig(textStyle: TextStyle(fontSize: 14, height: 1.6, color: AppColor.text)),
+        PConfig(textStyle: TextStyle(fontSize: AppStyle.fontSize, height: 1.5, color: AppColor.text)),
+        H1Config(style: TextStyle(fontSize: 16, height: 1.4, fontWeight: FontWeight.w600, color: AppColor.text)),
+        H2Config(style: TextStyle(fontSize: 15, height: 1.4, fontWeight: FontWeight.w600, color: AppColor.text)),
+        H3Config(style: TextStyle(fontSize: 14, height: 1.4, fontWeight: FontWeight.w600, color: AppColor.text)),
+        H4Config(style: TextStyle(fontSize: 13, height: 1.4, fontWeight: FontWeight.w600, color: AppColor.text)),
+        H5Config(style: TextStyle(fontSize: 13, height: 1.4, fontWeight: FontWeight.w600, color: AppColor.text)),
+        H6Config(style: TextStyle(fontSize: 13, height: 1.4, fontWeight: FontWeight.w600, color: AppColor.text)),
         ImgConfig(builder: (url, attributes) {
           final imageUrl = _imageUrl(url);
           final valid = imageUrl.isNotEmpty;
@@ -498,7 +504,7 @@ class PageChatView extends GetView<PageChatController> {
             ? _ChatTable(table: child, databasePaged: databasePaged) : SingleChildScrollView(scrollDirection: Axis.horizontal, child: child),
         ),
         (dark ? PreConfig.darkConfig : const PreConfig()).copy(
-          textStyle: const TextStyle(fontSize: 13, fontFamily: 'monospace', height: 1.5),
+          textStyle: const TextStyle(fontSize: 11, fontFamily: 'monospace', height: 1.5),
           decoration: BoxDecoration(color: AppColor.panel, borderRadius: BorderRadius.circular(12)),
           wrapper: (child, code, language) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
@@ -509,7 +515,7 @@ class PageChatView extends GetView<PageChatController> {
             child,
           ]),
         ),
-        LinkConfig(style: TextStyle(color: AppColor.accent, decoration: TextDecoration.underline), onTap: (value) async {
+        LinkConfig(style: TextStyle(color: AppColor.text, decoration: TextDecoration.underline), onTap: (value) async {
           if (value.startsWith('javit-video:')) {
             try {
               final code = Uri.decodeComponent(value.substring('javit-video:'.length)).trim();
@@ -714,7 +720,7 @@ class PageChatView extends GetView<PageChatController> {
             maxLines: 6,
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: const InputDecoration(border: InputBorder.none),
-            style: TextStyle(fontSize: 14, height: 1.5, color: AppColor.text),
+            style: TextStyle(fontSize: AppStyle.fontSize, height: 1.5, color: AppColor.text),
             placeholder: 'Ask anything...'.tr,
           ),
         ),

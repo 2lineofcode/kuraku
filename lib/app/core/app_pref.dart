@@ -183,6 +183,22 @@ mixin AppPref {
     }
   }
 
+  static int? getAppAccent() {
+    if (!Get.isRegistered<AppSettingService>()) return null;
+    final value = _pref.read('_kAppAccent');
+    return value is int && value >= 0 && value <= 0xffffffff ? value : null;
+  }
+  static Future<void> setAppAccent(int? value) async {
+    if (value != null && (value < 0 || value > 0xffffffff)) throw ArgumentError.value(value, 'value');
+    final previous = _pref.read('_kAppAccent');
+    try {
+      await _pref.write('_kAppAccent', value);
+    } catch (_) {
+      _pref.writeInMemory('_kAppAccent', previous);
+      rethrow;
+    }
+  }
+
   static int getAppMaxColi() => _pref.read(_kAppMaxColi) ?? 2;
   static Future<void> setAppMaxColi(int value) async {
     if (value < 0) throw ArgumentError.value(value, 'value');
@@ -315,8 +331,14 @@ mixin AppPref {
     };
   }
 
-  static void setPlayerCustomAdjustment(Map<String, double> value) {
-    _pref.write(_kPlayerCustomAdjustment, value);
+  static Future<void> setPlayerCustomAdjustment(Map<String, double> value) async {
+    final previous = _pref.read<Map>(_kPlayerCustomAdjustment);
+    try {
+      await _pref.write(_kPlayerCustomAdjustment, value);
+    } catch (_) {
+      _pref.writeInMemory(_kPlayerCustomAdjustment, previous);
+      rethrow;
+    }
   }
 
   // helper

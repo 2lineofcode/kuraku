@@ -9,7 +9,6 @@ import 'package:path/path.dart' as p;
 
 import '../../../core/app_color.dart';
 import '../../../core/app_translations.dart';
-import '../../../data/database/db_videos.dart';
 import '../../../data/models/activity_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
@@ -113,135 +112,119 @@ class PageToolsView extends GetView<PageToolsController> {
     );
   });
 
-  Widget uiTopLargeFileSize() {
-    if (controller.topLargeFileSizeList.isEmpty) {
-      return ExUiErrorOrEmpty(
-         illustration: HugeIcon(icon: HugeIcons.strokeRoundedComputerAdd, size: AppStyle.emptyIconSize),
-        title: '~ Fresh ~'.tr,
-        message: 'Hi There, Select Or Drag & Drop your JAV Folder Here'.tr,
-      );
-    }
-    return VStack(
-      [
-        // ** options
-        HStack([
-          Obx(() => 'Top @{length} Large File'.trNamed({'length': '${controller.topLargeFileSizeList.length}'}).text.make()),
-          Spacer(),
-
-          Obx(() => AppDropdown<String>(
+  Widget uiTopLargeFileSize() => Obx(() {
+    final items = controller.topLargeFileSizeList;
+    final loading = controller.topLargeLoading.value;
+    final error = controller.topLargeError.value;
+    final totalSize = items.fold<num>(0, (total, item) => total + (item.filesize ?? 0));
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Wrap(spacing: 12, runSpacing: 8, alignment: WrapAlignment.spaceBetween, crossAxisAlignment: WrapCrossAlignment.center, children: [
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Top @{length} Large File'.trNamed({'length': '${items.length}'}), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text('Largest first · up to 200 files'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted)),
+        ]),
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          AppDropdown<String>(
             value: controller.topLargeFilterMode.value,
-            prefix: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: AppStyle.iconSize),
+            prefix: const HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: AppStyle.iconSize),
             items: [
               DropdownMenuItem(value: 'all', child: Text('All'.tr)),
               DropdownMenuItem(value: 'internal', child: Text('Internal'.tr)),
               DropdownMenuItem(value: 'external', child: Text('External'.tr)),
             ],
-            onChanged: (value) async {
+            onChanged: (value) {
               if (value == null) return;
-              controller.topLargeFilterMode.value = value;
-              await controller.getTopLargeFileSize(mode: value);
+              controller.getTopLargeFileSize(mode: value);
             },
-          )).pOnly(right: 12),
-
-
-        ]).pOnly(bottom: 12),
-
-        // ** content
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(width: .5, color: AppColor.border)
-            ),
-            child: Column(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColor.container,
-                    border: Border(
-                      bottom: BorderSide(width: .5, color: AppColor.border)
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      _buildHeaderCell('Thumbnail'.tr, flex: 1),
-                      _buildHeaderCell('Code'.tr, flex: 1),
-                      _buildHeaderCell('Path'.tr, flex: 3),
-                      _buildHeaderCell('Quality'.tr, flex: 1),
-                      _buildHeaderCell('Size'.tr, flex: 1, isLast: true),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Obx(
-                    () {
-                      final hoveredIndex = controller.topLargeHoveredIndex.value;
-                      return ListView.builder(
-                        itemCount: controller.topLargeFileSizeList.length,
-                        itemBuilder: (context, index) {
-                        final item = controller.topLargeFileSizeList[index];
-                        final videoPath = item.videoPath ?? '';
-                        final isExternal = HelperMisc.isExternalDrive(videoPath);
-                        final pathLabel = isExternal ? 'External → @{path}'.trNamed({'path': videoPath.getLastSegments(segment: 1)}) : 'Local → @{path}'.trNamed({'path': videoPath.getLastPath()});
-
-                        return InkWell(
-                          onHover: (isHover) => controller.onTopLargeHover(index, isHover),
-                          onTap: () async {
-                            final video = await DBVideos.getByVideoPath(videoPath);
-                            if (video != null) await HomePanelVideoInfo.open(video);
-                          },
-                          child: AnimatedContainer(
-                            duration: 120.milliseconds,
-                            decoration: BoxDecoration(
-                              color: hoveredIndex == index ? AppColor.hover : Colors.transparent,
-                              border: Border(top: BorderSide(width: .5, color: AppColor.border)),
-                            ),
-                            child: Row(
-                              children: [
-                                _buildDataCell(
-                                  _buildMediaThumbnail(
-                                    poster: item.poster ?? '',
-                                    videoPath: videoPath,
-                                    preferVideoPath: false,
-                                  ),
-                                  flex: 1,
-                                ),
-                                _buildDataCell(
-                                  '${item.videoCode.isNotEmptyAndNotNull ? item.videoCode : 'NON-JAV'}'
-                                      .text
-                                      .color(item.videoCode.isNotEmptyAndNotNull ? null : Vx.red300)
-                                      .ellipsis
-                                      .size(12)
-                                      .make(),
-                                  flex: 1,
-                                ),
-                                _buildDataCell(
-                                  pathLabel.text.ellipsis.size(12).color(AppColor.muted).make(),
-                                  flex: 3,
-                                ),
-                                _buildDataCell(
-                                  '${HelperMisc.formatVideoQuality(item.quality ?? '')}'.text.ellipsis.make().tooltip(item.quality ?? ''),
-                                  flex: 1,
-                                ),
-                                _buildDataCell(
-                                  '${item.filesize?.toFileSizeFormat()}'.text.ellipsis.make(),
-                                  flex: 1,
-                                  isLast: true,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
           ),
+          const SizedBox(width: 4),
+          AppIconButton(
+            tooltip: 'Refresh'.tr,
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
+            onPressed: loading ? null : () => controller.getTopLargeFileSize(mode: controller.topLargeFilterMode.value),
+          ),
+        ]),
+      ]),
+      const SizedBox(height: 12),
+      Expanded(child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(color: AppColor.panel, border: Border.all(color: AppColor.border, width: .5), borderRadius: BorderRadius.circular(AppStyle.radius)),
+        child: Column(children: [
+          Container(
+            color: AppColor.container,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(children: [
+              Expanded(child: Text('File'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted))),
+              Text('Listed size: @{size}'.trNamed({'size': totalSize.toFileSizeFormat()}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
+            ]),
+          ),
+          Expanded(child: loading
+            ? const Center(child: CupertinoActivityIndicator())
+            : error.isNotEmpty
+              ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text(error.tr, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+                  const SizedBox(height: 8),
+                  AppButton(label: 'Retry'.tr, onPressed: () => controller.getTopLargeFileSize(mode: controller.topLargeFilterMode.value)),
+                ]).p12())
+              : items.isEmpty
+                ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    HugeIcon(icon: HugeIcons.strokeRoundedFilm01, size: AppStyle.emptyIconSize, color: AppColor.muted),
+                    const SizedBox(height: 12),
+                    Text('No files with a recorded size in this location.'.tr, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColor.muted)),
+                  ]).p12())
+                : ListView.separated(
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) => Divider(height: 1, thickness: .5, color: AppColor.border),
+                    itemBuilder: (_, index) => _largeFileRow(items[index], index),
+                  ),
+          ),
+        ]),
+      )),
+    ]).pOnly(left: 8);
+  });
+
+  Widget _largeFileRow(Videos item, int index) {
+    final path = item.videoPath ?? '';
+    final code = (item.videoCode ?? '').trim();
+    final filename = path.isEmpty ? 'NON-JAV' : p.basename(path);
+    final quality = (item.quality ?? '').trim();
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        hoverColor: AppColor.hover,
+        onTap: () => HomePanelVideoInfo.open(item),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(children: [
+            SizedBox(width: 24, child: Text('${index + 1}', style: TextStyle(fontSize: 11, color: AppColor.muted))),
+            SizedBox(width: 48, height: 60, child: _buildMediaThumbnail(poster: item.poster ?? '', videoPath: path, width: 48, height: 60)),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Tooltip(message: code.isEmpty ? filename : code, child: Text(code.isEmpty ? filename : code, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+              if (code.isNotEmpty) Text(filename, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: AppColor.muted)),
+              const SizedBox(height: 4),
+              Wrap(spacing: 8, runSpacing: 4, children: [
+                Tooltip(message: quality, child: Text(quality.isEmpty ? 'Unknown resolution'.tr : HelperMisc.formatVideoQuality(quality), style: TextStyle(fontSize: 10, color: AppColor.muted))),
+                Text(HelperMisc.isExternalDrive(path) ? 'External drive'.tr : 'Local drive'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted)),
+              ]),
+              const SizedBox(height: 4),
+              Tooltip(message: path, child: Text(path, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: AppColor.muted))),
+            ])),
+            const SizedBox(width: 8),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text((item.filesize ?? 0).toFileSizeFormat(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              AppIconButton(
+                tooltip: 'Open File Path'.tr,
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedFolderOpen, size: AppStyle.iconSize, color: AppColor.muted),
+                onPressed: path.isEmpty ? null : () => HelperOpener.openFilePath(path),
+              ),
+            ]),
+          ]),
         ),
-      ],
-    ).pOnly(left: 8);
+      ),
+    );
   }
 
   Widget uiDuplicateVideo() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -475,7 +458,7 @@ class PageToolsView extends GetView<PageToolsController> {
     );
   }
 
-  Widget _buildMediaThumbnail({String poster = '', String videoPath = '', bool preferVideoPath = false}) {
+  Widget _buildMediaThumbnail({String poster = '', String videoPath = '', bool preferVideoPath = false, double width = 80, double height = 100}) {
     final hasPoster = poster.trim().isNotEmpty;
     final hasVideoPath = videoPath.trim().isNotEmpty;
     final useVideoPath = hasVideoPath && (preferVideoPath || !hasPoster);
@@ -489,8 +472,8 @@ class PageToolsView extends GetView<PageToolsController> {
       child: ExThumbnail(
         imageUrl: useVideoPath ? '' : poster,
         videoPath: useVideoPath ? videoPath : '',
-        width: 80,
-        height: 100,
+        width: width,
+        height: height,
         prefix: 1.9,
       ),
     ).centered();
@@ -506,30 +489,6 @@ class PageToolsView extends GetView<PageToolsController> {
   // ────────────────────────────────────────────────────────────────
   // ⵌ REUSABLE WIDGETS
   // ────────────────────────────────────────────────────────────────
-
-  Widget _buildHeaderCell(String label, {required int flex, bool isLast = false}) {
-    return Expanded(
-      flex: flex,
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(right: isLast ? BorderSide.none : BorderSide(width: .5, color: AppColor.border)),
-        ),
-        child: label.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-      ),
-    );
-  }
-
-  Widget _buildDataCell(Widget child, {required int flex, bool isLast = false}) {
-    return Expanded(
-      flex: flex,
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(right: isLast ? BorderSide.none : BorderSide(width: .5, color: AppColor.border)),
-        ),
-        child: child.p12(),
-      ),
-    );
-  }
 
   Widget _buildLeftPart(BuildContext context) {
     final rowHeight = 84 * MediaQuery.textScalerOf(context).scale(12) / 12;

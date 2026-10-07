@@ -34,156 +34,157 @@ mixin HomePanelCart {
       context: Get.context,
       OverPanel(
         alignment: Alignment.centerRight,
-        width: 300,
+        width: Get.width < 360 ? Get.width : 360,
         backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
         animation: OverSlideAnimation(beginAlignment: Alignment.centerRight, reverseDurationMilliseconds: 100, durationMilliseconds: 100),
         color: AppColor.panel,
-        child: VStack(
-          [
-            HStack(
-              [
-                HugeIcon(icon: HugeIcons.strokeRoundedShoppingBag01, size: AppStyle.iconSize).pOnly(right: 12, left: 8),
-                Obx(() => 'Video Cart (@{length})'.trNamed({'length': '${_controller.cart.length}'}).text.bold.make()),
-                Spacer(),
-                AppIconButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize).tooltip('Empty Cart'.tr),
-                  onPressed: () async {
-                    _controller.cart.value = [];
-                    await Overlayment.dismissLast();
-                  },
-                ),
-              ],
-            ),
-            Divider(),
-            Obx(
-              () => _controller.cart.isEmpty
-                  ? ExUiErrorOrEmpty(illustration: HugeIcon(icon: HugeIcons.strokeRoundedShoppingBag01, size: AppStyle.emptyIconSize).pOnly(bottom: 12), message: 'Cart is empty'.tr).expand()
-                  : ListView.separated(
-                      itemCount: _controller.cart.length,
-                      separatorBuilder: (context, index) => Divider(color: AppColor.border),
-                      itemBuilder: (context, index) {
-                        final __item = _controller.cart[index];
-
-                        return Container(
-                          child: HStack(
-                            alignment: MainAxisAlignment.start,
-                            crossAlignment: CrossAxisAlignment.start,
-                            [
-                              ZStack([
-                                ExThumbnail(
-                                  imageUrl: '${__item.fanArt}',
-                                  videoPath: __item.videoPath,
-                                  width: 90,
-                                  height: 110,
-                                  prefix: 2.2,
-                                  fitUrl: BoxFit.fitWidth,
-                                ).onDoubleTap(() {
-                                  Overlayment.dismissLast();
-                                  HelperOpener.openVideoFile(__item);
-                                }).cornerRadius(4),
-                                '${HelperMisc.formatVideoQuality(__item.quality ?? '').maxWords(1)}'
-                                    .text
-                                    .orange300
-                                    .size(11)
-                                    .minFontSize(11)
-                                    .make()
-                                    .pSymmetric(h: 4)
-                                    .color(AppColor.black170)
-                                    .cornerRadius(4)
-                                    .positioned(bottom: 3, left: 3),
-                                if (__item.videoPath?.isHasUncensored() == true) ...[
-                                  'RM'.text.red400.size(11).minFontSize(11).make().pSymmetric(h: 4).color(AppColor.black170).cornerRadius(4).positioned(top: 3, right: 3),
-                                ],
-                                if (__item.videoPath?.isHasEnSub() == true) ...[
-                                  'EN'.text.blue400.size(11).minFontSize(11).make().pSymmetric(h: 4).color(AppColor.black170).cornerRadius(4).positioned(top: 3, right: 3),
-                                ],
-                                if (__item.videoPath?.isHasIdSub() == true) ...[
-                                  'ID'.text.blue400.size(11).minFontSize(11).make().pSymmetric(h: 4).color(AppColor.black170).cornerRadius(4).positioned(top: 3, right: 3),
-                                ],
-                              ]).pOnly(right: 12),
-                              VStack([
-                                '${__item.videoCode == '' ? __item.title?.maxWords(5) : __item.videoCode}'.text.bold.ellipsis.maxLines(1).minFontSize(13).size(13).make().pOnly(bottom: 12),
-                                '${__item.title}'.text.minFontSize(12).size(12).maxLines(3).ellipsis.make(),
-                                Spacer(),
-                                HStack([
-                                  '${__item.filesize?.toFileSizeFormat()}'.text.orange300.size(11).minFontSize(11).make().pOnly(right: 8).tooltip('${__item.videoPath}'),
-                                ]).pOnly(top: 8),
-                              ]).h(110).expand(),
-                              VStack(
-                                [
-                                  AppIconButton(
-                                    icon: HugeIcon(icon: HugeIcons.strokeRoundedRemoveCircle, size: AppStyle.iconSize),
-                                    onPressed: () {
-                                      _controller.cart.removeAt(index);
-                                      _controller.cart.refresh();
-                                    },
-                                  ),
-                                  AppIconButton(
-                                    icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize, color: Vx.red500),
-                                    onPressed: () async {
-                                      await _deleteVideo(__item);
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ).p8(),
-                        );
+        child: Builder(builder: (context) {
+          AppColor.dependOn(context);
+          return Material(
+            color: AppColor.panel,
+            child: Padding(
+              padding: const EdgeInsets.all(AppStyle.panelPadding),
+              child: Obx(() {
+                final items = _controller.cart.toList();
+                final empty = items.isEmpty;
+                final totalSize = items.fold<num>(0, (total, video) => total + (video.filesize ?? 0));
+                return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Row(children: [
+                    const HugeIcon(icon: HugeIcons.strokeRoundedShoppingBag01, size: AppStyle.iconSize),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('Video Cart (@{length})'.trNamed({'length': '${items.length}'}),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+                    AppIconButton(
+                      tooltip: 'Empty Cart'.tr,
+                      icon: const HugeIcon(icon: HugeIcons.strokeRoundedRemoveCircle, size: AppStyle.iconSize),
+                      onPressed: empty ? null : () async {
+                        _controller.cart.clear();
+                        await Overlayment.dismissLast();
                       },
-                    ).expand(),
+                    ),
+                    AppIconButton(
+                      tooltip: 'Close'.tr,
+                      icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize),
+                      onPressed: () => Overlayment.dismissLast(),
+                    ),
+                  ]),
+                  if (!empty) Text(totalSize.toFileSizeFormat(), style: TextStyle(fontSize: 11, color: AppColor.muted)),
+                  const SizedBox(height: 12),
+                  Expanded(child: empty
+                    ? ExUiErrorOrEmpty(
+                        illustration: HugeIcon(icon: HugeIcons.strokeRoundedShoppingBag01, size: AppStyle.emptyIconSize, color: AppColor.muted).pOnly(bottom: 12),
+                        message: 'Cart is empty'.tr,
+                      )
+                    : ListView.separated(
+                        itemCount: items.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) => _cartItem(context, items[index]),
+                      )),
+                  Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: AppColor.border)),
+                  Row(children: [
+                    AppIconButton(
+                      tooltip: 'Play as Playlist'.tr,
+                      icon: const HugeIcon(icon: HugeIcons.strokeRoundedPlay, size: AppStyle.iconSize),
+                      onPressed: empty ? null : () => _playVideos(),
+                    ),
+                    const SizedBox(width: 8),
+                    AppIconButton(
+                      tooltip: 'Open in Grid Player'.tr,
+                      icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilm01, size: AppStyle.iconSize),
+                      onPressed: empty ? null : () => _openInGridPlayer(),
+                    ),
+                    const SizedBox(width: 8),
+                    AppIconButton(
+                      tooltip: 'Add to Playlist'.tr,
+                      icon: const HugeIcon(icon: HugeIcons.strokeRoundedPlaylist02, size: AppStyle.iconSize),
+                      onPressed: empty ? null : () => HomePanelPlaylist.showDialogAddToPlaylistItem(items),
+                    ),
+                    const Spacer(),
+                    AppIconButton(
+                      tooltip: 'Delete All This Files'.tr,
+                      color: Theme.of(context).colorScheme.error,
+                      icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize),
+                      onPressed: empty ? null : () => _deleteVideos(items),
+                    ),
+                  ]),
+                ]);
+              }),
             ),
-            Divider(),
-
-
-            // !! action
-            HStack(
-              [
-
-                Spacer(),
-
-                Container(
-                  decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                  child: AppIconButton(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize, color: Vx.red300),
-                    onPressed: () async {
-                      await _deleteVideos(_controller.cart);
-                    },
-                  ),
-                ).pOnly(right: 8).tooltip('Delete All This Files'.tr),
-
-                Container(
-                  decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                  child: HStack([
-                    HugeIcon(icon: HugeIcons.strokeRoundedPlay, size: AppStyle.iconSize)
-                  ]).p(10).pSymmetric(h: 12),
-                ).onInkTap(() => _playVideos()).pOnly(right: 8).tooltip('Play as Playlist'.tr),
-
-                Container(
-                  decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                  child: HStack([
-                    HugeIcon(icon: HugeIcons.strokeRoundedFilm01, size: AppStyle.iconSize)
-                  ]).p(10).pSymmetric(h: 12),
-                ).onInkTap(() => _openInGridPlayer()).pOnly(right: 8).tooltip('Open in Grid Player'.tr),
-
-                Container(
-                  decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                  child: AppIconButton(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedPlaylist02, size: AppStyle.iconSize, color: Vx.orange300),
-                    onPressed: () async {
-                      // await Overlayment.dismissLast();
-                      await HomePanelPlaylist.showDialogAddToPlaylistItem(_controller.cart);
-                    },
-                  ),
-                ).pOnly(right: 8).tooltip('Add to Playlist'.tr),
-
-                Spacer(),
-              ],
-            ),
-          ],
-        ).p8(),
+          );
+        }),
       ),
     );
   }
+
+  static Widget _cartItem(BuildContext context, Videos video) {
+    final code = (video.videoCode ?? '').trim();
+    final title = (video.title ?? '').trim();
+    final path = video.videoPath ?? '';
+    final quality = (video.quality ?? '').trim();
+    return AppPanel(
+      bordered: true,
+      padding: const EdgeInsets.all(8),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        ExThumbnail(
+          imageUrl: video.fanArt ?? '',
+          videoPath: video.videoPath,
+          width: 80,
+          height: 104,
+          prefix: 2.2,
+          fitUrl: BoxFit.fitWidth,
+        ).onDoubleTap(() {
+          Overlayment.dismissLast();
+          HelperOpener.openVideoFile(video);
+        }).cornerRadius(AppStyle.radius).tooltip('Play'.tr),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(code.isEmpty ? (title.isEmpty ? 'Untitled'.tr : title) : code,
+            maxLines: code.isEmpty ? 3 : 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          if (code.isNotEmpty && title.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(title, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: AppStyle.fontSize)),
+          ],
+          const SizedBox(height: 8),
+          Wrap(spacing: 4, runSpacing: 4, children: [
+            if (quality.isNotEmpty) _badge(HelperMisc.formatVideoQuality(quality), AppColor.text),
+            if (path.isHasUncensored()) _badge('RM', Theme.of(context).colorScheme.error),
+            if (path.isHasEnSub()) _badge('EN', AppColor.accent),
+            if (path.isHasIdSub()) _badge('ID', AppColor.accent),
+          ]),
+          const SizedBox(height: 6),
+          Text(video.filesize == null || video.filesize! <= 0 ? 'Unknown size'.tr : video.filesize!.toFileSizeFormat(),
+            style: TextStyle(fontSize: 11, color: AppColor.muted)).tooltip(path),
+        ])),
+        const SizedBox(width: 4),
+        Column(children: [
+          AppIconButton(
+            tooltip: 'Remove from Cart'.tr,
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedRemoveCircle, size: AppStyle.iconSize),
+            onPressed: () => _controller.cart.remove(video),
+          ),
+          MenuAnchor(
+            builder: (_, menu, _) => AppIconButton(
+              tooltip: 'Video actions'.tr,
+              icon: const HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: AppStyle.iconSize),
+              onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+            ),
+            menuChildren: [MenuItemButton(
+              onPressed: () => _deleteVideo(video),
+              leadingIcon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize, color: Theme.of(context).colorScheme.error),
+              child: Text('Delete file'.tr, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            )],
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  static Widget _badge(String label, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+    decoration: BoxDecoration(color: AppColor.selected, borderRadius: BorderRadius.circular(AppStyle.radius)),
+    child: Text(label, style: TextStyle(fontSize: 11, color: color)),
+  );
 
   // ────────────────────────────────────────────────────────────────
   // ! Delete Video

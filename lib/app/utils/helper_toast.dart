@@ -18,8 +18,11 @@ mixin HelperToast {
     String? title = 'Ups',
     Duration duration = const Duration(seconds: 5),
     Alignment? alignment,
+    bool? addToAppLog = true,
   }) async {
-    await HomePanelAppLog.add('ERROR', message.toString());
+    if (addToAppLog == true) {
+      await HomePanelAppLog.add('ERROR', message.toString());
+    }
     toastification.show(
       context: Get.context,
       type: ToastificationType.error,
@@ -41,8 +44,11 @@ mixin HelperToast {
     String? title = 'Success',
     Duration duration = const Duration(seconds: 2),
     Alignment? alignment,
+    bool? addToAppLog = true,
   }) async {
-    await HomePanelAppLog.add('SUCCESS', message.toString());
+    if (addToAppLog == true) {
+      await HomePanelAppLog.add('SUCCESS', message.toString());
+    }
     toastification.show(
       context: Get.context,
       type: ToastificationType.success,
@@ -64,8 +70,11 @@ mixin HelperToast {
     String? title = 'Info',
     Duration duration = const Duration(seconds: 2),
     Alignment? alignment,
+    bool? addToAppLog = true,
   }) async {
-    await HomePanelAppLog.add('INFO', message.toString());
+    if (addToAppLog == true) {
+      await HomePanelAppLog.add('INFO', message.toString());
+    }
     toastification.show(
       context: Get.context,
       type: ToastificationType.info,
@@ -87,8 +96,11 @@ mixin HelperToast {
     String? title = 'Warning',
     Duration duration = const Duration(seconds: 2),
     Alignment? alignment,
+    bool? addToAppLog = true,
   }) async {
-    await HomePanelAppLog.add('WARN', message.toString());
+    if (addToAppLog == true) {
+      await HomePanelAppLog.add('WARN', message.toString());
+    }
     toastification.show(
       context: Get.context,
       type: ToastificationType.warning,

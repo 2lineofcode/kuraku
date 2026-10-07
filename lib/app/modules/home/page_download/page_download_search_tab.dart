@@ -34,6 +34,7 @@ class PageDownloadSearchTab {
   }
 
   final int id;
+  final isPinned = false.obs;
   final title = 'New search'.obs;
   final error = ''.obs;
   int _searchRequest = 0;
@@ -73,6 +74,7 @@ class PageDownloadSearchTab {
   Worker? _preferenceWorker;
 
   Map<String, dynamic> toPreferences() => {
+    'pinned': isPinned.value,
     'query': tecSearch.text,
     'havingOnly': havingOnly.value,
     'filtered': filter.isFiltered.value,
@@ -88,6 +90,7 @@ class PageDownloadSearchTab {
   };
 
   void restorePreferences(Map<String, dynamic> value) {
+    isPinned.value = value['pinned'] == true;
     tecSearch.text = value['query'] is String ? value['query'] : '';
     havingOnly.value = value['havingOnly'] == true;
     filter.isFiltered.value = value['filtered'] == true;

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_controller.dart';
 import 'package:javit/app/modules/widgets/widget_search_tab_bar.dart';
+import 'package:super_context_menu/super_context_menu.dart' as scm;
 
 import 'icon_finder.dart';
 
@@ -27,12 +29,14 @@ void main() {
     await tester.pumpWidget(GetMaterialApp(
       theme: ThemeData.light(),
       home: Scaffold(body: SearchTabBar(
-        tabs: tabs,
+        tabs: [for (var i = 0; i < tabs.length; i++) (id: i, title: tabs[i].title, isLoading: tabs[i].isLoading, isPinned: false)],
         activeIndex: activeIndex,
         scrollController: scrollController,
         onSelect: selected.add,
         onClose: closed.add,
         onAdd: () => added++,
+        onReorder: (_, _) {},
+        onPin: (_) {},
         addTooltip: addTooltip ?? 'New search tab',
       )),
     ));
@@ -107,5 +111,57 @@ void main() {
     expect(findHugeIconButton(HugeIcons.strokeRoundedAdd01), findsOneWidget);
     expect(findHugeIconButton(HugeIcons.strokeRoundedCancel01), findsNothing);
     expect(find.byType(Text), findsNothing);
+  });
+
+  testWidgets('dragging moves tabs and context menus pin and close the clicked tab', (tester) async {
+    final notifier = ValueNotifier<scm.MenuResult?>(null);
+    addTearDown(notifier.dispose);
+    final request = scm.MenuRequest(onShowMenu: notifier, onHideMenu: notifier, onPreviewAction: notifier, location: Offset.zero);
+    final controller = Get.put(PageSqleditorController(sources: {'javit.db': '/javit.db'}));
+    final first = controller.activeTab;
+    controller.addTab();
+    final second = controller.activeTab;
+    controller.addTab();
+    final third = controller.activeTab;
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: Obx(() => SearchTabBar(
+      tabs: controller.tabs.map((tab) => (id: tab.id, title: tab.title, isLoading: false, isPinned: tab.isPinned.value)).toList(),
+      activeIndex: controller.activeTabIndex.value,
+      scrollController: controller.tabScrollController,
+      onSelect: controller.selectTab, onClose: controller.closeTab, onAdd: controller.addTab,
+      onReorder: controller.reorderTab, onPin: controller.toggleTabPin,
+    )))));
+    await tester.pumpAndSettle();
+    expect(findHugeIconButton(HugeIcons.strokeRoundedPin02), findsNothing);
+    final gesture = await tester.startGesture(tester.getCenter(find.text(first.title)));
+    await gesture.moveBy(const Offset(20, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(420, 0));
+    await tester.pump(const Duration(milliseconds: 350));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(controller.tabs, [second, third, first]);
+    expect(controller.activeTab, same(third));
+    final menu = (await tester.widget<scm.ContextMenuWidget>(find.byType(scm.ContextMenuWidget).last).menuProvider(request))!;
+    expect(menu.children.map((action) => action.title), ['Pin', 'Close tab']);
+    (menu.children.first as scm.MenuAction).callback();
+    await tester.pumpAndSettle();
+    expect(controller.tabs, [first, second, third]);
+    expect(first.isPinned.value, isTrue);
+    expect(find.byTooltip('Close tab'), findsNWidgets(2));
+    expect(find.byTooltip('Unpin tab'), findsOneWidget);
+    final pinnedMenu = (await tester.widget<scm.ContextMenuWidget>(find.byType(scm.ContextMenuWidget).first).menuProvider(request))!;
+    expect(pinnedMenu.children.map((action) => action.title), ['Unpin', 'Close tab']);
+    expect((pinnedMenu.children.last as scm.MenuAction).attributes.disabled, isTrue);
+    await tester.tap(find.byTooltip('Unpin tab'));
+    await tester.pumpAndSettle();
+    expect(first.isPinned.value, isFalse);
+    expect(find.byTooltip('Close tab'), findsNWidgets(3));
+    expect(findHugeIconButton(HugeIcons.strokeRoundedPin02), findsNothing);
+    final closeMenu = (await tester.widget<scm.ContextMenuWidget>(find.byType(scm.ContextMenuWidget).last).menuProvider(request))!;
+    (closeMenu.children.last as scm.MenuAction).callback();
+    await tester.pumpAndSettle();
+    expect(controller.tabs, [first, second]);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }

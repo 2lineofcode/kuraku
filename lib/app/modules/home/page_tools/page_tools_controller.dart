@@ -43,7 +43,9 @@ class PageToolsController extends GetxController with StateMixin {
   Completer<String?>? _qualityProbeResult;
   final topLargeFileSizeList = <Videos>[].obs;
   final topLargeFilterMode = 'all'.obs; // all | internal | external
-  final topLargeHoveredIndex = (-1).obs;
+  final topLargeLoading = false.obs;
+  final topLargeError = ''.obs;
+  int _topLargeRequest = 0;
 
   // ** part: duplicate video
   final duplicateModes = ['exact', 'probable'].obs;
@@ -121,6 +123,7 @@ class PageToolsController extends GetxController with StateMixin {
   @override
   void onClose() {
     _groupSearchTimer?.cancel();
+    _topLargeRequest++;
     _duplicateRequest++;
     tecDuplicateSearch.dispose();
     tecResultSearch.dispose();
@@ -141,7 +144,7 @@ class PageToolsController extends GetxController with StateMixin {
     }
     currentMenuSelected.value = menu;
     switch (menu) {
-      case kTopLargeFile: await getTopLargeFileSize(); await checkIsHasDataNotScanned(); break;
+      case kTopLargeFile: await getTopLargeFileSize(mode: topLargeFilterMode.value); await checkIsHasDataNotScanned(); break;
       case kDuplicate: await getDuplicateVideos(); break;
       case kAdvanceSearch:
         if (leftList.isEmpty && !leftListLoading.value) await _loadAdvancedGroups(currentFilterBy.value, tecFilterSearchLeft.text);
@@ -164,7 +167,6 @@ class PageToolsController extends GetxController with StateMixin {
     leftListSelected.value = '';
     tecFilterSearchLeft.text = '';
     topLargeFilterMode.value = 'all';
-    topLargeHoveredIndex.value = -1;
     _duplicateRequest++;
     duplicateGroups.clear();
     duplicateFileAvailable.clear();
@@ -187,30 +189,27 @@ class PageToolsController extends GetxController with StateMixin {
   // ** part: kTopLargeFile
   // ────────────────────────────────────────────────────────────────
   Future<void> getTopLargeFileSize({String mode = 'all'}) async {
+    final request = ++_topLargeRequest;
+    topLargeFilterMode.value = mode;
+    topLargeLoading.value = true;
+    topLargeError.value = '';
     topLargeFileSizeList.clear();
-    topLargeHoveredIndex.value = -1;
 
     var whereQ = 'filesize > 0';
     switch (mode) {
-      case 'all': whereQ = 'filesize > 0'; break;
       case 'internal': whereQ = 'filesize > 0 AND video_path NOT LIKE "/Volumes%"'; break;
       case 'external': whereQ = 'filesize > 0 AND video_path LIKE "/Volumes%"'; break;
     }
 
-    topLargeFileSizeList.value = await DBVideos.getAll(
-      where: whereQ,
-      orderBy: 'filesize DESC',
-      limit: 200,
-    );
-  }
-
-  void onTopLargeHover(int index, bool isHover) {
-    if (isHover) {
-      if (topLargeHoveredIndex.value != index) topLargeHoveredIndex.value = index;
-      return;
+    try {
+      final items = await DBVideos.getAll(where: whereQ, orderBy: 'filesize DESC', limit: 200);
+      if (request == _topLargeRequest) topLargeFileSizeList.value = items;
+    } catch (e) {
+      AppLog.logE('[LargeFiles] Load failed: $e');
+      if (request == _topLargeRequest) topLargeError.value = 'Could not load videos. Please retry.';
+    } finally {
+      if (request == _topLargeRequest) topLargeLoading.value = false;
     }
-
-    if (topLargeHoveredIndex.value == index) topLargeHoveredIndex.value = -1;
   }
 
   Future<void> checkIsHasDataNotScanned() async {

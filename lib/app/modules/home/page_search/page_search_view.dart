@@ -34,9 +34,10 @@ class PageSearchView extends GetView<PageSearchController> {
       },
       child: Focus(autofocus: true, child: Column(children: [
       Obx(() => SearchTabBar(
-        tabs: controller.tabs.map((tab) => (title: tab.title.value, isLoading: tab.isLoading.value)).toList(),
+        tabs: controller.tabs.map((tab) => (id: tab.id, isPinned: tab.isPinned.value, title: tab.title.value, isLoading: tab.isLoading.value)).toList(),
         activeIndex: controller.activeTabIndex.value,
         scrollController: controller.tabScrollController,
+        onReorder: controller.reorderTab, onPin: controller.toggleTabPin,
         onSelect: controller.selectTab,
         onClose: controller.closeTab,
         onAdd: controller.addTab,
@@ -205,7 +206,7 @@ class PageSearchTabView extends StatelessWidget {
                     ),
                   if (controller.videos.isNotEmpty) ...[
                     'PLAY ALL'.tr.text.underline.size(12).make().pOnly(right: 16).onInkTap(() {
-                      HelperOpener.openVideoFile(controller.videos.first, playlist: controller.videos);
+                      controller.performSelectionAction('play', controller.videos.toList());
                     }),
                   ],
                 ],

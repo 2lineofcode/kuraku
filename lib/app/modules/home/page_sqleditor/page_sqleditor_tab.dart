@@ -27,6 +27,7 @@ class PageSqleditorTab extends GetxController {
   }) : snippetStore = snippetStore ?? SqlSnippetStore(savedSnippets ?? {}, persistSnippets);
 
   final int id;
+  final isPinned = false.obs;
   final SqlSnippetStore snippetStore;
 
   final Map<String, String?> sources;
@@ -52,6 +53,7 @@ class PageSqleditorTab extends GetxController {
   }
 
   Map<String, dynamic> toPreferences() => {
+    'pinned': isPinned.value,
     'source': source.value,
     'drafts': {..._drafts.map((key, value) => MapEntry(key, value.text)), source.value: input.text},
     'parameters': {..._parameterDrafts, source.value: parameters.text},
@@ -60,6 +62,7 @@ class PageSqleditorTab extends GetxController {
   };
 
   void restorePreferences(Map entry) {
+    isPinned.value = entry['pinned'] == true;
     if (sources.containsKey(entry['source'])) source.value = entry['source'] as String;
     final drafts = entry['drafts'];
     if (drafts is Map) {

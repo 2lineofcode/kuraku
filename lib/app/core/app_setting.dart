@@ -19,6 +19,7 @@ import '../modules/home/home_panel/home_panel_log.dart';
 import '../modules/home/home_panel/home_panel_playlist.dart';
 import '../modules/home/home_panel/home_panel_relapse.dart';
 import '../modules/home/page_download/page_download_controller.dart';
+import '../modules/home/page_settings/page_settings_controller.dart';
 import '../modules/home/page_tools/page_tools_controller.dart';
 import '../routes/app_pages.dart';
 import '../utils/local_semantic_worker.dart';
@@ -159,6 +160,7 @@ class AppSettingService extends GetxService {
     HotKey _hotKeyR = HotKey(key: PhysicalKeyboardKey.keyR, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyD = HotKey(key: PhysicalKeyboardKey.keyD, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyT = HotKey(key: PhysicalKeyboardKey.keyT, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKeyShiftT = HotKey(key: PhysicalKeyboardKey.keyT, modifiers: [HotKeyModifier.meta, HotKeyModifier.shift], scope: HotKeyScope.inapp);
     HotKey _hotKeyB = HotKey(key: PhysicalKeyboardKey.keyB, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
     HotKey _hotKeyDot = HotKey(key: PhysicalKeyboardKey.period, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
 
@@ -228,6 +230,13 @@ class AppSettingService extends GetxService {
       try { Get.find<PageToolsController>().addTodo(); } 
       catch (e, stackTrace) {
         _logHotkeyError('meta+t', e, stackTrace);
+      }
+    });
+
+    await hotKeyManager.register(_hotKeyShiftT, keyUpHandler: (hotKey) async {
+      try { await Get.find<PageSettingsController>().setTheme(Get.isDarkMode ? AppTheme.light : AppTheme.dark); }
+      catch (e, stackTrace) {
+        _logHotkeyError('meta+shift+t', e, stackTrace);
       }
     });
 

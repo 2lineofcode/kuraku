@@ -9,7 +9,8 @@ mixin AppColor {
   static Color get appBar => Get.isDarkMode ? Color(0xff141218) : Color(0xfff3f1f7);
   static Color get footer => Get.isDarkMode ? Color.fromARGB(255, 18, 15, 22) : Color(0xffeeecf2);
 
-  static Color get selected => Get.isDarkMode ? Color.fromARGB(255, 32, 44, 67) : Color(0xffdce6f5);
+  static Color defaultAccent(Brightness brightness) => brightness == Brightness.dark ? Color.fromARGB(255, 32, 44, 67) : Color(0xffdce6f5);
+  static Color get selected => accent;
   static Color get unselected => Colors.transparent;
 
   static Color get border => (Get.isDarkMode ? Vx.neutral700 : Vx.neutral400).withAlpha(100);

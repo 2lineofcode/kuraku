@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
@@ -20,6 +21,7 @@ import '../../../utils/helper_toast.dart';
 import '../../../utils/local_semantic_worker.dart';
 import '../../../utils/r18_updater.dart';
 import '../../../utils/semantic_search_service.dart';
+import '../../widgets/widget_style.dart';
 import '../../widgets/widget_surfaces.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_log.dart';
@@ -57,6 +59,8 @@ class PageSettingsController extends GetxController {
   // **
   final appMiniMode = false.obs;
   final appTheme = AppPref.getAppTheme().obs;
+  final tecAppAccent = TextEditingController(text: AppPref.getAppAccent()?.toRadixString(16).padLeft(8, '0').replaceFirst(RegExp(r'^ff'), '').toUpperCase() ?? '');
+  final appAccentError = ''.obs;
   final appLanguage = AppPref.getAppLanguage().obs;
   final appPinEnabled = AppPref.getAppPinEnabled().obs;
 
@@ -98,6 +102,24 @@ class PageSettingsController extends GetxController {
     } catch (e) {
       AppLog.logE('Could not save theme: $e');
       await HelperToast.error('Could not save appearance. Please retry.'.tr);
+    }
+  }
+
+  Future<void> setAccent({bool reset = false}) async {
+    final hex = reset ? '' : tecAppAccent.text.trim().replaceFirst(RegExp(r'^#'), '');
+    if (hex.isNotEmpty && !RegExp(r'^([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$').hasMatch(hex)) {
+      appAccentError.value = 'Use RRGGBB or AARRGGBB HEX'.tr;
+      return;
+    }
+    try {
+      await AppPref.setAppAccent(hex.isEmpty ? null : colorFromHex(hex)!.toARGB32());
+      tecAppAccent.text = hex.toUpperCase();
+      appAccentError.value = '';
+      Get.rootController.darkTheme = AppStyle.theme(Brightness.dark);
+      Get.changeTheme(AppStyle.theme(Brightness.light));
+    } catch (e) {
+      AppLog.logE('Could not save accent color: $e');
+      appAccentError.value = 'Could not save appearance. Please retry.'.tr;
     }
   }
 
@@ -149,6 +171,7 @@ class PageSettingsController extends GetxController {
     if (SemanticSearchService.indexing) SemanticSearchService.cancelIndex();
     if (semanticInstalling.value) LocalSemanticWorker.cancelSetup();
     tecAppMaxColi.dispose();
+    tecAppAccent.dispose();
     tecPlayerSeekShort.dispose();
     tecPlayerSeekMid.dispose();
     tecPlayerSeekLong.dispose();

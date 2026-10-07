@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 
 import 'package:chewie/chewie.dart';
@@ -59,6 +60,18 @@ mixin HelperOpener {
     });
   }
 
+  static Future<void> openVideoPlaylist(List<Videos> videos) async {
+    final playableVideos = videos.where((video) {
+      final path = (video.videoPath ?? '').trim();
+      return path.isNotEmpty && File(path).existsSync();
+    }).toList();
+    if (playableVideos.isEmpty) {
+      await HelperToast.warn('No playable video found. Check your external drive connection.'.tr);
+      return;
+    }
+    await openVideoFile(playableVideos.first, playlist: playableVideos);
+  }
+
   // open video file -> direct default video player
   static Future<void> openVideoFile(Videos video, {List<Videos>? playlist}) async {
     final _defaultPlayer = AppPref.getDefaultPlayer();
@@ -68,7 +81,11 @@ mixin HelperOpener {
           ? Get.find<PlayerController>()
           : Get.put<PlayerController>(PlayerController(), permanent: true);
 
-      final started = await controller.startPlayback(video, playlist: playlist);
+      final playablePlaylist = playlist?.where((item) {
+        final path = (item.videoPath ?? '').trim();
+        return path.isNotEmpty && File(path).existsSync();
+      }).toList();
+      final started = await controller.startPlayback(video, playlist: playablePlaylist);
       if (!started) return;
 
       controller.exitMiniMode();
@@ -1233,7 +1250,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                 Container(
                   padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(color: AppColor.selected, borderRadius: BorderRadius.circular(10)),
-                  child: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: AppStyle.iconSize, color: _accent),
+                  child: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: AppStyle.iconSize, color: AppColor.onAccent),
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1276,7 +1293,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                             Expanded(child: Text('Categories'.tr, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),
                             Tooltip(
                               message: widget.matchAllCategories ? 'Videos must match all selected categories'.tr : 'Videos can match any selected category'.tr,
-                              child: Text(widget.matchAllCategories ? 'Match all'.tr : 'Match any'.tr, style: TextStyle(fontSize: 10, color: _accent)),
+                              child: Text(widget.matchAllCategories ? 'Match all'.tr : 'Match any'.tr, style: TextStyle(fontSize: 10, color: _muted)),
                             ),
                           ]),
                           const SizedBox(height: 10),
@@ -1300,12 +1317,12 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                               spacing: 6,
                               runSpacing: 4,
                               children: _categories.map((category) => InputChip(
-                                label: Text(HelperDecensor.decensor(category), style: TextStyle(fontSize: 11, color: _accent)),
+                                label: Text(HelperDecensor.decensor(category), style: TextStyle(fontSize: 11, color: AppColor.onAccent)),
                                 backgroundColor: AppColor.selected,
                                 side: BorderSide.none,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                 visualDensity: VisualDensity.compact,
-                                deleteIcon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize, color: _accent),
+                                deleteIcon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize, color: AppColor.onAccent),
                                 onDeleted: () => setState(() => _categories.remove(category)),
                               )).toList(),
                             ),
@@ -1322,7 +1339,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                           Expanded(child: Text('Blacklist'.tr, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),
                           AppIconButton(
                             tooltip: 'Add blacklist rule'.tr, visualDensity: VisualDensity.compact,
-                            icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize, color: _accent),
+                            icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize, color: AppColor.text),
                             onPressed: () => setState(() => _blacklist.add((field: VideoBlacklistField.videoCode, controller: TextEditingController()))),
                           ),
                         ]),
@@ -1389,18 +1406,18 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                     if (widget.showYears) ...[
                       Row(children: [
                         Expanded(child: Text('Release year'.tr, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),
-                        Text(_years.start == 2000 && _years.end == year ? 'Any year'.tr : '${_years.start.toInt()} – ${_years.end.toInt()}', style: TextStyle(fontSize: 11, color: _accent)),
+                        Text(_years.start == 2000 && _years.end == year ? 'Any year'.tr : '${_years.start.toInt()} – ${_years.end.toInt()}', style: TextStyle(fontSize: 11, color: _muted)),
                       ]),
                       const SizedBox(height: 4),
                       SliderTheme(
                         data: SliderTheme.of(context).copyWith(
                           trackHeight: 3,
-                          activeTrackColor: _accent,
+                          activeTrackColor: _muted,
                           inactiveTrackColor: AppColor.border,
-                          thumbColor: _accent,
+                          thumbColor: _muted,
                           activeTickMarkColor: Colors.transparent,
                           inactiveTickMarkColor: Colors.transparent,
-                          overlayColor: _accent.withAlpha(24),
+                          overlayColor: _muted.withAlpha(24),
                           rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 6),
                         ),
                         child: RangeSlider(

@@ -5,7 +5,9 @@ import 'package:get/get.dart';
 
 import '../modules/widgets/widget_controls.dart';
 import '../modules/widgets/widget_style.dart';
+import '../modules/widgets/widget_surfaces.dart';
 import 'app_pref.dart';
+import 'app_scroll_behavior.dart';
 import 'app_translations.dart';
 
 class AppPinGate extends StatefulWidget {
@@ -33,6 +35,7 @@ class _AppPinGateState extends State<AppPinGate> {
   Widget build(BuildContext context) {
     if (_unlocked) return widget.child;
     return MaterialApp(
+      scrollBehavior: appScrollBehavior,
       debugShowCheckedModeBanner: false,
       locale: Get.locale,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -121,17 +124,16 @@ class _AppPinFormState extends State<AppPinForm> {
       keyboardType: TextInputType.number,
       textInputAction: last ? TextInputAction.done : TextInputAction.next,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(8)],
-      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), isDense: true),
+      placeholder: label,
       onSubmitted: last ? (_) => _submit() : null,
     ),
   );
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: !_busy,
-    child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text(widget.unlock ? 'Unlock JavIt'.tr : widget.disable ? 'Disable PIN lock'.tr
-          : _needsCurrent ? 'Change PIN'.tr : 'Set PIN'.tr, style: Theme.of(context).textTheme.titleMedium),
+  Widget build(BuildContext context) {
+    final title = Text(widget.unlock ? 'Unlock JavIt'.tr : widget.disable ? 'Disable PIN lock'.tr
+        : _needsCurrent ? 'Change PIN'.tr : 'Set PIN'.tr);
+    final content = Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (widget.unlock) Padding(
         padding: const EdgeInsets.only(top: 8),
         child: Text('Enter your PIN to continue.'.tr),
@@ -145,15 +147,33 @@ class _AppPinFormState extends State<AppPinForm> {
         padding: const EdgeInsets.only(top: 12),
         child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
       ),
-      const SizedBox(height: 16),
-      AppButton(variant: AppButtonVariant.filled,
-        onPressed: _busy ? null : _submit,
-        child: Text(widget.unlock ? 'Unlock'.tr : widget.disable ? 'Disable'.tr : 'Save'.tr),
+    ]);
+    return PopScope(
+      canPop: !_busy,
+      child: widget.unlock ? Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        DefaultTextStyle.merge(style: Theme.of(context).textTheme.titleMedium, child: title),
+        content,
+        const SizedBox(height: 16),
+        AppButton(variant: AppButtonVariant.filled,
+          onPressed: _busy ? null : _submit,
+          child: Text('Unlock'.tr),
+        ),
+      ]) : AppConfirmDialog(
+        title: title,
+        content: content,
+        actions: [
+          AppDialogAction(
+            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+            child: Text('Cancel'.tr),
+          ),
+          AppDialogAction(
+            isDefaultAction: true,
+            isDestructiveAction: widget.disable,
+            onPressed: _busy ? null : _submit,
+            child: Text(widget.disable ? 'Disable'.tr : 'Save'.tr),
+          ),
+        ],
       ),
-      if (!widget.unlock) AppButton(
-        onPressed: _busy ? null : () => Navigator.of(context).pop(false),
-        child: Text('Cancel'.tr),
-      ),
-    ]),
-  );
+    );
+  }
 }

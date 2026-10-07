@@ -83,11 +83,18 @@ void main() {
     home.cart.clear();
     HomePanelAppLog.clear();
   });
-  tearDown(() async {
-    while (Overlayment.count > 0) {
-      await Overlayment.dismissLast();
-    }
-  });
+  void panelTest(String name, Future<void> Function(WidgetTester) body) {
+    testWidgets(name, (tester) async {
+      try {
+        await body(tester);
+      } finally {
+        while (Overlayment.count > 0) {
+          unawaited(Overlayment.dismissLast());
+          await tester.pumpAndSettle();
+        }
+      }
+    });
+  }
 
   Future<void> pump(WidgetTester tester) async {
     await tester.pumpWidget(ToastificationWrapper(
@@ -96,7 +103,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('an empty cart never opens the panel', (tester) async {
+  panelTest('an empty cart never opens the panel', (tester) async {
     await pump(tester);
 
     await HomePanelCart.open();
@@ -106,7 +113,7 @@ void main() {
     expect(find.textContaining('Video Cart'), findsNothing);
   });
 
-  testWidgets('lists the cart content with code, quality, subtitle badges and path tooltip', (tester) async {
+  panelTest('lists the cart content with code, quality, subtitle badges and path tooltip', (tester) async {
     home.cart.addAll([
       _video(code: 'ABP-001', path: '/movies/ABP-001-en.mp4'),
       _video(code: 'ABP-002', path: '/movies/ABP-002-un.mp4', quality: '1280x720'),
@@ -131,9 +138,16 @@ void main() {
     expect(find.byTooltip('Open in Grid Player'), findsOneWidget);
     expect(find.byTooltip('Add to Playlist'), findsOneWidget);
     expect(find.byTooltip('Delete All This Files'), findsOneWidget);
+    final actionLabels = ['Play as Playlist', 'Open in Grid Player', 'Add to Playlist', 'Delete All This Files'];
+    final actionY = tester.getCenter(find.byTooltip(actionLabels.first)).dy;
+    for (final label in actionLabels) {
+      expect(find.text(label), findsNothing);
+      expect(tester.getCenter(find.byTooltip(label)).dy, actionY);
+    }
+
   });
 
-  testWidgets('duplicates are dropped before the panel is rendered', (tester) async {
+  panelTest('duplicates are dropped before the panel is rendered', (tester) async {
     final duplicate = _video(code: 'ABP-001');
     home.cart.addAll([duplicate, _video(code: 'ABP-001'), _video(code: 'ABP-002')]);
     await pump(tester);
@@ -146,7 +160,7 @@ void main() {
     expect(find.text('ABP-001'), findsOneWidget);
   });
 
-  testWidgets('removing an entry updates the list and the counter live', (tester) async {
+  panelTest('removing an entry updates the list and the counter live', (tester) async {
     home.cart.addAll([_video(code: 'ABP-001'), _video(code: 'ABP-002')]);
     await pump(tester);
 
@@ -163,7 +177,53 @@ void main() {
     expect(find.text('ABP-002'), findsOneWidget);
   });
 
-  testWidgets('the header action empties the cart and closes the panel', (tester) async {
+  panelTest('last removal shows empty state and disables cart actions', (tester) async {
+    home.cart.add(_video(code: 'ABP-001'));
+    await pump(tester);
+    unawaited(HomePanelCart.open());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Remove from Cart'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cart is empty'), findsOneWidget);
+    expect(Overlayment.count, 1);
+    for (final label in ['Play as Playlist', 'Open in Grid Player', 'Add to Playlist']) {
+      final button = find.byWidgetPredicate((widget) => widget is IconButton && widget.tooltip == label);
+      expect(tester.widget<IconButton>(button).onPressed, isNull);
+    }
+    final delete = find.byWidgetPredicate((widget) => widget is IconButton && widget.tooltip == 'Delete All This Files');
+    expect(tester.widget<IconButton>(delete).onPressed, isNull);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(Overlayment.count, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  panelTest('narrow panel handles missing metadata and simultaneous badges', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    home.cart.addAll([
+      _video(code: 'ABP-001', path: '/movies/ABP-001-un-en-id.mp4'),
+      Videos(id: 'missing', videoCode: null, title: null, filesize: null),
+    ]);
+    await pump(tester);
+    unawaited(HomePanelCart.open());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Untitled'), findsOneWidget);
+    expect(find.text('Unknown size'), findsOneWidget);
+    final badges = find.descendant(of: find.byType(Wrap).first, matching: find.byType(Text));
+    expect(badges, findsNWidgets(4));
+    expect(find.text('null'), findsNothing);
+    expect(find.text('Delete file'), findsNothing);
+    await tester.tap(find.byTooltip('Video actions').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Delete file'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  panelTest('the header action empties the cart and closes the panel', (tester) async {
     home.cart.addAll([_video(code: 'ABP-001'), _video(code: 'ABP-002')]);
     await pump(tester);
 
@@ -177,7 +237,7 @@ void main() {
     expect(Overlayment.count, 0);
   });
 
-  testWidgets('opening the panel twice closes it again', (tester) async {
+  panelTest('opening the panel twice closes it again', (tester) async {
     home.cart.add(_video(code: 'ABP-001'));
     await pump(tester);
 
@@ -185,12 +245,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(Overlayment.count, 1);
 
-    await HomePanelCart.open();
+    unawaited(HomePanelCart.open());
     await tester.pumpAndSettle();
     expect(Overlayment.count, 0);
   });
 
-  testWidgets('playing the cart warns instead of opening a player when no file exists', (tester) async {
+  panelTest('playing the cart warns instead of opening a player when no file exists', (tester) async {
     home.cart.add(_video(code: 'ABP-001', path: '/definitely/missing/ABP-001.mp4'));
     await pump(tester);
 

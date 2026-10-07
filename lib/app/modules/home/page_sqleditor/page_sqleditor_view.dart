@@ -23,12 +23,18 @@ class PageSqleditorView extends GetView<PageSqleditorController> {
   const PageSqleditorView({super.key});
 
   @override
-  Widget build(BuildContext context) => Column(children: [
+  Widget build(BuildContext context) => CallbackShortcuts(
+    bindings: {
+      const SingleActivator(LogicalKeyboardKey.keyN, meta: true, includeRepeats: false): controller.addTab,
+      const SingleActivator(LogicalKeyboardKey.keyW, meta: true, includeRepeats: false): () => controller.closeTab(controller.activeTabIndex.value),
+    },
+    child: Focus(autofocus: true, child: Column(children: [
     Obx(() => controller.activeTab.resultsExpanded.value ? const SizedBox.shrink() : Padding(
       padding: const EdgeInsets.only(bottom: 8), child: SearchTabBar(
-      tabs: controller.tabs.map((tab) => (title: tab.title, isLoading: tab.running.value || tab.generating.value)).toList(),
+      tabs: controller.tabs.map((tab) => (id: tab.id, isPinned: tab.isPinned.value, title: tab.title, isLoading: tab.running.value || tab.generating.value)).toList(),
       activeIndex: controller.activeTabIndex.value,
       scrollController: controller.tabScrollController,
+      onReorder: controller.reorderTab, onPin: controller.toggleTabPin,
       onSelect: controller.selectTab, onClose: controller.closeTab, onAdd: controller.addTab,
       addTooltip: 'New SQL tab'.tr,
     ))),
@@ -40,7 +46,8 @@ class PageSqleditorView extends GetView<PageSqleditorController> {
       final tab = controller.activeTab;
       return PageSqleditorTabView(key: ValueKey(tab.id), controller: tab);
     })),
-  ]);
+  ])),
+  );
 }
 
 class PageSqleditorTabView extends StatelessWidget {
@@ -113,8 +120,8 @@ class PageSqleditorTabView extends StatelessWidget {
             decoration: BoxDecoration(color: AppColor.panel, border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(6)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                child: Row(children: [
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: Row(spacing: 4, children: [
                   Text('Query'.tr, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                   const Spacer(),
                   AppIconButton(

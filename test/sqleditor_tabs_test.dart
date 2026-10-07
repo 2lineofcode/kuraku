@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
@@ -11,6 +12,87 @@ import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_view.dart';
 import 'package:javit/app/modules/widgets/widgets.dart';
 
 void main() {
+  testWidgets('SQL tab shortcuts work in the editor and expanded results and preserve pinned tabs', (tester) async {
+    addTearDown(Get.reset);
+    final controller = Get.put(PageSqleditorController(sources: {'javit.db': '/javit.db'}));
+    final first = controller.activeTab;
+    first.input.text = 'SELECT 1;';
+    await tester.pumpWidget(const GetMaterialApp(home: Scaffold(body: PageSqleditorView())));
+    first.focusNode.requestFocus();
+    await tester.pumpAndSettle();
+
+    Future<void> command(LogicalKeyboardKey key) async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(key);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pumpAndSettle();
+    }
+
+    await command(LogicalKeyboardKey.keyN);
+    expect(controller.tabs.length, 2);
+    expect(controller.activeTab.focusNode.hasFocus, isTrue);
+    await command(LogicalKeyboardKey.keyW);
+    expect(controller.tabs.length, 1);
+    expect(controller.activeTab, same(first));
+    expect(first.input.text, 'SELECT 1;');
+    controller.toggleTabPin(0);
+    await command(LogicalKeyboardKey.keyW);
+    expect(controller.activeTab, same(first));
+    expect(controller.tabs.length, 1);
+    controller.toggleTabPin(0);
+    first.resultsExpanded.value = true;
+    await tester.pumpAndSettle();
+    await command(LogicalKeyboardKey.keyN);
+    expect(controller.tabs.length, 2);
+    await command(LogicalKeyboardKey.keyW);
+    expect(controller.activeTab, same(first));
+    expect(first.resultsExpanded.value, isTrue);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('SQL tabs reorder and pin without changing the active tab', (tester) async {
+    var stored = <String, dynamic>{};
+    final controller = Get.put<PageSqleditorController>(PageSqleditorController(sources: {'javit.db': '/javit.db'},
+      persistTabs: (value) async { stored = value; }));
+    addTearDown(Get.reset);
+    final first = controller.activeTab;
+    controller.addTab();
+    final second = controller.activeTab;
+    controller.addTab();
+    final third = controller.activeTab;
+    controller.reorderTab(2, 0);
+    expect(controller.tabs, [third, first, second]);
+    expect(controller.activeTab, same(third));
+    controller.toggleTabPin(2);
+    expect(second.isPinned.value, isTrue);
+    expect(controller.tabs, [second, third, first]);
+    expect(controller.activeTab, same(third));
+    controller.closeTab(0);
+    expect(controller.tabs.length, 3);
+    controller.reorderTab(0, 2);
+    controller.reorderTab(2, 0);
+    expect(controller.tabs, [second, first, third]);
+    expect(controller.activeTab, same(third));
+    await controller.saveTabs();
+    final saved = stored;
+    expect((saved['tabs'] as List).first['pinned'], isTrue);
+    expect(saved['activeTab'], 2);
+    final restored = PageSqleditorController(sources: controller.sources, savedTabs: saved);
+    restored.onStart();
+    expect(restored.tabs.map((tab) => tab.isPinned.value), [true, false, false]);
+    expect(restored.activeTabIndex.value, 2);
+    restored.onDelete();
+    controller.toggleTabPin(0);
+    controller.closeTab(0);
+    expect(controller.tabs, [first, third]);
+    expect(controller.activeTab, same(third));
+    controller.reorderTab(0, 1);
+    expect(controller.tabs, [third, first]);
+    expect(controller.activeTab, same(third));
+    await tester.pump();
+  });
+
   testWidgets('Results expand to fill the page and restore the query and tabs', (tester) async {
     addTearDown(Get.reset);
     final controller = Get.put(PageSqleditorController(sources: {'javit.db': '/javit.db'}));

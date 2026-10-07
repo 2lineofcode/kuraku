@@ -94,7 +94,8 @@ mixin HomePanelVideoInfo {
                 VStack(
                   [
                     '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
-                      HelperMisc.copyToClipboard(video.videoCode ?? '', showToast: true);
+                      final textToCopy = video.videoCode.isNotEmptyAndNotNull ? video.videoCode! : video.title;
+                      HelperMisc.copyToClipboard(textToCopy, showToast: true);
                     }).pSymmetric(v: 8),
                     Obx(
                       () => _translatedTitle.value.text

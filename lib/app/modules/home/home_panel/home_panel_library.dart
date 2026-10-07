@@ -161,106 +161,157 @@ mixin HomePanelLibrary {
   /// and rescanning existing ones.
   static Future<void> open() async {
 
-    final library = await DBLibrary.getAll();
-
     if (Overlayment.count > 0) { await Overlayment.dismissLast(); return; }
+
+    final library = await DBLibrary.getAll();
+    final totalVideos = await DBVideos.getCount();
+
+    Future<void> addLibrary() async {
+      await Overlayment.dismissLast();
+      await showDialogAddorEditLibrary();
+    }
+
+    Future<void> confirmAction(String title, Future<void> Function() action) async {
+      await Overlayment.dismissLast();
+      AppConfirmDialog.show(
+        isDismissible: false,
+        title: Text(title),
+        content: Text('Are you sure?'.tr).pOnly(top: 8),
+        actions: [
+          AppDialogAction(child: Text('No'.tr), onPressed: () => Get.back()),
+          AppDialogAction(child: Text('Yes'.tr), onPressed: () async {
+            Get.back();
+            await action();
+          }),
+        ],
+      );
+    }
 
     WidgetsBinding.instance.scheduleFrame();
     await Overlayment.show(
       context: Get.context,
       OverPanel(
         alignment: Alignment.centerRight,
-        width: 300,
+        width: math.min(340, MediaQuery.sizeOf(Get.context!).width),
         backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
         animation: OverSlideAnimation(beginAlignment: Alignment.centerRight, reverseDurationMilliseconds: 100, durationMilliseconds: 100),
         color: AppColor.panel,
-        child: VStack([
-          HStack(
-            [
-              HugeIcon(icon: HugeIcons.strokeRoundedLayers01, size: AppStyle.iconSize).pOnly(right: 12, left: 8),
-              'Library'.tr.text.bold.make(),
-              Spacer(),
+        child: Builder(builder: (context) {
+          AppColor.dependOn(context);
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              const HugeIcon(icon: HugeIcons.strokeRoundedLayers01, size: AppStyle.iconSize),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Library'.tr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
               AppIconButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
+                icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize),
+                tooltip: 'Close'.tr,
+                onPressed: () => Overlayment.dismissLast(),
+              ),
+            ]),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(child: AppButton(
+                label: 'Add New Library'.tr,
+                icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
+                variant: AppButtonVariant.tonal,
+                onPressed: addLibrary,
+              )),
+              const SizedBox(width: 8),
+              AppIconButton(
+                icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
                 tooltip: 'Rescan All Folders'.tr,
-                onPressed: () {
-                  Overlayment.dismissLast();
-                  doRescanAllVideoFromLibrary(library, recoverVideoCodes: true);
-                },
+                onPressed: library.isEmpty ? null : () => confirmAction(
+                  'Rescan All Folders'.tr, () => doRescanAllVideoFromLibrary(library, recoverVideoCodes: true),
+                ),
               ),
               AppIconButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: AppStyle.iconSize),
+                icon: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: AppStyle.iconSize),
                 tooltip: 'Repair Metadata from R18'.tr,
-                onPressed: () async {
-                  await Overlayment.dismissLast();
-                  await _repairAllMetadata(library);
-                },
+                onPressed: library.isEmpty ? null : () => confirmAction(
+                  'Repair Metadata from R18'.tr, () => _repairAllMetadata(library),
+                ),
               ),
-              AppIconButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
-                tooltip: 'Add New Library'.tr,
-                onPressed: () {
-                  Overlayment.dismissLast();
-                  showDialogAddorEditLibrary();
-                },
-              ),
-            ],
-          ),
-          Divider(),
-          library.isEmpty
-              ? ExUiErrorOrEmpty(
-                  illustration: HugeIcon(icon: HugeIcons.strokeRoundedInbox, size: AppStyle.emptyIconSize),
-                  title: 'No Data'.tr,
-                  message: 'No Library Found, Please Add New Library by Click Button `+`'.tr,
-                ).expand()
-              : ListView.separated(
-                  itemCount: library.length,
-                  separatorBuilder: (context, index) => Divider(),
-                  itemBuilder: (context, index) {
-                    final item = library[index];
-                    return HStack([
-                      HStack([
-                        AppIconButton(
-                          onPressed: () => HelperOpener.openFolder(item.rootFolder ?? ''),
-                          icon: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: AppStyle.iconSize),
-                          tooltip: 'Open Folder `@{alias}`'.trNamed({'alias': '${item.alias}'}),
-                        ).pOnly(right: 8),
-                        VStack([
-                          '${item.alias}'.text.ellipsis.make().pOnly(right: 8),
-                          '${item.rootFolder!.getLastSegments()}'.text.size(10).minFontSize(10).neutral500.ellipsis.make(),
-                        ]).expand(),
-                      ]).expand(),
-
-                      Container(
-                        decoration: ExDecorator.box(borderRadius: 90, fillColor: AppColor.selected, borderColor: AppColor.selected),
-                        child: ' ${item.totalVideo} '.text.size(11).minFontSize(11).make(),
-                      ),
-                      AppIconButton(
-                        icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
-                        tooltip: 'Rescan Folder `@{alias}`'.trNamed({'alias': '${item.alias}'}),
-                        onPressed: () async => {
-                          await Overlayment.dismissLast(),
-                          _doRescanVideoFromLibrary(item, fromAutoWatcher: false),
-                        },
-                      ),
-                    ]).onInkTap(() async {
-                      await Overlayment.dismissLast();
-                      await showDialogAddorEditLibrary(library: item);
-                    });
-                  },
-                ).expand(),
-
-          Container(
-            width: double.infinity,
-            decoration: ExDecorator.box(borderColor: AppColor.border, borderRadius: 4, fillColor: AppColor.container),
-            child: HStack([
-              'Total Folder: @{getCount}'.trNamed({'getCount': '${await DBLibrary.getCount()}'}).text.size(12).make(),
-              Spacer(),
-              'Total Video: @{getCount}'.trNamed({'getCount': '${await DBVideos.getCount()}'}).text.size(12).make(),
-            ]).p12(),
-          ).pSymmetric(v: 12),
-
-        ]).p8(),
+            ]),
+            Divider(height: 24, color: AppColor.border),
+            Expanded(child: library.isEmpty
+                ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    HugeIcon(icon: HugeIcons.strokeRoundedInbox, size: AppStyle.emptyIconSize, color: AppColor.muted),
+                    const SizedBox(height: 12),
+                    Text('No Data'.tr, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Text('No Library Found, Please Add New Library by Click Button `+`'.tr,
+                      textAlign: TextAlign.center, style: TextStyle(fontSize: AppStyle.fontSize, color: AppColor.muted)),
+                  ]))
+                : ListView.separated(
+                    itemCount: library.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final item = library[index];
+                      final path = item.rootFolder ?? '';
+                      final alias = item.alias?.trim().isNotEmpty == true ? item.alias! : p.basename(path);
+                      return AppPanel(
+                        bordered: true,
+                        padding: const EdgeInsets.all(4),
+                        child: Row(children: [
+                          AppIconButton(
+                            onPressed: path.isEmpty ? null : () => HelperOpener.openFolder(path),
+                            icon: const HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: AppStyle.iconSize),
+                            tooltip: 'Open Folder `@{alias}`'.trNamed({'alias': alias}),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(AppStyle.radius),
+                              onTap: () async {
+                                await Overlayment.dismissLast();
+                                await showDialogAddorEditLibrary(library: item);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Text(alias, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 4),
+                                  Tooltip(message: path, child: Text(path.isEmpty ? '<Select Path>'.tr : path.getLastSegments(),
+                                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(fontSize: 11, color: AppColor.muted))),
+                                ]),
+                              ),
+                            ),
+                          )),
+                          Tooltip(
+                            message: 'Total Video: @{value}'.trNamed({'value': '${item.totalVideo ?? 0}'}),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                              decoration: BoxDecoration(color: AppColor.selected, borderRadius: BorderRadius.circular(AppStyle.radius)),
+                              child: Text('${item.totalVideo ?? 0}', style: const TextStyle(fontSize: 11)),
+                            ),
+                          ),
+                          AppIconButton(
+                            icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
+                            tooltip: 'Rescan Folder `@{alias}`'.trNamed({'alias': alias}),
+                            onPressed: path.isEmpty ? null : () async {
+                              await Overlayment.dismissLast();
+                              await _doRescanVideoFromLibrary(item, fromAutoWatcher: false);
+                            },
+                          ),
+                        ]),
+                      );
+                    },
+                  )),
+            const SizedBox(height: 12),
+            AppPanel(
+              bordered: true,
+              padding: const EdgeInsets.all(8),
+              child: Wrap(alignment: WrapAlignment.spaceBetween, spacing: 12, runSpacing: 4, children: [
+                Text('Total Folder: @{getCount}'.trNamed({'getCount': '${library.length}'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
+                Text('Total Video: @{getCount}'.trNamed({'getCount': '$totalVideos'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
+              ]),
+            ),
+          ]).p(AppStyle.panelPadding);
+        }),
       ),
     );
   }

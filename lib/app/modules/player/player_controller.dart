@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:ex_kit/ex.dart';
 import 'package:file_picker/file_picker.dart';
@@ -15,7 +16,6 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:uuid/v4.dart';
 
 import '../../../env.g.dart';
-import '../../core/app_color.dart';
 import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
 import '../../core/app_translations.dart';
@@ -30,8 +30,6 @@ import '../../utils/watch_session_tracker.dart';
 import '../home/home_controller.dart';
 import '../home/home_panel/home_panel_video_info.dart';
 import '../home/page_home/page_home_controller.dart';
-import '../widgets/widget_controls.dart';
-import '../widgets/widget_style.dart';
 import '../widgets/widget_thumbnail.dart';
 
 class PlayerController extends GetxController with StateMixin<Videos>, GetSingleTickerProviderStateMixin {
@@ -731,193 +729,202 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       return;
     }
 
-    final _tecSearch = TextEditingController(text: '');
-    final _fnSearch = FocusNode();
-    final _videos = <Videos>[].obs;
-    final _listScrollController = ScrollController();
+    final search = TextEditingController();
+    final searchFocus = FocusNode();
+    final videos = playlist.toList().obs;
+    final scroll = ScrollController();
+    var closed = false;
+    var request = 0;
 
-    _videos.value = playlist;
-
-    if (_listScrollController.hasClients) {
-      _listScrollController.jumpTo(currentIndexPlaying.value * 135);
+    void scrollToCurrent() {
+      if (!scroll.hasClients) return;
+      final index = videos.indexWhere((video) => video.videoPath == currentVideo.value.videoPath);
+      scroll.jumpTo((math.max(index, 0) * 128.0).clamp(0.0, scroll.position.maxScrollExtent));
     }
 
-    WidgetsBinding.instance.scheduleFrame();
-    await Overlayment.show(
-      context: Get.context,
-      OverPanel(
-        alignment: Alignment.centerRight,
-        width: 300,
-        color: AppColor.panel,
-        animation: OverSlideAnimation(
-          beginAlignment: Alignment.centerRight,
-          reverseDurationMilliseconds: 100,
-          durationMilliseconds: 400,
-        ),
-        actions: OverlayActions(
-          onReady: () async {
-            await _listScrollController.animateTo(
-              currentIndexPlaying.value * 127,
-              duration: 300.milliseconds,
-              curve: Curves.decelerate,
-            );
-            _fnSearch.requestFocus();
-          },
-          onClose: (p0) async {
-            _fnSearch.unfocus();
-            requestFocusOnPlayer();
-          },
-        ),
-        child: VStack(
-          [
-            AppTextField(
-              controller: _tecSearch,
-              focusNode: _fnSearch,
-              clearButtonMode: OverlayVisibilityMode.editing,
-              placeholder: 'Search (@{length})...'.trNamed({'length': '${_videos.length}'}),
-              style: TextStyle(color: AppColor.text),
-              prefix: Icon(CupertinoIcons.search, size: AppStyle.iconSize, color: Vx.neutral500).pOnly(left: 8),
-              // suffix: AppIconButton(
-              //   icon: Icon(CupertinoIcons.sort_down, size: AppStyle.iconSize, color: Vx.neutral300),
-              //   onPressed: () {},
-              // ).pOnly(right: 4),
-              onSubmitted: (q) async {
-                if (q.isEmpty) {
-                  _videos.value = await DBVideos.getAll(
-                    where: 'video_path LIKE ?',
-                    whereArgs: ['${dirname(currentVideo.value.videoPath!)}%'],
-                  );
+    Future<void> filter(Future<List<Videos>> result) async {
+      final revision = ++request;
+      try {
+        final items = await result;
+        if (closed || revision != request) return;
+        videos.assignAll(items);
+        if (scroll.hasClients) scroll.jumpTo(0);
+      } catch (e) {
+        if (closed || revision != request) return;
+        AppLog.logE('Playlist search failed: $e');
+        await HelperToast.error('Could not load videos. Please retry.'.tr);
+      }
+    }
 
-                  await _listScrollController.animateTo(
-                    currentIndexPlaying.value * 127,
-                    duration: 300.milliseconds,
-                    curve: Curves.decelerate,
-                  );
-                } else {
-                  _videos.value = await DBVideos.getAll(
-                    where: 'video_code LIKE ? OR title LIKE ? OR video_path LIKE ?',
-                    whereArgs: ['%$q%', '%$q%', '%$q%'],
-                  );
-
-                  _listScrollController.animToTop();
-                }
-              },
-            ).pSymmetric(v: 12),
-            Obx(
-              () => ListView.separated(
-                controller: _listScrollController,
-                itemCount: _videos.length,
-                separatorBuilder: (context, index) => Divider(color: AppColor.border),
-                itemBuilder: (context, index) {
-                  final __item = _videos[index];
-                  final isSelected = __item.videoPath == currentVideo.value.videoPath;
-
-                  return Container(
-                    color: isSelected ? AppColor.selected : Colors.transparent,
-                    child: HStack(
-                      alignment: MainAxisAlignment.start,
-                      crossAlignment: CrossAxisAlignment.start,
-                      [
-                        ZStack([
-                          ExThumbnail(
-                            imageUrl: '${__item.fanArt}',
-                            videoPath: __item.videoPath,
-                            width: 90,
-                            height: 110,
-                            prefix: 2.2,
-                            fitUrl: BoxFit.fitWidth,
-                          ).cornerRadius(4),
-                          '${HelperMisc.formatVideoQuality(__item.quality ?? '').maxWords(1)}'
-                              .text
-                              .orange300
-                              .size(11)
-                              .minFontSize(11)
-                              .make()
-                              .pSymmetric(h: 4)
-                              .color(AppColor.black170)
-                              .cornerRadius(4)
-                              .positioned(bottom: 3, left: 3),
-                          if (__item.videoPath?.isHasUncensored() == true) ...[
-                            'RM'.text.red400.size(11).minFontSize(11).make().pSymmetric(h: 4).color(AppColor.black170).cornerRadius(4).positioned(top: 3, right: 3),
-                          ],
-                          if (__item.videoPath?.isHasEnSub() == true) ...[
-                            'EN'.text.blue400.size(11).minFontSize(11).make().pSymmetric(h: 4).color(AppColor.black170).cornerRadius(4).positioned(top: 3, right: 3),
-                          ],
-                          if (__item.videoPath?.isHasIdSub() == true) ...[
-                            'ID'.text.blue400.size(11).minFontSize(11).make().pSymmetric(h: 4).color(AppColor.black170).cornerRadius(4).positioned(top: 3, right: 3),
-                          ],
-                        ]).pOnly(right: 12),
-                        VStack([
-                          '${__item.videoCode == '' ? __item.title?.maxWords(5) : __item.videoCode}'.text.bold.ellipsis.maxLines(1).minFontSize(13).size(13).make().pOnly(bottom: 12),
-                          '${__item.title}'.text.minFontSize(12).size(12).maxLines(3).ellipsis.make(),
-                          Spacer(),
-                          HStack([
-                            '${__item.filesize?.toFileSizeFormat()}'.text.color(Get.isDarkMode ? Colors.orange.shade300 : Colors.orange.shade900).size(11).minFontSize(11).ellipsis.make().tooltip('${__item.videoPath}').expand(),
-                            HStack([
-                              Icon(
-                                __item.isFavorite == 1 ? CupertinoIcons.star_fill : CupertinoIcons.star,
-                                color: __item.isFavorite == 1 ? Colors.orange : null,
-                                size: AppStyle.iconSize,
-                              ).onInkTap(() async {
-                                if (__item.isFavorite == 1) {
-                                  __item.isFavorite = 0;
-                                  await DBVideos.removeFromFavorite(__item);
-                                } else {
-                                  __item.isFavorite = 1;
-                                  await DBVideos.addToFavorite(__item);
-                                }
-                                await Get.find<PageHomeController>().onRefresh();
-                                _videos.refresh();
-                              }).pOnly(left: 8),
-                              Icon(CupertinoIcons.add, size: AppStyle.iconSize).onInkTap(() async {
-                                final homeController = Get.find<HomeController>();
-                                final isAdded = homeController.addToCart(__item);
-                                if (isAdded) {
-                                  await HelperToast.success('Added to panel cart'.tr);
-                                } else {
-                                  await HelperToast.info('Already in panel cart'.tr);
-                                }
-                              }).tooltip('Add to Panel Cart'.tr).pOnly(left: 12),
-                              if (!__item.actress.isEmptyOrNull) ...[
-                                Icon(CupertinoIcons.person, size: AppStyle.iconSize).pOnly(left: 12).onInkTap(() async {
-                                  final _fltr = await DBVideos.getByActress(__item.actress?[0].nameRomaji ?? '');
-                                  _videos.value = _fltr;
-                                  update();
-                                }).tooltip(__item.actress?[0].nameRomaji ?? ''),
-                              ],
-                              if (__item.series.isNotEmptyAndNotNull) ...[
-                                Icon(CupertinoIcons.tag, size: AppStyle.iconSize).pOnly(left: 12).onInkTap(() async {
-                                  final _fltr = await DBVideos.getBySeries(__item.series ?? '');
-                                  _videos.value = _fltr;
-                                  update();
-                                }).tooltip(__item.series ?? ''),
-                              ],
-                            ]),
-                          ]).pOnly(top: 8),
-                        ]).h(110).expand(),
-                      ],
-                    ).onDoubleTap(() async {
-                      if (isSelected) return;
-                      await Overlayment.dismissLast();
-
-                      final file = File(__item.videoPath!);
-                      if (!file.existsSync()) {
-                        await HelperToast.warn('Cant access video file'.tr);
-                        return;
-                      }
-
-                      currentIndexPlaying.value = index;
-                      await changeVideo(__item);
-                    }).p8(),
-                  );
-                },
-              ).expand(),
-            ),
-          ],
-        ).p12(),
+    Widget action(IconData icon, String tooltip, VoidCallback onPressed, {Color color = Colors.white70}) => Tooltip(
+      message: tooltip,
+      child: CupertinoButton(
+        padding: EdgeInsets.zero, minimumSize: const Size.square(32),
+        onPressed: onPressed, child: Icon(icon, size: 16, color: color),
       ),
     );
-    requestFocusOnPlayer();
+
+    WidgetsBinding.instance.scheduleFrame();
+    try {
+      await Overlayment.show(
+        context: Get.context,
+        OverPanel(
+          alignment: Alignment.centerRight,
+          width: math.min(360, MediaQuery.sizeOf(Get.context!).width),
+          color: Colors.transparent,
+          animation: OverSlideAnimation(
+            beginAlignment: Alignment.centerRight,
+            reverseDurationMilliseconds: 100,
+            durationMilliseconds: 400,
+          ),
+          actions: OverlayActions(
+            onReady: () async { scrollToCurrent(); searchFocus.requestFocus(); },
+            onClose: (_) async { closed = true; searchFocus.unfocus(); requestFocusOnPlayer(); },
+          ),
+          child: CupertinoTheme(
+            data: const CupertinoThemeData(brightness: Brightness.dark, primaryColor: Colors.white),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 48, 12, 12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1C1C1E).withValues(alpha: .58),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Expanded(child: Text('Playlist'.tr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white))),
+                        Obx(() => Text('${videos.length}', style: const TextStyle(fontSize: 12, color: Colors.white54))),
+                        const SizedBox(width: 8),
+                        action(CupertinoIcons.xmark, 'Close'.tr, () => Overlayment.dismissLast()),
+                      ]),
+                      const SizedBox(height: 12),
+                      CupertinoSearchTextField(
+                        controller: search, focusNode: searchFocus,
+                        placeholder: 'Search library'.tr,
+                        style: const TextStyle(fontSize: 12, color: Colors.white),
+                        placeholderStyle: const TextStyle(fontSize: 12, color: Colors.white54),
+                        itemColor: Colors.white54, itemSize: 16,
+                        backgroundColor: Colors.white.withValues(alpha: .08),
+                        onChanged: (query) {
+                          if (query.isNotEmpty) return;
+                          request++;
+                          videos.assignAll(playlist);
+                          WidgetsBinding.instance.addPostFrameCallback((_) { if (!closed) scrollToCurrent(); });
+                        },
+                        onSubmitted: (query) {
+                          final q = query.trim();
+                          if (q.isEmpty) return;
+                          filter(DBVideos.getAll(
+                            where: 'video_code LIKE ? OR title LIKE ? OR video_path LIKE ?',
+                            whereArgs: ['%$q%', '%$q%', '%$q%'],
+                          ));
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(child: Obx(() => videos.isEmpty
+                        ? Center(child: Text('No videos found'.tr, style: const TextStyle(fontSize: 12, color: Colors.white54)))
+                        : ListView.builder(
+                          controller: scroll, itemExtent: 128, itemCount: videos.length,
+                          itemBuilder: (context, index) {
+                            final item = videos[index];
+                            final selected = item.videoPath == currentVideo.value.videoPath;
+                            final code = item.videoCode?.trim() ?? '';
+                            final metadata = [
+                              HelperMisc.formatVideoQuality(item.quality ?? '').maxWords(1),
+                              if ((item.filesize ?? 0) > 0) item.filesize!.toFileSizeFormat(),
+                              if (item.videoPath?.isHasUncensored() == true) 'RM',
+                              if (item.videoPath?.isHasEnSub() == true) 'EN',
+                              if (item.videoPath?.isHasIdSub() == true) 'ID',
+                            ].whereType<String>().where((value) => value.isNotEmpty).join(' · ');
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Tooltip(
+                                message: 'Double-click to play'.tr,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onDoubleTap: () async {
+                                    if (selected) return;
+                                    final path = item.videoPath;
+                                    if (path == null || path.isEmpty || !File(path).existsSync()) {
+                                      await HelperToast.warn('Cant access video file'.tr);
+                                      return;
+                                    }
+                                    await Overlayment.dismissLast();
+                                    await changeVideo(item);
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: selected ? Colors.white.withValues(alpha: .12) : Colors.white.withValues(alpha: .03),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: selected ? Colors.white30 : Colors.transparent),
+                                    ),
+                                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                      ClipRRect(borderRadius: BorderRadius.circular(6), child: ExThumbnail(
+                                        imageUrl: item.fanArt ?? '', videoPath: item.videoPath,
+                                        width: 88, height: 64, fitUrl: BoxFit.cover, iconSize: 24,
+                                      )),
+                                      const SizedBox(width: 10),
+                                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                        Row(children: [
+                                          if (selected) ...[const Icon(CupertinoIcons.play_fill, size: 10, color: Colors.white), const SizedBox(width: 6)],
+                                          Expanded(child: Text(code.isEmpty ? item.title ?? basename(item.videoPath ?? '') : code,
+                                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white))),
+                                        ]),
+                                        if (code.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(item.title ?? '',
+                                          maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Colors.white70))),
+                                        const Spacer(),
+                                        Text(metadata, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: Colors.white54)),
+                                        Row(children: [
+                                          action(item.isFavorite == 1 ? CupertinoIcons.star_fill : CupertinoIcons.star,
+                                            (item.isFavorite == 1 ? 'Remove from favorites' : 'Favorite').tr, () async {
+                                              final favorite = item.isFavorite == 1;
+                                              if (favorite) { await DBVideos.removeFromFavorite(item); }
+                                              else { await DBVideos.addToFavorite(item); }
+                                              item.isFavorite = favorite ? 0 : 1;
+                                              if (!closed) videos.refresh();
+                                              await Get.find<PageHomeController>().onRefresh();
+                                            }, color: item.isFavorite == 1 ? Colors.orange : Colors.white70),
+                                          action(CupertinoIcons.add, 'Add to Panel Cart'.tr, () async {
+                                            final added = Get.find<HomeController>().addToCart(item);
+                                            if (added) { await HelperToast.success('Added to panel cart'.tr); }
+                                            else { await HelperToast.info('Already in panel cart'.tr); }
+                                          }),
+                                          if (!item.actress.isEmptyOrNull) action(CupertinoIcons.person, item.actress!.first.nameRomaji ?? '',
+                                            () => filter(DBVideos.getByActress(item.actress!.first.nameRomaji ?? ''))),
+                                          if (item.series.isNotEmptyAndNotNull) action(CupertinoIcons.tag, item.series!,
+                                            () => filter(DBVideos.getBySeries(item.series!))),
+                                        ]),
+                                      ])),
+                                    ]),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ))),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    } finally {
+      closed = true;
+      search.dispose();
+      searchFocus.dispose();
+      scroll.dispose();
+      requestFocusOnPlayer();
+    }
   }
 
   Future<void> changeVideo(Videos newVideo) async {

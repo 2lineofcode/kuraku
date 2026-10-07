@@ -1,7 +1,7 @@
 import 'package:ex_kit/ex.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:overlayment/overlayment.dart';
 
 import '../../../core/app_color.dart';
@@ -14,266 +14,196 @@ import '../../widgets/widgets.dart';
 import '../home_controller.dart';
 
 mixin HomePanelMetadata {
-  // ~
   static Future<void> open(Videos video) async {
-    // helpers for consistent micro UI styling
-    Widget sectionLabel(String title) => HStack([
-          title.text.semiBold.size(12).color(AppColor.text).make(),
-          Expanded(child: Divider(color: AppColor.border.withValues(alpha: .6)).pOnly(left: 12)),
-        ]).pOnly(bottom: 8, top: 16);
+    Widget section(String title, List<Widget> children) => CupertinoFormSection.insetGrouped(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+      backgroundColor: Colors.transparent,
+      decoration: BoxDecoration(color: AppColor.panel, borderRadius: BorderRadius.circular(10)),
+      header: Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColor.muted)),
+      children: children,
+    );
 
-    Widget inputField({required String label, required TextEditingController controller, String? placeholder, Widget? suffix, Widget? labelAction}) {
-      return VStack([
-        HStack([
-          label.text.size(11).color(AppColor.muted).make(),
-          Spacer(),
-          ?labelAction,
-        ]),
-        6.heightBox,
-        DecoratedBox(
-          decoration: ExDecorator.box(borderRadius: 8, borderColor: AppColor.border, fillColor: AppColor.container.withValues(alpha: .65)),
-          child: HStack([
-            AppTextField(
-              controller: controller,
-              placeholder: placeholder,
-              style: TextStyle(color: AppColor.text),
-            ).expand(),
-            if (suffix != null) suffix.pOnly(right: 10),
-          ]),
-        ),
-      ]).pOnly(bottom: 12);
-    }
+    Widget inputField({required String label, required TextEditingController controller, String? placeholder,
+      Widget? suffix, Widget? labelAction, bool multiline = false, TextInputType? keyboardType}) => CupertinoFormRow(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      prefix: SizedBox(width: 112, child: Text(label, style: TextStyle(fontSize: 12, color: AppColor.text))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Semantics(label: label, child: AppTextField(
+          controller: controller, placeholder: placeholder, keyboardType: keyboardType,
+          maxLines: multiline ? 3 : 1, minLines: multiline ? 2 : null,
+          decoration: const InputDecoration(border: InputBorder.none),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          suffix: suffix,
+        )),
+        if (labelAction != null) Align(alignment: Alignment.centerLeft, child: labelAction),
+      ]),
+    );
+
+    Widget iconButton(String tooltip, IconData icon, VoidCallback onPressed, {double size = AppStyle.iconSize}) => Tooltip(
+      message: tooltip,
+      child: CupertinoButton(
+        padding: EdgeInsets.zero, minimumSize: const Size.square(AppStyle.iconTarget),
+        onPressed: onPressed,
+        child: Icon(icon, size: size, color: CupertinoColors.activeBlue),
+      ),
+    );
 
     final tecVideoCode = TextEditingController(text: video.videoCode ?? '');
     final tecTitle = TextEditingController(text: video.title ?? '');
     final tecFanArt = TextEditingController(text: video.fanArt ?? '');
     final tecReleaseDate = TextEditingController(text: video.releaseDate ?? '');
-    final tecDuration = TextEditingController(text: video.duration.toString());
+    final tecDuration = TextEditingController(text: video.duration?.toString() ?? '');
     final tecStudio = TextEditingController(text: video.studio ?? '');
     final tecLabel = TextEditingController(text: video.label ?? '');
     final tecDirector = TextEditingController(text: video.director ?? '');
     final tecSeries = TextEditingController(text: video.series ?? '');
 
-    final actresses = video.actress ?? [];
-    final categories = video.category ?? [];
+    final actresses = [...?video.actress];
+    final categories = [...?video.category];
 
-    Widget _actionButton({required String label, required Color color, required VoidCallback onTap, bool isLeft = false}) {
-      return Expanded(
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(isLeft ? 10 : 0),
-            bottomRight: Radius.circular(isLeft ? 0 : 10),
-          ),
-          child: Container(
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColor.container.withValues(alpha: .85),
-              border: Border(
-                right: isLeft ? BorderSide(color: AppColor.border, width: .4) : BorderSide.none,
-              ),
-            ),
-            child: Center(
-              child: label.text.semiBold.size(13).color(color).make(),
-            ),
-          ),
-        ),
-      );
-    }
-
+    WidgetsBinding.instance.scheduleFrame();
     await Overlayment.show(
       context: Get.context,
       OverPanel(
         alignment: Alignment.center,
-        width: 500,
-        height: Get.height * 80 / 100,
+        width: Get.width < 552 ? Get.width - 32 : 520,
+        height: Get.height * .8,
         backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
         animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: AppColor.panel,
-        child: Stack(
-          children: [
-            VStack(
-              [
-                HStack([
-                  HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: AppStyle.iconSize).pOnly(right: 8),
-                  'Edit Metadata @{videoCode}'.trNamed({'videoCode': '${video.videoCode.isNotEmptyAndNotNull ? '(${video.videoCode})' : ''}'}).text.bold.color(AppColor.text).make(),
-                ]).pOnly(bottom: 12),
-
-                // basic info
-                sectionLabel('Basic Info'.tr),
-                inputField(label: 'Video Code'.tr, controller: tecVideoCode, placeholder: 'Leave empty for NON-JAV'.tr),
-                inputField(label: 'Title'.tr, controller: tecTitle, placeholder: 'Title'.tr),
-                inputField(
-                  label: 'Cover URL'.tr,
-                  controller: tecFanArt,
-                  placeholder: 'Paste image URL here...'.tr,
-                  labelAction: 'Get From JavMost'.tr.text.size(11).minFontSize(10).underline.blue300.make().onInkTap(() {
+        color: AppColor.container,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(padding: const EdgeInsets.fromLTRB(16, 10, 8, 10), child: Row(children: [
+            Expanded(child: Text(
+              'Edit Metadata @{videoCode}'.trNamed({'videoCode': '${video.videoCode.isNotEmptyAndNotNull ? '(${video.videoCode})' : ''}'}),
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColor.text),
+            )),
+            iconButton('Close'.tr, CupertinoIcons.xmark, () => Overlayment.dismissLast()),
+          ])),
+          Divider(height: 1, thickness: .5, color: AppColor.border),
+          Expanded(child: SingleChildScrollView(child: Column(children: [
+            section('Basic Info'.tr, [
+              inputField(label: 'Video Code'.tr, controller: tecVideoCode, placeholder: 'Leave empty for NON-JAV'.tr),
+              inputField(label: 'Title'.tr, controller: tecTitle, placeholder: 'Title'.tr, multiline: true),
+              inputField(
+                label: 'Cover URL'.tr, controller: tecFanArt, placeholder: 'Paste image URL here...'.tr,
+                keyboardType: TextInputType.url,
+                labelAction: CupertinoButton(
+                  padding: const EdgeInsets.symmetric(horizontal: 6), minimumSize: const Size(0, 28),
+                  onPressed: () {
                     tecFanArt.text = 'https://img3.javmost.ws/images/480/${HelperMisc.resolveVideoCode(videoPath: video.videoPath)}.webp';
-                  }),
-                ),
-
-                // cast & tags
-                sectionLabel('Cast & Tags'.tr),
-                HStack([
-                  'Actress'.tr.text.color(AppColor.muted).size(11).make(),
-                  Spacer(),
-                  AppIconButton(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
-                    tooltip: 'Add actress'.tr,
-                    onPressed: () => _showDialogAddActress(actresses),
-                  ),
-                ]),
-                GetBuilder(
-                  init: Get.find<HomeController>(),
-                  builder: (controller) {
-                    return DecoratedBox(
-                      decoration: ExDecorator.box(borderRadius: 10, borderColor: AppColor.border, fillColor: AppColor.container.withValues(alpha: .4)),
-                      child: actresses.isEmpty
-                          ? 'No actress added'.tr.text.color(Vx.neutral500).size(11).makeCentered().p16()
-                          : Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                ...actresses.map(
-                                  (actress) => ZStack([
-                                    ExThumbnail(
-                                      imageUrl: '${actress.imageUrl?.genAvatarUrl()}',
-                                      width: 56,
-                                      height: 56,
-                                      fitUrl: BoxFit.cover,
-                                      withProxy: false,
-                                      iconSize: AppStyle.largeIconSize,
-                                    ).cornerRadius(10).tooltip(actress.nameRomaji ?? actress.nameKana!).pOnly(right: 8),
-
-                                    HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.smallIconSize)
-                                        .pOnly(right: 6, top: 6)
-                                        .onInkTap(() {
-                                      actresses.remove(actress);
-                                      controller.update();
-                                    }).positioned(right: 0, top: 0),
-                                  ]).p4(),
-                                )
-                              ],
-                            ).w(double.infinity).p12(),
-                    );
                   },
-                ),
-
-                8.heightBox,
-                HStack([
-                  'Category'.tr.text.color(AppColor.muted).size(11).make(),
-                  Spacer(),
-                  AppIconButton(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
-                    tooltip: 'Add category'.tr,
-                    onPressed: () async => await _showDialogAddCategory(categories),
-                  ),
-                ]),
-                GetBuilder(
-                  init: Get.find<HomeController>(),
-                  builder: (controller) {
-                    return DecoratedBox(
-                      decoration: ExDecorator.box(borderRadius: 10, borderColor: AppColor.border, fillColor: AppColor.container.withValues(alpha: .4)),
-                      child: categories.isEmpty
-                          ? 'No category added'.tr.text.color(Vx.neutral500).size(11).makeCentered().p16()
-                          : Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                ...categories.map(
-                                  (cat) => HStack([
-                                    '${cat.id ?? ''}'.text.size(10).color(Vx.neutral500).make().pOnly(right: 4),
-                                    '${cat.category ?? ''}'.text.size(11).semiBold.color(AppColor.text).make(),
-                                    HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.smallIconSize)
-                                        .pOnly(left: 6)
-                                        .onInkTap(() {
-                                      categories.remove(cat);
-                                      controller.update();
-                                    }),
-                                  ])
-                                      .pSymmetric(h: 10, v: 8)
-                                      .box
-                                      .border(color: AppColor.border)
-                                      .color(AppColor.container.withValues(alpha: .7))
-                                      .withRounded(value: 30)
-                                      .make(),
-                                )
-                              ],
-                            ).w(double.infinity).p12(),
-                    );
-                  },
-                ),
-
-                // production metadata
-                sectionLabel('Metadata'.tr),
-                inputField(
-                  label: 'Release Date'.tr,
-                  controller: tecReleaseDate,
-                  placeholder: 'YYYY-MM-DD',
-                  suffix: '${video.releaseDateFormated ?? ''}'.text.size(11).minFontSize(11).neutral500.make(),
-                ),
-                inputField(
-                  label: 'Duration (minutes)'.tr,
-                  controller: tecDuration,
-                  placeholder: 'e.g. 120',
-                  suffix: '${video.durationFormated ?? ''}'.text.size(11).minFontSize(11).neutral500.make(),
-                ),
-                inputField(label: 'Studio'.tr, controller: tecStudio, placeholder: 'Studio name'.tr),
-                inputField(label: 'Label'.tr, controller: tecLabel, placeholder: 'Label name'.tr),
-                inputField(label: 'Director'.tr, controller: tecDirector, placeholder: 'Director'.tr),
-                inputField(label: 'Series'.tr, controller: tecSeries, placeholder: 'Series'.tr),
-
-                60.heightBox,
-              ],
-            ).p16().scrollVertical(),
-            ClipRRect(
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(10)),
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: AppColor.container,
-                  border: Border(top: BorderSide(color: AppColor.border, width: .4)),
-                ),
-                child: HStack(
-                  [
-                    _actionButton(
-                      label: 'Delete'.tr,
-                      color: Vx.red400,
-                      isLeft: true,
-                      onTap: () {
-                        _remove(video);
-                      },
-                    ),
-                    _actionButton(
-                      label: 'Submit'.tr,
-                      color: Get.context!.accentColor,
-                      onTap: () {
-                        final videoCode = tecVideoCode.text.trim().toUpperCase();
-                        if (videoCode.isNotEmpty && !videoCode.isValidVideoCode()) {
-                          HelperToast.warn('Video code not valid'.tr);
-                          return;
-                        }
-                        final edited = video;
-                        edited.videoCode = videoCode.getVideoCode();
-                        edited.title = tecTitle.text;
-                        edited.fanArt = tecFanArt.text.trim();
-                        edited.releaseDate = tecReleaseDate.text;
-                        edited.duration = tecDuration.text.toNum();
-                        edited.studio = tecStudio.text;
-                        edited.label = tecLabel.text;
-                        edited.director = tecDirector.text;
-                        edited.series = tecSeries.text;
-                        edited.category = categories;
-                        edited.actress = actresses;
-                        _submit(edited);
-                      },
-                    ),
-                  ],
+                  child: Text('Get From JavMost'.tr, style: const TextStyle(fontSize: 11)),
                 ),
               ),
-            ).positioned(bottom: 0, left: 0, right: 0),
-          ],
-        ),
+            ]),
+            section('Cast & Tags'.tr, [
+              GetBuilder<HomeController>(
+                init: Get.find<HomeController>(),
+                builder: (controller) => Padding(padding: const EdgeInsets.all(12), child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Row(children: [
+                      Expanded(child: Text('Actress'.tr, style: TextStyle(fontSize: 12, color: AppColor.text))),
+                      iconButton('Add actress'.tr, CupertinoIcons.add, () => _showDialogAddActress(actresses)),
+                    ]),
+                    if (actresses.isEmpty)
+                      Text('No actress added'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted))
+                    else Wrap(spacing: 8, runSpacing: 8, children: actresses.map((actress) {
+                      final name = actress.nameRomaji ?? actress.nameKana ?? actress.nameKanji ?? '';
+                      return Container(
+                        width: 96, padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(color: AppColor.container, borderRadius: BorderRadius.circular(8)),
+                        child: Column(children: [
+                          Row(children: [
+                            ExThumbnail(
+                              imageUrl: actress.imageUrl.isNotEmptyAndNotNull ? actress.imageUrl!.genAvatarUrl() : '', width: 44, height: 44,
+                              fitUrl: BoxFit.cover, withProxy: false, iconSize: AppStyle.largeIconSize,
+                            ).cornerRadius(22),
+                            iconButton('${'Delete'.tr} $name', CupertinoIcons.xmark, () {
+                              actresses.remove(actress);
+                              controller.update();
+                            }, size: 10),
+                          ]),
+                          const SizedBox(height: 6),
+                          Tooltip(message: name, child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 11, color: AppColor.text))),
+                        ]),
+                      );
+                    }).toList()),
+                  ],
+                )),
+              ),
+              GetBuilder<HomeController>(
+                init: Get.find<HomeController>(),
+                builder: (controller) => Padding(padding: const EdgeInsets.all(12), child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Row(children: [
+                      Expanded(child: Text('Category'.tr, style: TextStyle(fontSize: 12, color: AppColor.text))),
+                      iconButton('Add category'.tr, CupertinoIcons.add, () => _showDialogAddCategory(categories)),
+                    ]),
+                    if (categories.isEmpty)
+                      Text('No category added'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted))
+                    else Wrap(spacing: 8, runSpacing: 8, children: categories.map((cat) => Container(
+                      padding: const EdgeInsets.only(left: 10),
+                      decoration: BoxDecoration(color: AppColor.container, borderRadius: BorderRadius.circular(6)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Flexible(child: Text(cat.category ?? '', style: TextStyle(fontSize: 11, color: AppColor.text))),
+                        iconButton('${'Delete'.tr} ${cat.category ?? ''}', CupertinoIcons.xmark, () {
+                          categories.remove(cat);
+                          controller.update();
+                        }, size: 10),
+                      ]),
+                    )).toList()),
+                  ],
+                )),
+              ),
+            ]),
+            section('Metadata'.tr, [
+              inputField(label: 'Release Date'.tr, controller: tecReleaseDate, placeholder: 'YYYY-MM-DD',
+                keyboardType: TextInputType.datetime),
+              inputField(label: 'Duration (minutes)'.tr, controller: tecDuration, placeholder: 'e.g. 120',
+                keyboardType: TextInputType.number),
+              inputField(label: 'Studio'.tr, controller: tecStudio, placeholder: 'Studio name'.tr),
+              inputField(label: 'Label'.tr, controller: tecLabel, placeholder: 'Label name'.tr),
+              inputField(label: 'Director'.tr, controller: tecDirector, placeholder: 'Director'.tr),
+              inputField(label: 'Series'.tr, controller: tecSeries, placeholder: 'Series'.tr),
+            ]),
+          ]))),
+          Divider(height: 1, thickness: .5, color: AppColor.border),
+          Padding(padding: const EdgeInsets.all(12), child: Row(children: [
+            CupertinoButton(
+              padding: const EdgeInsets.symmetric(horizontal: 12), minimumSize: const Size(0, 32),
+              onPressed: () => _remove(video),
+              child: Text('Delete'.tr, style: const TextStyle(fontSize: 12, color: CupertinoColors.systemRed)),
+            ),
+            const Spacer(),
+            CupertinoButton.filled(
+              padding: const EdgeInsets.symmetric(horizontal: 20), minimumSize: const Size(0, 32),
+              borderRadius: BorderRadius.circular(AppStyle.radius),
+              onPressed: () {
+                final videoCode = tecVideoCode.text.trim().toUpperCase();
+                if (videoCode.isNotEmpty && !videoCode.isValidVideoCode()) {
+                  HelperToast.warn('Video code not valid'.tr);
+                  return;
+                }
+                final edited = video;
+                edited.videoCode = videoCode.getVideoCode();
+                edited.title = tecTitle.text;
+                edited.fanArt = tecFanArt.text.trim();
+                edited.releaseDate = tecReleaseDate.text;
+                edited.duration = tecDuration.text.toNum();
+                edited.studio = tecStudio.text;
+                edited.label = tecLabel.text;
+                edited.director = tecDirector.text;
+                edited.series = tecSeries.text;
+                edited.category = categories;
+                edited.actress = actresses;
+                _submit(edited);
+              },
+              child: Text('Submit'.tr, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            ),
+          ])),
+        ]),
       ),
     );
   }
@@ -307,7 +237,7 @@ mixin HomePanelMetadata {
         alignment: Alignment.center,
         width: 300,
         height: 144,
-        backgroundSettings: BackgroundSettings(blur: 5, color: Colors.orange.withAlpha(50)),
+        backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
         animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
         color: AppColor.panel,
         child: VStack(
@@ -363,7 +293,7 @@ mixin HomePanelMetadata {
         alignment: Alignment.center,
         width: 300,
         height: 144,
-        backgroundSettings: BackgroundSettings(blur: 5, color: Colors.orange.withAlpha(50)),
+        backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
         animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
         color: AppColor.panel,
         child: VStack(

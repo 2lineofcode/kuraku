@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,12 +40,15 @@ class _Settings extends PageSettingsController {
 void main() {
   final pref = _Preferences();
   Future<void> submit(WidgetTester tester, String label) async {
-    final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, label));
+    final action = find.widgetWithText(AppDialogAction, label);
+    VoidCallback? onPressed() => action.evaluate().isNotEmpty
+        ? tester.widget<AppDialogAction>(action).onPressed
+        : tester.widget<FilledButton>(find.widgetWithText(FilledButton, label)).onPressed;
     await tester.runAsync(() async {
-      final pending = (button.onPressed! as Future<void> Function())();
+      final pending = (onPressed()! as Future<void> Function())();
       await tester.pump();
       expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, label)).onPressed, isNull);
+      expect(onPressed(), isNull);
       await pending;
     });
     await tester.pumpAndSettle();
@@ -107,6 +111,9 @@ void main() {
     expect(tester.widget<Switch>(toggle).value, isFalse);
     await tester.tap(toggle);
     await tester.pumpAndSettle();
+    expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+    expect(find.byType(CupertinoDialogAction), findsNWidgets(2));
+    expect(find.text('New PIN (4–8 digits)'), findsOneWidget);
     await tester.enterText(find.byType(AppTextField).at(0), '12ab34');
     expect(tester.widget<AppTextField>(find.byType(AppTextField).at(0)).controller!.text, '1234');
     await tester.enterText(find.byType(AppTextField).at(1), '5678');

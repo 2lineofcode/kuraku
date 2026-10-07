@@ -1,3 +1,4 @@
+import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -47,7 +48,7 @@ class DownloadMethodDialog extends StatelessWidget {
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(color: AppColor.accent.withAlpha(18), borderRadius: BorderRadius.circular(8)),
-                        child: HugeIcon(icon: option.$4, size: AppStyle.iconSize, color: AppColor.accent),
+                        child: HugeIcon(icon: option.$4, size: AppStyle.iconSize, color: AppColor.accent).p(6),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
