@@ -27,7 +27,7 @@ with sqlite3.connect(Path(sys.argv[1]).resolve().as_uri() + '?mode=ro', uri=True
     final schema = (jsonDecode(metadata.stdout as String) as Map).map((key, value) => MapEntry(key as String, (value as List).cast<String>()));
     final sql = await api.generateSql('Return the total number of rows in videos using SELECT COUNT(*) only.', schema, token)
         .timeout(const Duration(seconds: 90), onTimeout: () { token.cancel(); throw StateError('AI timed out.'); });
-    final worker = ChatKnowledge(mainPath: args.single, loadScript: () => File('assets/sql_editor.py').readAsString());
+    final worker = ChatKnowledge(mainPath: args.single, loadScript: () => File('assets/sql_editor_worker.py').readAsString());
     final validation = await worker.request({'sql': sql, 'operation': 'validate'}, token);
     if (validation['requires_confirmation'] != false) throw StateError('Smoke test expected a SELECT.');
     final result = await worker.request({'sql': sql}, token);

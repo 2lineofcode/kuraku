@@ -1,0 +1,67 @@
+import gzip
+import runpy
+import sqlite3
+import tempfile
+from pathlib import Path
+
+
+converter = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'assets/r18_database_importer.py'))
+
+
+def dump():
+    return '''CREATE TABLE public.derived_video (
+content_id TEXT, dvd_id TEXT, service_code TEXT, series_id INTEGER, release_date TEXT,
+title_en TEXT, title_ja TEXT, maker_id INTEGER, label_id INTEGER, site_id INTEGER
+);
+CREATE TABLE public.derived_series (id INTEGER, name_en TEXT);
+CREATE TABLE public.derived_label (id INTEGER, name_en TEXT);
+CREATE TABLE public.derived_maker (id INTEGER, name_en TEXT, name_ja TEXT);
+CREATE TABLE public.derived_site (id INTEGER, name TEXT);
+CREATE TABLE public.derived_director (id INTEGER, name_romaji TEXT, name_kana TEXT);
+CREATE TABLE public.derived_video_director (content_id TEXT, director_id INTEGER);
+CREATE TABLE public.derived_actress (id INTEGER, name_romaji TEXT);
+CREATE TABLE public.derived_video_actress (content_id TEXT, actress_id INTEGER);
+CREATE TABLE public.derived_actor (id INTEGER);
+CREATE TABLE public.derived_video_actor (content_id TEXT, actor_id INTEGER);
+CREATE TABLE public.derived_category (id INTEGER, name_en TEXT);
+CREATE TABLE public.derived_video_category (content_id TEXT, category_id INTEGER);
+CREATE TABLE public.machine_translation (source_ja TEXT, target_en TEXT, timestamp TEXT);
+CREATE TABLE public.source_dmm_trailer (timestamp TEXT);
+CREATE TABLE public.source_dmm_video_histrion (timestamp TEXT);
+COPY public.derived_video (content_id, dvd_id, service_code, title_en) FROM stdin;
+118abp00001\t\\N\tdigital\tExample
+\\.
+'''
+
+
+if __name__ == '__main__':
+    with tempfile.TemporaryDirectory(prefix='r18 update ') as directory:
+        root = Path(directory)
+        source = root / 'r18dotdev_dump_2026-10-06.sql.gz'
+        output = root / 'r18_2026_10_06.db'
+        previous = root / 'r18_2026_09_29.db'
+        previous.write_bytes(b'previous catalog')
+        with gzip.open(source, 'wt') as stream:
+            stream.write(dump())
+        converter['convert_dump'](source, output)
+        with sqlite3.connect(output) as conn:
+            assert conn.execute('SELECT video_code FROM derived_video').fetchone() == ('ABP-001',)
+            assert conn.execute('PRAGMA quick_check').fetchone() == ('ok',)
+        valid = output.read_bytes()
+        for broken in [dump().replace('\\.\n', ''), dump() + 'INVALID SQL;\n', dump().replace('118abp00001\t\\N\tdigital\tExample\n', ''), 'not a gzip file']:
+            if broken == 'not a gzip file':
+                source.write_text(broken)
+            else:
+                with gzip.open(source, 'wt') as stream:
+                    stream.write(broken)
+            try:
+                converter['convert_dump'](source, output)
+            except (ValueError, sqlite3.Error, gzip.BadGzipFile):
+                pass
+            else:
+                raise AssertionError('Invalid dump must fail')
+            assert previous.read_bytes() == b'previous catalog'
+            assert output.read_bytes() == valid
+            assert not Path(f'{output}.importing').exists()
+            assert source.exists()
+    print('R18 gzip import, validation, atomic replacement and failure cleanup passed')

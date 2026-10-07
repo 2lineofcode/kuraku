@@ -1,7 +1,7 @@
 name: javit
 description: "A new Flutter project."
 publish_to: "none"
-version: 1.0.0+20261006.51
+version: 1.0.0+20261007.56
 
 environment:
   sdk: ^3.13.0
@@ -85,13 +85,13 @@ flutter:
     enable-macos-arm64-only: true
   uses-material-design: true
   assets:
-    - assets/r18_to_javit.py
-    - assets/r18_video_codes.sql
-    - assets/semantic_worker.py
-    - assets/chat_knowledge.py
-    - assets/sql_editor.py
-    - assets/javit_dl
-    - assets/notif.mp3
+    - assets/r18_database_importer.py
+    - assets/r18_video_code_migration.sql
+    - assets/visual_search_worker.py
+    - assets/chat_database_worker.py
+    - assets/sql_editor_worker.py
+    - assets/javit_downloader
+    - assets/download_complete.mp3
 
 get_cli:
   sub_folder: false

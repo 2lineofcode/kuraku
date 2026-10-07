@@ -219,7 +219,7 @@ mixin HelperMisc {
 
   static Future<void> playSoundDownloadComplate() async {
     final player = AudioPlayer();
-    await player.play(AssetSource('notif.mp3'));
+    await player.play(AssetSource('download_complete.mp3'));
   }
 
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +8,21 @@ import 'package:javit/app/modules/home/home_panel/home_panel_log.dart';
 void main() {
   setUp(HomePanelAppLog.clear);
   tearDownAll(HomePanelAppLog.clear);
+
+  test('enabled app logs also reach terminal output with their level', () {
+    final lines = <String>[];
+    runZoned(() {
+      AppLog.logD('debug line');
+      AppLog.logI('info line');
+      AppLog.logW('warning line');
+      AppLog.logE('error line');
+      AppLog.logS('success line');
+    }, zoneSpecification: ZoneSpecification(print: (_, _, _, line) => lines.add(line)));
+
+    expect(lines, HomePanelAppLog.appLogRuntime.reversed.map((entry) => '[${entry.type}] ${entry.content}').toList());
+    expect(lines, contains('[ERROR] error line'));
+    expect(lines, contains('[OK] success line'));
+  });
 
   test('errors and successes are always pushed to the runtime log panel', () {
     AppLog.logE('Database is gone');

@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
+import '../../../core/app_translations.dart';
 import '../../../data/database/_init_db.dart';
 import '../../../data/database/db_chat.dart';
 import '../../../data/models/chat_entity.dart';
@@ -15,8 +16,8 @@ import '../../../utils/chat_service.dart';
 
 class PageChatController extends GetxController {
   PageChatController({ChatService? api}) : api = api ?? ChatService(knowledge: ChatKnowledge(
-    mainPath: Get.find<DBService>().dbMain.path, r18Path: Get.find<DBService>().dbR18?.path,
-    loadScript: () => rootBundle.loadString('assets/chat_knowledge.py'),
+    mainPath: Get.find<DBService>().dbMain.path, resolveR18Path: () => Get.find<DBService>().dbR18?.path,
+    loadScript: () => rootBundle.loadString('assets/chat_database_worker.py'),
   ));
   final ChatService api;
   final respondingChatId = RxnString();
@@ -32,7 +33,10 @@ class PageChatController extends GetxController {
   final editingMessageId = RxnString();
   final searchInput = TextEditingController();
   final focusNode = FocusNode();
+  final searchFocusNode = FocusNode();
+  final scaffoldKey = GlobalKey<ScaffoldState>();
   final scrollController = ScrollController();
+  final showLatest = false.obs;
   final chats = <ChatConversation>[ChatConversation()].obs;
   late final activeChat = chats.first.obs;
   final search = ''.obs;
@@ -122,6 +126,7 @@ class PageChatController extends GetxController {
   void onInit() {
     super.onInit();
     input.addListener(_draftChanged);
+    scrollController.addListener(() => showLatest.value = scrollController.offset > 160);
     reload();
   }
 
@@ -149,6 +154,7 @@ class PageChatController extends GetxController {
 
   Future<bool> reload() async {
     await stopResponse();
+    if (ready.value && !await flushDraft()) return false;
     return _run(() async {
     final saved = await DBChat.getConversations();
     final selected = saved.firstWhereOrNull((chat) => chat.id == AppPref.getActiveChat());
@@ -204,6 +210,12 @@ class PageChatController extends GetxController {
     }
     if (respondingChatId.value != null) return;
     commandNotice.value = '';
+    final fields = templateFields(input.text);
+    if (fields.isNotEmpty) {
+      selectTemplateField();
+      commandNotice.value = 'Fill in the template fields before sending.'.tr;
+      return;
+    }
     if (api.configurationError != null && !api.canReplyLocally(input.text)) {
       error.value = api.configurationError!;
       return;
@@ -248,6 +260,10 @@ class PageChatController extends GetxController {
     final id = editingMessageId.value;
     final text = editInput.text.trim();
     if (id == null || text.isEmpty) return;
+    if (templateFields(text).isNotEmpty) {
+      commandNotice.value = 'Fill in the template fields before sending.'.tr;
+      return;
+    }
     if (api.configurationError != null && !api.canReplyLocally(text)) {
       error.value = api.configurationError!;
       return;
@@ -277,10 +293,11 @@ class PageChatController extends GetxController {
   }
 
   Future<void> retryResponse() async {
-    if (busy.value || respondingChatId.value != null || !ready.value) return;
+    if (busy.value || respondingChatId.value != null || !ready.value || editingMessageId.value != null) return;
     final chat = activeChat.value;
-    if (chat.messages.isEmpty || chat.messages.last.status == 'completed' && chat.messages.last.role == 'assistant' && !ChatService.isProtocolText(chat.messages.last.content)) return;
-    if (api.configurationError != null && !api.canReplyLocally(chat.messages.lastWhere((message) => message.role == 'user').content)) {
+    final question = chat.messages.where((message) => message.role == 'user').lastOrNull;
+    if (question == null) return;
+    if (api.configurationError != null && !api.canReplyLocally(question.content)) {
       error.value = api.configurationError!;
       return;
     }
@@ -290,6 +307,7 @@ class PageChatController extends GetxController {
 
   Future<void> _startResponse(ChatConversation chat) async {
     if (respondingChatId.value != null) return;
+    commandNotice.value = '';
     final token = CancelToken();
     _responseToken = token;
     respondingChatId.value = chat.id;
@@ -299,18 +317,27 @@ class PageChatController extends GetxController {
 
   Future<void> _generate(ChatConversation chat, CancelToken token) async {
     ChatMessage? answer;
+    final last = chat.messages.lastOrNull;
+    final previous = last?.role == 'assistant' && last!.status == 'completed' && !ChatService.isProtocolText(last.content) ? last : null;
     final elapsed = Stopwatch()..start();
     try {
-      final history = chat.messages.where((message) => message.status == 'completed' && !(message.role == 'assistant' && ChatService.isProtocolText(message.content))).map((message) => {
+      final history = chat.messages.where((message) => message != previous && message.status == 'completed' && !(message.role == 'assistant' && ChatService.isProtocolText(message.content))).map((message) => {
         'role': message.role, 'content': message.content,
       }).toList();
       final local = api.canReplyLocally(history.lastWhere((message) => message['role'] == 'user')['content']!);
       final provider = local ? 'local' : api.provider;
       final model = local ? null : api.model;
       if (!await _run(() async {
-        final last = chat.messages.lastOrNull;
-        if (last?.role == 'assistant' && (last!.status != 'completed' || ChatService.isProtocolText(last.content))) {
-          await DBChat.resetAssistant(last, provider: provider, model: model);
+        if (previous != null) {
+          // Keep the saved answer until regeneration completes.
+          answer = ChatMessage.fromJson({
+            'id': previous.id, 'conversation_id': chat.id, 'position': previous.position,
+            'role': 'assistant', 'content': '', 'status': 'pending', 'provider': provider, 'model': model,
+            'created_at': previous.createdAt, 'updated_at': previous.updatedAt,
+          });
+          chat.messages[chat.messages.indexOf(previous)] = answer!;
+        } else if (last?.role == 'assistant') {
+          await DBChat.resetAssistant(last!, provider: provider, model: model);
           answer = last;
         } else {
           answer = await DBChat.addAssistant(chat, model, provider: provider);
@@ -334,7 +361,7 @@ class PageChatController extends GetxController {
         response.content += chunk;
         response.status = 'streaming';
         if (activeChat.value == chat) activeChat.refresh();
-        if (checkpoint.elapsedMilliseconds >= 500) {
+        if (previous == null && checkpoint.elapsedMilliseconds >= 500) {
           if (!await _run(() => DBChat.saveAssistant(response), block: false)) {
             throw ChatException('Could not save the response. Please retry saving.'.tr);
           }
@@ -356,8 +383,13 @@ class PageChatController extends GetxController {
       if (answer != null) {
         final response = answer!;
         response.elapsedMs = elapsed.elapsedMilliseconds;
-        _unsavedReply = response;
-        if (await _run(() => DBChat.saveAssistant(response), block: false)) _unsavedReply = null;
+        if (previous != null && response.status != 'completed') {
+          chat.messages[chat.messages.indexOf(response)] = previous;
+          if (activeChat.value == chat && !isClosed) commandNotice.value = 'Regeneration did not finish. Your previous answer was kept.'.tr;
+        } else {
+          _unsavedReply = response;
+          if (await _run(() => DBChat.saveAssistant(response), block: false)) _unsavedReply = null;
+        }
         if (activeChat.value == chat && !isClosed) activeChat.refresh();
       }
       _responseToken = null;
@@ -375,6 +407,7 @@ class PageChatController extends GetxController {
     commandNotice.value = '';
     activeChat.value = chat;
     activeChat.refresh();
+    showLatest.value = false;
     _restoring = true;
     input.value = TextEditingValue(text: chat.draft, selection: TextSelection.collapsed(offset: chat.draft.length));
     _restoring = false;
@@ -384,6 +417,10 @@ class PageChatController extends GetxController {
     });
   }
 
+  void scrollToLatest() {
+    if (scrollController.hasClients) scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+  }
+
   void usePrompt(String text) {
     input.value = TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
     focusNode.requestFocus();
@@ -391,20 +428,42 @@ class PageChatController extends GetxController {
 
   static const templates = {
     '/r18': (label: 'Find Japanese titles in R18', prompt:
-      'Find all videos in the R18 database about "[topic]" with a Japanese title but no English title. Use equivalent Japanese/English terms and spelling variants, plus local translations when available. Avoid overly broad terms. Show Image | Code | Title, the original Japanese title, and match sources. Sort by newest release date, then Code. Do not cap the total results; show them through pagination.'),
+      'Search the R18 catalog for "[topic]". Only include videos with a non-empty Japanese title and no English title for the entire video code. Use precise Japanese/English equivalents and saved translations. Show original Japanese titles and match evidence. Sort by newest release date, then Code. Do not cap the total results; use 25 results per page.'),
     '/filter': (label: 'Search with multiple filters', prompt:
-      'Find videos in the R18 database about "[rain]" AND "[outdoor]", excluding compilations and videos already in my collection. Use equivalent Japanese/English terms for each theme. Show match sources, sort by newest release date then Code, and paginate without capping total results.'),
+      'Search R18 for "[theme 1]" AND "[theme 2]". Both themes are required; synonyms of one theme are alternatives, not separate requirements. Exclude compilations and videos already in my library. Use precise Japanese/English equivalents and saved translations. Show match evidence, sort by newest release date then Code, and use 25 results per page without capping the total.'),
     '/similar': (label: 'Find similar videos', prompt:
-      'Find videos similar to [CODE] based on themes in their titles and descriptions, not just their cast. Read the reference metadata first, explain match sources, and exclude the reference video. Sort by newest release date then Code, and paginate without capping total results.'),
+      'Find videos with themes similar to [CODE]. Read its actual local titles and descriptions first. Use themes supported by that metadata, exclude the reference code, and explain keyword match evidence. Do not match only by cast. If there is not enough metadata, ask which theme to use. Sort by newest release date, then Code, with 25 results per page.'),
     '/translate': (label: 'Translate a Japanese title', prompt:
       'Translate this Japanese title into natural Indonesian: "[Japanese title]". Preserve names and codes, and do not add information absent from the title. Show the original title and its translation.'),
   };
 
   void useTemplate(String command) {
-    final prompt = templates[command]!.prompt.tr;
+    final template = templates[command];
+    if (template == null) return;
+    final prompt = template.prompt.tr;
     usePrompt(prompt);
-    final placeholder = RegExp(r'\[[^\]]+\]').firstMatch(prompt);
-    if (placeholder != null) input.selection = TextSelection(baseOffset: placeholder.start, extentOffset: placeholder.end);
+    selectTemplateField();
+  }
+
+  List<RegExpMatch> templateFields(String text) {
+    final pattern = RegExp(r'\[[^\]]+\]');
+    final translations = AppTranslations().keys.values;
+    final placeholders = templates.values.expand((template) => [template.prompt,
+      ...translations.map((language) => language[template.prompt] ?? template.prompt)])
+        .expand(pattern.allMatches).map((match) => match[0]).toSet();
+    return pattern.allMatches(text).where((match) => placeholders.contains(match[0])).toList();
+  }
+
+  void selectTemplateField() {
+    final fields = templateFields(input.text);
+    if (fields.isEmpty) return;
+    final next = fields.where((field) => field.start >= input.selection.end).firstOrNull ?? fields.first;
+    input.selection = TextSelection(baseOffset: next.start, extentOffset: next.end);
+    focusNode.requestFocus();
+  }
+
+  void useSimilarPrompt(String code) {
+    usePrompt(templates['/similar']!.prompt.tr.replaceAll('[CODE]', code));
   }
 
   Future<String> translateTitle(String title) {
@@ -551,6 +610,7 @@ class PageChatController extends GetxController {
     editInput.dispose();
     searchInput.dispose();
     focusNode.dispose();
+    searchFocusNode.dispose();
     scrollController.dispose();
     super.onClose();
   }

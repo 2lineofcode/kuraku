@@ -14,6 +14,7 @@ TABLES = {
         'playlist': 'id name',
         'playlist_item': 'playlist_id video_id created_at',
         'watch_session': 'video_id video_code watched_seconds created_at',
+        'chat_translation': 'source_text target_language translated_text',
     },
     'r18': {
         'derived_video': 'content_id dvd_id title_en title_ja runtime_mins release_date maker_id label_id series_id site_id jacket_full_url jacket_thumb_url comment_en comment_ja',
@@ -42,8 +43,8 @@ def title_search(request, schema):
     for group in required + ([excluded] if excluded else []):
         if not isinstance(group, list) or not 1 <= len(group) <= 12 or any(not isinstance(t, str) or not 1 <= len(t.strip()) <= 100 for t in group):
             raise ValueError('Each concept must contain 1–12 non-empty translated terms.')
-    required = [[t.strip() for t in group] for group in required]
-    excluded = [t.strip() for t in excluded]
+    required = [list(dict.fromkeys(t.strip() for t in group)) for group in required]
+    excluded = list(dict.fromkeys(t.strip() for t in excluded))
     source = request.get('source', 'r18')
     unowned = request.get('unowned', False)
     if type(unowned) is not bool or unowned and source != 'r18':
@@ -59,38 +60,54 @@ def title_search(request, schema):
         raise ValueError('missing_english must be a boolean.')
     table, code, english = ('r18.derived_video', 'dvd_id', 'title_en') if source == 'r18' else ('main.videos', 'video_code', 'title')
     columns = schema.get(table, [])
-    if code not in columns or 'title_ja' not in columns:
-        raise ValueError('This source has no Japanese title metadata.')
+    if code not in columns or not any(field in columns for field in ['title_ja', english]):
+        raise ValueError('This source has no searchable title metadata.')
     args, branches = [], []
     def match(field, values=terms):
         for term in values:
             args.append('%' + term.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%')
         return '(' + ' OR '.join(f"{field} LIKE ? ESCAPE '\\'" for _ in values) + ')'
     has_english = english in columns
-    title = f"COALESCE(NULLIF(TRIM(v.{english}), ''), v.title_ja)" if has_english else 'v.title_ja'
+    japanese = 'v.title_ja' if 'title_ja' in columns else 'NULL'
+    title = f"COALESCE(NULLIF(TRIM(v.{english}), ''), {japanese})" if has_english else japanese
     release = "NULLIF(TRIM(v.release_date), '')" if 'release_date' in columns else 'NULL'
     base = f"v.{code} IS NOT NULL AND TRIM(v.{code}) != ''"
     if similar:
         base += f" AND v.{code} != ?"
     if unowned and 'video_code' not in schema.get('main.videos', []):
         raise ValueError('Owned library metadata is unavailable.')
-    if missing_english and has_english:
-        base += f" AND (v.{english} IS NULL OR TRIM(v.{english}) = '')"
-    fields = [('title_ja', 'Japanese title'), *([(english, 'Original title')] if has_english else [])]
+    if missing_english:
+        if 'title_ja' not in columns:
+            raise ValueError('This source has no Japanese title metadata.')
+        base += " AND NULLIF(TRIM(v.title_ja), '') IS NOT NULL"
+        if has_english:
+            base += f" AND NOT EXISTS (SELECT 1 FROM {table} translated WHERE translated.{code} = v.{code} AND NULLIF(TRIM(translated.{english}), '') IS NOT NULL)"
+    fields = [*([('title_ja', 'Japanese title')] if 'title_ja' in columns else []), *([(english, 'Original title')] if has_english else [])]
+    translations = []
+    if 'title_ja' in columns:
+        for translation_table, original, translated, label, condition in [
+            ('r18.machine_translation', 'source_ja', 'target_en', 'Local translation', ''),
+            ('main.chat_translation', 'source_text', 'translated_text', 'Saved translation', " AND t.target_language = 'id'"),
+        ]:
+            needed = [original, translated, *(['target_language'] if condition else [])]
+            if all(field in schema.get(translation_table, []) for field in needed):
+                translations.append((translation_table, original, translated, label, condition))
     if similar:
         fields += [(field, 'Description') for field in ['comment_en', 'comment_ja', 'description'] if field in columns]
     for field, label in fields:
         if similar: args.append(similar.upper())
-        branches.append(f"SELECT v.{code} AS code, {title} AS title, v.title_ja AS title_ja, '{label}' AS matched_in, {release} AS release_date FROM {table} v WHERE {base} AND {match('v.' + field)}")
-    if all(field in schema.get('r18.machine_translation', []) for field in ['source_ja', 'target_en']):
+        branches.append(f"SELECT v.{code} AS code, {title} AS title, {japanese} AS title_ja, '{label}' AS matched_in, {release} AS release_date FROM {table} v WHERE {base} AND {match('v.' + field)}")
+    for translation_table, original, translated, label, condition in translations:
         if similar: args.append(similar.upper())
-        branches.append(f"SELECT v.{code} AS code, t.target_en AS title, v.title_ja AS title_ja, 'Local translation' AS matched_in, {release} AS release_date FROM r18.machine_translation t JOIN {table} v ON v.title_ja = t.source_ja WHERE {base} AND {match('t.target_en')}")
+        original_title = 'TRIM(v.title_ja)' if translation_table == 'main.chat_translation' else 'v.title_ja'
+        branches.append(f"SELECT v.{code} AS code, t.{translated} AS title, v.title_ja AS title_ja, '{label}' AS matched_in, {release} AS release_date FROM {translation_table} t JOIN {table} v ON {original_title} = t.{original} WHERE {base}{condition} AND {match('t.' + translated)}")
     filters = []
     def concept(values):
         fields = [field for field in ['title_ja', english, 'comment_en', 'comment_ja', 'description', 'category'] if field in columns]
         tests = [match('x.' + field, values) for field in dict.fromkeys(fields)]
-        if all(field in schema.get('r18.machine_translation', []) for field in ['source_ja', 'target_en']):
-            tests.append(f"EXISTS (SELECT 1 FROM r18.machine_translation mt WHERE mt.source_ja = x.title_ja AND {match('mt.target_en', values)})")
+        for translation_table, original, translated, label, condition in translations:
+            original_title = 'TRIM(x.title_ja)' if translation_table == 'main.chat_translation' else 'x.title_ja'
+            tests.append(f"EXISTS (SELECT 1 FROM {translation_table} t WHERE t.{original} = {original_title}{condition} AND {match('t.' + translated, values)})")
         if source == 'r18' and 'content_id' in columns and all(f in schema.get('r18.derived_video_category', []) for f in ['content_id', 'category_id']) and all(f in schema.get('r18.derived_category', []) for f in ['id', 'name_en', 'name_ja']):
             tests.append(f"EXISTS (SELECT 1 FROM r18.derived_video_category vc WHERE vc.content_id = x.content_id AND vc.category_id IN (SELECT cat.id FROM r18.derived_category cat WHERE {match('cat.name_en', values)} OR {match('cat.name_ja', values)}))")
         return f"EXISTS (SELECT 1 FROM {table} x WHERE x.{code} = hits.code AND (" + ' OR '.join(tests) + '))'
@@ -98,7 +115,7 @@ def title_search(request, schema):
     if excluded: filters.append('NOT ' + concept(excluded))
     if unowned: filters.append('NOT EXISTS (SELECT 1 FROM main.videos owned WHERE owned.video_code = hits.code)')
     where = ' WHERE ' + ' AND '.join(filters) if filters else ''
-    grouped = "SELECT code, COALESCE(MIN(CASE WHEN matched_in = 'Local translation' THEN title END), MIN(title)) AS title, MIN(title_ja) AS title_ja, GROUP_CONCAT(DISTINCT matched_in) AS matched_in, MAX(release_date) AS release_date FROM (" + ' UNION ALL '.join(branches) + ') GROUP BY code'
+    grouped = "SELECT code, COALESCE(MIN(CASE WHEN matched_in = 'Saved translation' THEN title END), MIN(CASE WHEN matched_in = 'Local translation' THEN title END), MIN(title)) AS title, MIN(title_ja) AS title_ja, GROUP_CONCAT(DISTINCT matched_in) AS matched_in, MAX(release_date) AS release_date FROM (" + ' UNION ALL '.join(branches) + ') GROUP BY code'
     sql = 'SELECT * FROM (' + grouped + ') hits' + where + ' ORDER BY release_date DESC, code ASC LIMIT ? OFFSET ?'
     args.extend([limit + 1, offset])
     return sql, args, terms, limit
@@ -114,8 +131,9 @@ def video_reference(db, schema, code):
         available = schema.get(table, [])
         selected = [field for field in fields if field in available]
         if key not in available or not selected: continue
-        row = db.execute(f"SELECT {','.join(selected)} FROM {table} WHERE {key} = ? LIMIT 1", [code.upper()]).fetchone()
-        if row:
+        richness = ' + '.join(f"LENGTH(TRIM(COALESCE({field}, '')))" for field in selected)
+        row = db.execute(f"SELECT {','.join(selected)} FROM {table} WHERE {key} = ? ORDER BY ({richness}) DESC, {','.join(selected)} LIMIT 1", [code.upper()]).fetchone()
+        if row and any(str(value or '').strip() for value in row):
             return {'code': code.upper(), **{field: str(value or '')[:3000] for field, value in zip(selected, row)}}
     raise ValueError('Reference video was not found in local metadata.')
 

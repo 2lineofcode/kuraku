@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
-spec = importlib.util.spec_from_file_location('sql_editor', Path(__file__).resolve().parents[1] / 'assets/sql_editor.py')
+spec = importlib.util.spec_from_file_location('sql_editor', Path(__file__).resolve().parents[1] / 'assets/sql_editor_worker.py')
 worker = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(worker)
 

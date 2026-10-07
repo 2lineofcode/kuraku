@@ -96,7 +96,7 @@ class DBService extends GetxService {
     final columns = await db.rawQuery('PRAGMA table_info(derived_video)');
     if (columns.any((column) => column['name'] == 'video_code')) return;
 
-    final script = await rootBundle.loadString('assets/r18_video_codes.sql');
+    final script = await rootBundle.loadString('assets/r18_video_code_migration.sql');
     AppLog.logD('Preparing R18 video codes');
     await db.transaction((txn) async {
       for (final statement in script.split(';')) {
@@ -104,6 +104,18 @@ class DBService extends GetxService {
       }
     });
     AppLog.logD('R18 video codes ready');
+  }
+
+  Future<void> activateR18Database(String path, int version) async {
+    final next = await openDatabase(path, version: version, onConfigure: _onConfigure);
+    final previous = dbR18;
+    dbR18 = next;
+    try {
+      await previous?.close();
+      if (previous != null && previous.path != path) await File(previous.path).delete();
+    } catch (e) {
+      AppLog.logW('Could not clean up previous R18 database: $e');
+    }
   }
 
   Future<void> _onConfigure(Database db) async {

@@ -225,7 +225,7 @@ On launch, JavIt looks for an `r18*.db` file in its app data directory. If one i
 
 The app first displays a loading screen while settings and databases initialize. Initialization failures appear on that screen with an instruction to restart.
 
-The setup process downloads the R18 dump, extracts it with `gunzip`, then runs `r18_to_javit.py` with Python to create the SQLite database. The import can take several minutes; keep the application open until it finishes, then restart the app.
+The setup process downloads the R18 dump, then runs the bundled `r18_database_importer.py` with Python to read the compressed dump and create the SQLite database. The import can take several minutes; keep the application open until it finishes, then restart the app.
 
 ## Troubleshooting
 

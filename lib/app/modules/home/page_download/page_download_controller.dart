@@ -273,12 +273,8 @@ class PageDownloadController extends GetxController {
     job.running = true;
     jobRevision.value++;
     try {
-      final binary = p.join(appSetting.appPath, 'javit_dl');
+      final binary = p.join(appSetting.bundledAssetsPath, 'javit_downloader');
       if (!await File(binary).exists()) throw StateError('Downloader binary is missing. Restart JavIt to restore it.'.tr);
-      if (!Platform.isWindows) {
-        final result = await Process.run('/bin/chmod', ['+x', binary]);
-        if (result.exitCode != 0) throw StateError('Cannot make downloader executable: @{stderr}'.trNamed({'stderr': '${result.stderr}'}));
-      }
       if (job.cancelled || isClosed) {
         job.status = 'Cancelled';
         return;

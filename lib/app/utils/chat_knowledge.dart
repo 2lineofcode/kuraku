@@ -8,18 +8,23 @@ import 'package:get/get.dart';
 import '../core/app_translations.dart';
 
 class ChatKnowledge {
-  ChatKnowledge({required this.mainPath, this.r18Path, this.loadScript});
+  ChatKnowledge({required this.mainPath, this.r18Path, this.resolveR18Path, this.loadScript});
   final Future<String> Function()? loadScript;
   final String mainPath;
   final String? r18Path;
+  final String? Function()? resolveR18Path;
+  String? get activeR18Path => resolveR18Path != null ? resolveR18Path!() : r18Path;
 
   static const tool = {
     'type': 'function',
     'function': {
       'name': 'query_local',
-      'description': 'Read library and R18 metadata using a single read-only SQLite SELECT. For video lists always select dvd_id AS code (R18) or video_code AS code (library), plus title. Results with a code column are displayed directly to the user; do not rewrite them. Use the requested LIMIT up to 500, default 20, with ORDER BY release_date DESC, code ASC (null dates last). Never use web_search for SQL.',
+      'description': 'Read library and R18 metadata using a single read-only SQLite SELECT. Use ? placeholders and args for user values. For video lists always select dvd_id AS code (R18) or video_code AS code (library), plus title. Fall back from blank as well as NULL English titles to Japanese titles. Deduplicate R18 results by dvd_id; COUNT(*) counts records, not unique videos. Results with a code column are displayed directly to the user; do not rewrite them. Use the requested LIMIT up to 500, default 20, with ORDER BY release_date DESC, code ASC (null dates last). Never use web_search for SQL.',
       'parameters': {
-        'type': 'object', 'properties': {'sql': {'type': 'string'}},
+        'type': 'object', 'properties': {
+          'sql': {'type': 'string'},
+          'args': {'type': 'array', 'maxItems': 100, 'items': {'type': ['string', 'number', 'boolean', 'null']}},
+        },
         'required': ['sql'], 'additionalProperties': false,
       },
     },
@@ -29,7 +34,7 @@ class ChatKnowledge {
     'type': 'function',
     'function': {
       'name': 'search_local_titles',
-      'description': 'Find videos across languages in local titles and cached translations. Translate the user search phrase into precise Japanese and English equivalents and spelling variants, then pass them as terms. Terms are OR alternatives of ONE concept, not unrelated words. Use this for title/topic searches even when English titles are missing. Results use database pagination; the UI fetches subsequent pages without a total result cap. The app uses 25 records per page regardless of limit. Do not broaden the meaning. Use required_terms for additional mandatory concepts (AND between groups, OR within each group), exclude_terms to reject any matching term, and unowned to exclude owned codes. For similarity, first read get_video_reference, derive precise themes from its title and description (not actor names alone), and set similar_to. Similarity matches titles/descriptions using these themes; matched_in explains the evidence. Use query_local for counts or other numeric filters.',
+      'description': 'Find videos across languages in local titles and cached translations. Keep the original user phrase alongside precise Japanese and English equivalents and spelling variants in terms, so saved Indonesian translations can match too. Terms are OR alternatives of ONE concept, not unrelated words. Use this for title/topic searches even when English titles are missing. Results use database pagination; the UI fetches subsequent pages without a total result cap. The app uses 25 records per page regardless of limit. Do not broaden the meaning. Use required_terms for additional mandatory concepts (AND between groups, OR within each group), exclude_terms to reject any matching term, and unowned to exclude owned codes. For similarity, first read get_video_reference, derive precise themes from its title and description (not actor names alone), and set similar_to. Similarity matches titles/descriptions using these themes; matched_in explains the evidence. Use query_local for counts or other numeric filters.',
       'parameters': {
         'type': 'object',
         'properties': {
@@ -60,28 +65,34 @@ class ChatKnowledge {
   // Exact intents only; filtered and conversational questions go to the model.
   Map<String, dynamic>? directQuery(String text) {
     final query = text.trim().toLowerCase().replaceFirst(RegExp(r'[?!.]+$'), '').trim();
-    if (const ['berapa jumlah video saya', 'berapa video saya', 'berapa video yang saya punya', 'jumlah video saya', 'total video saya', 'how many videos do i have', 'count my videos'].contains(query)) {
+    if (const ['berapa jumlah video saya', 'berapa video saya', 'berapa video yang saya punya', 'jumlah video saya', 'total video saya', 'how many videos do i have', 'count my videos', 'koleksi gue ada berapa video', 'berapa video aku', 'berapa video gue'].contains(query)) {
       return {'sql': 'SELECT COUNT(*) AS total_videos FROM main.videos'};
     }
     if (const ['berapa jumlah video r18', 'jumlah video r18', 'total video r18', 'count r18 videos'].contains(query)) {
-      return {'sql': 'SELECT COUNT(*) AS catalog_records FROM r18.derived_video'};
+      return {'sql': "SELECT COUNT(*) AS catalog_records, COUNT(DISTINCT NULLIF(TRIM(dvd_id), '')) AS unique_videos FROM r18.derived_video"};
     }
-    if (const ['tampilkan favorit saya', 'video favorit saya', 'show my favorites'].contains(query)) {
+    if (const ['tampilkan favorit saya', 'video favorit saya', 'show my favorites', 'tampilkan favorit gue', 'tampilkan favorit aku'].contains(query)) {
       return {'sql': 'SELECT video_code AS code, title, quality FROM main.videos WHERE is_favorite = 1 ORDER BY release_date DESC, video_code ASC LIMIT 20'};
+    }
+    if (activeR18Path != null && const ['compare my collection with the r18 catalog', 'bandingin koleksi gue sama katalog r18'].contains(query)) {
+      return {'sql': 'SELECT (SELECT COUNT(*) FROM main.videos) AS library_files, '
+        "(SELECT COUNT(DISTINCT NULLIF(TRIM(video_code), '')) FROM main.videos) AS unique_owned_videos, "
+        "(SELECT COUNT(DISTINCT NULLIF(TRIM(dvd_id), '')) FROM r18.derived_video) AS unique_catalog_videos, "
+        '(SELECT COUNT(DISTINCT video_code) FROM main.videos v WHERE EXISTS (SELECT 1 FROM r18.derived_video r WHERE r.dvd_id = v.video_code)) AS owned_in_catalog'};
     }
     final match = RegExp(r'^(?:(?:coba |tolong |please )?(?:cek|cari|lookup|check)(?: (?:kode|video))?\s+)?([a-z]{2,12}-\d{2,7})$').firstMatch(query);
     if (match == null) return null;
     final code = match[1]!.toUpperCase();
     return {
       'sql': "SELECT 'Owned' AS source, video_code AS code, title, release_date FROM main.videos WHERE video_code = ?"
-          "${r18Path == null ? '' : " UNION ALL SELECT 'R18 catalog', dvd_id, COALESCE(title_en, title_ja), release_date FROM r18.derived_video WHERE dvd_id = ?"} ORDER BY release_date DESC, code ASC LIMIT 20",
-      'args': [code, if (r18Path != null) code],
+          "${activeR18Path == null ? '' : " UNION ALL SELECT 'R18 catalog', dvd_id, COALESCE(MIN(NULLIF(TRIM(title_en), '')), MIN(NULLIF(TRIM(title_ja), ''))), MAX(release_date) FROM r18.derived_video WHERE dvd_id = ? GROUP BY dvd_id"} ORDER BY release_date DESC, code ASC LIMIT 20",
+      'args': [code, if (activeR18Path != null) code],
     };
   }
 
   Future<Map<String, dynamic>> request(Map<String, dynamic> query, CancelToken token) async {
     if (token.isCancelled) throw token.cancelError!;
-    final script = await (loadScript?.call() ?? File('assets/chat_knowledge.py').readAsString());
+    final script = await (loadScript?.call() ?? File('assets/chat_database_worker.py').readAsString());
     Process? process;
     for (final candidate in ['python3', '/opt/homebrew/bin/python3', '/usr/local/bin/python3', if (Platform.isWindows) 'python']) {
       if (token.isCancelled) throw token.cancelError!;
@@ -99,7 +110,7 @@ class ChatKnowledge {
     final errors = worker.stderr.drain<void>();
     try {
       if (token.isCancelled) throw token.cancelError!;
-      worker.stdin.writeln(jsonEncode({...query, 'main': mainPath, 'r18': r18Path}));
+      worker.stdin.writeln(jsonEncode({...query, 'main': mainPath, 'r18': activeR18Path}));
       await worker.stdin.close();
       final code = await worker.exitCode;
       final text = await output;
@@ -133,6 +144,17 @@ class ChatKnowledge {
       if (fence != null) continue;
       if (!lines[i].contains('|') || !RegExp(r'^\|?:?-{3,}:?(\|:?-{3,}:?)*\|?$').hasMatch(lines[i + 1].replaceAll(RegExp(r'\s'), ''))) continue;
       lines[i] = lines[i].split('|').map((cell) => displayColumn(cell.trim()) == 'Code' ? ' Code ' : cell).join('|');
+      final separator = RegExp(r'(?<!\\)\|');
+      final codeIndex = lines[i].split(separator).indexWhere((cell) => cell.trim() == 'Code');
+      if (codeIndex < 0) continue;
+      for (var row = i + 2; row < lines.length && lines[row].contains('|'); row++) {
+        final cells = lines[row].split(separator);
+        if (codeIndex >= cells.length) break;
+        final code = cells[codeIndex].trim();
+        if (!RegExp(r'^(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)+$').hasMatch(code)) continue;
+        cells[codeIndex] = ' [$code](javit-video:${Uri.encodeComponent(code)}) ';
+        lines[row] = cells.join('|');
+      }
     }
     return lines.join('\n');
   }
@@ -168,7 +190,11 @@ class ChatKnowledge {
     final headers = [if (videoList) 'Image', ...order.map((i) => columns[i]), if (videoList) 'Actions'];
     final covers = result['covers'] as Map? ?? {};
     String rowText(List row) {
-      final values = order.map((i) => cell(row[i])).toList();
+      final values = order.map((i) {
+        final value = row[i];
+        return i == codeIndex && value is String && value.trim().isNotEmpty
+            ? '[${cell(value.trim()).replaceAll(']', r'\]')}](javit-video:${Uri.encodeComponent(value.trim())})' : cell(value);
+      }).toList();
       if (videoList) {
         final code = row[codeIndex]?.toString() ?? '';
         final cover = (covers[code] ?? (imageIndex >= 0 ? row[imageIndex] : null))?.toString() ?? '';

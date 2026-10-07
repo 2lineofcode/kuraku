@@ -4,7 +4,6 @@ import 'dart:async';
 import 'dart:ffi' as ffi;
 import 'dart:ui' show AppExitResponse;
 
-import 'package:dio/dio.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/cupertino.dart';
@@ -12,14 +11,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
-import 'package:glob/glob.dart';
-import 'package:glob/list_local_fs.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:media_kit/generated/libmpv/bindings.dart' as generated;
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit/src/player/native/core/native_library.dart';
 import 'package:media_kit/src/player/native/utils/native_reference_holder.dart';
-import 'package:process_run/process_run.dart' as shell;
 import 'package:toastification/toastification.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -29,12 +25,12 @@ import 'app/core/app_pref.dart';
 import 'app/core/app_setting.dart';
 import 'app/core/app_startup.dart';
 import 'app/core/app_translations.dart';
-import 'app/core/const.dart';
 import 'app/data/database/_init_db.dart';
 import 'app/modules/home/home_controller.dart';
 import 'app/modules/home/page_chat/page_chat_controller.dart';
 import 'app/routes/app_pages.dart';
 import 'app/utils/helper_toast.dart';
+import 'app/utils/r18_updater.dart';
 import 'app/utils/watch_session_tracker.dart';
 import 'env.g.dart';
 
@@ -78,6 +74,10 @@ class _JavItState extends State<JavIt> with WindowListener {
   }
 
   Future<bool> _flushBeforeExit() async {
+    if (R18Updater.busy.value) {
+      await HelperToast.info('Please wait for the R18 update to finish.'.tr);
+      return false;
+    }
     try {
       if (!await _flushChat()) return false;
       await WatchSessionTracker.flushAll();
@@ -168,9 +168,7 @@ class _JavItState extends State<JavIt> with WindowListener {
   }
 
   Future<void> _checkApplicationIsReady() async {
-    var files = Glob('r18*.db').listSync(root: Get.find<AppSettingService>().appPath);
-    files.sort((a, b) => b.path.compareTo(a.path));
-    if (files.isEmpty) {
+    if (Get.find<DBService>().dbR18 == null) {
       AppLog.logW('!!! Database `r18` not found...');
       ExAlert.adaptive(
         isDismissible: false,
@@ -180,73 +178,21 @@ class _JavItState extends State<JavIt> with WindowListener {
           CupertinoDialogAction(
             child: Text('Download & Install'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () async {
-              final sw = Stopwatch()..start();
-              AppLog.logI('!!! Start Downloading R18 database & Install...');
-
-              final appSetting = Get.find<AppSettingService>();
-              final home = Get.find<HomeController>();
+              if (R18Updater.busy.value) return;
               Get.back();
-
+              final home = Get.find<HomeController>();
               home.change(0, status: RxStatus.loading());
-              home.loadingText.value = 'Preparing...'.tr;
-
-              // ** download
               try {
-                _getNextUpdate(DateTime lastUpdate, int intervalDays, DateTime today) {
-                  final diffDays = today.difference(lastUpdate).inDays;
-                  final times = diffDays ~/ intervalDays;
-                  final lastUpdateFromNow = lastUpdate.add(Duration(days: times * intervalDays));
-                  return lastUpdateFromNow;
-                }
-
-                final lastUpdate = DateTime(2025, 9, 2);
-                final intervalDays = 7;
-                final today = DateTime.now();
-
-                final lastUpdFromNow = _getNextUpdate(lastUpdate, intervalDays, today);
-                final lastUpdFromNowStr = lastUpdFromNow.toStringEx(format: kYMd);
-
-                final serverUrl = Env.r18ServerUrl;
-                final outputFileName = 'r18dotdev_dump_$lastUpdFromNowStr.sql.gz';
-
-                await Dio().download(
-                  '$serverUrl/$outputFileName',
-                  '${appSetting.appPath}/$outputFileName',
-                  onReceiveProgress: (received, total) {
-                    final percent = ((received / total) * 100).toStringAsFixed(0);
-                    home.footerText.value = 'DO NOT CLOSE APP | Downloading (@{percent}%) ...'.trNamed({'percent': '$percent'});
-                    home.loadingText.value = 'DO NOT CLOSE APP \n\n Downloading (@{percent}%) ...'.trNamed({'percent': '$percent'});
-                  },
-                );
-
-                home.footerText.value = 'DO NOT CLOSE APP | Extracting...'.tr;
-                home.loadingText.value = 'DO NOT CLOSE APP \n\n Extracting...'.tr;
-                await shell.run('gunzip "${appSetting.appPath}/$outputFileName"');
-
-                home.footerText.value = 'DO NOT CLOSE APP | Importing... will take 4-15 minutes..'.tr;
-                home.loadingText.value = 'DO NOT CLOSE APP \n\n Importing... will take 4-15 minutes..\n converting psql into sqlite3'.tr;
-                await shell.run(
-                  'python3 ${appSetting.appPath}/r18_to_javit.py -d "${appSetting.appPath}"',
-                  onProcess: (process) async {
-                    await process.exitCode.then((code) async {
-                      if (code == 1) {
-                        home.footerText.value = 'Task Failed. Please restart app...'.tr;
-                      }
-
-                      if (code == 0) {
-                        await HelperToast.success('Task Done. Please restart app...'.tr);
-                        home.footerText.value = 'Task Done. Please restart app...'.tr;
-                        home.loadingText.value = 'Task Done \n\n Please restart app...'.tr;
-                      }
-
-                      home.change(0, status: RxStatus.error('Update completed. Please restart app...'.tr));
-                    });
-                  },
-                );
-
-                AppLog.logI('!!! Downloading R18 database & Install completed: ${sw.elapsed.inSeconds} seconds');
+                await R18Updater.update(onStatus: (message) {
+                  home.footerText.value = message;
+                  home.loadingText.value = message;
+                });
+                home.change(200, status: RxStatus.success());
+                await home.onRefreshAllContent();
+                home.footerText.value = R18Updater.status.value;
               } catch (e) {
-                AppLog.logE('R18 setup failed: $e');
+                home.change(200, status: RxStatus.success());
+                await HelperToast.error('${R18Updater.status.value}\n$e');
               }
             },
           ),

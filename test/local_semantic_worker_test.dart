@@ -6,6 +6,7 @@ import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/data/database/_init_db.dart';
 import 'package:javit/app/utils/local_semantic_worker.dart';
 import 'package:javit/app/utils/semantic_search_service.dart';
+import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
 class _Database implements Database {
@@ -47,7 +48,7 @@ void main() {
       'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("CREATE TABLE videos(id TEXT, video_path TEXT, updated_at TEXT)"); c.execute("CREATE TABLE video_embeddings(video_id TEXT, source_text TEXT, model TEXT, embedding BLOB)"); c.close()', dbPath,
     ]);
     expect(created.exitCode, 0);
-    Get.put<AppSettingService>(AppSettingService()..appPath = directory.path);
+    Get.put<AppSettingService>(AppSettingService()..appPath = directory.path..bundledAssetsPath = p.absolute('assets'));
     Get.put<DBService>(_DBService()..dbMain = _Database(dbPath));
     addTearDown(() async {
       LocalSemanticWorker.stop();
@@ -60,8 +61,10 @@ void main() {
     final license = await File('$runtime/LICENSE').open(mode: FileMode.write);
     await license.truncate(1064);
     await license.close();
+    expect(await File('$runtime/visual_search_worker.py').exists(), isFalse);
     final plans = await Future.wait([LocalSemanticWorker.request('plan'), LocalSemanticWorker.request('plan')]);
     expect(plans.map((plan) => plan['total']), [0, 0]);
+    expect(await File('$runtime/visual_search_worker.py').exists(), isFalse);
     LocalSemanticWorker.stop();
     final cancelled = LocalSemanticWorker.request('plan');
     LocalSemanticWorker.stop();

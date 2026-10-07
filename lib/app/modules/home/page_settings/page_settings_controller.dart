@@ -1,19 +1,15 @@
 import 'dart:io';
 
-import 'package:dio/dio.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
-import 'package:process_run/process_run.dart' as shell;
 import 'package:sqflite/sqflite.dart';
 
-import '../../../../env.g.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
 import '../../../core/app_setting.dart';
 import '../../../core/app_translations.dart';
-import '../../../core/const.dart';
 import '../../../data/database/_init_db.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/database/db_library.dart';
@@ -22,10 +18,12 @@ import '../../../data/database/db_videos.dart';
 import '../../../utils/helper.dart';
 import '../../../utils/helper_toast.dart';
 import '../../../utils/local_semantic_worker.dart';
+import '../../../utils/r18_updater.dart';
 import '../../../utils/semantic_search_service.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_log.dart';
 import '../page_chat/page_chat_controller.dart';
+import '../page_explore/page_explore_controller.dart';
 
 class PageSettingsController extends GetxController {
   final appSetting = Get.find<AppSettingService>();
@@ -343,120 +341,38 @@ class PageSettingsController extends GetxController {
   }
 
   Future<void> updateR18DB() async {
+    if (R18Updater.busy.value) return;
+    final home = Get.find<HomeController>();
+    int? version;
     try {
-      DateTime _getNextUpdate(DateTime lastUpdate, int intervalDays, DateTime today) {
-        final diffDays = today.difference(lastUpdate).inDays;
-        final times = diffDays ~/ intervalDays;
-        return lastUpdate.add(Duration(days: times * intervalDays));
-      }
-
-      final lastUpdate = DateTime(2025, 9, 2);
-      final intervalDays = 7;
-      final today = DateTime.now();
-
-      final lastUpdFromNow = _getNextUpdate(lastUpdate, intervalDays, today);
-      final lastUpdFromNowStr = lastUpdFromNow.toStringEx(format: kYMd);
-
-      final dbVersionDate = dbR18Version.value > 0 ? DateTime.tryParse(dbR18Version.string) : null;
-      final isOutdated = dbVersionDate == null || dbVersionDate.isBefore(lastUpdFromNow);
-
-      ExAlert.adaptive(
-        title: Text('Information'.tr, textAlign: TextAlign.left),
-        content: VStack([
-          12.heightBox,
-          Text('Current Version\t: @{kYMd}'.trNamed({'kYMd': '${dbVersionDate?.toStringEx(format: kYMd) ?? '-'}'})).pOnly(bottom: 4),
-          Text('Last Update\t\t\t\t\t\t\t: @{lastUpdFromNowStr}'.trNamed({'lastUpdFromNowStr': '$lastUpdFromNowStr'})).pOnly(bottom: 4),
-          !isOutdated ? Text('Next Update\t\t\t\t\t\t: @{kYMd}'.trNamed({'kYMd': '${lastUpdFromNow.add(7.days).toStringEx(format: kYMd)}'})).pOnly(bottom: 4) : 0.heightBox,
-          isOutdated
-              ? Text(
-                  '🔥 New Version Database R18 is avaiable'.tr,
-                  textAlign: TextAlign.left,
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ).pOnly(top: 24)
-              : Text('🔥 You are using the latest version'.tr, textAlign: TextAlign.left).pOnly(top: 24),
-        ]).p4(),
-        actions: [
-          isOutdated
-              ? CupertinoDialogAction(
-                  child: Text('Update'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
-                  onPressed: () async {
-                    Get.back();
-                    final appSetting = Get.find<AppSettingService>();
-                    final home = Get.find<HomeController>();
-                    final dbService = Get.find<DBService>();
-                    final dio = Dio();
-
-                    final serverUrl = Env.r18ServerUrl;
-                    String? outputFileName;
-                    String? gzPath;
-                    DioException? lastDownloadError;
-
-                    for (var i = 0; i < 8; ) {
-                      final candidateDate = lastUpdFromNow.subtract(Duration(days: i * 7));
-                      final candidateDateStr = candidateDate.toStringEx(format: kYMd);
-                      outputFileName = 'r18dotdev_dump_$candidateDateStr.sql.gz';
-                      gzPath = '${appSetting.appPath}/$outputFileName';
-
-                      try {
-                        await dio.download(
-                          '$serverUrl/$outputFileName',
-                          gzPath,
-                          onReceiveProgress: (received, total) {
-                            final percent = total > 0 ? ((received / total) * 100).toStringAsFixed(0) : '0';
-                            home.footerText.value = 'DO NOT CLOSE APP | Downloading (@{percent}%) ...'.trNamed({'percent': '$percent'});
-                          },
-                        );
-                        break;
-                      } on DioException catch (e) {
-                        lastDownloadError = e;
-                        final statusCode = e.response?.statusCode ?? 0;
-                        if (statusCode == 404) {
-                          await HelperToast.error('Version for @{candidateDateStr} not found, try update tommorow.'.trNamed({'candidateDateStr': '$candidateDateStr'}));
-                          return;
-                        }
-                        rethrow;
-                      }
-                    }
-
-                    if (gzPath == null || File(gzPath).existsSync() == false) {
-                      throw Exception('R18 dump not found on server (tried last 8 weekly versions). Last error: ${lastDownloadError?.message ?? 'unknown'}');
-                    }
-
-                    home.footerText.value = 'DO NOT CLOSE APP | Extracting...'.tr;
-                    await shell.run('gunzip "$gzPath"');
-
-                    // Release file lock so Python can rotate old r18*.db safely.
-                    try {
-                      await dbService.dbR18?.close();
-                      dbService.dbR18 = null;
-                    } catch (_) {}
-
-                    home.footerText.value = 'DO NOT CLOSE APP | Importing... will take 4-15 minutes..'.tr;
-                    await shell.run(
-                      'python3 ${appSetting.appPath}/r18_to_javit.py -d "${appSetting.appPath}"',
-                      onProcess: (process) async {
-                        await process.exitCode.then((code) async {
-                          if (code == 1) {
-                            home.footerText.value = 'Task Failed. Please restart app...'.tr;
-                            home.change(0, status: RxStatus.error('Task Failed. Please restart app...'.tr));
-                          }
-
-                          if (code == 0) {
-                            await HelperToast.success('Task Done. Please restart app...'.tr);
-                            home.footerText.value = 'Task Done. Please restart app...'.tr;
-                            home.change(0, status: RxStatus.error('Update completed. Please restart app...'.tr));
-                          }
-                        });
-                      },
-                    );
-                  },
-                )
-              : 0.heightBox,
-        ],
+      version = await R18Updater.update(
+        onStatus: (message) => home.footerText.value = message,
+        confirm: (version, local) async => await Get.dialog<bool>(CupertinoAlertDialog(
+          title: Text('Update R18 DB'.tr),
+          content: Text((local ? 'Local R18 version @{version} is available. Import it?' : 'R18 version @{version} is available. Download and install?').trNamed({'version': '$version'})),
+          actions: [
+            CupertinoDialogAction(onPressed: () => Get.back(result: false), child: Text('Cancel'.tr)),
+            CupertinoDialogAction(onPressed: () => Get.back(result: true), child: Text('Update'.tr)),
+          ],
+        )) ?? false,
       );
     } catch (e) {
-      await HelperToast.error(e.toString());
+      await HelperToast.error('${R18Updater.status.value}\n$e');
+      return;
     }
+    if (version == null) {
+      if (R18Updater.status.value.isEmpty) home.footerText.value = home.idleFooterText;
+      return;
+    }
+    dbR18Version.value = version;
+    try {
+      r18TotalVideo.value = await DBR18.getCountAllVideos();
+      await Get.find<PageExploreController>().onRefresh();
+    } catch (e) {
+      AppLog.logW('R18 updated, but catalog refresh failed: $e');
+    }
+    home.footerText.value = R18Updater.status.value;
+    await HelperToast.success('R18 updated. Ready to use.'.tr);
   }
 
   Future<void> _openDialogConfirm({

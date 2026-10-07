@@ -367,7 +367,7 @@ class PageExploreTab {
       final result = await loadSelection(menu, item);
       if (request != _selectionRequest || isClosed) return;
       rightListLocal.assignAll(result.$1);
-      if (menu != kActress || castMode == actressMode.value) rightListR18TotalVideo.value = result.$2;
+      if (castMode == actressMode.value) rightListR18TotalVideo.value = result.$2;
     } catch (e) {
       if (!isClosed && request == _selectionRequest) error.value = 'Failed to load videos. Please select the item again.'.tr;
       AppLog.logE('Explore selection failed: $e');
@@ -379,38 +379,31 @@ class PageExploreTab {
   Future<(List<Videos>, int)> loadSelection(String menu, LeftListModel item) async {
 
     late final Future<List<Videos>> localVideos;
-    Future<int> r18Count = Future.value(0);
+    final r18Count = _loadR18Count(menu, item, actressMode.value);
     switch (menu) {
       case kActress:
         localVideos = DBVideos.getAllLike('actress', item.id.toString());
-        r18Count = DBR18.getCountAllVideosByActress(item.id!, actressMode: actressMode.value);
         break;
       case kCategory:
         localVideos = DBVideos.getAllLike('category', item.name!, jsonObject: 'category');
-        r18Count = DBR18.getCountAllVideosByCategory(HelperDecensor.censored(item.name));
         break;
       case kPath:
         localVideos = DBVideos.getAllVideoPath('video_path', item.name!);
         break;
       case kLabel:
         localVideos = DBVideos.getAll(where: 'label = ?', whereArgs: [item.name], orderBy: 'release_date DESC');
-        r18Count = DBR18.getCountAllVideosByLabel(item.name!);
         break;
       case kSeries:
         localVideos = DBVideos.getAll(where: 'series = ?', whereArgs: [item.name], orderBy: 'release_date DESC');
-        r18Count = DBR18.getCountAllVideosBySeries(HelperDecensor.censored(item.name!.trim()));
         break;
       case kStudio:
         localVideos = DBVideos.getAll(where: 'studio = ?', whereArgs: [item.name], orderBy: 'release_date DESC');
-        r18Count = DBR18.getCountAllVideosByStudio(item.name!.trim());
         break;
       case kDirector:
         localVideos = DBVideos.getAll(where: 'director = ?', whereArgs: [item.name], orderBy: 'release_date DESC');
-        r18Count = DBR18.getCountAllVideosByDirector(item.name!.trim());
         break;
       case kYear:
         localVideos = DBVideos.getAllLike('release_date', item.name ?? '');
-        r18Count = DBR18.getCountAllVideosByYear(item.name!.trim());
         break;
       case kCustom:
         localVideos = _getCustomVideos(item.name);
@@ -422,6 +415,17 @@ class PageExploreTab {
     final result = await Future.wait<dynamic>([localVideos, r18Count]);
     return (result[0] as List<Videos>, result[1] as int);
   }
+
+  Future<int> _loadR18Count(String menu, LeftListModel item, ActressMode mode) => switch (menu) {
+    kActress => DBR18.getCountAllVideosByActress(item.id ?? 0, actressMode: mode),
+    kCategory => DBR18.getCountAllVideosByCategory(HelperDecensor.censored(item.name), actressMode: mode),
+    kLabel => DBR18.getCountAllVideosByLabel(item.name ?? '', actressMode: mode),
+    kSeries => DBR18.getCountAllVideosBySeries(HelperDecensor.censored(item.name?.trim()), actressMode: mode),
+    kStudio => DBR18.getCountAllVideosByStudio(item.name?.trim() ?? '', actressMode: mode),
+    kDirector => DBR18.getCountAllVideosByDirector(item.name?.trim() ?? '', actressMode: mode),
+    kYear => DBR18.getCountAllVideosByYear(item.name?.trim() ?? '', actressMode: mode),
+    _ => Future.value(0),
+  };
 
   Future<List<Videos>> _getCustomVideos(String? name) {
     switch (name) {
@@ -562,21 +566,21 @@ class PageExploreTab {
     final castMode = actressMode.value;
 
     try {
-      if (!isLoadMore && menu == kActress) {
-        final count = await DBR18.getCountAllVideosByActress(selected.id ?? 0, actressMode: castMode);
+      if (!isLoadMore) {
+        final count = await _loadR18Count(menu, selected, castMode);
         if (request != _r18Request || isClosed) return;
         rightListR18TotalVideo.value = count;
       }
       final List<Map<String, dynamic>> r18videos;
       switch (menu) {
         case kActress: r18videos = await DBR18.getAllVideosByActress(selected.id ?? 0, actressMode: castMode, page: page, perPage: _perPage + 1); break;
-        case kCategory: r18videos = await DBR18.getAllVideosByCategory(HelperDecensor.censored(selected.name), page: page, perPage: _perPage + 1); break;
+        case kCategory: r18videos = await DBR18.getAllVideosByCategory(HelperDecensor.censored(selected.name), actressMode: castMode, page: page, perPage: _perPage + 1); break;
         case kPath: r18videos = []; break;
-        case kLabel: r18videos = await DBR18.getAllVideosByLabel(selected.name ?? '', page: page, perPage: _perPage + 1); break;
-        case kSeries: r18videos = await DBR18.getAllVideosBySeries(HelperDecensor.censored(selected.name), page: page, perPage: _perPage + 1); break;
-        case kStudio: r18videos = await DBR18.getAllVideosByStudio(selected.name ?? '', page: page, perPage: _perPage + 1); break;
-        case kDirector: r18videos = await DBR18.getAllVideosByDirector(selected.name ?? '', page: page, perPage: _perPage + 1); break;
-        case kYear: r18videos = await DBR18.getAllVideosByYear(selected.name ?? '', page: page, perPage: _perPage + 1); break;
+        case kLabel: r18videos = await DBR18.getAllVideosByLabel(selected.name ?? '', actressMode: castMode, page: page, perPage: _perPage + 1); break;
+        case kSeries: r18videos = await DBR18.getAllVideosBySeries(HelperDecensor.censored(selected.name), actressMode: castMode, page: page, perPage: _perPage + 1); break;
+        case kStudio: r18videos = await DBR18.getAllVideosByStudio(selected.name ?? '', actressMode: castMode, page: page, perPage: _perPage + 1); break;
+        case kDirector: r18videos = await DBR18.getAllVideosByDirector(selected.name ?? '', actressMode: castMode, page: page, perPage: _perPage + 1); break;
+        case kYear: r18videos = await DBR18.getAllVideosByYear(selected.name ?? '', actressMode: castMode, page: page, perPage: _perPage + 1); break;
         case kCustom: r18videos = []; break;
         default: r18videos = []; break;
       }

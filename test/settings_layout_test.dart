@@ -15,6 +15,7 @@ import 'package:javit/app/core/app_translations.dart';
 import 'package:javit/app/modules/home/home_controller.dart';
 import 'package:javit/app/modules/home/page_settings/page_settings_controller.dart';
 import 'package:javit/app/modules/home/page_settings/page_settings_view.dart';
+import 'package:javit/app/utils/r18_updater.dart';
 
 class _Preferences implements GetSecureStorage {
   final values = <String, dynamic>{};
@@ -102,6 +103,15 @@ void main() {
           expect(find.text('Appearance'.tr), findsOneWidget);
           expect(find.text('Playback & Search'.tr), findsOneWidget);
           expect(find.text('Utilities'.tr), findsOneWidget);
+          expect(tester.getCenter(find.text('Storage Usage'.tr)).dy, closeTo(tester.getCenter(find.text('Refresh'.tr)).dy, 1));
+          expect(tester.getTopLeft(find.text('Application Info'.tr)).dy, lessThan(tester.getTopLeft(find.text('Appearance'.tr)).dy));
+          expect(find.text('Personalize your experience and manage your library.'.tr), findsNothing);
+          if (width == 1100) {
+            final theme = find.byType(DropdownButton<AppTheme>);
+            final languageControl = find.byWidgetPredicate((widget) => widget is DropdownButton<String> && widget.value == language);
+            expect(tester.getTopLeft(theme).dx, tester.getTopLeft(languageControl).dx);
+            expect(tester.getSize(theme).width, lessThanOrEqualTo(320));
+          }
           expect(tester.takeException(), isNull, reason: 'language=$language width=$width dark=$dark');
           if (output.isNotEmpty && width == 1100) {
             await tester.runAsync(() async {
@@ -132,9 +142,29 @@ void main() {
     await tester.tap(find.byTooltip('Save daily limit (0 blocks playback)'));
     expect(controller.saves, 1);
     final refreshes = controller.refreshes;
+    controller.isLoadingStorage.value = true;
+    await tester.pump();
+    expect(tester.widget<TextButton>(find.widgetWithText(TextButton, 'Refresh')).onPressed, isNull);
+    controller.isLoadingStorage.value = false;
+    await tester.pump();
     await tester.ensureVisible(find.text('Refresh'));
     await tester.tap(find.text('Refresh'));
     expect(controller.refreshes, refreshes + 1);
+    expect(tester.takeException(), isNull);
+    addTearDown(() { R18Updater.busy.value = false; R18Updater.status.value = ''; R18Updater.progress.value = -1; });
+    R18Updater.busy.value = true;
+    R18Updater.status.value = 'Importing and validating R18...'.tr;
+    R18Updater.progress.value = -1;
+    await tester.pump();
+    final update = find.ancestor(of: find.text('Update R18 DB'.tr), matching: find.byType(ListTile));
+    expect(tester.widget<ListTile>(update).onTap, isNull);
+    expect(find.byWidgetPredicate((widget) => widget is LinearProgressIndicator && widget.semanticsLabel == 'Update R18 DB'.tr), findsOneWidget);
+    R18Updater.busy.value = false;
+    R18Updater.status.value = 'R18 update failed. Please retry.'.tr;
+    await tester.pumpAndSettle();
+    expect(tester.widget<ListTile>(update).onTap, isNotNull);
+    expect(find.text('R18 update failed. Please retry.'.tr), findsOneWidget);
+    expect(find.text('Utilities'.tr), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });

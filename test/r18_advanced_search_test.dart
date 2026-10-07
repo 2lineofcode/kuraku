@@ -52,8 +52,8 @@ CREATE TABLE derived_actress(id INTEGER, name_romaji TEXT, name_kanji TEXT, name
 CREATE TABLE derived_video_category(content_id TEXT, category_id INTEGER);
 CREATE TABLE derived_video_actress(content_id TEXT, actress_id INTEGER);
 CREATE TABLE machine_translation(source_ja TEXT, target_en TEXT);
-INSERT INTO derived_series VALUES (1, NULL, '日本語'), (2, 'Older', NULL), (3, 'Empty', NULL);
-INSERT INTO derived_category VALUES (1, '', '日本語'), (2, 'Older', NULL), (3, 'Empty', NULL);
+INSERT INTO derived_series VALUES (1, 'Cast', '日本語'), (2, 'Older', NULL), (3, 'Empty', NULL);
+INSERT INTO derived_category VALUES (1, 'Cast', '日本語'), (2, 'Older', NULL), (3, 'Empty', NULL);
 INSERT INTO derived_actress VALUES (1, '', '日本語', 'かな'), (2, 'Same name', NULL, NULL), (3, 'Same name', NULL, NULL), (4, 'Empty', NULL, NULL);
 INSERT INTO derived_video(content_id,dvd_id,series_id,release_date,title_en,title_ja,runtime_mins,sample_url,jacket_full_url,jacket_thumb_url) VALUES
  ('a', 'ABC-123', 1, '2026-01-01', '', '日本語', 120, '', '', ''),
@@ -62,7 +62,8 @@ INSERT INTO derived_video(content_id,dvd_id,series_id,release_date,title_en,titl
  ('d', 'TK-123', 3, '2030-01-01', 'Blocked', '', 30, '', '', ''),
  ('e', 'INVALID', 3, '2030-01-01', 'Invalid', '', 30, '', '', '');
 INSERT INTO derived_video_category VALUES ('a',1),('b',2),('c',1),('d',3),('e',3);
-INSERT INTO derived_video_actress VALUES ('a',1),('a',2),('b',3),('c',1),('d',4),('e',4);
+INSERT INTO derived_video_actress VALUES ('a',1),('a',2),('b',3),('c',1),('c',1),('d',4),('e',4);
+INSERT INTO derived_video_director VALUES ('a',1),('b',1),('c',1);
 INSERT INTO machine_translation VALUES ('日本語','Translated title');
 """)
 if sys.argv[2] == 'true':
@@ -84,7 +85,7 @@ if sys.argv[2] == 'true':
     INSERT INTO derived_video_director VALUES ('n_1541naac066',1);
     """)
 before = c.execute('SELECT count(*) FROM derived_video').fetchone()[0]
-indexer = runpy.run_path('assets/r18_to_javit.py')['create_catalog_indexes']
+indexer = runpy.run_path('assets/r18_database_importer.py')['create_catalog_indexes']
 indexer(c)
 indexer(c)
 assert c.execute('SELECT count(*) FROM derived_video').fetchone()[0] == before
@@ -128,6 +129,30 @@ void main() {
     }
     expect((await DBR18.getAllVideosByActress(1, actressMode: ActressMode.all, page: 2, perPage: 1)).single['video_code'], 'ABC-125');
     expect(await DBR18.getAllVideosByActress(1, actressMode: ActressMode.multi, page: 2, perPage: 1), isEmpty);
+  });
+
+  test('every R18 browse type filters cast before counting and pagination', () async {
+    for (final (name, list, count, all, solo) in [
+      ('Category', (ActressMode mode, int page, int size) => DBR18.getAllVideosByCategory('Cast', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosByCategory('Cast', actressMode: mode), ['ABC-123', 'ABC-125'], ['ABC-125']),
+      ('Series', (ActressMode mode, int page, int size) => DBR18.getAllVideosBySeries('Cast', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosBySeries('Cast', actressMode: mode), ['ABC-123', 'ABC-125'], ['ABC-125']),
+      ('Series wildcard', (ActressMode mode, int page, int size) => DBR18.getAllVideosBySeries('C%', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosBySeries('C%', actressMode: mode), ['ABC-123', 'ABC-125'], ['ABC-125']),
+      ('Label', (ActressMode mode, int page, int size) => DBR18.getAllVideosByLabel('Label', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosByLabel('Label', actressMode: mode), ['INVALID', 'ABC-123', 'ABC-124', 'ABC-125'], ['INVALID', 'ABC-124', 'ABC-125']),
+      ('Studio', (ActressMode mode, int page, int size) => DBR18.getAllVideosByStudio('Studio', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosByStudio('Studio', actressMode: mode), ['INVALID', 'ABC-123', 'ABC-124', 'ABC-125'], ['INVALID', 'ABC-124', 'ABC-125']),
+      ('Director', (ActressMode mode, int page, int size) => DBR18.getAllVideosByDirector('Director', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosByDirector('Director', actressMode: mode), ['ABC-123', 'ABC-124', 'ABC-125'], ['ABC-124', 'ABC-125']),
+      ('Year', (ActressMode mode, int page, int size) => DBR18.getAllVideosByYear('202', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosByYear('202', actressMode: mode), ['ABC-123', 'ABC-124'], ['ABC-124']),
+    ]) {
+      for (final mode in ActressMode.values) {
+        final expected = switch (mode) {
+          ActressMode.all => all,
+          ActressMode.single => solo,
+          ActressMode.multi => ['ABC-123'],
+        };
+        final videos = await list(mode, 1, 100);
+        expect(videos.map((video) => video['video_code']), expected, reason: '$name $mode');
+        expect(await count(mode), expected.length, reason: '$name $mode count');
+        expect((await list(mode, 2, 1)).map((video) => video['video_code']), expected.skip(1).take(1), reason: '$name $mode pagination');
+      }
+    }
   });
 
   test('bilingual groups use matching eligibility, dates, IDs and include ensemble videos', () async {

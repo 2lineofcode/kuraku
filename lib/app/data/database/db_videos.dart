@@ -548,143 +548,82 @@ mixin DBVideos {
     return maps;
   }
 
-  static String _normalizeDuplicateName(String value) {
+  static String _normalizeDuplicateName(String value, {bool filePath = false}) {
     var normalized = value.trim().toLowerCase();
-    if (normalized.isEmpty) return '';
-
-    normalized = p.basenameWithoutExtension(normalized);
-    normalized = normalized
-        .replaceAll(RegExp(r'\[[^\]]*\]'), ' ')
-        .replaceAll(RegExp(r'\([^\)]*\)'), ' ')
-        .replaceAll(RegExp(r'\{[^}]*\}'), ' ')
+    if (filePath) normalized = p.basenameWithoutExtension(normalized.replaceAll('\\', '/'));
+    return normalized
+        .replaceAll(RegExp(r'[_\-.\[\](){}/]+'), ' ')
         .replaceAll(RegExp(r'\b(2160p|1080p|720p|540p|480p|360p|4k|8k|x264|x265|h264|h265|hevc|avc|aac|dts|hdr|uhd|fhd|webdl|webrip|brrip|bluray|remux|proper|repack|subindo|subtitle|subs|dubbed)\b'), ' ')
-        .replaceAll(RegExp(r'[_\-.]+'), ' ')
-        .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
+        .replaceAll(RegExp(r'[^\p{L}\p{N} ]', unicode: true), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
-
-    return normalized;
-  }
-
-  static String? _duplicateKeyForVideo(Videos video) {
-    final code = (video.videoCode ?? '').trim().toLowerCase();
-    if (code.isNotEmpty) return 'code:$code';
-
-    final size = (video.filesize ?? 0).toInt();
-    if (size <= 0) return null;
-
-    final fileName = _normalizeDuplicateName(video.videoPath ?? '');
-    if (fileName.isNotEmpty && fileName.length >= 4) {
-      return 'name_size:$size:$fileName';
-    }
-
-    final title = _normalizeDuplicateName(video.title ?? '');
-    if (title.isNotEmpty && title.length >= 4) {
-      return 'title_size:$size:$title';
-    }
-
-    return null;
-  }
-
-  static String? _probableDuplicateKeyForVideo(Videos video) {
-    final code = (video.videoCode ?? '').trim().toLowerCase();
-    if (code.isNotEmpty) return 'code:$code';
-
-    final fileName = _normalizeDuplicateName(video.videoPath ?? '');
-    if (fileName.isNotEmpty && fileName.length >= 6) {
-      return 'name:$fileName';
-    }
-
-    final title = _normalizeDuplicateName(video.title ?? '');
-    if (title.isNotEmpty && title.length >= 6) {
-      return 'title:$title';
-    }
-
-    return null;
   }
 
   static bool _isProbableDuplicatePair(Videos a, Videos b) {
-    final durationA = (a.duration ?? 0).toInt();
-    final durationB = (b.duration ?? 0).toInt();
+    final durationA = (a.duration ?? 0).toDouble();
+    final durationB = (b.duration ?? 0).toDouble();
     if (durationA > 0 && durationB > 0) {
-      final diff = (durationA - durationB).abs();
-      if (diff <= 180) return true;
-      return false;
+      final tolerance = math.max(3, math.min(durationA, durationB) * .03);
+      return (durationA - durationB).abs() <= tolerance;
     }
-
     final sizeA = (a.filesize ?? 0).toDouble();
     final sizeB = (b.filesize ?? 0).toDouble();
-    if (sizeA > 0 && sizeB > 0) {
-      final minSize = sizeA < sizeB ? sizeA : sizeB;
-      final maxSize = sizeA > sizeB ? sizeA : sizeB;
-      if (maxSize <= 0) return false;
-
-      final ratio = minSize / maxSize;
-      return ratio >= 0.45;
-    }
-
-    return false;
-  }
-
-  static List<Videos> _filterProbableDuplicateGroup(List<Videos> items) {
-    if (items.length <= 1) return [];
-
-    final matchedIndexes = <int>{};
-    for (var i = 0; i < items.length; i++) {
-      for (var j = i + 1; j < items.length; j++) {
-        if (_isProbableDuplicatePair(items[i], items[j])) {
-          matchedIndexes.add(i);
-          matchedIndexes.add(j);
-        }
-      }
-    }
-
-    if (matchedIndexes.length <= 1) return [];
-    final indexes = matchedIndexes.toList()..sort();
-    return indexes.map((index) => items[index]).toList();
+    // ponytail: size-only fallback is a candidate heuristic; content hashes are needed to prove identical files.
+    return sizeA > 0 && sizeB > 0 && math.min(sizeA, sizeB) / math.max(sizeA, sizeB) >= .45;
   }
 
   static Future<List<List<Videos>>> getDuplicateVideoGroups({String mode = 'exact'}) async {
     final videos = await getAll(orderBy: 'video_code ASC, title ASC, video_path ASC');
-    final grouped = <String, List<Videos>>{};
-
-    for (final video in videos) {
-      final key = mode == 'probable'
-          ? _probableDuplicateKeyForVideo(video)
-          : _duplicateKeyForVideo(video);
-      if (key == null) continue;
-      grouped.putIfAbsent(key, () => <Videos>[]).add(video);
-    }
-
-    final duplicates = <List<Videos>>[];
-    final keys = grouped.keys.toList()
-      ..sort((a, b) {
-        final aType = a.startsWith('code:') ? 0 : 1;
-        final bType = b.startsWith('code:') ? 0 : 1;
-        if (aType != bType) return aType.compareTo(bType);
-        return a.compareTo(b);
-      });
-
-    for (final key in keys) {
-      final items = grouped[key] ?? [];
-      if (items.length <= 1) continue;
-
-      items.sort((a, b) {
-        final aPath = (a.videoPath ?? '').toLowerCase();
-        final bPath = (b.videoPath ?? '').toLowerCase();
-        return aPath.compareTo(bPath);
-      });
-
-      if (mode == 'probable' && key.startsWith('code:') == false) {
-        final probableItems = _filterProbableDuplicateGroup(items);
-        if (probableItems.length > 1) duplicates.add(probableItems);
+    final candidates = <String, List<int>>{};
+    for (var index = 0; index < videos.length; index++) {
+      final video = videos[index];
+      final code = (video.videoCode ?? '').trim().toLowerCase();
+      if (code.isNotEmpty) {
+        candidates.putIfAbsent('code:$code', () => []).add(index);
         continue;
       }
-
-      duplicates.add(items);
+      final size = (video.filesize ?? 0).toInt();
+      if (mode != 'probable' && size <= 0) continue;
+      final names = {
+        _normalizeDuplicateName(video.videoPath ?? '', filePath: true),
+        _normalizeDuplicateName(video.title ?? ''),
+      };
+      for (final name in names.where((name) => name.length >= 4)) {
+        final key = mode == 'probable' ? 'name:$name' : 'name:$size:$name';
+        candidates.putIfAbsent(key, () => []).add(index);
+      }
     }
 
-    return duplicates;
+    final parents = List.generate(videos.length, (index) => index);
+    int root(int index) {
+      while (parents[index] != index) {
+        parents[index] = parents[parents[index]];
+        index = parents[index];
+      }
+      return index;
+    }
+    for (final entry in candidates.entries) {
+      final indexes = entry.value;
+      if (entry.key.startsWith('code:') || mode != 'probable') {
+        for (final index in indexes.skip(1)) parents[root(index)] = root(indexes.first);
+      } else {
+        for (var i = 0; i < indexes.length; i++) {
+          for (var j = i + 1; j < indexes.length; j++) {
+            if (_isProbableDuplicatePair(videos[indexes[i]], videos[indexes[j]])) {
+              parents[root(indexes[j])] = root(indexes[i]);
+            }
+          }
+        }
+      }
+    }
+    final groups = <int, List<Videos>>{};
+    for (var index = 0; index < videos.length; index++) {
+      groups.putIfAbsent(root(index), () => []).add(videos[index]);
+    }
+    return groups.values.where((items) => items.length > 1).map((items) {
+      items.sort((a, b) => (a.videoPath ?? '').compareTo(b.videoPath ?? ''));
+      return items;
+    }).toList();
   }
 
   static Future<List<Videos>> getListDuplicateVideos({String mode = 'exact'}) async {

@@ -9,6 +9,7 @@ import '../../../core/app_color.dart';
 import '../../../core/app_pref.dart';
 import '../../../core/app_translations.dart';
 import '../../../utils/helper.dart';
+import '../../../utils/r18_updater.dart';
 import '../home_controller.dart';
 import 'page_settings_controller.dart';
 
@@ -27,14 +28,14 @@ class PageSettingsView extends GetView<PageSettingsController> {
 
   Widget uiMainContent(BuildContext context) {
     return Align(
-      alignment: Alignment.topCenter,
+      alignment: Alignment.topLeft,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1120),
+        constraints: const BoxConstraints(maxWidth: 960),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           child: LayoutBuilder(builder: (context, constraints) {
             final preferences = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              _section(Icons.tune_rounded, 'Appearance'.tr, 'Make JavIt feel at home.'.tr, [
+              _section('Appearance'.tr, [
                 buildThemeSetting(),
                 buildLanguageSetting(),
                 _settingRow('Mini Mode'.tr, Obx(() => Align(
@@ -47,10 +48,10 @@ class PageSettingsView extends GetView<PageSettingsController> {
                       AppPref.setAppHideSideMenu(value);
                     },
                   ),
-                )), description: 'Keep the sidebar compact.'.tr),
+                ))),
               ]),
-              const SizedBox(height: 16),
-              _section(Icons.play_circle_outline_rounded, 'Playback & Search'.tr, 'Your player, shortcuts and browsing preferences.'.tr, [
+              const SizedBox(height: 24),
+              _section('Playback & Search'.tr, [
                 _settingRow('Default Player'.tr, Obx(() => _dropdown<String>(
                   value: controller.tecDefaultPlayer.value.isEmpty ? 'In App' : controller.tecDefaultPlayer.value,
                   items: ['In App', 'Default System'].map((value) => DropdownMenuItem(value: value, child: Text(value.tr))).toList(),
@@ -94,47 +95,52 @@ class PageSettingsView extends GetView<PageSettingsController> {
                   )).toList());
                 }),
               ]),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               buildVisualSearchSettings(),
-              const SizedBox(height: 16),
-              _buildStorage(),
             ]);
-            final details = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              _section(Icons.info_outline_rounded, 'Application Info'.tr, 'Your library at a glance.'.tr, [
-                Obx(() => Column(children: [
-                  _infoRow('Version'.tr, '${Env.appVer}'),
-                  Divider(height: 24, color: AppColor.border),
-                  _infoRow('Total Library'.tr, '${controller.totalLibrary.value}'),
-                  _infoRow('Total Video'.tr, controller.totalVideos.value.numberFormat()),
-                  _infoRow('Library size'.tr, controller.totalFilesize.value.toFileSizeFormat()),
-                  _infoRow('Last Relapse'.tr, controller.lastRelapse.value),
-                  Divider(height: 24, color: AppColor.border),
-                  _infoRow('R18 Total Video'.tr, controller.r18TotalVideo.value.numberFormat()),
-                  _infoRow('R18 Version'.tr, '${controller.dbR18Version.value}'),
-                ])),
-              ]),
-              const SizedBox(height: 16),
-              _section(Icons.dashboard_customize_outlined, 'Utilities'.tr, 'Useful places and maintenance.'.tr, [
-                _action(Icons.receipt_long_outlined, 'Open App Log'.tr, controller.onOpenAppLog),
-                _action(Icons.keyboard_outlined, 'Keyboard Shortcuts'.tr, () => HelperOpener.openKeyboardShortcuts()),
-                _action(Icons.folder_outlined, 'Go App Folder'.tr, () => HelperOpener.openFolder(controller.appSetting.appPath)),
-                _action(Icons.folder_copy_outlined, 'Go Cache Folder'.tr, () => HelperOpener.openFolder('/Users/adit/Library/Caches/net_thumbnail')),
-                Divider(height: 20, color: AppColor.border),
-                _action(Icons.sync_rounded, 'Update R18 DB'.tr, controller.updateR18DB),
-              ]),
+            final info = _section('Application Info'.tr, [
+              Obx(() => Column(children: [
+                _infoRow('Version'.tr, '${Env.appVer}'),
+                Divider(height: 24, color: AppColor.border),
+                _infoRow('Total Library'.tr, '${controller.totalLibrary.value}'),
+                _infoRow('Total Video'.tr, controller.totalVideos.value.numberFormat()),
+                _infoRow('Library size'.tr, controller.totalFilesize.value.toFileSizeFormat()),
+                _infoRow('Last Relapse'.tr, controller.lastRelapse.value),
+                Divider(height: 24, color: AppColor.border),
+                _infoRow('R18 Total Video'.tr, controller.r18TotalVideo.value.numberFormat()),
+                _infoRow('R18 Version'.tr, '${controller.dbR18Version.value}'),
+              ])),
+            ]);
+            final utilities = _section('Utilities'.tr, [
+              _action(Icons.receipt_long_outlined, 'Open App Log'.tr, controller.onOpenAppLog),
+              _action(Icons.keyboard_outlined, 'Keyboard Shortcuts'.tr, () => HelperOpener.openKeyboardShortcuts()),
+              _action(Icons.folder_outlined, 'Go App Folder'.tr, () => HelperOpener.openFolder(controller.appSetting.appPath)),
+              _action(Icons.folder_copy_outlined, 'Go Cache Folder'.tr, () => HelperOpener.openFolder('/Users/adit/Library/Caches/net_thumbnail')),
+              Divider(height: 20, color: AppColor.border),
+              Obx(() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                _action(Icons.sync_rounded, 'Update R18 DB'.tr, R18Updater.busy.value ? null : controller.updateR18DB),
+                if (R18Updater.busy.value) LinearProgressIndicator(
+                  value: R18Updater.progress.value < 0 ? null : R18Updater.progress.value,
+                  semanticsLabel: 'Update R18 DB'.tr,
+                ),
+                if (R18Updater.status.value.isNotEmpty) Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(R18Updater.status.value, style: TextStyle(fontSize: 11, color: AppColor.muted)),
+                ),
+              ])),
             ]);
             return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: Text('Personalize your experience and manage your library.'.tr, style: TextStyle(fontSize: 13, color: AppColor.muted)),
-              ),
-              if (constraints.maxWidth >= 840)
+              if (constraints.maxWidth >= 640)
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Expanded(child: preferences),
-                  const SizedBox(width: 20),
-                  SizedBox(width: 300, child: details),
+                  SizedBox(width: 320, child: info),
+                  const SizedBox(width: 32),
+                  Expanded(child: utilities),
                 ])
-              else ...[preferences, const SizedBox(height: 16), details],
+              else ...[info, const SizedBox(height: 20), utilities],
+              const SizedBox(height: 24),
+              preferences,
+              const SizedBox(height: 24),
+              _buildStorage(),
             ]);
           }),
         ),
@@ -142,30 +148,31 @@ class PageSettingsView extends GetView<PageSettingsController> {
     );
   }
 
-  Widget _section(IconData icon, String title, String subtitle, List<Widget> children) => Material(
-    color: AppColor.panel,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: AppColor.border)),
-    child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: AppColor.accent.withValues(alpha: .09), borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, size: 19, color: AppColor.accent),
-        ),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 3),
-          Text(subtitle, style: TextStyle(fontSize: 11, color: AppColor.muted)),
-        ])),
-      ]),
-      const SizedBox(height: 18),
-      ...children,
-    ])),
+  Widget _sectionBackground(Widget child) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: AppColor.text.withValues(alpha: .025), borderRadius: BorderRadius.circular(6)),
+    child: child,
   );
 
+  Widget _section(String title, List<Widget> children, {Widget? action}) => _sectionBackground(Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 32),
+        child: Row(children: [
+          Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(width: 12),
+          Expanded(child: Divider(height: 1, thickness: .5, color: AppColor.border)),
+          if (action != null) ...[const SizedBox(width: 8), action],
+        ]),
+      ),
+      const SizedBox(height: 8),
+      ...children,
+    ],
+  ));
+
   Widget _settingRow(String label, Widget control, {String? description}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 7),
+    padding: const EdgeInsets.symmetric(vertical: 5),
     child: LayoutBuilder(builder: (context, constraints) {
       final title = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label, style: const TextStyle(fontSize: 12)),
@@ -175,14 +182,14 @@ class PageSettingsView extends GetView<PageSettingsController> {
         ),
       ]);
       final input = Semantics(label: label, child: control);
-      if (constraints.maxWidth < 300) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [title, const SizedBox(height: 8), input]);
-      return Row(children: [Expanded(child: title), const SizedBox(width: 16), SizedBox(width: constraints.maxWidth * .52, child: input)]);
+      if (constraints.maxWidth < 420) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [title, const SizedBox(height: 8), input]);
+      return Row(children: [Expanded(child: title), const SizedBox(width: 16), SizedBox(width: 320, child: input)]);
     }),
   );
 
   Widget _dropdown<T>({required T value, required List<DropdownMenuItem<T>> items, required ValueChanged<T?> onChanged}) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-    decoration: BoxDecoration(color: AppColor.body, border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(8)),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    decoration: BoxDecoration(color: AppColor.body, border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(4)),
     child: DropdownButtonHideUnderline(child: DropdownButton<T>(
       value: value, items: items, onChanged: onChanged,
       isExpanded: true, isDense: true, borderRadius: BorderRadius.circular(10),
@@ -194,9 +201,9 @@ class PageSettingsView extends GetView<PageSettingsController> {
 
   Widget _numberField(TextEditingController textController, {Widget? suffix, ValueChanged<String>? onChanged, ValueChanged<String>? onSubmitted}) => CupertinoTextField(
     controller: textController,
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-    style: Get.textTheme.bodyMedium?.copyWith(fontSize: 13, color: AppColor.text),
-    decoration: BoxDecoration(color: AppColor.body, border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(8)),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    style: Get.textTheme.bodyMedium?.copyWith(fontSize: 12, color: AppColor.text),
+    decoration: BoxDecoration(color: AppColor.body, border: Border.all(color: AppColor.border), borderRadius: BorderRadius.circular(4)),
     keyboardType: TextInputType.number,
     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
     suffix: suffix, onChanged: onChanged, onSubmitted: onSubmitted,
@@ -223,30 +230,39 @@ class PageSettingsView extends GetView<PageSettingsController> {
     ]),
   );
 
-  Widget _action(IconData icon, String label, VoidCallback onTap) => ListTile(
-    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-    minLeadingWidth: 20, horizontalTitleGap: 10,
-    dense: true, visualDensity: VisualDensity.compact,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-    leading: Icon(icon, size: 18, color: AppColor.muted),
-    title: Text(label, style: const TextStyle(fontSize: 12)),
-    trailing: Icon(Icons.chevron_right_rounded, size: 16, color: AppColor.muted),
-    onTap: onTap,
+  Widget _action(IconData icon, String label, VoidCallback? onTap) => Material(
+    type: MaterialType.transparency,
+    child: ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+      minLeadingWidth: 20, horizontalTitleGap: 10,
+      dense: true, visualDensity: VisualDensity.compact,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      leading: Icon(icon, size: 18, color: AppColor.muted),
+      title: Text(label, style: const TextStyle(fontSize: 12)),
+      trailing: Icon(Icons.chevron_right_rounded, size: 16, color: AppColor.muted),
+      onTap: onTap,
+    ),
   );
 
-  Widget _buildStorage() => _section(Icons.storage_rounded, 'Storage Usage'.tr, 'Space available across your drives.'.tr, [
+  Widget _buildStorage() => _section('Storage Usage'.tr, [
     Obx(() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Align(alignment: Alignment.centerRight, child: TextButton.icon(
-        onPressed: controller.isLoadingStorage.value ? null : controller.onRefreshStorage,
-        icon: const Icon(Icons.refresh_rounded, size: 16), label: Text('Refresh'.tr),
-      )),
       if (controller.isLoadingStorage.value)
         const Center(child: Padding(padding: EdgeInsets.all(12), child: CupertinoActivityIndicator()))
       else if (controller.storageList.isEmpty)
         Text('No storage detected'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted))
       else for (final item in controller.storageList) _storageRow(item),
     ])),
-  ]);
+  ], action: Obx(() => TextButton.icon(
+    style: TextButton.styleFrom(
+      foregroundColor: AppColor.muted,
+      textStyle: Get.textTheme.labelSmall?.copyWith(fontSize: 11),
+      minimumSize: const Size(0, 32),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    ),
+    onPressed: controller.isLoadingStorage.value ? null : controller.onRefreshStorage,
+    icon: const Icon(Icons.refresh_rounded, size: 14), label: Text('Refresh'.tr),
+  )));
 
   Widget _storageRow(StorageUsage item) {
     final usedPct = item.usedPct.clamp(0, 100);
@@ -442,72 +458,67 @@ class PageSettingsView extends GetView<PageSettingsController> {
     onChanged: (theme) { if (theme != null) controller.setTheme(theme); },
   ), description: controller.appTheme.value == AppTheme.schedule ? 'Light 06:00–17:00 · Dark 17:00–06:00'.tr : null));
 
-  Widget buildVisualSearchSettings() => Container(
-    decoration: BoxDecoration(color: AppColor.panel, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColor.border)),
-    padding: const EdgeInsets.all(20),
-    width: double.infinity,
-    child: Obx(() {
-      final ready = controller.semanticReady.value;
-      final busy = controller.semanticBusy.value;
-      final missing = controller.semanticMissingCount.value;
-      final status = controller.semanticStatus.value;
-      final showStatus = status.isNotEmpty && (busy || !controller.semanticStatusIsRoutine.value);
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: Wrap(spacing: 10, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-          Tooltip(
-            message: 'Local visual search · English queries · One frame per video.\nSetup: ~155 MB + runtime, Python 3.12–3.14, macOS 14+, FFmpeg.\nCLIP ViT-B/32 INT8 · MIT license.'.tr,
-            child: Text('Visual Search'.tr, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-          ),
-          if (ready) Text('@{semanticEmbeddingCount} indexed • @{missing} pending'.trNamed({'semanticEmbeddingCount': '${controller.semanticEmbeddingCount.value}', 'missing': '$missing'}), style: const TextStyle(fontSize: 11)),
-          ])),
-          const SizedBox(width: 8),
-          Tooltip(
-            message: busy ? 'Keep completed work'.tr : ready ? (missing == 0 ? 'All videos are indexed'.tr : 'Index pending videos only'.tr) : 'Download and set up local search'.tr,
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(0, 28), padding: const EdgeInsets.symmetric(horizontal: 10),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              onPressed: busy ? controller.stopSemanticIndex : ready ? (missing > 0 ? controller.generateMissingEmbeddings : null) : controller.setupSemanticSearch,
-              child: Text(busy ? 'Stop'.tr : ready ? 'Index'.tr : 'Set up'.tr, style: const TextStyle(fontSize: 11)),
+  Widget buildVisualSearchSettings() => _sectionBackground(Obx(() {
+    final ready = controller.semanticReady.value;
+    final busy = controller.semanticBusy.value;
+    final missing = controller.semanticMissingCount.value;
+    final status = controller.semanticStatus.value;
+    final showStatus = status.isNotEmpty && (busy || !controller.semanticStatusIsRoutine.value);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: Wrap(spacing: 10, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+        Tooltip(
+          message: 'Local visual search · English queries · One frame per video.\nSetup: ~155 MB + runtime, Python 3.12–3.14, macOS 14+, FFmpeg.\nCLIP ViT-B/32 INT8 · MIT license.'.tr,
+          child: Text('Visual Search'.tr, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        ),
+        if (ready) Text('@{semanticEmbeddingCount} indexed • @{missing} pending'.trNamed({'semanticEmbeddingCount': '${controller.semanticEmbeddingCount.value}', 'missing': '$missing'}), style: const TextStyle(fontSize: 11)),
+        ])),
+        const SizedBox(width: 8),
+        Tooltip(
+          message: busy ? 'Keep completed work'.tr : ready ? (missing == 0 ? 'All videos are indexed'.tr : 'Index pending videos only'.tr) : 'Download and set up local search'.tr,
+          child: OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 28), padding: const EdgeInsets.symmetric(horizontal: 10),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-          ),
-          PopupMenuButton<String>(
-            tooltip: 'Visual Search options'.tr,
-            enabled: !busy,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            icon: const Icon(Icons.more_vert, size: 18),
-            style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-            onSelected: (value) async {
-              switch (value) {
-                case 'refresh': await controller.refreshSemanticStatus(); break;
-                case 'repair': await controller.setupSemanticSearch(); break;
-                case 'rebuild': await controller.reindexAllEmbeddings(); break;
-              }
-            },
-            itemBuilder: (_) => [
-              if (ready) PopupMenuItem(value: 'refresh', child: Text('Refresh status'.tr)),
-              PopupMenuItem(value: 'repair', child: Text('Repair setup'.tr)),
-              if (ready) PopupMenuItem(value: 'rebuild', child: Text('Rebuild frames & index'.tr)),
-            ],
-          ),
-        ]),
-        if (busy) Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: LinearProgressIndicator(
-            minHeight: 2,
-            value: controller.semanticProgress.value < 0 ? null : controller.semanticProgress.value.clamp(0, 1),
-            semanticsLabel: 'Visual Search progress'.tr,
+            onPressed: busy ? controller.stopSemanticIndex : ready ? (missing > 0 ? controller.generateMissingEmbeddings : null) : controller.setupSemanticSearch,
+            child: Text(busy ? 'Stop'.tr : ready ? 'Index'.tr : 'Set up'.tr, style: const TextStyle(fontSize: 11)),
           ),
         ),
-        if (showStatus) Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Tooltip(message: status, child: Text(status, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11))),
+        PopupMenuButton<String>(
+          tooltip: 'Visual Search options'.tr,
+          enabled: !busy,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          icon: const Icon(Icons.more_vert, size: 18),
+          style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+          onSelected: (value) async {
+            switch (value) {
+              case 'refresh': await controller.refreshSemanticStatus(); break;
+              case 'repair': await controller.setupSemanticSearch(); break;
+              case 'rebuild': await controller.reindexAllEmbeddings(); break;
+            }
+          },
+          itemBuilder: (_) => [
+            if (ready) PopupMenuItem(value: 'refresh', child: Text('Refresh status'.tr)),
+            PopupMenuItem(value: 'repair', child: Text('Repair setup'.tr)),
+            if (ready) PopupMenuItem(value: 'rebuild', child: Text('Rebuild frames & index'.tr)),
+          ],
         ),
-      ]);
-    }),
-  );
+      ]),
+      if (busy) Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: LinearProgressIndicator(
+          minHeight: 2,
+          value: controller.semanticProgress.value < 0 ? null : controller.semanticProgress.value.clamp(0, 1),
+          semanticsLabel: 'Visual Search progress'.tr,
+        ),
+      ),
+      if (showStatus) Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Tooltip(message: status, child: Text(status, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11))),
+      ),
+    ]);
+  }));
 
 }

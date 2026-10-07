@@ -34,6 +34,66 @@ class _ChatApi extends ChatService {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('Regeneration excludes the replaced answer, keeps it on failure or stop, and reload saves pending drafts', () async {
+    addTearDown(Get.reset);
+    final db = ChatTestDatabase();
+    Get.put<DBService>(ChatTestService()..dbMain = db);
+    Get.put(AppSettingService()..pref = ChatTestPreferences());
+    final api = _ChatApi();
+    final controller = Get.put(PageChatController(api: api));
+    await controller.reload();
+    controller.input.text = 'First question';
+    await controller.send();
+    controller.input.text = 'Follow-up question';
+    await controller.send();
+    final chat = controller.activeChat.value;
+    final previous = chat.messages.last;
+    controller.input.text = 'Unsent draft';
+    controller.editMessage(chat.messages.first);
+    await controller.retryResponse();
+    expect(api.requests, hasLength(2));
+    controller.cancelEdit();
+    api.fail = true;
+    await controller.retryResponse();
+    expect(chat.messages, hasLength(4));
+    expect(chat.messages.last, same(previous));
+    expect(chat.messages.last.status, 'completed');
+    expect(db.rows['chat_message']!.last['content'], previous.content);
+    expect(api.requests.last, [
+      {'role': 'user', 'content': 'First question'},
+      {'role': 'assistant', 'content': 'Partial answer'},
+      {'role': 'user', 'content': 'Follow-up question'},
+    ]);
+    expect(controller.commandNotice.value, contains('previous answer was kept'));
+    api..fail = false..wait = true..started = Completer();
+    final generation = controller.retryResponse();
+    await api.started.future;
+    expect(db.rows['chat_message']!.last['status'], 'completed');
+    await controller.newChat();
+    await controller.stopResponse();
+    await generation;
+    expect(chat.messages.last, same(previous));
+    expect(controller.messages, isEmpty);
+    await controller.selectChat(chat);
+    expect(controller.input.text, 'Unsent draft');
+    api..wait = false..local = true;
+    await controller.retryResponse();
+    expect(chat.messages.last.id, previous.id);
+    expect(chat.messages.last.provider, 'local');
+    expect(db.rows['chat_message']!.last['provider'], 'local');
+    expect(db.rows['chat_message']!.last['model'], isNull);
+    expect(chat.messages, hasLength(4));
+    controller.input.text = 'Draft before reload';
+    db.failWrites = true;
+    expect(await controller.reload(), isFalse);
+    expect(controller.activeChat.value, same(chat));
+    expect(controller.input.text, 'Draft before reload');
+    db.failWrites = false;
+    expect(await controller.reload(), isTrue);
+    expect(controller.input.text, 'Draft before reload');
+    expect(controller.messages.last.id, previous.id);
+  });
+
   test('Responses persist, retry excludes failed attempts, and switching chat cannot misroute a stopped response', () async {
     final db = ChatTestDatabase();
     Get.put<DBService>(ChatTestService()..dbMain = db);

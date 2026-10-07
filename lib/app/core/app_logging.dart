@@ -13,6 +13,7 @@ mixin AppLog {
     LogLevel level = LogLevel.debug;
     if (!_shouldLog(level)) return;
     ex.logC(ex.LogColor.white, message, name: _getPrefix(level));
+    print('[${_getPrefix(level)}] $message');
     HomePanelAppLog.add('DEBUG', message.toString());
   }
 
@@ -20,6 +21,7 @@ mixin AppLog {
     LogLevel level = LogLevel.info;
     if (!_shouldLog(level)) return;
     ex.logC(ex.LogColor.cyan, message, name: _getPrefix(level));
+    print('[${_getPrefix(level)}] $message');
     HomePanelAppLog.add('INFO', message.toString());
 
   }
@@ -28,6 +30,7 @@ mixin AppLog {
     LogLevel level = LogLevel.warn;
     if (!_shouldLog(level)) return;
     ex.logC(ex.LogColor.orange, message, name: _getPrefix(level));
+    print('[${_getPrefix(level)}] $message');
     HomePanelAppLog.add('WARNING', message.toString());
   }
 
@@ -35,11 +38,13 @@ mixin AppLog {
     LogLevel level = LogLevel.error;
     if (!_shouldLog(level)) return;
     ex.logC(ex.LogColor.red, message, name: _getPrefix(level));
+    print('[${_getPrefix(level)}] $message');
     HomePanelAppLog.add('ERROR', message.toString());
   }
 
    static void logS(dynamic message) {
     ex.logC(ex.LogColor.green, message, name: 'Success');
+    print('[OK] $message');
     HomePanelAppLog.add('OK', message.toString());
   }
 

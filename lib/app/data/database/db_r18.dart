@@ -800,7 +800,7 @@ mixin DBR18 {
   // ────────────────────────────────────────────────────────────────
   // ⵌ Category
   // ────────────────────────────────────────────────────────────────
-  static Future<int> getCountAllVideosByCategory(String categoryName) async {
+  static Future<int> getCountAllVideosByCategory(String categoryName, {ActressMode actressMode = ActressMode.all}) async {
     if (!_isReady()) return 0;
 
     final blacklist = _buildBlacklistClause();
@@ -814,12 +814,14 @@ mixin DBR18 {
         AND c.name_en = ?
         AND v.video_code IS NOT NULL
         ${blacklist['sql']}
+        ${_actressModeClause(actressMode)}
     ''', [categoryName, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosByCategory(
     String categoryName, {
+    ActressMode actressMode = ActressMode.all,
     int page = 1,
     int perPage = 10000,
   }) async {
@@ -846,6 +848,7 @@ mixin DBR18 {
           AND c.name_en = ?
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
+          ${_actressModeClause(actressMode)}
         GROUP BY v.video_code
         ORDER BY
           v.release_date DESC
@@ -857,7 +860,7 @@ mixin DBR18 {
   // ────────────────────────────────────────────────────────────────
   // ⵌ Label
   // ────────────────────────────────────────────────────────────────
-  static Future<int> getCountAllVideosByLabel(String labelName) async {
+  static Future<int> getCountAllVideosByLabel(String labelName, {ActressMode actressMode = ActressMode.all}) async {
     if (!_isReady()) return 0;
 
     final blacklist = _buildBlacklistClause();
@@ -870,12 +873,14 @@ mixin DBR18 {
         AND l.name_en = ?
         AND v.video_code IS NOT NULL
         ${blacklist['sql']}
+        ${_actressModeClause(actressMode)}
     ''', [labelName, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosByLabel(
     String labelName, {
+    ActressMode actressMode = ActressMode.all,
     int page = 1,
     int perPage = 10000,
   }) async {
@@ -901,6 +906,7 @@ mixin DBR18 {
           AND l.name_en = ?
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
+          ${_actressModeClause(actressMode)}
         GROUP BY v.video_code
         ORDER BY
           v.release_date DESC
@@ -912,7 +918,7 @@ mixin DBR18 {
   // ────────────────────────────────────────────────────────────────
   // ⵌ Series
   // ────────────────────────────────────────────────────────────────
-  static Future<int> getCountAllVideosBySeries(String series) async {
+  static Future<int> getCountAllVideosBySeries(String series, {ActressMode actressMode = ActressMode.all}) async {
     if (!_isReady()) return 0;
 
     final blacklist = _buildBlacklistClause();
@@ -933,6 +939,7 @@ mixin DBR18 {
         WHERE v.series_id = ?
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
+          ${_actressModeClause(actressMode)}
       ''', [seriesId, ...blacklist['args']]);
       return maps[0]['total'] as int;
     }
@@ -945,12 +952,14 @@ mixin DBR18 {
       WHERE s.name_en LIKE ?
         AND v.video_code IS NOT NULL
         ${blacklist['sql']}
+        ${_actressModeClause(actressMode)}
     ''', [series, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosBySeries(
     String series, {
+    ActressMode actressMode = ActressMode.all,
     int page = 1,
     int perPage = 10000,
   }) async {
@@ -977,6 +986,7 @@ mixin DBR18 {
           AND s.name_en LIKE ?
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
+          ${_actressModeClause(actressMode)}
         GROUP BY v.video_code
         ORDER BY
           v.release_date DESC
@@ -988,7 +998,7 @@ mixin DBR18 {
   // ────────────────────────────────────────────────────────────────
   // ⵌ Maker / Studio
   // ────────────────────────────────────────────────────────────────
-  static Future<int> getCountAllVideosByStudio(String studio) async {
+  static Future<int> getCountAllVideosByStudio(String studio, {ActressMode actressMode = ActressMode.all}) async {
     if (!_isReady()) return 0;
 
     final blacklist = _buildBlacklistClause();
@@ -1001,12 +1011,14 @@ mixin DBR18 {
         AND (m.name_en = ? OR m.name_ja = ?)
         AND v.video_code IS NOT NULL
         ${blacklist['sql']}
+        ${_actressModeClause(actressMode)}
     ''', [studio, studio, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosByStudio(
     String studio, {
+    ActressMode actressMode = ActressMode.all,
     int page = 1,
     int perPage = 10000,
   }) async {
@@ -1032,6 +1044,7 @@ mixin DBR18 {
           AND (m.name_en = ? OR m.name_ja = ?)
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
+          ${_actressModeClause(actressMode)}
         GROUP BY v.video_code
         ORDER BY
           v.release_date DESC
@@ -1043,7 +1056,7 @@ mixin DBR18 {
   // ────────────────────────────────────────────────────────────────
   // ⵌ Director
   // ────────────────────────────────────────────────────────────────
-  static Future<int> getCountAllVideosByDirector(String director) async {
+  static Future<int> getCountAllVideosByDirector(String director, {ActressMode actressMode = ActressMode.all}) async {
     if (!_isReady()) return 0;
 
     final blacklist = _buildBlacklistClause();
@@ -1057,12 +1070,14 @@ mixin DBR18 {
         AND (d.name_romaji = ? OR d.name_kana = ?)
         AND v.video_code IS NOT NULL
         ${blacklist['sql']}
+        ${_actressModeClause(actressMode)}
     ''', [director, director, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosByDirector(
     String director, {
+    ActressMode actressMode = ActressMode.all,
     int page = 1,
     int perPage = 10000,
   }) async {
@@ -1089,6 +1104,7 @@ mixin DBR18 {
           AND (d.name_romaji = ? OR d.name_kana = ?)
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
+          ${_actressModeClause(actressMode)}
         GROUP BY v.video_code
         ORDER BY
           v.release_date DESC
@@ -1100,7 +1116,7 @@ mixin DBR18 {
   // ────────────────────────────────────────────────────────────────
   // ⵌ Year
   // ────────────────────────────────────────────────────────────────
-  static Future<int> getCountAllVideosByYear(String year) async {
+  static Future<int> getCountAllVideosByYear(String year, {ActressMode actressMode = ActressMode.all}) async {
     if (!_isReady()) return 0;
 
     final blacklist = _buildBlacklistClause();
@@ -1112,12 +1128,14 @@ mixin DBR18 {
         AND v.release_date LIKE ?
         AND v.video_code IS NOT NULL
         ${blacklist['sql']}
+        ${_actressModeClause(actressMode)}
     ''', ['$year%', ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
   static Future<List<Map<String, dynamic>>> getAllVideosByYear(
     String year, {
+    ActressMode actressMode = ActressMode.all,
     int page = 1,
     int perPage = 10000,
   }) async {
@@ -1142,6 +1160,7 @@ mixin DBR18 {
           AND v.release_date LIKE ?
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
+          ${_actressModeClause(actressMode)}
         GROUP BY v.video_code
         ORDER BY
           v.release_date DESC

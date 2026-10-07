@@ -32,12 +32,16 @@ class _ChatApi extends ChatService {
     return 'Berjalan di tengah hujan';
   }
   Completer<void>? wait;
+  bool cancelWait = false;
   final requests = <List<Map<String, String>>>[];
   @override
   Stream<String> reply(List<Map<String, String>> messages, CancelToken cancelToken) async* {
     requests.add(messages);
     onActivity?.call('Checking your library');
-    if (wait != null) await wait!.future;
+    if (wait != null) {
+      if (cancelWait) { await Future.any([wait!.future, cancelToken.whenCancel]); }
+      else { await wait!.future; }
+    }
     yield 'Test answer';
   }
 }
@@ -59,6 +63,186 @@ class _PagedKnowledge extends ChatKnowledge {
 }
 
 void main() {
+  testWidgets('Chat shortcuts manage chats, focus, history and responses without affecting dialogs or other pages', (tester) async {
+    addTearDown(Get.reset);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1100, 800);
+    final database = ChatTestDatabase();
+    Get.put<DBService>(ChatTestService()..dbMain = database);
+    Get.put(AppSettingService()..pref = ChatTestPreferences());
+    final api = _ChatApi();
+    final controller = Get.put(PageChatController(api: api));
+    await tester.pumpWidget(GetMaterialApp(home: const Scaffold(body: PageChatView())));
+    await tester.pumpAndSettle();
+    Future<void> shortcut(LogicalKeyboardKey key, {bool shift = false}) async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      if (shift) await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(key);
+      if (shift) await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pumpAndSettle();
+    }
+    controller.input.text = 'Original question';
+    await controller.send();
+    final first = controller.activeChat.value;
+    controller.input.text = 'Keep my draft';
+    await shortcut(LogicalKeyboardKey.keyN);
+    expect(controller.activeChat.value, isNot(same(first)));
+    expect(controller.chats, hasLength(2));
+    await shortcut(LogicalKeyboardKey.keyW);
+    expect(controller.activeChat.value, same(first));
+    expect(controller.chats, hasLength(1));
+    expect(controller.input.text, 'Keep my draft');
+    expect(find.text('Delete chat?'), findsNothing);
+    database.failWrites = true;
+    await shortcut(LogicalKeyboardKey.keyW);
+    expect(controller.chats, hasLength(1));
+    expect(controller.error.value, isNotEmpty);
+    database.failWrites = false;
+    await controller.retry();
+    await shortcut(LogicalKeyboardKey.keyF);
+    expect(controller.searchFocusNode.hasFocus, isTrue);
+    await shortcut(LogicalKeyboardKey.keyL);
+    expect(controller.focusNode.hasFocus, isTrue);
+    await shortcut(LogicalKeyboardKey.keyS, shift: true);
+    expect(controller.sidebarVisible.value, isFalse);
+    await shortcut(LogicalKeyboardKey.keyF);
+    expect(controller.sidebarVisible.value, isTrue);
+    expect(controller.searchFocusNode.hasFocus, isTrue);
+    await shortcut(LogicalKeyboardKey.keyL);
+    await shortcut(LogicalKeyboardKey.keyR, shift: true);
+    expect(api.requests, hasLength(2));
+    expect(controller.messages, hasLength(2));
+    expect(controller.input.text, 'Keep my draft');
+    controller.editMessage(controller.messages.first);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(controller.editingMessageId.value, isNull);
+    expect(controller.focusNode.hasFocus, isTrue);
+    await tester.tap(find.byTooltip('Chat shortcuts'));
+    await tester.pumpAndSettle();
+    await shortcut(LogicalKeyboardKey.keyW);
+    expect(controller.chats, hasLength(1));
+    await tester.tap(find.widgetWithText(TextButton, 'Close'));
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(400, 800);
+    await tester.pumpAndSettle();
+    controller.focusNode.requestFocus();
+    await shortcut(LogicalKeyboardKey.keyF);
+    expect(controller.scaffoldKey.currentState!.isDrawerOpen, isTrue);
+    expect(controller.searchFocusNode.hasFocus, isTrue);
+    await shortcut(LogicalKeyboardKey.keyL);
+    expect(controller.scaffoldKey.currentState!.isDrawerOpen, isFalse);
+    expect(controller.focusNode.hasFocus, isTrue);
+    api..wait = Completer<void>()..cancelWait = true;
+    controller.input.text = 'Stop this response';
+    final sending = controller.send();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(controller.respondingChatId.value, first.id);
+    await shortcut(LogicalKeyboardKey.period);
+    await sending;
+    expect(controller.respondingChatId.value, isNull);
+    expect(controller.messages.last.status, 'cancelled');
+    await tester.pumpWidget(GetMaterialApp(home: const Scaffold(body: Text('Another page'))));
+    await tester.pumpAndSettle();
+    await shortcut(LogicalKeyboardKey.keyW);
+    await shortcut(LogicalKeyboardKey.keyN);
+    expect(controller.chats, hasLength(1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Chat code links open video info for each code alias and preserve the draft', (tester) async {
+    addTearDown(Get.reset);
+    Get.put<DBService>(ChatTestService()..dbMain = ChatTestDatabase());
+    Get.put(AppSettingService()..pref = ChatTestPreferences());
+    final controller = Get.put(PageChatController(api: _ChatApi()));
+    final opened = <dynamic>[];
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageChatView(openVideoInfo: (item) async { opened.add(item); }))));
+    await tester.pumpAndSettle();
+    final chat = controller.activeChat.value;
+    final question = await DBChat.send(chat, 'Show codes');
+    final answer = await DBChat.addAssistant(chat, 'test', provider: 'test');
+    chat.messages.addAll([question, answer]);
+    controller.usePrompt('Keep this draft');
+    for (final column in ['code', 'video_code', 'dvd_id']) {
+      answer..status = 'completed'..content = ChatKnowledge.render({
+        'columns': [column], 'rows': [[' TEST-001 '], [null], [''], [123]],
+        'sources': ['fixture'], 'elapsed_ms': 1,
+      });
+      controller.activeChat.refresh();
+      await tester.pumpAndSettle();
+      final code = find.textContaining('TEST-001', findRichText: true);
+      await tester.ensureVisible(code);
+      await tester.tap(code);
+      await tester.pump();
+      expect(opened.last, {'video_code': 'TEST-001'});
+      expect(controller.input.text, 'Keep this draft');
+      expect(answer.content.split('javit-video:').length - 1, 1);
+    }
+    answer.content = '| dvd_id | Title |\n| --- | --- |\n| OLD-001 | Legacy title |';
+    controller.activeChat.refresh();
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('OLD-001', findRichText: true));
+    await tester.pump();
+    expect(opened.last, {'video_code': 'OLD-001'});
+    expect(opened, hasLength(4));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Background responses link to their chat and long answers can return to the latest messages', (tester) async {
+    addTearDown(Get.reset);
+    Get.put<DBService>(ChatTestService()..dbMain = ChatTestDatabase());
+    Get.put(AppSettingService()..pref = ChatTestPreferences());
+    final api = _ChatApi()..wait = Completer<void>();
+    final controller = Get.put(PageChatController(api: api));
+    await tester.pumpWidget(GetMaterialApp(home: const Scaffold(body: PageChatView())));
+    await tester.pumpAndSettle();
+    controller.input.text = 'First question';
+    final sending = controller.send();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final first = controller.activeChat.value;
+    await controller.newChat();
+    final background = controller.activeChat.value;
+    controller.input.text = 'Background draft';
+    await tester.pump();
+    expect(find.text('Replying in First question'), findsOneWidget);
+    expect(find.byTooltip('Stop response'), findsOneWidget);
+    await tester.tap(find.text('View chat'));
+    await tester.pump();
+    expect(controller.activeChat.value, same(first));
+    expect(find.text('Replying in First question'), findsNothing);
+    expect(background.draft, 'Background draft');
+    api.wait!.complete();
+    await sending;
+    await tester.pumpAndSettle();
+    expect(find.text('Regenerate response'), findsOneWidget);
+    await tester.tap(find.text('Regenerate response'));
+    await tester.pumpAndSettle();
+    expect(controller.messages, hasLength(2));
+    expect(api.requests, hasLength(2));
+    expect(api.requests.last, [{'role': 'user', 'content': 'First question'}]);
+    controller.messages.last.content = List.generate(50, (index) => 'Paragraph $index with enough text to scroll.').join('\n\n');
+    controller.activeChat.refresh();
+    await tester.pumpAndSettle();
+    controller.scrollController.jumpTo(400);
+    await tester.pumpAndSettle();
+    expect(find.text('Latest messages'), findsOneWidget);
+    controller.messages.last.content += '\n\nA new streamed paragraph.';
+    controller.activeChat.refresh();
+    await tester.pump();
+    expect(controller.scrollController.offset, 400);
+    await tester.tap(find.text('Latest messages'));
+    await tester.pumpAndSettle();
+    expect(controller.scrollController.offset, 0);
+    expect(find.text('Latest messages'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Image preview supports arrow navigation, bounds and close without changing the draft', (tester) async {
     addTearDown(Get.reset);
     Get.put<DBService>(ChatTestService()..dbMain = ChatTestDatabase());
@@ -163,7 +347,7 @@ void main() {
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
     await tapAction(13, 20);
-    expect(controller.input.text, contains('Find videos similar to TEST-001'));
+    expect(controller.input.text, PageChatController.templates['/similar']!.prompt.replaceAll('[CODE]', 'TEST-001'));
     await controller.flushDraft();
     expect(tester.takeException(), isNull);
   });
@@ -198,6 +382,19 @@ void main() {
     await tester.pump();
     expect(controller.input.selection.textInside(controller.input.text), '[topic]');
     expect(controller.input.text, contains('Do not cap the total results'));
+    await controller.send();
+    expect(controller.messages, isEmpty);
+    expect(controller.commandNotice.value, 'Fill in the template fields before sending.');
+    controller.useTemplate('/filter');
+    await tester.pump();
+    expect(controller.input.selection.textInside(controller.input.text), '[theme 1]');
+    await tester.tap(find.text('Next template field'));
+    await tester.pump();
+    expect(controller.input.selection.textInside(controller.input.text), '[theme 2]');
+    expect(controller.templateFields('Explain [this Markdown link](https://example.com)'), isEmpty);
+    expect(controller.templateFields('[topik] and [tema 1]'), hasLength(2));
+    controller.input.text = controller.input.text.replaceAll('[theme 1]', 'rain').replaceAll('[theme 2]', 'outdoor');
+    expect(controller.templateFields(controller.input.text), isEmpty);
     controller.usePrompt('/r18');
     await controller.send();
     expect(controller.input.selection.textInside(controller.input.text), '[topic]');
@@ -372,7 +569,7 @@ void main() {
     expect(find.text('1–25 of 200 · Page 1/8'), findsOneWidget);
     expect(find.text('Image', findRichText: true), findsOneWidget);
     expect(find.byIcon(Icons.image_not_supported_outlined), findsNWidgets(25));
-    expect(find.text('TEST-200', findRichText: true), findsNothing);
+    expect(find.textContaining('TEST-200', findRichText: true), findsNothing);
     final next = find.byTooltip('Next results');
     for (var i = 0; i < 7; i++) {
       await Scrollable.ensureVisible(tester.element(next), alignment: .5);
@@ -382,7 +579,7 @@ void main() {
     }
     expect(find.text('176–200 of 200 · Page 8/8'), findsOneWidget);
     expect(find.byIcon(Icons.image_not_supported_outlined), findsNWidgets(25));
-    expect(find.text('TEST-200', findRichText: true), findsOneWidget);
+    expect(find.textContaining('TEST-200', findRichText: true), findsOneWidget);
     final copy = find.byTooltip('Copy message').first;
     await tester.ensureVisible(copy);
     await tester.tap(copy);
@@ -390,7 +587,7 @@ void main() {
     expect(copied, response.content);
     await controller.reload();
     await tester.pumpAndSettle();
-    expect(controller.messages.last.content, contains('| TEST-200 |'));
+    expect(controller.messages.last.content, contains('| [TEST-200](javit-video:TEST-200) |'));
     expect(tester.takeException(), isNull);
   });
 

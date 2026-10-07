@@ -439,7 +439,7 @@ class Worker:
 
 def main():
     if len(sys.argv) < 3:
-        raise SystemExit('Usage: semantic_worker.py setup RUNTIME | serve RUNTIME DATABASE')
+        raise SystemExit('Usage: visual_search_worker.py setup RUNTIME | serve RUNTIME DATABASE')
     command, root = sys.argv[1], Path(sys.argv[2])
     signal.signal(signal.SIGTERM, stop_worker)
     if command == 'verify':

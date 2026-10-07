@@ -39,7 +39,7 @@ class HomeBinding extends Bindings {
                   final db = Get.find<DBService>();
                   final path = source == 'javit.db' ? db.dbMain.path : db.dbR18?.path;
                   if (path == null) throw StateError('The selected database is unavailable.'.tr);
-                  return ChatKnowledge(mainPath: path, loadScript: () => rootBundle.loadString('assets/sql_editor.py')).request(request, token);
+                  return ChatKnowledge(mainPath: path, loadScript: () => rootBundle.loadString('assets/sql_editor_worker.py')).request(request, token);
                 }),
         permanent: true);
 

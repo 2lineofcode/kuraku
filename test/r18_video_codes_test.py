@@ -3,7 +3,7 @@ import sqlite3
 from pathlib import Path
 
 
-create_video_codes = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'assets/r18_to_javit.py'))['create_video_codes']
+create_video_codes = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'assets/r18_database_importer.py'))['create_video_codes']
 
 
 def database():

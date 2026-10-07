@@ -44,6 +44,17 @@ class _Adapter implements HttpClientAdapter {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('Chat knowledge follows the active R18 database after install and update', () async {
+    String? path;
+    final knowledge = ChatKnowledge(mainPath: '/main.db', resolveR18Path: () => path,
+      loadScript: () async => 'import json,sys; print(json.dumps({"r18": json.load(sys.stdin)["r18"]}))');
+    expect(knowledge.directQuery('ABP-001')!['args'], ['ABP-001']);
+    for (final next in ['/r18_old.db', '/r18_new.db', null]) {
+      path = next;
+      expect((await knowledge.request({}, CancelToken()))['r18'], next);
+      expect(knowledge.directQuery('ABP-001')!['args'], next == null ? ['ABP-001'] : ['ABP-001', 'ABP-001']);
+    }
+  });
   test('Bundled worker reads a real database and cancels a running query', () async {
     final folder = await Directory.systemTemp.createTemp('javit-knowledge-test-');
     addTearDown(() => folder.delete(recursive: true));
@@ -51,7 +62,7 @@ void main() {
     final setup = await Process.run('python3', ['-B', '-c',
       'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("CREATE TABLE videos (video_code TEXT)"); c.executemany("INSERT INTO videos VALUES (?)", [("TEST-001",)]*100); c.commit(); c.close()', path]);
     expect(setup.exitCode, 0);
-    final knowledge = ChatKnowledge(mainPath: path, loadScript: () => rootBundle.loadString('assets/chat_knowledge.py'));
+    final knowledge = ChatKnowledge(mainPath: path, loadScript: () => rootBundle.loadString('assets/chat_database_worker.py'));
     final result = await knowledge.request({'sql': 'SELECT COUNT(*) AS total FROM main.videos'}, CancelToken());
     expect(result['rows'], [[100]]);
     final token = CancelToken();
@@ -78,6 +89,10 @@ void main() {
     expect(result, contains('javit.db'));
     expect(knowledge.queries.single['sql'], contains('COUNT(*)'));
     expect(knowledge.directQuery('berapa video saya dengan kualitas 4K'), isNull);
+    expect(knowledge.directQuery('Koleksi gue ada berapa video?')!['sql'], contains('COUNT(*)'));
+    expect(knowledge.directQuery('Tampilkan favorit gue')!['sql'], contains('is_favorite = 1'));
+    expect(knowledge.directQuery('Bandingin koleksi gue sama katalog R18')!['sql'], contains('owned_in_catalog'));
+    expect(knowledge.directQuery('total video r18')!['sql'], contains('COUNT(DISTINCT'));
     expect(knowledge.directQuery('jelaskan TEST-123 dibandingkan TEST-456'), isNull);
     expect(knowledge.directQuery('cek kode test-123')!['args'], ['TEST-123', 'TEST-123']);
     expect(knowledge.directQuery('coba check video eyan-181')!['args'], ['EYAN-181', 'EYAN-181']);
@@ -98,13 +113,14 @@ void main() {
 
   test('Complex questions use a bounded query, then stream a grounded answer', () async {
     final knowledge = _Knowledge();
-    final adapter = _Adapter();
+    final adapter = _Adapter()..answers[0] = '{"sql":"SELECT COUNT(*) AS total FROM main.videos WHERE title = ?","args":["Rain"]}';
     final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
     addTearDown(api.close);
     final messages = [{'role': 'user', 'content': 'Count my 4K favorites'}];
     final result = await api.reply(messages, CancelToken()).join();
     expect(adapter.requests.length, 2);
-    expect(knowledge.queries.last['sql'], 'SELECT COUNT(*) AS total FROM main.videos');
+    expect(knowledge.queries.last['sql'], 'SELECT COUNT(*) AS total FROM main.videos WHERE title = ?');
+    expect(knowledge.queries.last['args'], ['Rain']);
     expect(result, contains('**42**'));
     expect(result, contains('javit.db'));
     expect(adapter.requests.last.data['messages'].last['content'], contains('"rows":[[42]]'));
@@ -124,7 +140,7 @@ void main() {
     final result = await api.reply([{'role': 'user', 'content': 'Show 200 matching videos'}], CancelToken()).join();
     expect(adapter.requests, hasLength(1));
     expect(result, contains('| Image | Code | Title |'));
-    expect(result, contains('| TEST-200 | Sample title 200 |'));
+    expect(result, contains('| [TEST-200](javit-video:TEST-200) | Sample title 200 |'));
     expect(result, contains('200 records'));
     expect(result, isNot(contains('dvd_id')));
     expect(result, isNot(contains('limited result')));
@@ -192,6 +208,19 @@ void main() {
     expect(saved?['unowned'], true);
     expect(saved?['has_more'], true);
     expect(adapter.requests, hasLength(2));
+  });
+
+  test('Similarity rejects searches that skip reading the reference metadata', () async {
+    final knowledge = _Knowledge();
+    final adapter = _Adapter()..answers.clear()..answers.addAll([
+      '{"terms":["rain"],"source":"r18","similar_to":"TEST-001","limit":25}',
+      'The reference metadata must be read before searching.',
+    ]);
+    final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
+    addTearDown(api.close);
+    await api.reply([{'role': 'user', 'content': 'Find similar themes to TEST-001'}], CancelToken()).join();
+    expect(knowledge.queries.where((query) => query['operation'] == 'search_titles'), isEmpty);
+    expect(jsonEncode(adapter.requests.last.data['messages']), contains('Read the reference metadata'));
   });
 
   test('Textual tool markup is hidden and retried using the local tool', () async {

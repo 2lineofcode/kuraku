@@ -4,11 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_list_view/flutter_list_view.dart';
 import 'package:get/get.dart';
+import 'package:path/path.dart' as p;
 import 'package:uicons_pro/uicons_pro.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_translations.dart';
 import '../../../data/database/db_videos.dart';
+import '../../../data/models/activity_entity.dart';
+import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_media_stack.dart';
 import '../../widgets/widget_thumbnail.dart';
@@ -261,239 +264,225 @@ class PageToolsView extends GetView<PageToolsController> {
     ).pOnly(left: 8);
   }
  
-  Widget uiDuplicateVideo() {
-    return VStack(
-      [
-        HStack([
-          Obx(() => 'Duplicate Groups: @{duplicateGroupCount} | Matched Videos: @{length}'.trNamed({'duplicateGroupCount': '${controller.duplicateGroupCount.value}', 'length': '${controller.duplicateVideoList.length}'}).text.make()),
-          Spacer(),
-          Obx(
-            () => HStack(
-              controller.duplicateModes.map((mode) {
-                final isSelected = controller.duplicateMode.value == mode;
-                return ExButtonOutline(
-                  label: mode == 'exact' ? 'Exact'.tr : 'Probable'.tr,
-                  labelSize: 11,
-                  labelColor: isSelected ? AppColor.text : AppColor.muted,
-                  borderColor: isSelected ? AppColor.selected : AppColor.container,
-                  backgroundColor: isSelected ? AppColor.selected : AppColor.container,
-                  onPressed: () => controller.setDuplicateMode(mode),
-                ).pOnly(left: 8);
-              }).toList(),
-            ),
-          ),
-        ]).pOnly(bottom: 12),
-        Obx(
-          () => (
-            controller.duplicateMode.value == 'exact'
-                ? 'Exact = same code, or non-JAV with the same file size and normalized filename'.tr
-                : 'Probable = same normalized filename/title, useful for downloads at different resolutions'.tr
-          ).text.size(11).color(AppColor.muted).make().pOnly(bottom: 12),
-        ),
-        Expanded(
-          child: Obx(
-            () {
-              if (controller.duplicateVideoList.isEmpty) {
-                return ExUiErrorOrEmpty(
-                  illustration: Icon(UIconsPro.regularRounded.flame, size: 128),
-                  title: controller.duplicateMode.value == 'exact'
-                      ? '~ No Exact Duplicate Found 🔥 ~'.tr
-                      : '~ No Probable Duplicate Found 🔥 ~'.tr,
-                );
-              }
+  Widget uiDuplicateVideo() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+      for (final mode in controller.duplicateModes) Obx(() => ExButtonOutline(
+        label: mode == 'exact' ? 'Same Video'.tr : 'Probable'.tr,
+        labelSize: 11,
+        labelColor: controller.duplicateMode.value == mode ? AppColor.text : AppColor.muted,
+        borderColor: controller.duplicateMode.value == mode ? AppColor.selected : AppColor.container,
+        backgroundColor: controller.duplicateMode.value == mode ? AppColor.selected : AppColor.container,
+        onPressed: () => controller.setDuplicateMode(mode),
+      )),
+      Obx(() => IconButton(
+        tooltip: 'Refresh'.tr,
+        icon: const Icon(Icons.refresh_rounded, size: 16),
+        onPressed: controller.duplicateLoading.value ? null : controller.getDuplicateVideos,
+      )),
+      Obx(() => Text('@{groups} groups · @{videos} videos'.trNamed({'groups': '${controller.duplicateGroups.length}', 'videos': '${controller.duplicateVideoCount}'}), style: TextStyle(fontSize: 11, color: AppColor.muted))),
+    ]),
+    const SizedBox(height: 8),
+    Obx(() => Text(controller.duplicateMode.value == 'exact'
+      ? 'Same code, or matching names and file sizes. File contents are not verified.'.tr
+      : 'Matching names or titles with similar duration or size. Review each candidate.'.tr,
+      style: TextStyle(fontSize: 11, color: AppColor.muted),
+    )),
+    const SizedBox(height: 12),
+    CupertinoTextField(
+      controller: controller.tecDuplicateSearch,
+      placeholder: 'Search code, title, path or resolution...'.tr,
+      style: TextStyle(fontSize: 12, color: AppColor.text),
+      padding: const EdgeInsets.all(8),
+      prefix: Padding(padding: const EdgeInsets.only(left: 8), child: Icon(Icons.search_rounded, size: 16, color: AppColor.muted)),
+      clearButtonMode: OverlayVisibilityMode.editing,
+      onChanged: (value) => controller.duplicateQuery.value = value,
+    ),
+    const SizedBox(height: 12),
+    Expanded(child: Obx(() {
+      if (controller.duplicateLoading.value) return const Center(child: CupertinoActivityIndicator());
+      if (controller.duplicateError.value.isNotEmpty) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(controller.duplicateError.value, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+        TextButton(onPressed: controller.getDuplicateVideos, child: Text('Retry'.tr)),
+      ]));
+      final groups = controller.filteredDuplicateGroups;
+      if (groups.isEmpty) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.video_library_outlined, size: 36, color: AppColor.muted),
+        const SizedBox(height: 12),
+        Text(controller.duplicateGroups.isEmpty ? 'No duplicate candidates found'.tr : 'No matching groups'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),
+      ]));
+      return ListView.separated(
+        itemCount: groups.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (_, index) => _duplicateGroup(groups[index]),
+      );
+    })),
+  ]).pOnly(left: 8);
 
-              return Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(1),
-                  1: FlexColumnWidth(4),
-                },
-                border: TableBorder.all(width: 0.5, color: AppColor.border),
-                children: [
-                  TableRow(
-                    decoration: BoxDecoration(color: AppColor.container),
-                    children: [
-                      'Code'.tr.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                      'Path'.tr.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                      'Size'.tr.text.bold.size(12).make().pOnly(left: 8).pSymmetric(v: 6),
-                    ],
-                  ),
-                  ...List.generate(
-                    controller.duplicateVideoList.length,
-                    (index) {
-                      final item = controller.duplicateVideoList[index];
-                      final rowColor = controller.duplicateHoveredIndex.value == index ? AppColor.hover : Colors.transparent;
-                      return TableRow(
-                        children: [
-                          MouseRegion(
-                            onEnter: (_) => controller.onDuplicateHover(index, true),
-                            onExit: (_) => controller.onDuplicateHover(index, false),
-                            child: AnimatedContainer(
-                              duration: 120.milliseconds,
-                              color: rowColor,
-                              child: '${item.videoCode.isNotEmptyAndNotNull ? item.videoCode : item.title.isNotEmptyAndNotNull ? item.title : 'NON-JAV'}'
-                                  .text
-                                  .color(item.videoCode.isNotEmptyAndNotNull ? null : Vx.red300)
-                                  .ellipsis
-                                  .size(12)
-                                  .make()
-                                  .p12()
-                                  .onInkTap(() {
-                                HomePanelVideoInfo.open(item);
-                              }),
-                            ),
-                          ),
-                          MouseRegion(
-                            onEnter: (_) => controller.onDuplicateHover(index, true),
-                            onExit: (_) => controller.onDuplicateHover(index, false),
-                            child: AnimatedContainer(
-                              duration: 120.milliseconds,
-                              color: rowColor,
-                              child: (HelperMisc.isExternalDrive(item.videoPath)
-                                      ? 'External → @{segment}'.trNamed({'segment': '${item.videoPath!.getLastSegments(segment: 1)}'})
-                                      : 'Local → @{getLastPath}'.trNamed({'getLastPath': '${item.videoPath!.getLastPath()}'}))
-                                  .text
-                                  .ellipsis
-                                  .size(12)
-                                  .color(AppColor.muted)
-                                  .make()
-                                  .p12()
-                                  .onInkTap(() async {
-                                await HomePanelVideoInfo.open(item);
-                              }),
-                            ),
-                          ),
-                          MouseRegion(
-                            onEnter: (_) => controller.onDuplicateHover(index, true),
-                            onExit: (_) => controller.onDuplicateHover(index, false),
-                            child: AnimatedContainer(
-                              duration: 120.milliseconds,
-                              color: rowColor,
-                              child: '${item.filesize?.toFileSizeFormat()}'.text.ellipsis.size(12).make().p12().onInkTap(() async {
-                                await HomePanelVideoInfo.open(item);
-                              }),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ).scrollVertical();
-            },
-          ),
-        ),
-      ],
-    ).pOnly(left: 8);
+  Widget _duplicateGroup(List<Videos> videos) {
+    final first = videos.first;
+    final code = (first.videoCode ?? '').trim();
+    final title = code.isNotEmpty ? code : (first.title ?? '').trim().isNotEmpty ? first.title! : p.basename(first.videoPath ?? '');
+    final reason = code.isNotEmpty ? 'Same video code'.tr : controller.duplicateMode.value == 'exact' ? 'Matching names and file sizes'.tr : 'Similar names and duration or size'.tr;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: AppColor.text.withValues(alpha: .025), borderRadius: BorderRadius.circular(6)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+          const SizedBox(width: 8),
+          Text('@{count} files'.trNamed({'count': '${videos.length}'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
+        ]),
+        const SizedBox(height: 4),
+        Text(reason, style: TextStyle(fontSize: 10, color: AppColor.muted)),
+        for (final video in videos) ...[
+          Divider(height: 20, thickness: .5, color: AppColor.border),
+          _duplicateFile(video),
+        ],
+      ]),
+    );
   }
 
-  Widget uiTODO() {
-    if (controller.todoList.isEmpty) {
-      return ExUiErrorOrEmpty(
-        child: VStack([
-          Icon(UIconsPro.regularRounded.to_do_alt, size: 128).pOnly(bottom: 16).centered(),
-          'No Data TODO'.tr.text.bold.makeCentered().pOnly(bottom: 2),
-          'You can add todo by clicking the button below'.tr.text.size(12).makeCentered().pOnly(bottom: 12),
-          ExButtonText(
-            label: 'Add New Todo'.tr,
-            labelSize: 13,
-            isLabelBold: true,
-            onPressed: () => controller.addTodo(),
-          ).tooltip('Add Todo: [⌘ + T]'.tr).centered(),
-        ]).centered(),
-      );
-    }
-    return VStack(
-      [
-        HStack([
-          Obx(() => 'Total Todo: @{length}'.trNamed({'length': '${controller.todoList.length}'}).text.make()),
-          Spacer(),
-          Tooltip(
-            message: 'Add Todo: [⌘ + T]'.tr,
-            child: IconButton(
-              icon: Icon(UIconsPro.regularRounded.plus, size: 14),
-              onPressed: () => controller.addTodo(),
-            ),
-          ),
-        ]).pOnly(bottom: 12),
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(width: .5, color: AppColor.border),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColor.container,
-                    border: Border(
-                      bottom: BorderSide(width: .5, color: AppColor.border),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      _buildHeaderCell('Thumbnail'.tr, flex: 1),
-                      _buildHeaderCell('Todo'.tr, flex: 4),
-                      _buildHeaderCell('Action'.tr, flex: 1, isLast: true),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Obx(
-                    () {
-                      final hoveredIndex = controller.todoHoveredIndex.value;
-                      return ListView.builder(
-                        itemCount: controller.todoList.length,
-                        itemBuilder: (context, index) {
-                          final item = controller.todoList[index];
-                          final todoText = item.content ?? '';
-                          final code = todoText.replaceAll('✔︎', '').trim();
+  Widget _duplicateFile(Videos video) {
+    final path = video.videoPath ?? '';
+    final available = controller.duplicateFileAvailable[path] == true;
+    final poster = (video.poster ?? '').isNotEmpty ? video.poster! : video.fanArt ?? '';
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      ClipRRect(borderRadius: BorderRadius.circular(4), child: SizedBox(width: 56, height: 72,
+        child: poster.isEmpty ? Icon(Icons.movie_outlined, size: 22, color: AppColor.muted) : ExThumbnail(imageUrl: poster, width: 56, height: 72, prefix: 1.9),
+      )),
+      const SizedBox(width: 10),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Tooltip(message: path, child: Text(p.basename(path), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+        const SizedBox(height: 6),
+        Wrap(spacing: 10, runSpacing: 4, children: [
+          Text((video.quality ?? '').isEmpty ? 'Unknown resolution'.tr : HelperMisc.formatVideoQuality(video.quality!), style: TextStyle(fontSize: 11, color: AppColor.muted)),
+          Text((video.filesize ?? 0) > 0 ? video.filesize!.toFileSizeFormat() : 'Unknown size'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted)),
+          if ((video.duration ?? 0) > 0) Text(HelperMisc.durationFormatDB(video.duration!), style: TextStyle(fontSize: 11, color: AppColor.muted)),
+        ]),
+        const SizedBox(height: 6),
+        Tooltip(message: path, child: Text(path, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: AppColor.muted))),
+        const SizedBox(height: 4),
+        Wrap(spacing: 8, runSpacing: 4, children: [
+          Text(HelperMisc.isExternalDrive(path) ? 'External drive'.tr : 'Local drive'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted)),
+          Text(available ? 'Available'.tr : 'Unavailable'.tr, style: TextStyle(fontSize: 10, color: available ? AppColor.muted : Colors.orange)),
+        ]),
+      ])),
+      const SizedBox(width: 4),
+      Column(mainAxisSize: MainAxisSize.min, children: [
+        IconButton(tooltip: 'Open Info'.tr, icon: const Icon(Icons.info_outline_rounded, size: 16),
+          style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+          onPressed: () => HomePanelVideoInfo.open(video),
+        ),
+        IconButton(tooltip: 'Open File Path'.tr, icon: const Icon(Icons.folder_open_rounded, size: 16),
+          style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+          onPressed: available ? () => HelperOpener.openFilePath(path) : null,
+        ),
+        if (Get.isRegistered<HomeController>()) Obx(() {
+          final home = Get.find<HomeController>();
+          final added = home.isInCart(video);
+          return IconButton(tooltip: added ? 'Already in panel cart'.tr : 'Add to Panel Cart'.tr,
+            icon: Icon(added ? Icons.check_rounded : Icons.add_rounded, size: 16),
+            style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            onPressed: added ? null : () => home.addToCart(video),
+          );
+        }),
+      ]),
+    ]);
+  }
 
-                          return InkWell(
-                            onHover: (isHover) => controller.onTodoHover(index, isHover),
-                            onTap: () {
-                              if (!code.isValidVideoCode()) return;
-                              final video = <String, dynamic>{'video_code': code};
-                              HelperOpener.openVideoInfo(video);
-                            },
-                            child: AnimatedContainer(
-                              duration: 120.milliseconds,
-                              decoration: BoxDecoration(
-                                color: hoveredIndex == index ? AppColor.hover : Colors.transparent,
-                                border: Border(top: BorderSide(width: .5, color: AppColor.border)),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildDataCell(_buildTodoThumbnail(todoText), flex: 1),
-                                  _buildDataCell(todoText.text.ellipsis.size(12).make(), flex: 4),
-                                  _buildDataCell(
-                                    IconButton(
-                                      icon: Icon(UIconsPro.regularRounded.trash, size: 14, color: AppColor.muted),
-                                      onPressed: () => controller.deleteTodos(item),
-                                    ).centered(),
-                                    flex: 1,
-                                    isLast: true,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+  Widget uiTODO() => Obx(() {
+    final pending = <Activity>[];
+    final downloaded = <Activity>[];
+    for (final item in controller.todoList) {
+      ((item.content ?? '').startsWith('✔︎') ? downloaded : pending).add(item);
+    }
+    return Column(children: [
+      Row(children: [
+        Expanded(child: Text('Total Todo: @{length}'.trNamed({'length': '${controller.todoList.length}'}), style: TextStyle(fontSize: 12, color: AppColor.muted))),
+        IconButton(
+          tooltip: 'Refresh'.tr,
+          icon: const Icon(Icons.refresh_rounded, size: 16),
+          onPressed: controller.getTodos,
+        ),
+        const SizedBox(width: 4),
+        Tooltip(
+          message: 'Add Todo: [⌘ + T]'.tr,
+          child: OutlinedButton.icon(
+            onPressed: controller.addTodo,
+            icon: const Icon(Icons.add_rounded, size: 16),
+            label: Text('Add New Todo'.tr, style: const TextStyle(fontSize: 12)),
           ),
         ),
-      ],
-    ).pOnly(left: 8);
+      ]),
+      const SizedBox(height: 12),
+      Expanded(child: LayoutBuilder(builder: (context, constraints) {
+        final todo = _todoColumn('TODO', pending, Icons.radio_button_unchecked_rounded, AppColor.muted, 'No pending todos'.tr);
+        final done = _todoColumn('DOWNLOADED', downloaded, Icons.check_circle_outline_rounded, AppColor.accent, 'No downloaded todos yet'.tr);
+        if (constraints.maxWidth < 560) return Column(children: [Expanded(child: todo), const SizedBox(height: 12), Expanded(child: done)]);
+        return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [Expanded(child: todo), const SizedBox(width: 12), Expanded(child: done)]);
+      })),
+    ]).pOnly(left: 8);
+  });
+
+  Widget _todoColumn(String title, List<Activity> items, IconData icon, Color color, String emptyMessage) => Container(
+    key: ValueKey(title),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: AppColor.text.withValues(alpha: .025), borderRadius: BorderRadius.circular(6)),
+    child: Column(children: [
+      Row(children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 8),
+        Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+        const SizedBox(width: 8),
+        Text('${items.length}', style: TextStyle(fontSize: 11, color: AppColor.muted)),
+      ]),
+      const SizedBox(height: 12),
+      Expanded(child: items.isEmpty
+        ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 28, color: AppColor.muted.withValues(alpha: .5)),
+            const SizedBox(height: 10),
+            Text(emptyMessage, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColor.muted)),
+          ]))
+        : ListView.separated(
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
+            itemBuilder: (_, index) => _todoCard(items[index]),
+          ),
+      ),
+    ]),
+  );
+
+  Widget _todoCard(Activity item) {
+    final text = (item.content ?? '').replaceAll('✔︎', '').trim();
+    final isVideo = text.isValidVideoCode();
+    return Material(
+      color: AppColor.panel,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: AppColor.border, width: .5)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: isVideo ? () => HelperOpener.openVideoInfo({'video_code': text}) : null,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Row(children: [
+            SizedBox(width: 64, height: 80, child: _buildTodoThumbnail(text)),
+            const SizedBox(width: 10),
+            Expanded(child: Tooltip(message: text, child: Text(text, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: isVideo ? FontWeight.w600 : FontWeight.normal)))),
+            IconButton(
+              tooltip: 'Delete'.tr,
+              style: IconButton.styleFrom(minimumSize: const Size(32, 32), padding: EdgeInsets.zero),
+              icon: Icon(Icons.close_rounded, size: 16, color: AppColor.muted),
+              onPressed: () => controller.deleteTodos(item),
+            ),
+          ]),
+        ),
+      ),
+    );
   }
 
   Widget _buildTodoThumbnail(String? todoContent) {
     final code = (todoContent ?? '').replaceAll('✔︎', '').trim();
     if (!code.isValidVideoCode()) {
-      return Icon(Icons.image_not_supported, size: 18, color: Vx.neutral500).centered();
+      return Icon(Icons.notes_rounded, size: 20, color: AppColor.muted).centered();
     }
 
     final poster = controller.todoPosterByCode[code] ?? '';
@@ -501,7 +490,10 @@ class PageToolsView extends GetView<PageToolsController> {
       return Icon(Icons.broken_image, size: 18, color: Vx.neutral500).centered();
     }
 
-    return _buildMediaThumbnail(poster: poster);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: ExThumbnail(imageUrl: poster, width: 64, height: 80, prefix: 1.9),
+    );
   }
 
   Widget _buildMediaThumbnail({String poster = '', String videoPath = '', bool preferVideoPath = false}) {

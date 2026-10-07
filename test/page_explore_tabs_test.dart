@@ -101,18 +101,21 @@ void main() {
   });
 
   test('a pending selection cannot overwrite the count for a newer cast mode', () async {
-    final tab = _Tab(99)..delaySelection = true;
-    addTearDown(tab.dispose);
-    final loading = tab.onLeftListTap(LeftListModel(id: 1, name: 'Actress'));
-    tab.actressMode.value = ActressMode.multi;
-    tab.rightListR18TotalVideo.value = 7;
-    tab.selections.single.complete(([Videos(id: '1', title: 'Video')], 99));
-    await loading;
-    expect(tab.rightListR18TotalVideo.value, 7);
-    expect(tab.rightListLocal, hasLength(1));
+    for (final menu in [kActress, kCategory, kSeries, kLabel, kStudio, kDirector, kYear]) {
+      final tab = _Tab(99)..delaySelection = true;
+      addTearDown(tab.dispose);
+      tab.currentMenuSelected.value = menu;
+      final loading = tab.onLeftListTap(LeftListModel(id: 1, name: menu));
+      tab.actressMode.value = ActressMode.multi;
+      tab.rightListR18TotalVideo.value = 7;
+      tab.selections.single.complete(([Videos(id: '1', title: 'Video')], 99));
+      await loading;
+      expect(tab.rightListR18TotalVideo.value, 7, reason: menu);
+      expect(tab.rightListLocal, hasLength(1));
+    }
   });
 
-  testWidgets('R18 actress dropdown selects all, single and multi modes', (tester) async {
+  testWidgets('every R18 type exposes all, single and multi modes', (tester) async {
     final tab = _Tab(99);
     addTearDown(tab.dispose);
     tab.isFresh.value = false;
@@ -121,13 +124,18 @@ void main() {
     await tab.onSectionR18Tap();
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: _View(controller: tab))));
     await tester.pumpAndSettle();
-    for (final option in const {'All': ActressMode.all, 'Multi Actress': ActressMode.multi, 'Single Actress': ActressMode.single}.entries) {
-      await tester.tap(find.byType(DropdownButton<ActressMode>));
+    for (final menu in [kActress, kCategory, kSeries, kLabel, kStudio, kDirector, kYear]) {
+      tab.currentMenuSelected.value = menu;
       await tester.pumpAndSettle();
-      await tester.tap(find.text(option.key).last);
-      await tester.pumpAndSettle();
-      expect(tab.actressMode.value, option.value);
-      expect(tab.currentPage.value, 1);
+      for (final option in const {'All': ActressMode.all, 'Multi Actress': ActressMode.multi, 'Single Actress': ActressMode.single}.entries) {
+        tab.currentPage.value = 3;
+        await tester.tap(find.byType(DropdownButton<ActressMode>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(option.key).last);
+        await tester.pumpAndSettle();
+        expect(tab.actressMode.value, option.value, reason: menu);
+        expect(tab.currentPage.value, 1);
+      }
     }
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());

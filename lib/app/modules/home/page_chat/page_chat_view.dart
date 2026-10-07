@@ -12,11 +12,14 @@ import '../../../core/app_translations.dart';
 import '../../../data/models/chat_entity.dart';
 import '../../../utils/chat_knowledge.dart';
 import '../../../utils/chat_service.dart';
+import '../../../utils/helper_loading.dart';
+import '../../../utils/helper_opener.dart';
 import '../../widgets/widget_thumbnail.dart';
 import 'page_chat_controller.dart';
 
 class PageChatView extends GetView<PageChatController> {
-  const PageChatView({super.key});
+  const PageChatView({super.key, this.openVideoInfo = HelperOpener.openVideoInfo});
+  final Future<void> Function(dynamic item) openVideoInfo;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +34,10 @@ class PageChatView extends GetView<PageChatController> {
         absorbing: controller.busy.value || !controller.ready.value,
         child: LayoutBuilder(builder: (context, constraints) {
             final wide = constraints.maxWidth >= 760;
-            return Scaffold(
+            return CallbackShortcuts(
+              bindings: _shortcuts(wide),
+              child: Focus(autofocus: true, child: Scaffold(
+              key: controller.scaffoldKey,
               backgroundColor: AppColor.body,
               drawer: wide ? null : Drawer(width: 240, child: _sidebar(closeOnSelect: true)),
               body: Row(children: [
@@ -47,24 +53,27 @@ class PageChatView extends GetView<PageChatController> {
                         constraints: const BoxConstraints.tightFor(width: 32, height: 32),
                         padding: EdgeInsets.zero,
                         icon: Icon(UIconsPro.regularRounded.sidebar, size: 14),
-                        onPressed: () {
-                          if (wide) {
-                            controller.toggleSidebar();
-                          } else {
-                            Scaffold.of(context).openDrawer();
-                          }
-                        },
+                        onPressed: () => _toggleHistory(wide),
                       )),
                       const SizedBox(width: 8),
                       Expanded(child: Obx(() => Text(controller.activeChat.value.title == 'New chat' ? 'New chat'.tr : controller.activeChat.value.title,
                         maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)))),
+                      const SizedBox(width: 12),
+                      IconButton(tooltip: 'Chat shortcuts'.tr,
+                        onPressed: () => _showShortcuts(context),
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.keyboard_outlined, size: 16)),
+                      const SizedBox(width: 12),
                       IconButton(tooltip: 'Delete chat'.tr,
                         onPressed: () => _editChat(context, controller.activeChat.value, deleting: true),
                         visualDensity: VisualDensity.compact,
                         constraints: const BoxConstraints.tightFor(width: 32, height: 32),
                         padding: EdgeInsets.zero,
-                        icon: const Icon(Icons.delete_outline_rounded, size: 16)).pOnly(right: 8),
+                        icon: const Icon(Icons.delete_outline_rounded, size: 16)),
+                      const SizedBox(width: 12),
                       IconButton(tooltip: 'New chat'.tr, onPressed: controller.newChat,
                         visualDensity: VisualDensity.compact,
                         constraints: const BoxConstraints.tightFor(width: 32, height: 32),
@@ -78,7 +87,17 @@ class PageChatView extends GetView<PageChatController> {
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                       child: Column(children: [
-                        Expanded(child: Obx(() => controller.messages.isEmpty ? _welcome() : _conversation())),
+                        Expanded(child: Stack(fit: StackFit.expand, children: [
+                          Positioned.fill(child: Obx(() => controller.messages.isEmpty ? _welcome() : _conversation())),
+                          Obx(() => controller.showLatest.value ? Positioned(
+                            bottom: 8, left: 0, right: 0,
+                            child: Center(child: FilledButton.tonalIcon(
+                              onPressed: controller.scrollToLatest,
+                              icon: const Icon(Icons.arrow_downward_rounded, size: 16),
+                              label: Text('Latest messages'.tr, style: const TextStyle(fontSize: 12)),
+                            )),
+                          ) : const SizedBox.shrink()),
+                        ])),
                         const SizedBox(height: 8),
                         _composer(),
                         const SizedBox(height: 8),
@@ -87,11 +106,81 @@ class PageChatView extends GetView<PageChatController> {
                   ))),
                 ])),
               ]),
-            );
+            )));
         }),
       ))),
     ]);
   }
+
+  Map<ShortcutActivator, VoidCallback> _shortcuts(bool wide) {
+    void run(VoidCallback action) {
+      if (controller.ready.value && !controller.busy.value) action();
+    }
+    return {
+      const SingleActivator(LogicalKeyboardKey.keyN, meta: true, includeRepeats: false): () => run(() {
+        controller.scaffoldKey.currentState?.closeDrawer();
+        controller.newChat();
+      }),
+      const SingleActivator(LogicalKeyboardKey.keyW, meta: true, includeRepeats: false): () => run(() {
+        controller.scaffoldKey.currentState?.closeDrawer();
+        controller.deleteChat(controller.activeChat.value);
+      }),
+      const SingleActivator(LogicalKeyboardKey.keyF, meta: true, includeRepeats: false): () => run(() => _searchHistory(wide)),
+      const SingleActivator(LogicalKeyboardKey.keyL, meta: true, includeRepeats: false): () => run(_focusInput),
+      const SingleActivator(LogicalKeyboardKey.keyS, meta: true, shift: true, includeRepeats: false): () => run(() => _toggleHistory(wide)),
+      const SingleActivator(LogicalKeyboardKey.keyR, meta: true, shift: true, includeRepeats: false): () => run(controller.retryResponse),
+      const SingleActivator(LogicalKeyboardKey.period, meta: true, includeRepeats: false): () => run(controller.stopResponse),
+      const SingleActivator(LogicalKeyboardKey.escape, includeRepeats: false): () => run(() {
+        controller.cancelEdit();
+        _focusInput();
+      }),
+    };
+  }
+
+  void _focusInput() {
+    controller.scaffoldKey.currentState?.closeDrawer();
+    controller.focusNode.requestFocus();
+  }
+
+  Future<void> _toggleHistory(bool wide) async {
+    if (wide) {
+      await controller.toggleSidebar();
+      if (!controller.sidebarVisible.value) _focusInput();
+    } else {
+      final scaffold = controller.scaffoldKey.currentState;
+      if (scaffold?.isDrawerOpen == true) {
+        _focusInput();
+      } else {
+        scaffold?.openDrawer();
+      }
+    }
+  }
+
+  Future<void> _searchHistory(bool wide) async {
+    if (wide && !controller.sidebarVisible.value) await controller.toggleSidebar();
+    if (!wide) controller.scaffoldKey.currentState?.openDrawer();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (controller.isClosed || controller.searchFocusNode.context == null) return;
+      controller.searchFocusNode.requestFocus();
+      controller.searchInput.selection = TextSelection(baseOffset: 0, extentOffset: controller.searchInput.text.length);
+    });
+  }
+
+  Future<void> _showShortcuts(BuildContext context) => showDialog<void>(context: context, builder: (context) => AlertDialog(
+    title: Text('Chat shortcuts'.tr),
+    content: SizedBox(width: 360, child: Column(mainAxisSize: MainAxisSize.min, children: [
+      for (final shortcut in const [
+        ('⌘ N', 'New chat'), ('⌘ W', 'Delete chat immediately'), ('⌘ F', 'Search chats'),
+        ('⌘ L', 'Focus message input'), ('⌘ ⇧ S', 'Toggle chat history'),
+        ('⌘ ⇧ R', 'Regenerate response'), ('⌘ .', 'Stop response'), ('Esc', 'Cancel editing and focus input'),
+      ]) Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(children: [
+        Expanded(child: Text(shortcut.$2.tr, style: const TextStyle(fontSize: 12))),
+        const SizedBox(width: 16),
+        Text(shortcut.$1, style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
+      ])),
+    ])),
+    actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('Close'.tr))],
+  ));
 
   Widget _sidebar({bool closeOnSelect = false}) {
     return Builder(builder: (context) => Container(
@@ -119,6 +208,7 @@ class PageChatView extends GetView<PageChatController> {
         const SizedBox(height: 8),
         CupertinoTextField(
           controller: controller.searchInput,
+          focusNode: controller.searchFocusNode,
           onChanged: (value) => controller.search.value = value,
           style: TextStyle(fontSize: 12, color: AppColor.text),
           placeholder: 'Search chats'.tr,
@@ -129,6 +219,7 @@ class PageChatView extends GetView<PageChatController> {
         Expanded(child: Obx(() {
           final query = controller.search.value.trim().toLowerCase();
           final active = controller.activeChat.value;
+          final responding = controller.respondingChatId.value;
           final chats = controller.chats.where((chat) => chat.title.toLowerCase().contains(query)).toList();
           if (chats.isEmpty) return Center(child: Text('No chats found'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)));
           return ListView.builder(
@@ -149,7 +240,8 @@ class PageChatView extends GetView<PageChatController> {
                     selected: chat == active,
                     selectedColor: AppColor.text,
                     contentPadding: const EdgeInsets.only(left: 8),
-                    leading: chat.isPinned ? Icon(Icons.push_pin_rounded, size: 13, color: AppColor.muted) : null,
+                    leading: responding == chat.id ? Tooltip(message: 'Responding...'.tr, child: const CupertinoActivityIndicator(radius: 6))
+                        : Icon(chat.isPinned ? Icons.push_pin_rounded : Icons.chat_bubble_outline_rounded, size: 13, color: AppColor.muted),
                     minLeadingWidth: 14,
                     title: Text(chat.title == 'New chat' ? 'New chat'.tr : chat.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
                     onTap: () {
@@ -207,12 +299,36 @@ class PageChatView extends GetView<PageChatController> {
         const SizedBox(height: 8),
         Text('Ask about your library and the local R18 catalog.'.tr, textAlign: TextAlign.center,
           style: TextStyle(fontSize: 12, color: AppColor.muted)),
+        const SizedBox(height: 24),
+        LayoutBuilder(builder: (context, constraints) => Wrap(spacing: 10, runSpacing: 10, children: [
+          for (final suggestion in const [
+            (command: '/r18', icon: Icons.travel_explore_rounded, detail: 'Search across Japanese and English titles'),
+            (command: '/filter', icon: Icons.tune_rounded, detail: 'Combine themes and exclude videos you own'),
+            (command: '/similar', icon: Icons.auto_awesome_outlined, detail: 'Explore related themes from a video code'),
+            (command: '/translate', icon: Icons.translate_rounded, detail: 'Read a Japanese title in Indonesian'),
+          ]) SizedBox(
+            width: constraints.maxWidth >= 460 ? (constraints.maxWidth - 10) / 2 : constraints.maxWidth,
+            child: OutlinedButton(
+              onPressed: () => controller.useTemplate(suggestion.command),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColor.text, backgroundColor: AppColor.panel,
+                side: BorderSide(color: AppColor.border), padding: const EdgeInsets.all(16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              child: Row(children: [
+                Icon(suggestion.icon, size: 20, color: AppColor.accent),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(PageChatController.templates[suggestion.command]!.label.tr, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text(suggestion.detail.tr, style: TextStyle(fontSize: 11, height: 1.4, color: AppColor.muted)),
+                ])),
+              ]),
+            ),
+          ),
+        ])),
         const SizedBox(height: 16),
         Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
-          for (final template in PageChatController.templates.entries)
-            ExButtonOutline(height: 36, radius: 18, borderColor: AppColor.border, labelColor: AppColor.text,
-              onPressed: () => controller.useTemplate(template.key),
-              child: Text(template.value.label.tr, style: TextStyle(fontSize: 11, color: AppColor.text))),
           for (final prompt in ['How many videos do I have?'.tr, 'Show my favorites'.tr, 'Compare my collection with the R18 catalog'.tr])
             ExButtonOutline(height: 36, radius: 18,
               borderColor: AppColor.border, labelColor: AppColor.text,
@@ -335,11 +451,11 @@ class PageChatView extends GetView<PageChatController> {
                     onPressed: controller.busy.value || controller.respondingChatId.value != null
                         ? null : () => controller.editMessage(message),
                   )),
-                  if (index == 0 && (!assistant || message.status == 'failed' || message.status == 'cancelled' || invalid))
+                  if (index == 0 && !generating)
                     Obx(() => controller.respondingChatId.value != null ? const SizedBox.shrink() : TextButton.icon(
-                      onPressed: controller.retryResponse,
+                      onPressed: controller.busy.value || controller.editingMessageId.value != null ? null : controller.retryResponse,
                       icon: const Icon(Icons.refresh_rounded, size: 15),
-                      label: Text('Retry response'.tr, style: TextStyle(fontSize: 11)),
+                      label: Text(assistant && message.status == 'completed' && !invalid ? 'Regenerate response'.tr : 'Retry response'.tr, style: TextStyle(fontSize: 11)),
                     )),
                 ]),
               ]),
@@ -391,6 +507,17 @@ class PageChatView extends GetView<PageChatController> {
           ]),
         ),
         LinkConfig(style: TextStyle(color: AppColor.accent, decoration: TextDecoration.underline), onTap: (value) async {
+          if (value.startsWith('javit-video:')) {
+            try {
+              final code = Uri.decodeComponent(value.substring('javit-video:'.length)).trim();
+              if (code.isNotEmpty) await openVideoInfo(<String, dynamic>{'video_code': code});
+            } on FormatException { /* Ignore malformed action links. */ }
+            catch (_) {
+              HelperLoading.dismiss();
+              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open video info. Please retry.'.tr)));
+            }
+            return;
+          }
           if (value.startsWith('javit-translate:')) {
             try { await _translateTitle(context, Uri.decodeComponent(value.substring('javit-translate:'.length))); } on FormatException { /* Ignore malformed action links. */ }
             return;
@@ -398,7 +525,7 @@ class PageChatView extends GetView<PageChatController> {
           if (value.startsWith('javit-similar:')) {
             try {
               final code = Uri.decodeComponent(value.substring('javit-similar:'.length));
-              controller.usePrompt('Find videos similar to @{code} based on themes in their titles and descriptions, not just their cast. Explain the sources of the matches.'.trNamed({'code': '$code'}));
+              controller.useSimilarPrompt(code);
             } on FormatException { /* Ignore malformed action links. */ }
             return;
           }
@@ -508,6 +635,7 @@ class PageChatView extends GetView<PageChatController> {
     return Obx(() {
       final matches = controller.matchingCommands;
       final editing = controller.editingMessageId.value != null;
+      final responding = controller.chats.firstWhereOrNull((chat) => chat.id == controller.respondingChatId.value);
       final selected = controller.commandIndex.value.clamp(0, matches.isEmpty ? 0 : matches.length - 1);
       return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
@@ -517,6 +645,16 @@ class PageChatView extends GetView<PageChatController> {
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (responding != null && responding != controller.activeChat.value) Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(children: [
+            const CupertinoActivityIndicator(radius: 6),
+            const SizedBox(width: 8),
+            Expanded(child: Text('Replying in @{chat}'.trNamed({'chat': responding.title}),
+              maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: AppColor.muted))),
+            TextButton(onPressed: () => controller.selectChat(responding), child: Text('View chat'.tr, style: const TextStyle(fontSize: 11))),
+          ]),
+        ),
         if (controller.commandNotice.value.isNotEmpty) Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -578,6 +716,14 @@ class PageChatView extends GetView<PageChatController> {
           ),
         ),
         const SizedBox(height: 6),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller.input,
+          builder: (context, value, _) => controller.templateFields(value.text).isEmpty ? const SizedBox.shrink() : TextButton.icon(
+            onPressed: controller.busy.value ? null : controller.selectTemplateField,
+            icon: const Icon(Icons.edit_note_rounded, size: 16),
+            label: Text('Next template field'.tr, style: const TextStyle(fontSize: 11)),
+          ),
+        ),
         Row(children: [
           Expanded(child: Text('Enter to send · Shift + Enter newline · / commands'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted))),
           Obx(() => controller.respondingChatId.value != null

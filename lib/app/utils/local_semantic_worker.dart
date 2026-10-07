@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
@@ -36,7 +35,7 @@ mixin LocalSemanticWorker {
   static int _epoch = 0;
   static final _pending = <int, Completer<dynamic>>{};
   static String get _root => p.join(Get.find<AppSettingService>().appPath, 'semantic_runtime');
-  static String get _script => p.join(_root, 'semantic_worker.py');
+  static String get _script => p.join(Get.find<AppSettingService>().bundledAssetsPath, 'visual_search_worker.py');
   static String get _python => p.join(_root, 'venv', Platform.isWindows ? 'Scripts' : 'bin', Platform.isWindows ? 'python.exe' : 'python');
 
   static Future<bool> isReady() async {
@@ -48,13 +47,6 @@ mixin LocalSemanticWorker {
       if (!await file.exists() || await file.length() != entry.value) return false;
     }
     return true;
-  }
-
-  static Future<void> _copyScript() async {
-    await Directory(_root).create(recursive: true);
-    final script = await rootBundle.loadString('assets/semantic_worker.py');
-    final file = File(_script);
-    if (!await file.exists() || await file.readAsString() != script) await file.writeAsString(script);
   }
 
   static Future<void> setup(void Function(String) onProgress) async {
@@ -74,7 +66,6 @@ mixin LocalSemanticWorker {
   static Future<void> _install(void Function(String) onProgress) async {
     stop();
     final epoch = _setupEpoch;
-    await _copyScript();
     onProgress('Checking Python and preparing local runtime...'.tr);
     AppLog.logI('Visual Search: checking Python and preparing local runtime');
     String? python;
@@ -139,7 +130,6 @@ mixin LocalSemanticWorker {
   static Future<void> _spawn() async {
     final epoch = _epoch;
     if (!await isReady()) throw SemanticSearchException('Set up Visual Search in Settings first.'.tr);
-    await _copyScript();
     final process = await Process.start(_python, ['-B', '-u', _script, 'serve', _root, Get.find<DBService>().dbMain.path]);
     if (epoch != _epoch) {
       process.kill();

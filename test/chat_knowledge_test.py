@@ -2,8 +2,9 @@ import importlib.util
 import sqlite3
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location('chat_knowledge', Path(__file__).parents[1] / 'assets/chat_knowledge.py')
+spec = importlib.util.spec_from_file_location('chat_knowledge', Path(__file__).parents[1] / 'assets/chat_database_worker.py')
 knowledge = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(knowledge)
 
@@ -23,6 +24,7 @@ def test_queries():
             db.executescript("CREATE TABLE playlist (id TEXT, name TEXT); CREATE TABLE playlist_item (playlist_id TEXT, video_id TEXT, created_at TEXT); INSERT INTO playlist VALUES ('p1','My list'); INSERT INTO playlist_item VALUES ('p1','0','2026');")
         assert run('SELECT p.name, v.video_code FROM playlist p JOIN playlist_item i ON i.playlist_id=p.id JOIN videos v ON v.id=i.video_id')['rows'] == [['My list', 'TEST-001']]
         assert run('SELECT count(*) AS total FROM main.videos')['rows'] == [[30]]
+        assert run('SELECT count(*) AS total FROM main.videos WHERE title = ?', args=['Title'])['rows'] == [[30]]
         assert run('SELECT title FROM main.videos WHERE video_code = ?', args=["' OR 1=1 --"])['rows'] == []
         joined = run('SELECT DISTINCT v.video_code, r.title_en FROM main.videos v JOIN r18.derived_video r ON r.dvd_id = v.video_code')
         assert joined['rows'] == [['TEST-001', 'Catalog title']]
@@ -45,7 +47,8 @@ def test_queries():
             else:
                 raise AssertionError('Unsafe query accepted: ' + sql)
         try:
-            run('SELECT count(*) FROM videos a, videos b, videos c, videos d, videos e, videos f')
+            with patch.object(knowledge.time, 'monotonic', side_effect=[0, 11]):
+                run('SELECT sum(length(a.title)) FROM videos a, videos b, videos c, videos d, videos e, videos f')
         except sqlite3.OperationalError as error:
             assert 'interrupted' in str(error)
         else:
@@ -175,7 +178,43 @@ def test_filters_and_similarity():
     print('Filter/similarity checks passed: AND concepts, OR synonyms, category exclusion, owned exclusion, reference lookup, description evidence, missing reference.')
 
 
+def test_saved_translations_and_duplicate_metadata():
+    with tempfile.TemporaryDirectory() as folder:
+        main, r18 = Path(folder) / 'javit.db', Path(folder) / 'r18.db'
+        with sqlite3.connect(main) as db:
+            db.executescript('CREATE TABLE videos (video_code TEXT, title TEXT); CREATE TABLE chat_translation (source_text TEXT, target_language TEXT, translated_text TEXT);')
+            db.execute("INSERT INTO videos VALUES ('LOCAL-001', 'Rain in the park')")
+            db.executemany('INSERT INTO chat_translation VALUES (?,?,?)', [
+                ('傘の散歩', 'id', 'Hujan di taman'), ('雨の総集編', 'id', 'Hujan di taman kompilasi'),
+                (' ', 'id', 'Hujan di taman'), ('晴れ', 'en', 'Hujan di taman'),
+            ])
+        with sqlite3.connect(r18) as db:
+            db.execute('CREATE TABLE derived_video (dvd_id TEXT, title_en TEXT, title_ja TEXT, comment_ja TEXT)')
+            db.executemany('INSERT INTO derived_video VALUES (?,?,?,?)', [
+                ('DUP-001', '', '雨の散歩', ''), ('DUP-001', 'Rainy walk', '雨の散歩', ''),
+                ('SAVED-001', None, ' 傘の散歩 ', ''), ('SAVED-002', None, '雨の総集編', ''),
+                ('EMPTY-001', None, ' ', ''), ('LANG-001', None, '晴れ', ''),
+                ('REF-001', None, '', ''), ('REF-001', 'Rainy stroll', '雨の散歩', '屋外の散歩'),
+            ])
+        base = {'main': str(main), 'r18': str(r18), 'operation': 'search_titles', 'source': 'r18', 'terms': ['hujan'],
+                'required_terms': [['taman']], 'exclude_terms': ['kompilasi'], 'missing_english': True, 'limit': 25}
+        result = knowledge.run(base)
+        assert [row[0] for row in result['rows']] == ['SAVED-001']
+        assert result['rows'][0][1:4] == ['Hujan di taman', ' 傘の散歩 ', 'Saved translation']
+        missing = knowledge.run({**base, 'terms': ['雨'], 'required_terms': [], 'exclude_terms': []})
+        assert 'DUP-001' not in [row[0] for row in missing['rows']]
+        ordinary = knowledge.run({**base, 'terms': ['rain'], 'required_terms': [], 'exclude_terms': [], 'missing_english': False})
+        assert [row[0] for row in ordinary['rows']].count('DUP-001') == 1
+        library = knowledge.run({**base, 'source': 'library', 'terms': ['rain'], 'required_terms': [], 'missing_english': False})
+        assert library['rows'][0][0] == 'LOCAL-001'
+        reference = knowledge.run({**base, 'operation': 'video_reference', 'code': 'REF-001'})
+        assert reference['reference']['title_en'] == 'Rainy stroll'
+        assert reference['reference']['comment_ja'] == '屋外の散歩'
+    print('Metadata checks passed: saved Indonesian translations, filters, duplicate English titles, empty Japanese titles, English-only library, richest reference.')
+
+
 if __name__ == '__main__':
     test_queries()
     test_title_search()
     test_filters_and_similarity()
+    test_saved_translations_and_duplicate_metadata()

@@ -117,6 +117,7 @@ mixin DBChat {
     final now = DateTime.now().toUtc().toIso8601String();
     final count = await _db.update('chat_message', {
       'content': message.content, 'status': message.status, 'error_message': message.errorMessage, 'updated_at': now,
+      'provider': message.provider, 'model': message.model,
       'activity': jsonEncode({'steps': message.activity, 'elapsed_ms': message.elapsedMs, 'title_search': message.titleSearch}),
     }, where: 'id = ?', whereArgs: [message.id]);
     if (count != 1) throw StateError('Chat message no longer exists');

@@ -46,13 +46,24 @@ class PageToolsController extends GetxController with StateMixin {
   // ** part: duplicate video
   final duplicateModes = ['exact', 'probable'].obs;
   final duplicateMode = 'exact'.obs;
-  final duplicateVideoList = <Videos>[].obs;
-  final duplicateGroupCount = 0.obs;
-  final duplicateHoveredIndex = (-1).obs;
+  final duplicateGroups = <List<Videos>>[].obs;
+  final duplicateLoading = false.obs;
+  final duplicateError = ''.obs;
+  final duplicateQuery = ''.obs;
+  final tecDuplicateSearch = TextEditingController();
+  final duplicateFileAvailable = <String, bool>{}.obs;
+  int _duplicateRequest = 0;
+
+  int get duplicateVideoCount => duplicateGroups.fold(0, (count, group) => count + group.length);
+  List<List<Videos>> get filteredDuplicateGroups {
+    final query = duplicateQuery.value.trim().toLowerCase();
+    return duplicateGroups.where((group) => group.any((video) =>
+      [video.videoCode, video.title, video.videoPath, video.quality].any((value) => (value ?? '').toLowerCase().contains(query))
+    )).toList();
+  }
 
   // ** part: todo
   final todoList = <Activity>[].obs;
-  final todoHoveredIndex = (-1).obs;
   final todoPosterByCode = <String, String>{}.obs;
 
   // ** part: advance search
@@ -99,6 +110,7 @@ class PageToolsController extends GetxController with StateMixin {
     await checkIsHasDataNotScanned();
     await onReset();
     if (currentMenuSelected.value == kAdvanceSearch) await filterBySeries();
+    if (currentMenuSelected.value == kDuplicate) await getDuplicateVideos();
 
     AppLog.logI('page tools ==> onInit called: ${sw.elapsedMilliseconds} ms');
     change(200, status: RxStatus.success());
@@ -107,6 +119,8 @@ class PageToolsController extends GetxController with StateMixin {
   @override
   void onClose() {
     _groupSearchTimer?.cancel();
+    _duplicateRequest++;
+    tecDuplicateSearch.dispose();
     tecResultSearch.dispose();
     _leftRequest++;
     _selectionRequest++;
@@ -119,6 +133,10 @@ class PageToolsController extends GetxController with StateMixin {
   }
 
   Future<void> onMenuChange(String menu) async {
+    if (menu != kDuplicate) {
+      _duplicateRequest++;
+      duplicateLoading.value = false;
+    }
     currentMenuSelected.value = menu;
     switch (menu) {
       case kTopLargeFile: await getTopLargeFileSize(); await checkIsHasDataNotScanned(); break;
@@ -145,10 +163,13 @@ class PageToolsController extends GetxController with StateMixin {
     tecFilterSearchLeft.text = '';
     topLargeFilterMode.value = 'all';
     topLargeHoveredIndex.value = -1;
-    duplicateMode.value = 'exact';
-    duplicateGroupCount.value = 0;
-    duplicateHoveredIndex.value = -1;
-    todoHoveredIndex.value = -1;
+    _duplicateRequest++;
+    duplicateGroups.clear();
+    duplicateFileAvailable.clear();
+    duplicateLoading.value = false;
+    duplicateError.value = '';
+    duplicateQuery.value = '';
+    tecDuplicateSearch.clear();
     todoPosterByCode.clear();
     rightList.value = [];
     rightListFiltered.value = [];
@@ -301,32 +322,51 @@ class PageToolsController extends GetxController with StateMixin {
   // ** part: kFindDuplicate
   // ────────────────────────────────────────────────────────────────
   Future<void> setDuplicateMode(String mode) async {
-    if (duplicateMode.value == mode) return;
+    if (!duplicateModes.contains(mode) || duplicateMode.value == mode) return;
     duplicateMode.value = mode;
     await getDuplicateVideos();
   }
 
-  Future<void> getDuplicateVideos() async {
-    duplicateHoveredIndex.value = -1;
-    final groups = await DBVideos.getDuplicateVideoGroups(mode: duplicateMode.value);
-    duplicateGroupCount.value = groups.length;
-    duplicateVideoList.value = groups.expand((items) => items).toList();
+  Future<List<List<Videos>>> loadDuplicateGroups(String mode) => DBVideos.getDuplicateVideoGroups(mode: mode);
+
+  Future<Map<String, bool>> checkDuplicateFiles(List<List<Videos>> groups) async {
+    final available = <String, bool>{};
+    for (final path in groups.expand((group) => group).map((video) => video.videoPath ?? '').toSet()) {
+      try {
+        available[path] = path.isNotEmpty && await File(path).exists();
+      } catch (_) {
+        available[path] = false;
+      }
+    }
+    return available;
   }
 
-  void onDuplicateHover(int index, bool isHover) {
-    if (isHover) {
-      if (duplicateHoveredIndex.value != index) duplicateHoveredIndex.value = index;
-      return;
+  Future<void> getDuplicateVideos() async {
+    final request = ++_duplicateRequest;
+    duplicateLoading.value = true;
+    duplicateError.value = '';
+    duplicateGroups.clear();
+    duplicateFileAvailable.clear();
+    try {
+      final groups = await loadDuplicateGroups(duplicateMode.value);
+      if (isClosed || request != _duplicateRequest) return;
+      final available = await checkDuplicateFiles(groups);
+      if (isClosed || request != _duplicateRequest) return;
+      duplicateFileAvailable.assignAll(available);
+      duplicateGroups.assignAll(groups);
+    } catch (e) {
+      if (isClosed || request != _duplicateRequest) return;
+      AppLog.logE('Duplicate scan failed: $e');
+      duplicateError.value = 'Could not load duplicate videos. Please retry.'.tr;
+    } finally {
+      if (!isClosed && request == _duplicateRequest) duplicateLoading.value = false;
     }
-
-    if (duplicateHoveredIndex.value == index) duplicateHoveredIndex.value = -1;
   }
 
   // ────────────────────────────────────────────────────────────────
   // ** part: kTodo
   // ────────────────────────────────────────────────────────────────
   Future<void> getTodos() async {
-    todoHoveredIndex.value = -1;
     final todos = await DBActivity.getTodos();
     for (var todo in todos) {
       try {
@@ -356,15 +396,6 @@ class PageToolsController extends GetxController with StateMixin {
     todoPosterByCode.clear();
     todoPosterByCode.addAll(posterMap);
     todoPosterByCode.refresh();
-  }
-
-  void onTodoHover(int index, bool isHover) {
-    if (isHover) {
-      if (todoHoveredIndex.value != index) todoHoveredIndex.value = index;
-      return;
-    }
-
-    if (todoHoveredIndex.value == index) todoHoveredIndex.value = -1;
   }
 
   Future<void> deleteTodos(Activity todo) async {

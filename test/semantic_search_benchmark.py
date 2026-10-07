@@ -13,7 +13,7 @@ import sys
 import tempfile
 import time
 
-spec = importlib.util.spec_from_file_location('worker', Path(__file__).parents[1] / 'assets/semantic_worker.py')
+spec = importlib.util.spec_from_file_location('worker', Path(__file__).parents[1] / 'assets/visual_search_worker.py')
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 root = Path(sys.argv[1])

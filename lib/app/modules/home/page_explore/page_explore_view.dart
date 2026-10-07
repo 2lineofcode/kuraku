@@ -395,30 +395,28 @@ class PageExploreTabView extends StatelessWidget {
         // search & filter
         HStack(
           [
-            if (controller.currentMenuSelected.value == kActress) ...[
-              Obx(() => Container(
-                width: 154,
-                margin: const EdgeInsets.only(right: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: ExDecorator.box(borderColor: AppColor.border, fillColor: AppColor.container, borderRadius: 6),
-                child: DropdownButtonHideUnderline(child: DropdownButton<ActressMode>(
-                  value: controller.actressMode.value,
-                  isExpanded: true,
-                  isDense: true,
-                  dropdownColor: AppColor.container,
-                  style: TextStyle(fontSize: 12, color: AppColor.text),
-                  items: const {ActressMode.all: 'All', ActressMode.single: 'Single Actress', ActressMode.multi: 'Multi Actress'}.entries.map((option) => DropdownMenuItem(
-                    value: option.key,
-                    child: Text(option.value.tr),
-                  )).toList(),
-                  onChanged: (mode) {
-                    if (mode == null || mode == controller.actressMode.value) return;
-                    controller.actressMode.value = mode;
-                    controller.onSectionR18Tap();
-                  },
-                )),
+            Obx(() => Container(
+              width: 154,
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: ExDecorator.box(borderColor: AppColor.border, fillColor: AppColor.container, borderRadius: 6),
+              child: DropdownButtonHideUnderline(child: DropdownButton<ActressMode>(
+                value: controller.actressMode.value,
+                isExpanded: true,
+                isDense: true,
+                dropdownColor: AppColor.container,
+                style: TextStyle(fontSize: 12, color: AppColor.text),
+                items: const {ActressMode.all: 'All', ActressMode.single: 'Single Actress', ActressMode.multi: 'Multi Actress'}.entries.map((option) => DropdownMenuItem(
+                  value: option.key,
+                  child: Text(option.value.tr),
+                )).toList(),
+                onChanged: (mode) {
+                  if (mode == null || mode == controller.actressMode.value) return;
+                  controller.actressMode.value = mode;
+                  controller.onSectionR18Tap();
+                },
               )),
-            ],
+            )),
             CupertinoTextField(
               controller: controller.tecSearchRight,
               focusNode: controller.fnSearchRight,

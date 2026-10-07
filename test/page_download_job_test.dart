@@ -10,7 +10,7 @@ void main() {
   late HttpServer server;
   late String url;
   var segment = <int>[];
-  final binary = p.absolute('assets/javit_dl');
+  final binary = p.absolute('assets/javit_downloader');
 
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('javit download test ');

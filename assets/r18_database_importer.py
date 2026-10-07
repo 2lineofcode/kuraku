@@ -1,5 +1,6 @@
 import argparse
 import glob
+import gzip
 import os
 import sqlite3
 import re
@@ -8,15 +9,15 @@ import datetime
 from pathlib import Path
 
 
-SCRIPT_NAME = "r18_to_javit"
-SCRIPT_VERSION = "1.3.0"
-SCRIPT_UPDATED_AT = "2026-10-01"
+SCRIPT_NAME = "r18_database_importer"
+SCRIPT_VERSION = "1.4.0"
+SCRIPT_UPDATED_AT = "2026-10-06"
 
 
 def create_video_codes(conn):
     if any(row[1] == 'video_code' for row in conn.execute('PRAGMA table_info(derived_video)')):
         return
-    script = Path(__file__).with_name('r18_video_codes.sql').read_text()
+    script = Path(__file__).with_name('r18_video_code_migration.sql').read_text()
     with conn:
         if not conn.in_transaction:
             conn.execute('BEGIN')
@@ -30,19 +31,6 @@ def create_catalog_indexes(conn):
     conn.execute('CREATE INDEX IF NOT EXISTS idx_dvc_content_category ON derived_video_category(content_id, category_id)')
     conn.execute('ANALYZE idx_dv_advanced_codes')
     conn.execute('ANALYZE derived_video_category')
-
-
-def cleanup_old_r18_dbs(workdir, keep_db_path):
-    keep_abs = os.path.abspath(keep_db_path)
-    for db_path in glob.glob(os.path.join(workdir, "r18*.db")):
-        abs_path = os.path.abspath(db_path)
-        if abs_path == keep_abs:
-            continue
-        try:
-            os.remove(abs_path)
-            print(f"🧹 Removed old DB: {abs_path}")
-        except Exception as e:
-            print(f"⚠️ Failed removing old DB: {abs_path} | {e}")
 
 
 def cleanup_source_files(input_sql_file):
@@ -92,7 +80,6 @@ def psql2sqlite(in_psql_file, out_sqlite_file):
         total_statements = 0
         total_copy_rows = 0
         skipped_pg = 0
-        error_count = 0
 
         copy_regex = re.compile(r"COPY\s+(?:public\.)?(\w+)\s*\((.*?)\)\s+FROM\s+stdin;", re.IGNORECASE)
 
@@ -132,7 +119,8 @@ def psql2sqlite(in_psql_file, out_sqlite_file):
 
         stmt_parts = []
 
-        with open(in_psql_file, "r", encoding="utf-8") as f:
+        opener = gzip.open if str(in_psql_file).endswith(".gz") else open
+        with opener(in_psql_file, "rt", encoding="utf-8") as f:
             for line_no, raw_line in enumerate(f, 1):
                 total_lines += 1
                 line = raw_line.strip()
@@ -209,11 +197,15 @@ def psql2sqlite(in_psql_file, out_sqlite_file):
                     try:
                         cursor.execute(stmt)
                         total_statements += 1
-                    except Exception as e:
-                        error_count += 1
-                        print(f"⚠️ SQL error [line {line_no}]: {e}")
+                    except sqlite3.Error as e:
+                        raise ValueError(f"SQL error at line {line_no}: {e}") from e
 
+        if in_copy or stmt_parts:
+            raise ValueError("Incomplete PostgreSQL dump")
+        if not conn.execute("SELECT 1 FROM derived_video LIMIT 1").fetchone():
+            raise ValueError("R18 catalog is empty")
         conn.commit()
+        conn.execute('PRAGMA automatic_index = ON;')
 
         # ===============================
         # 🔥 INDEX MINIMAL & AMAN
@@ -281,6 +273,8 @@ def psql2sqlite(in_psql_file, out_sqlite_file):
         create_catalog_indexes(conn)
         conn.commit()
         cursor.execute("PRAGMA optimize;")
+        if conn.execute("PRAGMA quick_check").fetchone()[0] != "ok":
+            raise ValueError("R18 database integrity check failed")
 
         duration = datetime.timedelta(seconds=int(time.time() - start_time))
 
@@ -289,7 +283,6 @@ def psql2sqlite(in_psql_file, out_sqlite_file):
         print(f"🧾 Statement dieksekusi   : {total_statements:,}")
         print(f"📦 INSERT dari COPY       : {total_copy_rows:,}")
         print(f"⏭️ PG baris dilewati      : {skipped_pg:,}")
-        print(f"❌ Error eksekusi         : {error_count:,}")
         print(f"⏱️ Durasi eksekusi        : {duration}")
 
     finally:
@@ -299,15 +292,26 @@ def psql2sqlite(in_psql_file, out_sqlite_file):
 
 
 
+def convert_dump(input_file, output_file):
+    temporary = f"{output_file}.importing"
+    try:
+        if os.path.exists(temporary):
+            os.remove(temporary)
+        psql2sqlite(input_file, temporary)
+        os.replace(temporary, output_file)
+    finally:
+        if os.path.exists(temporary):
+            os.remove(temporary)
+
+
 if __name__ == "__main__":
     print(f"🧩 {SCRIPT_NAME} v{SCRIPT_VERSION} ({SCRIPT_UPDATED_AT})")
 
     parser = argparse.ArgumentParser(description="PSQL to SQLite converter")
-    parser.add_argument(
-        "-d", "--dir",
-        default=".",
-        help="Working directory (default: current directory)"
-    )
+    parser.add_argument("-d", "--dir", default=".", help="Working directory")
+    parser.add_argument('--input', help='Exact SQL or SQL.gz dump to import')
+    parser.add_argument('--output', help='Destination database path')
+    parser.add_argument('--keep-source', action='store_true', help='Keep the source dump after a successful import')
     parser.add_argument('--indexes-only', metavar='DATABASE', help='Add catalog indexes to an existing SQLite database without importing or deleting files')
     args = parser.parse_args()
     if args.indexes_only:
@@ -320,29 +324,15 @@ if __name__ == "__main__":
             conn.close()
         raise SystemExit(0)
 
-    workdir = args.dir
-
-    files = glob.glob(os.path.join(workdir, "r18*.sql"))
-
-    if len(files) == 0:
-        print(f"No SQL file found in {workdir}")
-        exit(1)
-
-    input_sql_file = files[0]
-    now = datetime.datetime.now().strftime("%Y_%m_%d")
-    
-    match = re.search(r'\d{4}-\d{2}-\d{2}', input_sql_file)
-    if match:
-        version = match.group(0).replace('-', '_')
-    else:
-        version = now
-
-    output_sqlite_db = os.path.join(workdir, f"r18_{version}.db")
-
-    print(f"Input SQL: {input_sql_file}")
-    print(f"Output DB: {output_sqlite_db}")
-    print(f"Target DB Version Tag: {version}")
-
-    cleanup_old_r18_dbs(workdir, output_sqlite_db)
-    psql2sqlite(input_sql_file, output_sqlite_db)
-    cleanup_source_files(input_sql_file)
+    files = sorted(glob.glob(os.path.join(args.dir, "r18*.sql")) + glob.glob(os.path.join(args.dir, "r18*.sql.gz")), reverse=True)
+    input_file = args.input or (files[0] if files else None)
+    if not input_file:
+        raise SystemExit(f"No SQL dump found in {args.dir}")
+    match = re.search(r'\d{4}-\d{2}-\d{2}', os.path.basename(input_file))
+    if not match:
+        raise SystemExit("R18 dump filename must include its release date")
+    version = match.group(0).replace('-', '_')
+    output_file = args.output or os.path.join(args.dir, f"r18_{version}.db")
+    convert_dump(input_file, output_file)
+    if not args.keep_source:
+        cleanup_source_files(input_file)

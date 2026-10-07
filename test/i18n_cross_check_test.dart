@@ -89,7 +89,7 @@ void main() {
       'sources': ['library'], 'elapsed_ms': 1,
     });
     expect(table, contains('| Picture | Identifier | Caption | Options |'));
-    expect(table, contains('| ABP-001 | Title |'));
+    expect(table, contains('| [ABP-001](javit-video:ABP-001) | Title |'));
     expect(table, contains('javit-similar:ABP-001'));
     expect(LocalSemanticWorker.translateSetupProgress('Preparing local runtime...'), 'Preparing translated runtime');
     expect(LocalSemanticWorker.translateSetupProgress('Downloading image search model: 20%'), '20% · downloading translated image model');
