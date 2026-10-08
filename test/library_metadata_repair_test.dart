@@ -26,7 +26,7 @@ class _MainDatabase implements Database {
   @override
   Future<int> update(String table, Map<String, Object?> values, {String? where, List<Object?>? whereArgs, ConflictAlgorithm? conflictAlgorithm}) async {
     expect(table, 'videos');
-    expect(where, 'id = ? AND video_path = ?');
+    expect(where, 'id = ? AND video_path = ? AND is_deleted = 0');
     if (whereArgs![0] != row['id'] || whereArgs[1] != row['video_path']) return 0;
     updates.add(Map.of(values));
     row.addAll(values);

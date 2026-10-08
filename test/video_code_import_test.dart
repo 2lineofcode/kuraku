@@ -67,7 +67,7 @@ void main() {
       {'id': '3', 'video_path': '/Volumes/ABP-001/holiday.mp4'},
     ];
     expect(await DBVideos.recoverMissingVideoCodes('/Volumes/ImportTest'), 2);
-    expect(database.queries.single, ['videos', "root_path = ? AND (video_code IS NULL OR TRIM(video_code) = '')", ['/Volumes/ImportTest']]);
+    expect(database.queries.single, ['videos', "root_path = ? AND is_deleted = 0 AND (video_code IS NULL OR TRIM(video_code) = '')", ['/Volumes/ImportTest']]);
     expect(database.updates, [
       {'id': '1', 'video_code': 'DVES-050'},
       {'id': '2', 'video_code': 'MMR-AZ090'},

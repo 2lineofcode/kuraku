@@ -15,7 +15,8 @@ mixin DBPlaylist {
   static Future<List<Playlist>> getAllPlaylist() async {
     final maps = await _db.rawQuery('''
       SELECT playlist.*, (
-        SELECT count(*) FROM playlist_item WHERE playlist_id = playlist.id
+        SELECT count(*) FROM playlist_item item JOIN videos video ON video.id = item.video_id
+        WHERE item.playlist_id = playlist.id AND video.is_deleted = 0
       ) AS total
       FROM playlist ORDER BY name ASC
     ''');
@@ -26,7 +27,7 @@ mixin DBPlaylist {
     final maps = await _db.rawQuery('''
       SELECT video.* FROM playlist_item AS item
       JOIN videos AS video ON video.id = item.video_id
-      WHERE item.playlist_id = ?
+      WHERE item.playlist_id = ? AND video.is_deleted = 0
       ORDER BY item.created_at ASC, item.video_id ASC
     ''', [playlistId]);
     return maps.map(Videos.fromJson).toList();

@@ -352,7 +352,7 @@ class PageExploreTabView extends StatelessWidget {
                       .color(controller.rightListViewMode.value == kR18 ? AppColor.selected : AppColor.unselected)
                       .cornerRadius(8)
                       .onInkTap(() async => await controller.onSectionR18Tap())
-                      .hide(isVisible: controller.rightListR18TotalVideo.value != 0),
+                      .hide(isVisible: ![kPath, kCustom].contains(controller.currentMenuSelected.value)),
                 ]),
               ),
             ],

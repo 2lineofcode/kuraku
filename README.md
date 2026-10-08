@@ -153,7 +153,7 @@ After completing local setup:
 flutter build macos --release --no-tree-shake-icons
 ```
 
-The app is written to `build/macos/Build/Products/Release/javit.app`. Alternatively, `./publish.sh macos` updates the version in `pubspec.yaml` and `APP_VER` in `.env`, regenerates the environment, refreshes dependencies, and builds the release. Despite its name, the script does not upload or distribute the app.
+The app is written to `build/macos/Build/Products/Release/javit.app`. Alternatively, `./publish.sh macos` updates the version in `pubspec.yaml` and `APP_VER` in `.env`, regenerates the environment, refreshes dependencies, builds the release, and copies the app to `/Applications/javit.app` (using `sudo` if needed). Despite its name, the script does not upload or distribute the app.
 
 macOS release and profile builds target Apple Silicon (ARM64), configured in `pubspec.yaml`. To produce a universal build for Intel Macs, set `flutter.config.enable-macos-arm64-only` to `false` before building.
 

@@ -63,7 +63,8 @@ INSERT INTO derived_video(content_id,dvd_id,series_id,release_date,title_en,titl
  ('b', 'ABC-124', 2, '2020-01-01', 'Old', '', 60, '', '', ''),
  ('c', 'ABC-125', 1, NULL, 'Unknown date', '', 30, '', '', ''),
  ('d', 'TK-123', 3, '2030-01-01', 'Blocked', '', 30, '', '', ''),
- ('e', 'INVALID', 3, '2030-01-01', 'Invalid', '', 30, '', '', '');
+ ('e', 'INVALID', 3, '2030-01-01', 'Invalid', '', 30, '', '', ''),
+ ('f', '4ABC123', 1, '2026-01-01', 'Invalid rental code', '', 30, '', '', '');
 INSERT INTO derived_video_category VALUES ('a',1),('b',2),('c',1),('d',3),('e',3);
 INSERT INTO derived_video_actress VALUES ('a',1),('a',2),('b',3),('c',1),('c',1),('d',4),('e',4);
 INSERT INTO derived_video_director VALUES ('a',1),('b',1),('c',1);
@@ -140,6 +141,16 @@ void main() {
   });
   tearDown(Get.reset);
 
+  test('Explore and Advanced Search count the same valid series videos', () async {
+    final advanced = await DBR18.getAdvancedSearchVideos('Series', 1);
+    for (final mode in [ActressMode.all, ActressMode.single, ActressMode.multi]) {
+      final rows = await DBR18.getAllVideosBySeries('Cast', actressMode: mode);
+      expect(await DBR18.getCountAllVideosBySeries('Cast', actressMode: mode), rows.length);
+      expect(rows.map((row) => row['video_code']), isNot(contains('4ABC123')));
+      if (mode == ActressMode.all) expect(rows.map((row) => row['video_code']), advanced.map((row) => row['video_code']));
+    }
+  });
+
   test('series lists and counts include duplicate names and case-insensitive matches', () async {
     Get.find<DBService>().dbR18 = _Database(includeBrowseDuplicates: true);
     final rows = await DBR18.getAllVideosBySeries('cast');
@@ -213,8 +224,8 @@ void main() {
       ('Category', (ActressMode mode, int page, int size) => DBR18.getAllVideosByCategory('Cast', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosByCategory('Cast', actressMode: mode), ['ABC-123', 'ABC-125'], ['ABC-125']),
       ('Series', (ActressMode mode, int page, int size) => DBR18.getAllVideosBySeries('Cast', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosBySeries('Cast', actressMode: mode), ['ABC-123', 'ABC-125'], ['ABC-125']),
       ('Series wildcard', (ActressMode mode, int page, int size) => DBR18.getAllVideosBySeries('C%', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosBySeries('C%', actressMode: mode), ['ABC-123', 'ABC-125'], ['ABC-125']),
-      ('Label', (ActressMode mode, int page, int size) => DBR18.getAllVideosByLabel('Label', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosByLabel('Label', actressMode: mode), ['INVALID', 'ABC-123', 'ABC-124', 'ABC-125'], ['INVALID', 'ABC-124', 'ABC-125']),
-      ('Studio', (ActressMode mode, int page, int size) => DBR18.getAllVideosByStudio('Studio', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosByStudio('Studio', actressMode: mode), ['INVALID', 'ABC-123', 'ABC-124', 'ABC-125'], ['INVALID', 'ABC-124', 'ABC-125']),
+      ('Label', (ActressMode mode, int page, int size) => DBR18.getAllVideosByLabel('Label', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosByLabel('Label', actressMode: mode), ['ABC-123', 'ABC-124', 'ABC-125'], ['ABC-124', 'ABC-125']),
+      ('Studio', (ActressMode mode, int page, int size) => DBR18.getAllVideosByStudio('Studio', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosByStudio('Studio', actressMode: mode), ['ABC-123', 'ABC-124', 'ABC-125'], ['ABC-124', 'ABC-125']),
       ('Director', (ActressMode mode, int page, int size) => DBR18.getAllVideosByDirector('Director', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosByDirector('Director', actressMode: mode), ['ABC-123', 'ABC-124', 'ABC-125'], ['ABC-124', 'ABC-125']),
       ('Year', (ActressMode mode, int page, int size) => DBR18.getAllVideosByYear('202', actressMode: mode, page: page, perPage: size), (ActressMode mode) => DBR18.getCountAllVideosByYear('202', actressMode: mode), ['ABC-123', 'ABC-124'], ['ABC-124']),
     ]) {

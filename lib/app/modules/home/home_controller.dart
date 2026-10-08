@@ -26,6 +26,7 @@ import '../../utils/helper.dart';
 import '../player/player_multi_view.dart';
 import '../widgets/widget_surfaces.dart';
 import 'home_panel/home_panel_library.dart';
+import 'home_panel/home_panel_playlist.dart';
 import 'page_chat/page_chat_controller.dart';
 import 'page_download/page_download_controller.dart';
 import 'page_explore/page_explore_controller.dart';
@@ -65,6 +66,7 @@ class HomeController extends GetxController with StateMixin {
 
   // cart
   final cart = <Videos>[].obs;
+  Worker? _videoWorker;
 
   String _cartIdentity(Videos video) {
     final videoPath = (video.videoPath ?? '').trim().toLowerCase();
@@ -129,6 +131,7 @@ class HomeController extends GetxController with StateMixin {
     cart.value = AppPref.getAppCart();
     deduplicateCart();
     ever<List<Videos>>(cart, (value) => AppPref.setAppCart(value));
+    _videoWorker = ever(DBVideos.revision, (_) => unawaited(refreshVideoContent()));
 
     sideMenuWidth.value = AppPref.getAppHideSideMenu() ? 65 : 180;
     change(200, status: RxStatus.success());
@@ -166,11 +169,41 @@ class HomeController extends GetxController with StateMixin {
 
   @override
   void onClose() {
+    _videoWorker?.dispose();
     HomePanelLibrary.stopAutoRescanWatcher();
     fnTopNavSearch.removeListener(_onTopNavSearchFocusChanged);
     tecTopNavSearch.dispose();
     fnTopNavSearch.dispose();
     super.onClose();
+  }
+
+  Future<void> refreshVideoContent() async {
+    try {
+      final refreshedCart = await Future.wait(cart.toList().map((video) async {
+        if ((video.videoPath ?? '').isEmpty) return video;
+        return DBVideos.getByVideoPath(video.videoPath!);
+      }));
+      if (isClosed) return;
+      cart.assignAll(refreshedCart.whereType<Videos>());
+      await Future.wait([
+        if (Get.isRegistered<PageHomeController>() && !Get.isPrepared<PageHomeController>())
+          Get.find<PageHomeController>().onRefresh(),
+        if (Get.isRegistered<PageSearchController>() && !Get.isPrepared<PageSearchController>())
+          Get.find<PageSearchController>().onRefresh(),
+        if (Get.isRegistered<PageExploreController>() && !Get.isPrepared<PageExploreController>())
+          Get.find<PageExploreController>().onRefresh(),
+        if (Get.isRegistered<PageToolsController>() && !Get.isPrepared<PageToolsController>()) ...[
+          Get.find<PageToolsController>().getTopLargeFileSize(mode: Get.find<PageToolsController>().topLargeFilterMode.value),
+          Get.find<PageToolsController>().getDuplicateVideos(),
+          Get.find<PageToolsController>().checkIsHasDataNotScanned(),
+        ],
+        getAllPlaylist(),
+        HomePanelPlaylist.refreshVideoContent(),
+        updateFooterSummary(),
+      ]);
+    } catch (e) {
+      AppLog.logE('Refreshing video content failed: $e');
+    }
   }
 
   Future<void> onRefreshAllContent({bool preserveInputState = false}) async {

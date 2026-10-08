@@ -32,6 +32,16 @@ mixin HomePanelPlaylist {
   static final _listVideos = <Videos>[].obs;
   static final _listFavoriteVideo = <Videos>[].obs;
   static Future<List<Videos>>? _detailFuture;
+  static bool _isOpen = false;
+
+  static Future<void> refreshVideoContent() async {
+    if (!_isOpen) return;
+    _listFavoriteVideo.value = await DBVideos.getAll(where: 'is_favorite = 1');
+    if (!_isOpen || !_isDetailMode.value) return;
+    _detailFuture = _isFavoriteMode.value ? _buildFavoriteFuture() : _buildDetailFuture();
+    _isDetailMode.refresh();
+    await _detailFuture;
+  }
 
   static Future<void> open() async {
     if (Overlayment.count > 0) { await Overlayment.dismissLast(); return; }
@@ -47,10 +57,12 @@ mixin HomePanelPlaylist {
         color: AppColor.panel,
         actions: OverlayActions(
           onOpen: () async {
+            _isOpen = true;
             _controller.playlist.value = await DBPlaylist.getAllPlaylist();
             _listFavoriteVideo.value = await DBVideos.getAll(where: 'is_favorite = 1');
           },
           onClose: (p0) async {
+            _isOpen = false;
             _listVideos.clear();
             _isDetailMode.value = false;
             _isFavoriteMode.value = false;

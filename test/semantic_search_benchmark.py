@@ -27,7 +27,7 @@ fixtures = {
 with tempfile.TemporaryDirectory() as tmp:
     dbpath = Path(tmp) / 'javit.db'
     db = sqlite3.connect(dbpath)
-    db.execute('CREATE TABLE videos(id TEXT PRIMARY KEY, video_path TEXT, title TEXT, video_code TEXT, updated_at TEXT)')
+    db.execute('CREATE TABLE videos(id TEXT PRIMARY KEY, video_path TEXT, title TEXT, video_code TEXT, updated_at TEXT, is_deleted INTEGER NOT NULL DEFAULT 0)')
     db.execute('CREATE TABLE video_embeddings(video_id TEXT PRIMARY KEY, source_text TEXT, embedding BLOB, model TEXT)')
     worker = module.Worker(dbpath, root)
     vectors = []
@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory() as tmp:
         print(filename, 'image_ms', round((time.perf_counter() - start) * 1000, 1), flush=True)
     for i in range(10000):
         path = f'/video/{i}.mp4'
-        db.execute('INSERT INTO videos VALUES(?,?,?,?,?)', (str(i), path, f'Item {i}', f'TEST-{i:05}', ''))
+        db.execute('INSERT INTO videos VALUES(?,?,?,?,?,0)', (str(i), path, f'Item {i}', f'TEST-{i:05}', ''))
         db.execute('INSERT INTO video_embeddings VALUES(?,?,?,?)',
             (str(i), json.dumps({'path': path}), vectors[i % len(vectors)].tobytes(), module.MODEL))
     db.commit()

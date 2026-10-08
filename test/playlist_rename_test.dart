@@ -161,6 +161,7 @@ void main() {
 
   test('Playlist queries count only videos and return stable membership order', () async {
     await DBUpdate.onUpgrade(database, 10, 11);
+    await DBUpdate.onUpgrade(database, 15, 16);
     await DBPlaylist.getAllPlaylist();
     final headers = database.playlistQuery!;
     await DBPlaylist.getPlaylist('p1');
@@ -173,13 +174,13 @@ db.execute('CREATE TABLE videos (id TEXT PRIMARY KEY, title TEXT)')
 db.execute('CREATE TABLE collection (id TEXT, type TEXT, name TEXT, cover TEXT, video_id TEXT, playlist_id TEXT, created_at TEXT, updated_at TEXT)')
 for sql in schema: db.execute(sql)
 db.execute("INSERT INTO playlist(id,name) VALUES ('p1','List'),('p2','Empty')")
-db.execute("INSERT INTO videos VALUES ('v1','First'),('v2','Second')")
+db.execute("INSERT INTO videos(id,title) VALUES ('v1','First'),('v2','Second')")
 db.execute("INSERT INTO playlist_item VALUES ('p1','v2','2026'),('p1','v1','2026')")
 assert {row[0]: row[-1] for row in db.execute(headers)} == {'p1': 2, 'p2': 0}
-assert db.execute(items, ['p1']).fetchall() == [('v1','First'),('v2','Second')]
+assert db.execute(items, ['p1']).fetchall() == [('v1','First',0),('v2','Second',0)]
 db.execute("DELETE FROM videos WHERE id='v1'")
 assert {row[0]: row[-1] for row in db.execute(headers)} == {'p1': 1, 'p2': 0}
-assert db.execute(items, ['p1']).fetchall() == [('v2','Second')]
+assert db.execute(items, ['p1']).fetchall() == [('v2','Second',0)]
 ''', jsonEncode([database.statements, headers, database.playlistQuery])]);
     expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
   });

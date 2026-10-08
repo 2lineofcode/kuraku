@@ -21,10 +21,10 @@ class SemanticWorkerTest(unittest.TestCase):
             root = Path(tmp)
             db_path = root / 'javit.db'
             db = sqlite3.connect(db_path)
-            db.execute('CREATE TABLE videos (id TEXT PRIMARY KEY, video_path TEXT, title TEXT, video_code TEXT, actress TEXT, updated_at TEXT)')
+            db.execute('CREATE TABLE videos (id TEXT PRIMARY KEY, video_path TEXT, title TEXT, video_code TEXT, actress TEXT, updated_at TEXT, is_deleted INTEGER NOT NULL DEFAULT 0)')
             db.execute("CREATE TABLE video_embeddings (video_id TEXT PRIMARY KEY REFERENCES videos(id) ON DELETE CASCADE, source_text TEXT NOT NULL, embedding BLOB NOT NULL CHECK(typeof(embedding)='blob' AND length(embedding)>0 AND length(embedding)%4=0), model TEXT NOT NULL, created_at TEXT, updated_at TEXT)")
-            db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?)', ('one', str(root / 'one.mp4'), 'A red car', 'TEST-001', '[{"name_romaji":"Jane Doe"}]', ''))
-            db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?)', ('two', str(root / 'two.mp4'), 'A blue boat', 'TEST-002', '[]', ''))
+            db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?, 0)', ('one', str(root / 'one.mp4'), 'A red car', 'TEST-001', '[{"name_romaji":"Jane Doe"}]', ''))
+            db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?, 0)', ('two', str(root / 'two.mp4'), 'A blue boat', 'TEST-002', '[]', ''))
             db.commit()
             (root / 'vid_thumbnail').mkdir()
             from PIL import Image
@@ -69,11 +69,19 @@ class SemanticWorkerTest(unittest.TestCase):
             self.assertEqual(set(worker.plan(force=True)['ids']), {'one', 'two'})
             (root / 'one.mp4').unlink()
             self.assertEqual(worker.plan()['ids'], ['two'])
-            db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?)', ('duplicate', '/other/one.mp4', '', '', '[]', ''))
+            db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?, 0)', ('duplicate', '/other/one.mp4', '', '', '[]', ''))
             db.commit()
             self.assertEqual(worker.plan()['missing_thumbnails'], 1)
             worker.refresh()
             self.assertFalse(np.any(worker.matrix))
+            db.execute("UPDATE videos SET is_deleted=1 WHERE id='one'")
+            db.commit()
+            self.assertEqual(worker.summary()['total'], 2)
+            self.assertEqual(set(worker.plan(force=True)['ids']), {'two', 'duplicate'})
+            self.assertFalse(worker.index('one')['indexed'])
+            with self.assertRaisesRegex(ValueError, 'No visual index yet'):
+                worker.search('TEST001')
+            self.assertNotIn('one', [row['id'] for row in worker.rows])
             self.assertFalse(worker.index('deleted')['indexed'])
             with worker.db:
                 worker.db.execute("DELETE FROM videos WHERE id='one'")
@@ -108,7 +116,7 @@ class SemanticWorkerTest(unittest.TestCase):
             subprocess.run([shutil.which('ffmpeg'), '-hide_banner', '-loglevel', 'error', '-f', 'lavfi',
                 '-i', 'color=c=blue:s=320x240:d=1', '-threads', '1', str(video)], check=True)
             db = sqlite3.connect(root / 'javit.db')
-            db.execute('CREATE TABLE videos(video_path TEXT)')
+            db.execute('CREATE TABLE videos(video_path TEXT, is_deleted INTEGER NOT NULL DEFAULT 0)')
             db.close()
             worker = worker_module.Worker(root / 'javit.db', root / 'runtime')
             row = {'video_path': str(video)}
@@ -136,9 +144,9 @@ class SemanticWorkerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'javit.db'
             db = sqlite3.connect(path)
-            db.execute('CREATE TABLE videos (id TEXT PRIMARY KEY, video_path TEXT, title TEXT, updated_at TEXT)')
+            db.execute('CREATE TABLE videos (id TEXT PRIMARY KEY, video_path TEXT, title TEXT, updated_at TEXT, is_deleted INTEGER NOT NULL DEFAULT 0)')
             db.execute('CREATE TABLE video_embeddings (video_id TEXT PRIMARY KEY, source_text TEXT, embedding TEXT, model TEXT)')
-            db.execute("INSERT INTO videos VALUES ('a', '/a.mp4', 'A car', '')")
+            db.execute("INSERT INTO videos VALUES ('a', '/a.mp4', 'A car', '', 0)")
             db.execute('INSERT INTO video_embeddings VALUES (?, ?, ?, ?)', ('a', json.dumps(['/a.mp4']), '[1, 2]', worker_module.MODEL))
             db.commit()
             worker = worker_module.Worker(path, Path(tmp))

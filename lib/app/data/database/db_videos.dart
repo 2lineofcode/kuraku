@@ -15,6 +15,7 @@ import '_init_db.dart';
 mixin DBVideos {
   static Database get _db => Get.find<DBService>().dbMain;
   static const _tableName = 'videos';
+  static final revision = 0.obs;
   static const _allowedColumns = {
     'id', 'root_path', 'video_path', 'video_code', 'title', 'title_ja',
     'description', 'fan_art', 'poster', 'trailer', 'actress', 'category',
@@ -103,7 +104,7 @@ mixin DBVideos {
     if (values.isEmpty) return 0;
     values['updated_at'] = DateTime.now().toStringEx();
     return _db.update(_tableName, values,
-      where: 'id = ? AND video_path = ?', whereArgs: [video.id, video.videoPath]);
+      where: 'id = ? AND video_path = ? AND is_deleted = 0', whereArgs: [video.id, video.videoPath]);
   }
 
   static Future<void> update(Videos videos) async {
@@ -112,10 +113,12 @@ mixin DBVideos {
     for (final field in ['duration', 'view_count', 'is_favorite', 'filesize']) {
       if (values[field] == null) values.remove(field);
     }
-    await _db.update(_tableName, values, where: 'id = ?', whereArgs: [videos.id]);
+    final changed = await _db.update(_tableName, values, where: 'id = ? AND is_deleted = 0', whereArgs: [videos.id]);
+    if (changed == 0) throw StateError('Video no longer exists');
+    revision.value++;
   }
 
-  static const _missingQuality = "(quality IS NULL OR TRIM(quality) = '')";
+  static const _missingQuality = "is_deleted = 0 AND (quality IS NULL OR TRIM(quality) = '')";
 
   static Future<int> countMissingQuality() async => Sqflite.firstIntValue(
     await _db.rawQuery('SELECT COUNT(*) FROM $_tableName WHERE $_missingQuality'),
@@ -134,7 +137,7 @@ mixin DBVideos {
     if (rootPath.isEmpty) return 0;
     return _db.transaction((txn) async {
       const missingCode = "(video_code IS NULL OR TRIM(video_code) = '')";
-      final rows = await txn.query(_tableName, columns: ['id', 'video_path'], where: 'root_path = ? AND $missingCode', whereArgs: [rootPath]);
+      final rows = await txn.query(_tableName, columns: ['id', 'video_path'], where: 'root_path = ? AND is_deleted = 0 AND $missingCode', whereArgs: [rootPath]);
       var recovered = 0;
       for (final row in rows) {
         final code = (row['video_path'] as String? ?? '').getFileName().getVideoCode();
@@ -146,7 +149,10 @@ mixin DBVideos {
   }
 
   static Future<void> delete(Videos videos) async {
-    await _db.delete(_tableName, where: 'id = ?', whereArgs: [videos.id]);
+    final changed = await _db.update(_tableName,
+      {'is_deleted': 1, 'updated_at': DateTime.now().toStringEx()},
+      where: 'id = ? AND is_deleted = 0', whereArgs: [videos.id]);
+    if (changed > 0) revision.value++;
   }
 
   static Future<void> deleteByVideoPaths(List<String> videoPaths, {DatabaseExecutor? executor}) async {
@@ -161,7 +167,7 @@ mixin DBVideos {
         final chunk = unique.sublist(i, i + chunkSize > unique.length ? unique.length : i + chunkSize);
         final placeholders = List.filled(chunk.length, '?').join(', ');
         await txn.rawDelete(
-          'DELETE FROM $_tableName WHERE video_path IN ($placeholders)',
+          'DELETE FROM $_tableName WHERE is_deleted = 0 AND video_path IN ($placeholders)',
           chunk,
         );
       }
@@ -209,8 +215,9 @@ mixin DBVideos {
     return updatedRows;
   }
 
-  static Future<List<Videos>> getAll({String? where, List<Object?>? whereArgs, String? orderBy, String? groupBy, int? limit}) async {
-    final maps = await _db.query(_tableName, where: where, whereArgs: whereArgs, groupBy: groupBy, orderBy: orderBy, limit: limit);
+  static Future<List<Videos>> getAll({String? where, List<Object?>? whereArgs, String? orderBy, String? groupBy, int? limit, bool includeDeleted = false}) async {
+    final condition = includeDeleted ? where : 'is_deleted = 0${where == null ? '' : ' AND ($where)'}';
+    final maps = await _db.query(_tableName, where: condition, whereArgs: whereArgs, groupBy: groupBy, orderBy: orderBy, limit: limit);
     return _toVideos(maps);
   }
 
@@ -221,7 +228,7 @@ mixin DBVideos {
         SELECT video_id, SUM(watched_seconds) AS seconds, MAX(created_at) AS last_watched
         FROM watch_session WHERE video_id IS NOT NULL GROUP BY video_id
       ) w ON w.video_id = v.id
-      WHERE v.is_favorite = 1 OR v.view_count > 0 OR w.seconds > 0
+      WHERE v.is_deleted = 0 AND (v.is_favorite = 1 OR v.view_count > 0 OR w.seconds > 0)
     ''');
     final now = DateTime.now();
     return rows.map((row) {
@@ -241,7 +248,7 @@ mixin DBVideos {
     if (column == 'actress' || column == 'category') {
       final field = column == 'actress' ? 'id' : 'category';
       final maps = await _db.rawQuery('''
-        SELECT * FROM videos v WHERE EXISTS (
+        SELECT * FROM videos v WHERE v.is_deleted = 0 AND EXISTS (
           SELECT 1 FROM json_each(v.$column) j WHERE CAST(json_extract(j.value, '\$.$field') AS TEXT) = ?
         ) ORDER BY release_date DESC
       ''', [like]);
@@ -254,7 +261,7 @@ mixin DBVideos {
 
     final maps = await _db.rawQuery('''
       SELECT * FROM $_tableName
-      WHERE 1=1
+      WHERE is_deleted = 0
         AND $safeColumn LIKE ?
       ORDER BY release_date DESC
     ''', [likeQuery]);
@@ -270,7 +277,7 @@ mixin DBVideos {
 
     final maps = await _db.rawQuery('''
       SELECT * FROM $_tableName
-      WHERE 1=1
+      WHERE is_deleted = 0
         AND $safeColumn LIKE ? 
         AND $safeColumn NOT LIKE ?
       ORDER BY video_code ASC, title ASC
@@ -283,7 +290,7 @@ mixin DBVideos {
     final query = '%$s%';
     final maps = await _db.rawQuery('''
       SELECT * FROM $_tableName 
-      WHERE 1=1
+      WHERE is_deleted = 0
         AND (
           video_code LIKE ?
           OR title LIKE ?
@@ -295,28 +302,28 @@ mixin DBVideos {
 
   // ** get_by
   static Future<Videos> getByID(String id) async {
-    final maps = await _db.query(_tableName, where: 'id = ?', whereArgs: [id]);
+    final maps = await _db.query(_tableName, where: 'id = ? AND is_deleted = 0', whereArgs: [id]);
     return Videos.fromJson(maps.first);
   }
 
   static Future<Videos> getByCode(String code) async {
-    final maps = await _db.query(_tableName, where: 'video_code = ?', whereArgs: [code]);
+    final maps = await _db.query(_tableName, where: 'video_code = ? AND is_deleted = 0', whereArgs: [code]);
     return Videos.fromJson(maps.first);
   }
 
   static Future<Videos?> getByVideoPath(String videoPath) async {
-    final maps = await _db.query(_tableName, where: 'video_path = ?', whereArgs: [videoPath]);
+    final maps = await _db.query(_tableName, where: 'video_path = ? AND is_deleted = 0', whereArgs: [videoPath]);
     return maps.isNotEmpty ? Videos.fromJson(maps.first) : null;
   }
 
   static Future<List<Videos>> getBySeries(String series) async {
-    final maps = await _db.query(_tableName, where: 'series = ?', whereArgs: [series]);
+    final maps = await _db.query(_tableName, where: 'series = ? AND is_deleted = 0', whereArgs: [series]);
     return _toVideos(maps);
   }
 
   static Future<List<Videos>> getByActress(String actressName) async {
     final maps = await _db.rawQuery('''
-      SELECT * FROM videos v WHERE EXISTS (
+      SELECT * FROM videos v WHERE v.is_deleted = 0 AND EXISTS (
         SELECT 1 FROM json_each(v.actress) j WHERE json_extract(j.value, '\$.name_romaji') = ? COLLATE NOCASE
       )
     ''', [actressName]);
@@ -326,22 +333,22 @@ mixin DBVideos {
   // ** end get_by
 
   static Future<int> getCount() async {
-    final maps = await _db.rawQuery('SELECT COUNT(*) AS total FROM $_tableName');
+    final maps = await _db.rawQuery('SELECT COUNT(*) AS total FROM $_tableName WHERE is_deleted = 0');
     return maps.isNotEmpty ? (maps.first['total'] as int? ?? 0) : 0;
   }
 
   static Future<void> updateViewCount(Videos video) async {
     await _db.transaction((txn) async {
-      final changed = await txn.rawUpdate('UPDATE videos SET view_count = view_count + 1 WHERE id = ?', [video.id]);
+      final changed = await txn.rawUpdate('UPDATE videos SET view_count = view_count + 1 WHERE id = ? AND is_deleted = 0', [video.id]);
       if (changed == 0) return;
-      final rows = await txn.query('videos', columns: ['view_count'], where: 'id = ?', whereArgs: [video.id], limit: 1);
+      final rows = await txn.query('videos', columns: ['view_count'], where: 'id = ? AND is_deleted = 0', whereArgs: [video.id], limit: 1);
       video.viewCount = rows.single['view_count'] as int;
     });
   }
 
   static Future<void> _setFavorite(Videos video, int favorite) async {
     final now = DateTime.now().toStringEx();
-    final changed = await _db.update('videos', {'is_favorite': favorite, 'updated_at': now}, where: 'id = ?', whereArgs: [video.id]);
+    final changed = await _db.update('videos', {'is_favorite': favorite, 'updated_at': now}, where: 'id = ? AND is_deleted = 0', whereArgs: [video.id]);
     if (changed == 0) return;
     video.isFavorite = favorite;
     video.updatedAt = now;
@@ -359,7 +366,7 @@ mixin DBVideos {
     final categoryIdToCount = {};
     final uniqueCategory = {};
 
-    final rawData = await _db.rawQuery('SELECT category FROM $_tableName');
+    final rawData = await _db.rawQuery('SELECT category FROM $_tableName WHERE is_deleted = 0');
 
     for (var row in rawData) {
       final categoryString = row['category'] as String?;
@@ -405,7 +412,7 @@ mixin DBVideos {
     final actressIdToCount = {};
     final uniqueActresses = {};
 
-    final rawData = await _db.rawQuery('SELECT actress FROM $_tableName');
+    final rawData = await _db.rawQuery('SELECT actress FROM $_tableName WHERE is_deleted = 0');
 
     for (var row in rawData) {
       final actressString = row['actress'] as String?;
@@ -457,7 +464,7 @@ mixin DBVideos {
         studio AS name, 
         COUNT(studio) AS count
       FROM $_tableName
-      WHERE 1=1
+      WHERE is_deleted = 0
         AND studio IS NOT NULL 
         AND studio != ''
       GROUP BY studio;
@@ -475,7 +482,7 @@ mixin DBVideos {
         label AS name, 
         COUNT(label) AS count
       FROM $_tableName
-      WHERE 1=1
+      WHERE is_deleted = 0
         AND label IS NOT NULL 
         AND label != ''
       GROUP BY label;
@@ -493,7 +500,7 @@ mixin DBVideos {
         series AS name, 
         COUNT(series) AS count
       FROM $_tableName
-      WHERE 1=1
+      WHERE is_deleted = 0
         AND series IS NOT NULL 
         AND series != ''
       GROUP BY series;
@@ -510,7 +517,7 @@ mixin DBVideos {
         director AS name, 
         COUNT(director) AS count
       FROM $_tableName
-      WHERE 1=1 
+      WHERE is_deleted = 0
         AND director IS NOT NULL 
         AND director != ''
       GROUP BY director;
@@ -523,7 +530,7 @@ mixin DBVideos {
 
   // Video Path ────────────────────────────────────────────────────────────────
   static Future<List<Map<String, dynamic>>> getAllPathWithCount() async {
-    final rawData = await _db.rawQuery('SELECT video_path FROM $_tableName');
+    final rawData = await _db.rawQuery('SELECT video_path FROM $_tableName WHERE is_deleted = 0');
     final Map<String, int> directoryCounts = {};
     for (var row in rawData) {
       final String? videoPath = row['video_path'] as String?;
@@ -552,7 +559,7 @@ mixin DBVideos {
         STRFTIME('%Y', release_date) AS name,
         COUNT(*) AS count
       FROM $_tableName
-      WHERE 1=1
+      WHERE is_deleted = 0
         AND release_date IS NOT NULL 
         AND release_date != ''
       GROUP BY
@@ -650,7 +657,7 @@ mixin DBVideos {
   }
 
   static Future<num?> getTotalFileSizeAllVideo() async {
-    final maps = await _db.rawQuery('SELECT sum(filesize) as total FROM videos');
+    final maps = await _db.rawQuery('SELECT sum(filesize) as total FROM videos WHERE is_deleted = 0');
     return maps.first['total'] as num?;
   }
 }

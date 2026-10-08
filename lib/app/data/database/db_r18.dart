@@ -151,23 +151,10 @@ mixin DBR18 {
     };
   }
 
-  static Map<String, dynamic> _buildBlacklistClause({String column = 'v.video_code'}) {
-    final clauses = <String>[];
-    final args = <Object?>[];
-
-    for (final prefix in _blacklistedPrefixes) {
-      clauses.add("$column NOT LIKE '$prefix%'");
-    }
-
-    for (final suffix in _blacklistedSuffixes) {
-      clauses.add("$column NOT LIKE '%$suffix'");
-    }
-
-    return {
-      'sql': clauses.isEmpty ? '' : ' AND ${clauses.join(' AND ')}',
-      'args': args,
-    };
-  }
+  static Map<String, dynamic> _buildBlacklistClause({String column = 'v.video_code'}) => {
+    'sql': ' AND (${_advancedVideos.replaceAll('video_code', column)})',
+    'args': <Object?>[],
+  };
 
   static String _normalizeCode(String code) {
     final value = code.trim().toUpperCase();

@@ -26,7 +26,7 @@ class _Database implements Database {
 
   @override
   Future<List<Map<String, Object?>>> query(String table, {bool? distinct, List<String>? columns, String? where, List<Object?>? whereArgs, String? groupBy, String? having, String? orderBy, int? limit, int? offset}) async {
-    expect(where, 'video_path = ?');
+    expect(where, 'video_path = ? AND is_deleted = 0');
     expect(whereArgs, ['/missing/video.mp4']);
     return [{'id': 'video-1', 'is_favorite': favorite}];
   }

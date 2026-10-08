@@ -230,6 +230,37 @@ void main() {
     }
   });
 
+  testWidgets('zero R18 results still allow changing the cast filter', (tester) async {
+    final tab = _Tab(99);
+    addTearDown(tab.dispose);
+    tab.isFresh.value = false;
+    tab.leftListSelected.value = LeftListModel(name: 'Series', imgUrl: '', count: 1);
+    tab.rightListLocal.assignAll([Videos(id: '1', title: 'Video')]);
+    tab.actressMode.value = ActressMode.multi;
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: _View(controller: tab))));
+    for (final menu in [kActress, kCategory, kSeries, kLabel, kStudio, kDirector, kYear]) {
+      tab.currentMenuSelected.value = menu;
+      tab.rightListViewMode.value = kLocal;
+      tab.rightListR18TotalVideo.value = 0;
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('R18: 0'));
+      await tester.pumpAndSettle();
+      expect(tab.rightListViewMode.value, kR18, reason: menu);
+      await tester.tap(find.byType(AppDropdown<ActressMode>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All').last);
+      await tester.pumpAndSettle();
+      expect(tab.actressMode.value, ActressMode.all, reason: menu);
+    }
+    for (final menu in [kPath, kCustom]) {
+      tab.currentMenuSelected.value = menu;
+      await tester.pumpAndSettle();
+      expect(find.text('R18: 0'), findsNothing, reason: menu);
+    }
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('every R18 type exposes all, single and multi modes', (tester) async {
     final tab = _Tab(99);
     addTearDown(tab.dispose);

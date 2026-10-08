@@ -45,13 +45,13 @@ class _Database implements Database {
 
   @override
   Future<List<Map<String, Object?>>> rawQuery(String sql, [List<Object?>? arguments]) async {
-    if (sql.contains('JOIN videos')) return detail?.future ?? [];
+    if (sql.contains('SELECT video.*')) return detail?.future ?? [];
     return [{'id': 'p1', 'name': name, 'total': 0}];
   }
 
   @override
   Future<List<Map<String, Object?>>> query(String table, {bool? distinct, List<String>? columns, String? where, List<Object?>? whereArgs, String? groupBy, String? having, String? orderBy, int? limit, int? offset}) async =>
-      where == 'is_favorite = 1' ? favorites?.future ?? [] : [];
+      where == 'is_deleted = 0 AND (is_favorite = 1)' ? favorites?.future ?? [] : [];
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

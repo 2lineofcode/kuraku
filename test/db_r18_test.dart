@@ -291,10 +291,10 @@ void main() {
       database = attach();
 
       await DBR18.getByFilter(yearStart: 2020);
-      expect(database.rawCalls.last.sql, isNot(contains('BETWEEN')));
+      expect(database.rawCalls.last.sql, isNot(contains('CAST(substr(v.release_date, 1, 4) AS INTEGER) BETWEEN')));
 
       await DBR18.getByFilter(yearEnd: 2024);
-      expect(database.rawCalls.last.sql, isNot(contains('BETWEEN')));
+      expect(database.rawCalls.last.sql, isNot(contains('CAST(substr(v.release_date, 1, 4) AS INTEGER) BETWEEN')));
     });
 
     test('a single duration bound still forces a known runtime', () async {

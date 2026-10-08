@@ -45,7 +45,7 @@ void main() {
     await File('$runtime/ready').writeAsString(LocalSemanticWorker.readyMarker);
     final dbPath = '${directory.path}/javit.db';
     final created = await Process.run('python3', ['-c',
-      'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("CREATE TABLE videos(id TEXT, video_path TEXT, updated_at TEXT)"); c.execute("CREATE TABLE video_embeddings(video_id TEXT, source_text TEXT, model TEXT, embedding BLOB)"); c.close()', dbPath,
+      'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("CREATE TABLE videos(id TEXT, video_path TEXT, updated_at TEXT, is_deleted INTEGER NOT NULL DEFAULT 0)"); c.execute("CREATE TABLE video_embeddings(video_id TEXT, source_text TEXT, model TEXT, embedding BLOB)"); c.close()', dbPath,
     ]);
     expect(created.exitCode, 0);
     Get.put<AppSettingService>(AppSettingService()..appPath = directory.path..bundledAssetsPath = p.absolute('assets'));
@@ -81,7 +81,7 @@ void main() {
     await staleCheck;
     expect((await latest)['total'], 0);
     final populated = await Process.run('python3', ['-c',
-      'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.executemany("INSERT INTO videos VALUES(?,?,?)", [("video-"+str(i).zfill(60), "/missing/"+str(i)+".mp4", "") for i in range(1500)]); c.commit(); c.close()', dbPath,
+      'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.executemany("INSERT INTO videos(id,video_path,updated_at) VALUES(?,?,?)", [("video-"+str(i).zfill(60), "/missing/"+str(i)+".mp4", "") for i in range(1500)]); c.commit(); c.close()', dbPath,
     ]);
     expect(populated.exitCode, 0);
     final largePlan = await LocalSemanticWorker.request('plan');

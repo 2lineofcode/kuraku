@@ -690,7 +690,7 @@ mixin HomePanelLibrary {
 
       final pathToAdd = <String>[];
       final pathToDelete = <String>[];
-      final stored = await DBVideos.getAll(where: 'root_path = ?', whereArgs: [oldData.rootFolder]);
+      final stored = await DBVideos.getAll(where: 'root_path = ?', whereArgs: [oldData.rootFolder], includeDeleted: true);
       final oldVideos = stored.map((video) => video.videoPath!).toSet();
       final newVideos = Set<String>.from(newData.videos ?? const <String>[]);
 
@@ -762,7 +762,7 @@ mixin HomePanelLibrary {
       // Compare scans against committed video rows so interrupted imports can retry.
       final Map<String, List<String>> oldMap = {};
       for (final lib in libraries) {
-        final stored = await DBVideos.getAll(where: 'root_path = ?', whereArgs: [lib.rootFolder]);
+        final stored = await DBVideos.getAll(where: 'root_path = ?', whereArgs: [lib.rootFolder], includeDeleted: true);
         oldMap[lib.rootFolder ?? ''] = stored.map((video) => video.videoPath!).toList();
       }
 

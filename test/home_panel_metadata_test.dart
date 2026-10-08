@@ -8,16 +8,24 @@ import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
 import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/data/database/_init_db.dart';
+import 'package:javit/app/data/database/_update_db.dart';
+import 'package:javit/app/data/database/db_videos.dart';
 import 'package:javit/app/data/models/videos_entity.dart';
 import 'package:javit/app/modules/home/home_controller.dart';
 import 'package:javit/app/modules/home/home_panel/home_panel_log.dart';
 import 'package:javit/app/modules/home/home_panel/home_panel_metadata.dart';
+import 'package:javit/app/modules/home/page_explore/page_explore_controller.dart';
+import 'package:javit/app/modules/home/page_home/page_home_controller.dart';
+import 'package:javit/app/modules/home/page_search/page_search_controller.dart';
+import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
+import 'package:javit/app/modules/home/page_tools/page_tools_controller.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:toastification/toastification.dart';
 
+import 'sqlite_test_database.dart';
+
 class _MetadataBinding extends AutomatedTestWidgetsFlutterBinding {
-  // Get.forceAppUpdate uses hot reload, which conflicts with fake animation frames.
   @override
   // ignore: must_call_super
   Future<void> performReassemble() async {}
@@ -45,20 +53,66 @@ class _Service extends DBService {
 }
 
 class _Home extends HomeController {
+  int videoRefreshes = 0;
+
+  @override
+  void onReady() {}
+
+  @override
+  Future<void> refreshVideoContent() async { videoRefreshes++; }
+
+}
+
+class _RefreshingHome extends HomeController {
+  Completer<void>? nextRefresh;
+
+  @override
+  void onReady() {}
+
+  @override
+  Future<void> updateFooterSummary() async { totalVideo.value = await DBVideos.getCount(); }
+
+  @override
+  Future<void> refreshVideoContent() async {
+    await super.refreshVideoContent();
+    nextRefresh?.complete();
+    nextRefresh = null;
+  }
+}
+
+class _PageHome extends PageHomeController {
   @override
   // ignore: must_call_super
   Future<void> onInit() async {}
+}
 
+class _Search extends PageSearchController {
   @override
-  void onClose() {
-    tecTopNavSearch.dispose();
-    fnTopNavSearch.dispose();
+  // ignore: must_call_super
+  void onInit() {
+    tabs.addAll([PageSearchTab(0), PageSearchTab(1)..tecSearch.text = 'Original']);
   }
+}
+
+class _Explore extends PageExploreController {
+  @override
+  // ignore: must_call_super
+  void onInit() {
+    tabs.add(PageExploreTab(0)
+      ..currentMenuSelected.value = 'Path'
+      ..leftListSelected.value = LeftListModel(name: '/movies'));
+  }
+}
+
+class _Tools extends PageToolsController {
+  @override
+  // ignore: must_call_super
+  Future<void> onInit() async {}
 }
 
 class _MainDatabase implements Database {
   final updates = <Map<String, Object?>>[];
-  final deletes = <List<Object?>>[];
+  bool failWrites = false;
 
   @override
   Future<List<Map<String, Object?>>> query(String table, {bool? distinct, List<String>? columns, String? where, List<Object?>? whereArgs, String? groupBy, String? having, String? orderBy, int? limit, int? offset}) async {
@@ -68,15 +122,9 @@ class _MainDatabase implements Database {
   @override
   Future<int> update(String table, Map<String, Object?> values, {String? where, List<Object?>? whereArgs, ConflictAlgorithm? conflictAlgorithm}) async {
     expect(table, 'videos');
-    expect(where, 'id = ?');
+    expect(where, 'id = ? AND is_deleted = 0');
+    if (failWrites) throw StateError('Database unavailable');
     updates.add(Map<String, Object?>.from(values));
-    return 1;
-  }
-
-  @override
-  Future<int> delete(String table, {String? where, List<Object?>? whereArgs}) async {
-    expect(table, 'videos');
-    deletes.add(whereArgs ?? const []);
     return 1;
   }
 
@@ -133,6 +181,61 @@ void main() {
     Get.put<HomeController>(home);
     HomePanelAppLog.clear();
   });
+
+  test('database changes reload Home, all Search tabs, Explore, cart and playlist counts', () async {
+    await Get.delete<HomeController>();
+    final db = await SqliteTestDatabase.open();
+    try {
+      await DBService.onCreate(db, DBUpdate.version);
+      Get.find<DBService>().dbMain = db;
+      final video = _video()..rootPath = '/movies'..filesize = 123;
+      await DBVideos.addBulk([video]);
+      await db.execute("INSERT INTO playlist(id,name) VALUES ('p1','Keep')");
+      await db.execute("INSERT INTO playlist_item VALUES ('p1',?,'created')", [video.id]);
+      final refreshingHome = Get.put<HomeController>(_RefreshingHome()) as _RefreshingHome;
+      final pageHome = Get.put<PageHomeController>(_PageHome());
+      final search = Get.put<PageSearchController>(_Search());
+      final explore = Get.put<PageExploreController>(_Explore());
+      final tools = Get.put<PageToolsController>(_Tools());
+      refreshingHome.cart.add(Videos.fromJson(video.toJson()));
+      await refreshingHome.refreshVideoContent();
+      expect(search.tabs[1].videos.single.title, 'Original title');
+      expect(explore.activeTab.rightListLocal.single.title, 'Original title');
+      expect(refreshingHome.playlist.single.total, 1);
+      refreshingHome.nextRefresh = Completer<void>();
+      final updated = refreshingHome.nextRefresh!.future;
+      await DBVideos.update(Videos.fromJson(video.toJson())..title = 'Updated title');
+      await updated.timeout(const Duration(seconds: 5));
+      expect(pageHome.listNewAdded.single.title, 'Updated title');
+      expect(search.tabs[0].videos.single.title, 'Updated title');
+      expect(search.tabs[1].videos, isEmpty);
+      expect(search.tabs[1].tecSearch.text, 'Original');
+      expect(explore.activeTab.rightListLocal.single.title, 'Updated title');
+      expect(explore.activeTab.leftListSelected.value.name, '/movies');
+      expect(refreshingHome.cart.single.title, 'Updated title');
+      expect(tools.topLargeFileSizeList.single.title, 'Updated title');
+      refreshingHome.nextRefresh = Completer<void>();
+      final deleted = refreshingHome.nextRefresh!.future;
+      await DBVideos.delete(video);
+      await deleted.timeout(const Duration(seconds: 5));
+      expect(pageHome.listNewAdded, isEmpty);
+      expect(search.tabs.every((tab) => tab.videos.isEmpty), isTrue);
+      expect(explore.activeTab.rightListLocal, isEmpty);
+      expect(explore.activeTab.leftList, isEmpty);
+      expect(refreshingHome.cart, isEmpty);
+      expect(refreshingHome.totalVideo.value, 0);
+      expect(refreshingHome.playlist.single.total, 0);
+      expect(tools.topLargeFileSizeList, isEmpty);
+    } finally {
+      await Get.delete<HomeController>();
+      await Get.delete<PageHomeController>();
+      await Get.delete<PageSearchController>();
+      await Get.delete<PageExploreController>();
+      await Get.delete<PageToolsController>();
+      Get.reset();
+      await db.close();
+    }
+  });
   void metadataTest(String description, Future<void> Function(WidgetTester) body) {
     testWidgets(description, (tester) async {
       try {
@@ -143,6 +246,7 @@ void main() {
           await tester.pumpAndSettle();
         }
         await tester.pumpWidget(const SizedBox.shrink());
+        await Get.delete<HomeController>();
         Get.reset();
       }
     });
@@ -209,7 +313,8 @@ void main() {
     expect(saved['studio'], 'S1NO1');
     expect(saved['video_code'], 'ABP-001');
     expect(saved['updated_at'], isNotNull);
-    expect(video.title, 'A better title');
+    expect(home.videoRefreshes, 1);
+    expect(video.title, 'Original title', reason: 'the displayed lists reload after the write succeeds');
     expect(Overlayment.count, 0);
   });
 
@@ -229,6 +334,25 @@ void main() {
     expect(HomePanelAppLog.appLogRuntime.map((entry) => entry.content), contains('Video code not valid'));
   });
 
+  metadataTest('failed writes keep the draft open without changing displayed metadata', (tester) async {
+    final video = _video();
+    database.failWrites = true;
+    await pump(tester);
+    unawaited(HomePanelMetadata.open(video));
+    await tester.pumpAndSettle();
+    await tester.enterText(field(1), 'Unsaved title');
+    await tester.tap(find.text('Submit'));
+    await tester.pumpAndSettle();
+    expect(video.title, 'Original title');
+    expect(database.updates, isEmpty);
+    expect(home.videoRefreshes, 0);
+    expect(Overlayment.count, 1);
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    expect(home.videoRefreshes, 0);
+    expect(Overlayment.count, 1);
+  });
+
   metadataTest('an empty video code is allowed for non JAV videos', (tester) async {
     await pump(tester);
 
@@ -244,7 +368,7 @@ void main() {
     expect(Overlayment.count, 0);
   });
 
-  metadataTest('delete removes the video and closes the panel', (tester) async {
+  metadataTest('delete soft deletes the video, refreshes content and closes the panel', (tester) async {
     await pump(tester);
 
     unawaited(HomePanelMetadata.open(_video()));
@@ -253,8 +377,8 @@ void main() {
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
 
-    expect(database.deletes.single, ['video-1']);
-    expect(database.updates, isEmpty);
+    expect(database.updates.single['is_deleted'], 1);
+    expect(home.videoRefreshes, 1);
     expect(Overlayment.count, 0);
   });
 
@@ -275,7 +399,7 @@ void main() {
     await tester.tap(find.text('Submit'));
     await tester.pumpAndSettle();
 
-    expect(video.category, isEmpty);
+    expect(home.videoRefreshes, 1);
     expect(jsonDecode('${database.updates.single['category']}'), isEmpty);
   });
 
@@ -306,9 +430,8 @@ void main() {
     await tester.tap(find.text('Submit'));
     await tester.pumpAndSettle();
 
-    expect(video.category, hasLength(1));
-    expect(video.category!.single.category, 'Cosplay');
-    expect(video.category!.single.id, 22);
+    final savedCategory = jsonDecode('${database.updates.single['category']}') as List;
+    expect(savedCategory.single, {'id': 22, 'category': 'Cosplay'});
     expect('${database.updates.single['category']}', contains('Cosplay'));
   });
 

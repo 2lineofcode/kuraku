@@ -20,6 +20,7 @@ mixin DBUpdate {
     13: (name: 'Pin chat conversations', run: _v13PinnedChats),
     14: (name: 'Separate todos, download logs and relapse events', run: _v14Activity),
     15: (name: 'Harden library integrity, caches and metadata', run: _v15Integrity),
+    16: (name: 'Soft delete videos', run: _v16SoftDeleteVideos),
   };
 
   static int get version {
@@ -316,6 +317,10 @@ mixin DBUpdate {
       UNION ALL
       SELECT id, 'relapse', occurred_on, created_at, updated_at FROM relapse_event
     ''');
+  }
+
+  static Future<void> _v16SoftDeleteVideos(Database db) async {
+    await db.execute('ALTER TABLE videos ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0 CHECK(is_deleted IN (0, 1))');
   }
 
   static Future<void> _v15Integrity(Database db) async {

@@ -186,7 +186,7 @@ mixin HomePanelMetadata {
                   HelperToast.warn('Video code not valid'.tr);
                   return;
                 }
-                final edited = video;
+                final edited = Videos.fromJson(video.toJson());
                 edited.videoCode = videoCode.getVideoCode();
                 edited.title = tecTitle.text;
                 edited.fanArt = tecFanArt.text.trim();
@@ -209,14 +209,21 @@ mixin HomePanelMetadata {
   }
 
   static Future<void> _submit(Videos video) async {
-    await DBVideos.update(video);
-    await Overlayment.dismissLast();
-    await Get.forceAppUpdate();
+    try {
+      await DBVideos.update(video);
+      await Overlayment.dismissLast();
+    } catch (e) {
+      await HelperToast.error(e.toString());
+    }
   }
 
   static Future<void> _remove(Videos video) async {
-    await DBVideos.delete(video);
-    await Overlayment.dismissLast();
+    try {
+      await DBVideos.delete(video);
+      await Overlayment.dismissLast();
+    } catch (e) {
+      await HelperToast.error(e.toString());
+    }
   }
 
   static Future<void> _showDialogAddCategory(List<VideoCategory> currentCategories) async {

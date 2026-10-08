@@ -99,6 +99,18 @@ case "$resolved_target" in
     log "Build $APP_NAME for macOS"
     flutter build macos --release --no-tree-shake-icons
     log "Output: build/macos/Build/Products/Release"
+    app_bundle="build/macos/Build/Products/Release/javit.app"
+    installed_app="/Applications/javit.app"
+    [ -d "$app_bundle" ] || fail "App bundle not found: $app_bundle"
+    require_command ditto
+    log "Install $APP_NAME: $installed_app"
+    if [ -w /Applications ] && { [ ! -e "$installed_app" ] || [ -w "$installed_app" ]; }; then
+      ditto "$app_bundle" "$installed_app"
+    else
+      require_command sudo
+      sudo ditto "$app_bundle" "$installed_app"
+    fi
+    log "Installed: $installed_app"
     ;;
   windows)
     log "Build $APP_NAME for Windows"

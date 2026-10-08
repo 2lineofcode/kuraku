@@ -174,7 +174,7 @@ class Worker:
         self.rows = []
         self.matrix = None
         self.fields = []
-        stems = collections.Counter(Path(row[0] or '').stem for row in (self.db.execute('SELECT video_path FROM videos') if self.db else []))
+        stems = collections.Counter(Path(row[0] or '').stem for row in (self.db.execute('SELECT video_path FROM videos WHERE is_deleted = 0') if self.db else []))
         self.ambiguous_stems = {stem for stem, count in stems.items() if count > 1}
 
     def unload(self):
@@ -309,12 +309,12 @@ class Worker:
 
     def indexed_ids(self):
         records = self.db.execute("""SELECT e.video_id, e.embedding FROM video_embeddings e JOIN videos v ON v.id=e.video_id
-            WHERE e.model=? AND typeof(e.embedding)='blob' AND length(e.embedding)=2048
+            WHERE v.is_deleted=0 AND e.model=? AND typeof(e.embedding)='blob' AND length(e.embedding)=2048
             AND json_extract(CASE WHEN json_valid(e.source_text) THEN e.source_text ELSE '{}' END, '$.path')=v.video_path""", (MODEL,))
         return {row['video_id'] for row in records if self.valid_vector(row['embedding']) is not None}
 
     def summary(self):
-        total = self.db.execute('SELECT count(*) FROM videos').fetchone()[0]
+        total = self.db.execute('SELECT count(*) FROM videos WHERE is_deleted = 0').fetchone()[0]
         indexed = len(self.indexed_ids())
         return {'total': total, 'indexed': indexed, 'pending': max(0, total - indexed)}
 
@@ -328,7 +328,7 @@ class Worker:
 
     def plan(self, force=False):
         indexed = self.indexed_ids()
-        rows = [dict(row) for row in self.db.execute('SELECT id, video_path FROM videos ORDER BY updated_at DESC')]
+        rows = [dict(row) for row in self.db.execute('SELECT id, video_path FROM videos WHERE is_deleted = 0 ORDER BY updated_at DESC')]
         stems = collections.Counter(Path(row.get('video_path') or '').stem for row in rows)
         self.ambiguous_stems = {stem for stem, count in stems.items() if count > 1}
         pending = [row for row in rows if force or row['id'] not in indexed]
@@ -336,7 +336,7 @@ class Worker:
         return {'ids': [row['id'] for row in pending], 'indexed': len(indexed), 'missing_thumbnails': missing, 'total': len(rows)}
 
     def index(self, video_id, force=False):
-        row = self.db.execute('SELECT id, video_path FROM videos WHERE id = ?', (video_id,)).fetchone()
+        row = self.db.execute('SELECT id, video_path FROM videos WHERE is_deleted = 0 AND id = ?', (video_id,)).fetchone()
         if row is None:
             return {'indexed': False}
         row = dict(row)
@@ -357,7 +357,7 @@ class Worker:
         with self.db:
             # INSERT SELECT avoids orphan records if the video was removed during inference.
             cursor = self.db.execute('''INSERT INTO video_embeddings(video_id, source_text, embedding, model, created_at, updated_at)
-                SELECT id, ?, ?, ?, datetime('now'), datetime('now') FROM videos WHERE id = ? AND video_path = ?
+                SELECT id, ?, ?, ?, datetime('now'), datetime('now') FROM videos WHERE is_deleted = 0 AND id = ? AND video_path = ?
                 ON CONFLICT(video_id) DO UPDATE SET source_text=excluded.source_text, embedding=excluded.embedding,
                 model=excluded.model, updated_at=excluded.updated_at''',
                 (source, vector.tobytes(), MODEL, video_id, row['video_path']))
@@ -369,7 +369,7 @@ class Worker:
         version = self.db.execute('PRAGMA data_version').fetchone()[0]
         if version == self.cache_version:
             return
-        self.rows = [dict(row) for row in self.db.execute('SELECT * FROM videos')]
+        self.rows = [dict(row) for row in self.db.execute('SELECT * FROM videos WHERE is_deleted = 0')]
         stems = collections.Counter(Path(row.get('video_path') or '').stem for row in self.rows)
         self.ambiguous_stems = {stem for stem, count in stems.items() if count > 1}
         records = {r['video_id']: r for r in self.db.execute(

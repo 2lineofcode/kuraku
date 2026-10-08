@@ -35,7 +35,7 @@ class _Database implements Database {
   @override
   Future<int> update(String table, Map<String, Object?> values, {String? where, List<Object?>? whereArgs, ConflictAlgorithm? conflictAlgorithm}) async {
     expect(table, 'videos');
-    expect(where, 'id = ?');
+    expect(where, 'id = ? AND is_deleted = 0');
     expect(values['is_favorite'], 1);
     favorites.add(whereArgs!.single as String);
     return 1;

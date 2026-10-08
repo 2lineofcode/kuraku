@@ -9,6 +9,7 @@ import 'package:javit/app/data/database/_update_db.dart';
 import 'package:javit/app/data/database/db_achievement.dart';
 import 'package:javit/app/data/database/db_activity.dart';
 import 'package:javit/app/data/database/db_library.dart';
+import 'package:javit/app/data/database/db_playlist.dart';
 import 'package:javit/app/data/database/db_video_embedding.dart';
 import 'package:javit/app/data/database/db_videos.dart';
 import 'package:javit/app/data/models/activity_entity.dart';
@@ -22,13 +23,13 @@ class _Service extends DBService {
   Future<void> onReady() async {}
 }
 
-Future<SqliteTestDatabase> _database({int version = 15, String? sourcePath}) async {
+Future<SqliteTestDatabase> _database({int? version, String? sourcePath}) async {
   final db = await SqliteTestDatabase.open(sourcePath: sourcePath);
   addTearDown(db.close);
   if (sourcePath == null) {
     await db.transaction((_) async {
-      await DBService.onCreate(db, version);
-      await db.setVersion(version);
+      await DBService.onCreate(db, version ?? DBUpdate.version);
+      await db.setVersion(version ?? DBUpdate.version);
     });
   }
   return db;
@@ -42,6 +43,54 @@ Future<void> _upgrade(SqliteTestDatabase db) => db.transaction((_) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   tearDown(Get.reset);
+
+  test('soft deletion survives scans and moves and excludes videos from lists and counts', () async {
+    final db = await _database(version: 15);
+    await db.execute("INSERT INTO videos(id,root_path,video_path,video_code,title,is_favorite,view_count,filesize,series,studio,label,director,release_date,actress,category) VALUES ('v1','/videos','/videos/a.mp4','TEST-001','Original',1,4,123,'Series','Studio','Label','Director','2026-01-01','[{\"id\":1,\"name_romaji\":\"Jane Doe\"}]','[{\"id\":1,\"category\":\"Drama\"}]')");
+    await _upgrade(db);
+    expect((await db.query('videos')).single['is_deleted'], 0);
+    Get.put<DBService>(_Service()..dbMain = db);
+    await db.execute("INSERT INTO playlist(id,name) VALUES ('p1','Keep')");
+    await db.execute("INSERT INTO playlist_item VALUES ('p1','v1','created')");
+    final video = (await DBVideos.getAll()).single;
+    await DBVideos.delete(video);
+    expect((await db.query('videos')).single['is_deleted'], 1);
+    expect(await DBVideos.getAll(), isEmpty);
+    expect(await DBVideos.getAll(where: 'is_favorite = 1 OR view_count > 0'), isEmpty);
+    expect(await DBVideos.search('TEST'), isEmpty);
+    expect(await DBVideos.getByVideoPath('/videos/a.mp4'), isNull);
+    expect(await DBVideos.getBySeries('Series'), isEmpty);
+    expect(await DBVideos.getByActress('Jane Doe'), isEmpty);
+    expect(await DBVideos.getAllLike('actress', '1'), isEmpty);
+    expect(await DBVideos.getAllLike('category', 'Drama'), isEmpty);
+    expect(await DBVideos.getAllLike('title', 'Original'), isEmpty);
+    expect(await DBVideos.getAllVideoPath('video_path', '/videos/'), isEmpty);
+    expect(await DBVideos.getRecommendationSeeds(), isEmpty);
+    expect(await DBVideos.getDuplicateVideoGroups(), isEmpty);
+    expect(await DBVideos.getCount(), 0);
+    expect(await DBVideos.getTotalFileSizeAllVideo(), isNull);
+    expect(await DBVideos.getMissingQuality(), isEmpty);
+    expect(await DBVideos.countMissingQuality(), 0);
+    for (final load in [DBVideos.getAllActressWithCount, DBVideos.getAllCategoryWithCount,
+      DBVideos.getAllPathWithCount, DBVideos.getAllStudioWithCount, DBVideos.getAllLabelWithCount,
+      DBVideos.getAllSeriesWithCount, DBVideos.getAllDirectorWithCount, DBVideos.getAllReleaseYearWithCount]) {
+      expect(await load(), isEmpty);
+    }
+    expect(await DBPlaylist.getPlaylist('p1'), isEmpty);
+    expect((await DBPlaylist.getAllPlaylist()).single.total, 0);
+    await DBLibrary.commitScan([], additions: [Videos(rootPath: '/videos', videoPath: '/videos/a.mp4')]);
+    await DBLibrary.commitScan([], deletedPaths: ['/videos/a.mp4']);
+    expect(await DBVideos.getAll(includeDeleted: true), hasLength(1));
+    await DBLibrary.commitScan([], moves: [{'oldPath': '/videos/a.mp4', 'newPath': '/videos/b.mp4', 'newRoot': '/videos'}]);
+    await DBLibrary.commitScan([], additions: [Videos(rootPath: '/videos', videoPath: '/videos/b.mp4')]);
+    expect(await DBVideos.getAll(), isEmpty);
+    final saved = (await db.query('videos')).single;
+    expect([saved['id'], saved['is_deleted'], saved['title'], saved['video_path']], ['v1', 1, 'Original', '/videos/b.mp4']);
+    await expectLater(DBVideos.update(video), throwsStateError);
+    await DBVideos.updateViewCount(video);
+    expect((await db.query('videos')).single['view_count'], 4);
+    expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
+  });
 
   test('v15 preserves core data and relationships, cleans only rebuildable caches', () async {
     final db = await _database(version: 14);
