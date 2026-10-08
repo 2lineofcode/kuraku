@@ -4,10 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:super_context_menu/super_context_menu.dart' as scm;
 
 import '../../../core/app_color.dart';
-import '../../../core/app_logging.dart';
 import '../../../core/app_translations.dart';
 import '../../../core/const.dart';
 import '../../../data/models/videos_entity.dart';
@@ -17,8 +15,8 @@ import '../../widgets/widget_search_tab_bar.dart';
 import '../../widgets/widgets.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_video_info.dart';
+import '../local_video_selection_item.dart';
 import 'page_search_controller.dart';
-import 'page_search_file_drag.dart';
 import 'page_search_tab.dart';
 
 class PageSearchView extends GetView<PageSearchController> {
@@ -262,59 +260,12 @@ class PageSearchTabView extends StatelessWidget {
       ),
   ];
 
-  Widget _buildSelectableItem(Videos video, Widget child) {
-    return SearchFileDrag(controller: controller, video: video, child: scm.ContextMenuWidget(
-      contextMenuIsAllowed: (_) => controller.selectedVideos.isNotEmpty,
-      menuProvider: (_) {
-        if (controller.isClosed || controller.selectedVideos.isEmpty) return null;
-        if (!controller.selectedVideos.contains(video)) controller.selectedVideos.assignAll([video]);
-        final selected = controller.videos.where(controller.selectedVideos.contains).toList();
-        final revision = controller.searchRevision;
-        scm.MenuAction action(String title, String value) => scm.MenuAction(title: title, callback: () async {
-          if (controller.isClosed || revision != controller.searchRevision) return;
-          try {
-            await controller.performSelectionAction(value, selected);
-          } catch (e) {
-            AppLog.logE('Search selection action failed ($value): $e');
-            await HelperToast.error(e.toString());
-          }
-        });
-        return scm.Menu(children: [
-          action('Play as Playlist'.tr, 'play'),
-          action('Play in Grid Player'.tr, 'playMulti'),
-          scm.MenuSeparator(),
-          action('Add to cart'.tr, 'cart'),
-          action('Add to Playlist'.tr, 'playlist'),
-          action('Add to favorite'.tr, 'favorite'),
-        ]);
-      },
-      child: DoubleTap(
-        onCommandTap: () => controller.toggleSelection(video),
-        onSingleTap: () async {
-          controller.selectedVideos.clear();
-          await HomePanelVideoInfo.open(video);
-        },
-        onDoubleTap: () async {
-          controller.selectedVideos.clear();
-          await HelperOpener.openVideoFile(video);
-        },
-        child: Obx(() => Semantics(
-          selected: controller.selectedVideos.contains(video),
-          child: Stack(children: [
-            child,
-            if (controller.selectedVideos.contains(video))
-              Positioned.fill(child: IgnorePointer(child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.blue.withAlpha(55),
-                  border: Border.all(color: Colors.lightBlueAccent, width: 2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ))),
-          ]),
-        )),
-      ),
-    ));
-  }
+  Widget _buildSelectableItem(Videos video, Widget child) => LocalVideoSelectionItem(
+    controller: controller, video: video,
+    onSingleTap: () => HomePanelVideoInfo.open(video),
+    onDoubleTap: () => HelperOpener.openVideoFile(video),
+    child: child,
+  );
 
   Widget modeListView() {
     return ListView.separated(

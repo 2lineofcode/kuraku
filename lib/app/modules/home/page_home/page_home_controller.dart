@@ -6,8 +6,9 @@ import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
+import '../local_video_selection.dart';
 
-class PageHomeController extends GetxController {
+class PageHomeController extends GetxController with LocalVideoSelection {
   final listNewRelease = <Videos>[].obs;
   final listRecommendation = <Videos>[].obs;
   final listTop10Watch = <Videos>[].obs;
@@ -19,16 +20,53 @@ class PageHomeController extends GetxController {
   final totalVideo = 0.obs;
   int _recommendationRequest = 0;
 
+  int _selectionRevision = 0;
+  Worker? _selectionWorker;
+  @override
+  int get selectionRevision => _selectionRevision;
+  @override
+  Iterable<Videos> get selectionSource sync* {
+    final sections = {
+      AppPref.homeSecNewRelease: listNewRelease,
+      AppPref.homeSecRecommendation: listRecommendation,
+      AppPref.homeSecMostWatch: listTop10Watch,
+      AppPref.homeSecFavorite: listFavorite,
+      AppPref.homeSecNewAdd: listNewAdded,
+      AppPref.homeSecRandom: listRandom,
+      AppPref.homeSecNeverWatch: listNeverWatch,
+      AppPref.homeSecOldest: listOldest,
+    };
+    for (final section in homeSectionOrder) {
+      if (AppPref.getBool(section)) yield* sections[section] ?? <Videos>[];
+    }
+  }
+  @override
+  Future<void> refreshSelectionFiles() => onRefresh();
+
+  void clearVideoSelection() {
+    _selectionRevision++;
+    selectedVideos.clear();
+  }
+
+  @override
+  void onClose() {
+    _selectionWorker?.dispose();
+    clearVideoSelection();
+    super.onClose();
+  }
+
   final homeSectionOrder = <String>[].obs;
 
 
   @override
   Future<void> onInit() async {
+    _selectionWorker = everAll([listNewRelease, listRecommendation, listTop10Watch, listFavorite, listNewAdded, listRandom, listNeverWatch, listOldest], (_) => clearVideoSelection());
     super.onInit();
     await onRefresh();
   }
 
   Future<void> onRefresh() async {
+    clearVideoSelection();
     final sw = Stopwatch()..start();
 
     homeSectionOrder.value = AppPref.getHomeOrderList();
@@ -49,10 +87,12 @@ class PageHomeController extends GetxController {
   }
 
   Future<void> getListNewRelease() async {
+    clearVideoSelection();
     listNewRelease.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date DESC, updated_at DESC', limit: 50);
   }
 
   Future<void> getListRecommendation() async {
+    clearVideoSelection();
     final request = ++_recommendationRequest;
     final (seeds, candidates) = await (
       DBVideos.getRecommendationSeeds(),
@@ -104,26 +144,32 @@ class PageHomeController extends GetxController {
   }
 
   Future<void> getListMostWatch() async {
+    clearVideoSelection();
     listTop10Watch.value = await DBVideos.getAll(where: 'view_count >= 3', orderBy: 'view_count DESC, updated_at DESC', limit: 50);
   }
 
   Future<void> getListFavorite() async {
+    clearVideoSelection();
     listFavorite.value = await DBVideos.getAll(where: 'is_favorite = 1', orderBy: 'updated_at DESC');
   }
 
   Future<void> getListNewAdded() async {
+    clearVideoSelection();
     listNewAdded.value = await DBVideos.getAll(orderBy: 'created_at DESC', limit: 50);
   }
 
   Future<void> getListRandom() async {
+    clearVideoSelection();
     listRandom.value = await DBVideos.getAll(limit: 20, orderBy: 'RANDOM()');
   }
 
   Future<void> getListNeverWatch() async {
+    clearVideoSelection();
     listNeverWatch.value = await DBVideos.getAll(where: 'view_count = 0', limit: 50, orderBy: 'RANDOM()');
   }
 
   Future<void> getListOldest() async {
+    clearVideoSelection();
     listOldest.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date ASC, updated_at ASC', limit: 50);
   }
 

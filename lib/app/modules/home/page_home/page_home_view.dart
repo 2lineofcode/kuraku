@@ -12,6 +12,7 @@ import '../../../utils/helper.dart';
 import '../../widgets/widgets.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_video_info.dart';
+import '../local_video_selection_item.dart';
 import '../page_explore/page_explore_controller.dart';
 import 'page_home_controller.dart';
 
@@ -23,7 +24,10 @@ class PageHomeView extends GetView<PageHomeController> {
     AppColor.dependOn(context);
     return Obx(
       () => controller.totalVideo.value != 0
-          ? buildPage()
+          ? Column(children: [
+              Align(alignment: Alignment.centerRight, child: LocalVideoSelectionClear(controller: controller)),
+              Expanded(child: buildPage()),
+            ])
           : ExUiErrorOrEmpty(
               illustration: HugeIcon(icon: HugeIcons.strokeRoundedComputerAdd, size: AppStyle.emptyIconSize),
               title: '~ Fresh ~'.tr,
@@ -206,6 +210,7 @@ class PageHomeView extends GetView<PageHomeController> {
               if (subtitle != null && subtitle.isNotEmpty) subtitle.text.size(9).color(AppColor.muted).maxLines(1).ellipsis.make().pOnly(left: 8),
             ]).pSymmetric(h: 12, v: 4).onInkTap(() {
               final isVisible = !AppPref.getBool(prefKey);
+              controller.clearVideoSelection();
               AppPref.setBool(prefKey, isVisible);
               controller.update();
             }),
@@ -238,6 +243,7 @@ class PageHomeView extends GetView<PageHomeController> {
                 ),
                 onPressed: () async {
                   final isVisible = !AppPref.getBool(prefKey);
+                  controller.clearVideoSelection();
                   AppPref.setBool(prefKey, isVisible);
                   controller.update();
                 },
@@ -274,7 +280,8 @@ class PageHomeView extends GetView<PageHomeController> {
   // ────────────────────────────────────────────────────────────────
   Widget buildLayoutFanArt(Videos video) {
     final double width = 260;
-    return DoubleTap(
+    return LocalVideoSelectionItem(
+      controller: controller, video: video,
       onSingleTap: () => HomePanelVideoInfo.open(video),
       onDoubleTap: () => HelperOpener.openVideoFile(video),
       child: Container(
@@ -283,6 +290,7 @@ class PageHomeView extends GetView<PageHomeController> {
           ExThumbnail(
             imageUrl: video.fanArt,
             videoPath: video.videoPath,
+            contextMenuIsAllowed: (_) => controller.selectedVideos.isEmpty,
             width: width,
             height: 170,
             fitUrl: BoxFit.cover,
@@ -320,7 +328,8 @@ class PageHomeView extends GetView<PageHomeController> {
     showViewCount = true,
     showQuality = true,
   }) {
-    return DoubleTap(
+    return LocalVideoSelectionItem(
+      controller: controller, video: video,
       onSingleTap: () async => await HomePanelVideoInfo.open(video),
       onDoubleTap: () async => await HelperOpener.openVideoFile(video),
       child: Container(
@@ -329,6 +338,7 @@ class PageHomeView extends GetView<PageHomeController> {
           ExThumbnail(
             imageUrl: video.fanArt,
             videoPath: video.videoPath,
+            contextMenuIsAllowed: (_) => controller.selectedVideos.isEmpty,
             width: width,
             height: height,
             prefix: 2.3,

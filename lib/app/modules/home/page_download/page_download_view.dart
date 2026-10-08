@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_translations.dart';
@@ -17,6 +18,7 @@ import '../../widgets/widget_search_tab_bar.dart';
 import '../../widgets/widget_style.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
+import 'page_download_command_dropdown.dart';
 import 'page_download_controller.dart';
 import 'page_download_search_tab.dart';
 
@@ -101,31 +103,10 @@ class PageDownloadSearchView extends StatelessWidget {
                 )),
                 SearchSuggestionsOverlay(child: Obx(
                   () => controller.isCommandSuggestionVisible.isTrue
-                      ? Container(
-                          margin: EdgeInsets.only(top: 4),
-                          decoration: BoxDecoration(
-                            color: AppColor.container,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColor.border, width: .5),
-                          ),
-                          child: VStack(
-                            List.generate(controller.commandSuggestions.length, (i) {
-                              final item = controller.commandSuggestions[i];
-                              final isSelected = controller.selectedCommandIndex.value == i;
-                              return Container(
-                                width: double.infinity,
-                                color: isSelected ? AppColor.selected.withAlpha(90) : Colors.transparent,
-                                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                child: VStack(
-                                  [
-                                    item.value.text.size(12).minFontSize(12).bold.make(),
-                                    item.description.tr.text.size(10).minFontSize(10).color(AppColor.muted).make().pOnly(top: 2),
-                                  ],
-                                  crossAlignment: CrossAxisAlignment.start,
-                                ),
-                              ).onInkTap(() => controller.onPickSearchCommand(item.value));
-                            }),
-                          ),
+                      ? DownloadCommandDropdown(
+                          commands: controller.commandSuggestions.toList(),
+                          selectedIndex: controller.selectedCommandIndex.value,
+                          onPick: controller.onPickSearchCommand,
                         )
                       : 0.heightBox,
                 )),
@@ -244,12 +225,14 @@ class PageDownloadSearchView extends StatelessWidget {
             ).cornerRadius(8);
           }
           final item = controller.videos[i];
+          final releaseDate = DateFormat(kYMd, 'en').tryParseStrict(item.releaseDate?.trim() ?? '');
           return Container(
             color: AppColor.container,
             child: MediaStack([
               ExThumbnail(
                 imageUrl: item.fanArt ?? '',
                 videoCode: item.videoCode,
+                onDownload: item.sourceUrl == null ? null : () => Get.find<PageDownloadController>().downloadWebsite(item.sourceUrl!),
                 width: 300,
                 height: 200,
                 fitUrl: BoxFit.cover,
@@ -279,11 +262,11 @@ class PageDownloadSearchView extends StatelessWidget {
               },
             ),
 
-            Container(
+            if (releaseDate != null) Container(
               color: AppColor.black180,
               child: HStack([
                 HugeIcon(icon: HugeIcons.strokeRoundedCalendar03, size: AppStyle.smallIconSize).pOnly(right: 5),
-                '${item.durationFormated?.reformatDate(from: kYMd, to: kMdY)}'.text.size(10).minFontSize(10).maxLines(1).ellipsis.make(),
+                releaseDate.toStringEx(format: kMdY).text.size(10).minFontSize(10).maxLines(1).ellipsis.make(),
               ]).p4(),
             ).cornerRadius(8).p2().positioned(left: 0),
 

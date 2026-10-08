@@ -11,22 +11,22 @@ import '../../../core/app_translations.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_toast.dart';
 import '../home_panel/home_panel_library.dart';
-import 'page_search_tab.dart';
+import '../local_video_selection.dart';
 
 class SearchFileDrag extends StatelessWidget {
   const SearchFileDrag({super.key, required this.controller, required this.video, required this.child});
 
-  final PageSearchTab controller;
+  final LocalVideoSelection controller;
   final Videos video;
   final Widget child;
   static const channel = MethodChannel('javit/file_drag');
 
-  bool get canDrag => !controller.isClosed && controller.selectedVideos.contains(video);
+  bool get canDrag => !controller.isClosed && controller.isSelected(video);
 
   Future<void> startDrag() async {
     if (!canDrag || !HomePanelLibrary.canStartFileDrag) return;
     HomePanelLibrary.fileDragInProgress = true;
-    final selected = controller.videos.where(controller.selectedVideos.contains).toList();
+    final selected = controller.selectedInOrder;
     final files = <String, Videos>{};
     try {
       for (final item in selected) {

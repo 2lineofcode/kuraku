@@ -16,6 +16,7 @@ import '../../widgets/widget_search_tab_bar.dart';
 import '../../widgets/widgets.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_video_info.dart';
+import '../local_video_selection_item.dart';
 import 'page_explore_controller.dart';
 
 class PageExploreView extends GetView<PageExploreController> {
@@ -359,6 +360,8 @@ class PageExploreTabView extends StatelessWidget {
           )),
           const SizedBox(width: 12),
           if (controller.rightListViewMode.value == kLocal)
+            LocalVideoSelectionClear(controller: controller),
+          if (controller.rightListViewMode.value == kLocal)
             AppButton(
               key: const ValueKey('explore-play-all'),
               onPressed: controller.isLoadingSelection.value ? null : () => HelperOpener.openVideoPlaylist(controller.rightListLocal.toList()),
@@ -554,7 +557,8 @@ class PageExploreTabView extends StatelessWidget {
     showViewCount = true,
     showQuality = true,
   }) {
-    return DoubleTap(
+    return LocalVideoSelectionItem(
+      controller: controller, video: video,
       onSingleTap: () async => await HomePanelVideoInfo.open(video),
       onDoubleTap: () async => await HelperOpener.openVideoFile(video, playlist: controller.rightListLocal.value),
       child: Container(
@@ -563,6 +567,7 @@ class PageExploreTabView extends StatelessWidget {
           ExThumbnail(
             imageUrl: video.fanArt,
             videoPath: video.videoPath,
+            contextMenuIsAllowed: (_) => controller.selectedVideos.isEmpty,
             width: width,
             height: height,
             prefix: 2.3,

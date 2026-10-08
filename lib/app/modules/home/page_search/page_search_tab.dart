@@ -2,25 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:path/path.dart' as p;
 
 import '../../../core/app_logging.dart';
 import '../../../core/app_translations.dart';
 import '../../../data/database/db_historical.dart';
-import '../../../data/database/db_library.dart';
 import '../../../data/database/db_videos.dart';
-import '../../../data/models/library_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
-import '../../../utils/helper_toast.dart';
 import '../../../utils/local_semantic_worker.dart';
 import '../../../utils/semantic_search_service.dart';
-import '../../player/player_multi_view.dart';
-import '../home_controller.dart';
-import '../home_panel/home_panel_playlist.dart';
+import '../local_video_selection.dart';
 
-class PageSearchTab {
+class PageSearchTab with LocalVideoSelection {
   PageSearchTab(this.id) {
     fnSearch.addListener(_onSearchFocusChanged);
   }
@@ -50,7 +44,6 @@ class PageSearchTab {
   final qualityFilter = 'All qualities'.obs;
   final filter = VideoFilterState();
   final videos = <Videos>[].obs;
-  final selectedVideos = <Videos>{}.obs;
   final allVideos = <Videos>[].obs;
   final isFresh = true.obs;
   int _request = 0;
@@ -58,72 +51,14 @@ class PageSearchTab {
   final _hasSort = false.obs;
   Worker? _preferenceWorker;
   int get searchRevision => _request;
+  @override
   bool get isClosed => _closed;
-
-  void toggleSelection(Videos video) {
-    if (_closed || !videos.contains(video)) return;
-    if (!selectedVideos.remove(video)) selectedVideos.add(video);
-  }
-
-  Future<void> performSelectionAction(String action, List<Videos> selected) async {
-    if (_closed || selected.isEmpty) return;
-    switch (action) {
-      case 'play':
-        await HelperOpener.openVideoPlaylist(selected);
-        break;
-      case 'playMulti':
-        await Get.to(() => const PlayerMultiView(), arguments: selected);
-        break;
-      case 'cart':
-        final home = Get.find<HomeController>();
-        for (final video in selected) { home.addToCart(video); }
-        await HelperToast.success('Selected videos are in cart'.tr);
-        break;
-      case 'playlist':
-        await HomePanelPlaylist.showDialogAddToPlaylistItem(selected);
-        break;
-      case 'favorite':
-        for (final video in selected) { await DBVideos.addToFavorite(video); }
-        await HelperToast.success('Added @{length} video(s) to favorite'.trNamed({'length': '${selected.length}'}));
-        break;
-    }
-  }
-
-  Future<void> applyFileMoves(Map<String, Videos> files, Map<String, String> paths, List<String> missing) async {
-    if (paths.isEmpty && missing.isEmpty) return;
-    final libraries = await DBLibrary.getAll();
-    final roots = libraries.map((library) => library.rootFolder ?? '').where((root) => root.isNotEmpty).toList()
-      ..sort((a, b) => b.length.compareTo(a.length));
-    final moves = <Map<String, String>>[];
-    for (final entry in paths.entries) {
-      final existing = await DBVideos.getByVideoPath(entry.value);
-      if (existing != null && existing.id != files[entry.key]?.id) {
-        throw StateError('The destination is already in the library: @{value}'.trNamed({'value': '${entry.value}'}));
-      }
-      moves.add({
-        'oldPath': entry.key,
-        'newPath': entry.value,
-        'newRoot': roots.firstWhere((root) => p.isWithin(root, entry.value), orElse: () => p.dirname(entry.value)),
-      });
-    }
-    final snapshots = <Library>[];
-    for (final library in libraries) {
-      final previous = library.videos ?? <String>[];
-      final next = previous.where((path) => !paths.containsKey(path) && !missing.contains(path)).toSet();
-      next.addAll(moves.where((move) => move['newRoot'] == library.rootFolder).map((move) => move['newPath']!));
-      if (next.length == previous.length && next.containsAll(previous)) continue;
-      library.videos = next.toList();
-      library.totalVideo = next.length;
-      snapshots.add(library);
-    }
-    await DBLibrary.commitScan(snapshots, moves: moves, deletedPaths: missing);
-    for (final move in moves) {
-      final video = files[move['oldPath']]!;
-      video.videoPath = move['newPath'];
-      video.rootPath = move['newRoot'];
-    }
-    if (!_closed) videos.refresh();
-  }
+  @override
+  int get selectionRevision => searchRevision;
+  @override
+  Iterable<Videos> get selectionSource => videos;
+  @override
+  Future<void> refreshSelectionFiles() async { videos.refresh(); }
 
   Map<String, dynamic> toPreferences() => {
     'pinned': isPinned.value,

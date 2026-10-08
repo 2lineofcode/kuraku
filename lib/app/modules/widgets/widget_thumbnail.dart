@@ -310,6 +310,7 @@ class ExThumbnail extends StatefulWidget {
   final Color? backdropColor;
   final int? position;
   final scm.ContextMenuIsAllowed? contextMenuIsAllowed;
+  final VoidCallback? onDownload;
 
   const ExThumbnail({
     super.key,
@@ -326,6 +327,7 @@ class ExThumbnail extends StatefulWidget {
     this.backdropColor,
     this.position,
     this.contextMenuIsAllowed,
+    this.onDownload,
   });
 
   @override
@@ -565,7 +567,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
         }
         break;
       case 'download':
-        await _openDownloadByCode(videoCode);
+        if (widget.onDownload != null) { widget.onDownload!(); } else { await _openDownloadByCode(videoCode); }
         break;
       case 'open_screenshot':
         await HelperOpener.openScreenshot({'video_code': videoCode});

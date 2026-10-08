@@ -49,6 +49,7 @@ class JavitSearchResult {
   String? fanArt;
   String? poster;
   String? trailer;
+  String? sourceUrl;
   num? duration;
   String? durationFormated;
   String? releaseDate;
@@ -66,6 +67,7 @@ class JavitSearchResult {
     this.fanArt,
     this.poster,
     this.trailer,
+    this.sourceUrl,
     this.duration,
     this.durationFormated,
     this.releaseDate,
@@ -84,6 +86,7 @@ class JavitSearchResult {
     fanArt = json['fan_art'] ?? '';
     poster = json['poster'] ?? '';
     trailer = json['trailer'] ?? '';
+    sourceUrl = json['source_url'];
     duration = json['duration'] ?? 0;
     durationFormated = json['duration_formated'] ?? '';
     releaseDate = json['release_date'] ?? '';
@@ -101,6 +104,7 @@ class JavitSearchResult {
     data['fan_art'] = fanArt;
     data['poster'] = poster;
     data['trailer'] = trailer;
+    if (sourceUrl != null) data['source_url'] = sourceUrl;
     data['duration'] = duration;
     data['duration_formated'] = durationFormated;
     data['release_date'] = releaseDate;

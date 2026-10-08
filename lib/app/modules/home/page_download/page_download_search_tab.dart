@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/app_logging.dart';
+import '../../../data/api/api_javhey.dart';
 import '../../../data/api/api_javmost.dart';
 import '../../../data/database/db_historical.dart';
 import '../../../data/database/db_r18.dart';
@@ -91,7 +92,7 @@ class PageDownloadSearchTab {
 
   void restorePreferences(Map<String, dynamic> value) {
     isPinned.value = value['pinned'] == true;
-    tecSearch.text = value['query'] is String ? value['query'] : '';
+    tecSearch.text = value['query'] is String ? PageDownloadCommandEngine.normalizeQuery(value['query']) : '';
     havingOnly.value = value['havingOnly'] == true;
     filter.isFiltered.value = value['filtered'] == true;
     filter.restoreBlacklist(value['blacklist']);
@@ -155,8 +156,9 @@ class PageDownloadSearchTab {
   Future<void> onSearch(String s) async {
     if (_closed) return;
     hideSuggestions();
-    _lastQuery = s.trim();
-    if (_lastQuery.isNotEmpty && _lastQuery != '/online') unawaited(_recordHistory(_lastQuery));
+    _lastQuery = PageDownloadCommandEngine.normalizeQuery(s);
+    if (_lastQuery != s.trim()) tecSearch.text = _lastQuery;
+    if (_lastQuery.isNotEmpty && _lastQuery != '/search') unawaited(_recordHistory(_lastQuery));
     await _refreshSearchWithFilters();
   }
 
@@ -199,7 +201,10 @@ class PageDownloadSearchTab {
       _hideHistorySuggestions();
       return;
     }
-    if (PageDownloadCommandEngine.byPrefix(query).isNotEmpty) return;
+    if (PageDownloadCommandEngine.byPrefix(query).isNotEmpty) {
+      if (query == query.trimRight()) onSearchTextChanged(query);
+      return;
+    }
     final request = ++_historyRequest;
     try {
       final items = await loadHistory(query);
@@ -279,8 +284,8 @@ class PageDownloadSearchTab {
   Future<void> onPickSearchCommand(String command) async {
     if (_closed) return;
     hideSuggestions();
-    if (command == '/online') {
-      tecSearch.text = '/online ';
+    if (command == '/search') {
+      tecSearch.text = '/search ';
       tecSearch.selection = TextSelection.fromPosition(TextPosition(offset: tecSearch.text.length));
       _hideCommandSuggestions();
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -369,7 +374,7 @@ class PageDownloadSearchTab {
     final route = PageDownloadQueryPlanner.decide(
       query: query,
       hasFilter: _hasAnyFilter(),
-      isApiCommand: _isJavMostCommand(query),
+      isApiCommand: _isApiCommand(query),
     );
     if (route == PageDownloadQueryRoute.none) {
       await onReset();
@@ -476,16 +481,34 @@ class PageDownloadSearchTab {
       final durationMax = snapshot.durationMax;
 
       final List<Map<String, dynamic>> r18videos;
-      final isJavMostApi = route == PageDownloadQueryRoute.apiCommand;
-      var apiTotal = 0;
+      final isOnlineApi = route == PageDownloadQueryRoute.apiCommand;
+      int? apiTotal;
+      bool? apiHasNextPage;
 
       switch (route) {
         case PageDownloadQueryRoute.apiCommand:
-          final apiData = await fetchJavMostByCommand(query, page);
-          if (apiData.success == false) throw StateError('Online search failed'.tr);
-          apiTotal = apiData.total ?? 0;
-          r18videos = _mapJavMostNewReleaseToRows(
-            apiData.result ?? [],
+          final List<Map<String, dynamic>> rows;
+          if (_isJavHeyQuery(query)) {
+            final apiData = await fetchJavHey(query, page);
+            apiTotal = apiData.total?.toInt();
+            apiHasNextPage = apiData.hasNextPage ?? false;
+            rows = (apiData.result ?? []).map((item) => {
+              ...item.toJson(), 'id': item.videoId,
+              'actresses': (item.actresses ?? []).join(', '), 'categories': (item.categories ?? []).join(', '),
+            }).toList();
+          } else {
+            final apiData = await fetchJavMostByCommand(query, page);
+            if (apiData.success == false) throw StateError('Online search failed'.tr);
+            apiTotal = apiData.total ?? 0;
+            rows = (apiData.result ?? []).map((item) => {
+              'id': item.url ?? item.name, 'video_code': item.name ?? '', 'title': item.fullName ?? item.name ?? '',
+              'release_date': item.release ?? '', 'actresses': item.star ?? '', 'categories': item.genre ?? '',
+              'duration': int.tryParse((item.length ?? '').replaceAll(RegExp(r'[^0-9]'), '')),
+              'trailer': item.dataPreview ?? '', 'fan_art': item.cover ?? '', 'poster': item.cover ?? '',
+            }).toList();
+          }
+          r18videos = _filterOnlineRows(
+            rows,
             videoCode: videoCode,
             actressName: actressName,
             categories: categories,
@@ -528,9 +551,9 @@ class PageDownloadSearchTab {
         if (_closed || request != _searchRequest) return;
         _existingVideoCodes = codes;
       }
-      final pageItems = isJavMostApi ? r18videos : r18videos.take(_perPage).toList();
+      final pageItems = isOnlineApi ? r18videos : r18videos.take(_perPage).toList();
       final currentLoaded = isLoadMore ? allVideos.length : 0;
-      final hasMore = isJavMostApi ? apiTotal > currentLoaded + pageItems.length : r18videos.length > _perPage;
+      final hasMore = isOnlineApi ? apiHasNextPage ?? (apiTotal ?? 0) > currentLoaded + pageItems.length : r18videos.length > _perPage;
 
       final output = <JavitSearchResult>[];
       for (var i = 0; i < pageItems.length; i++) {
@@ -546,12 +569,12 @@ class PageDownloadSearchTab {
             videoId: pageItems[i]['id'],
             videoCode: pageItems[i]['video_code'],
             duration: pageItems[i]['duration'],
-            durationFormated: '${pageItems[i]['release_date']}',
-            releaseDate: '${pageItems[i]['release_date']}',
+            releaseDate: pageItems[i]['release_date'],
             title: pageItems[i]['title'],
             fanArt: pageItems[i]['fan_art'].toString().genImageUrl(),
             poster: pageItems[i]['poster'],
             trailer: pageItems[i]['trailer'],
+            sourceUrl: pageItems[i]['source_url'],
             match: hasMatch,
             isReleased: DateTime.tryParse(pageItems[i]['release_date'] ?? '')?.isBefore(DateTime.now()),
             actresses: actresses,
@@ -562,7 +585,7 @@ class PageDownloadSearchTab {
 
       currentPage.value = page;
       hasNextPage.value = hasMore;
-      if (isJavMostApi) totalResults.value = apiTotal;
+      if (isOnlineApi) totalResults.value = apiTotal ?? currentLoaded + output.length;
       if (isLoadMore) {
         allVideos.addAll(output);
       } else {
@@ -582,19 +605,26 @@ class PageDownloadSearchTab {
     }
   }
 
-  bool _isJavMostCommand(String query) {
+  bool _isApiCommand(String query) {
     final q = query.trim().toLowerCase();
-    return PageDownloadCommandEngine.isCommand(q) || _isOnlineSearchQuery(q);
+    return PageDownloadCommandEngine.isCommand(q) || _isOnlineSearchQuery(q) || _isJavHeyQuery(q);
   }
 
+  bool _isJavHeyQuery(String query) {
+    final value = query.trim().toLowerCase();
+    return value == '/javhey' || value.startsWith('/javhey ');
+  }
+
+  Future<JavitSearch> fetchJavHey(String query, int page) => ApiJavHey.search(s: query.trim().substring('/javhey'.length).trim(), page: page);
+
   bool _isOnlineSearchQuery(String query) {
-    return query.startsWith('/online ');
+    return query.startsWith('/search ');
   }
 
   String _extractOnlineSearchKeyword(String query) {
     final q = query.trim();
     if (_isOnlineSearchQuery(q) == false) return '';
-    return q.substring('/online '.length).trim();
+    return q.substring('/search '.length).trim();
   }
 
   bool _hasAnyFilter() {
@@ -625,15 +655,15 @@ class PageDownloadSearchTab {
         return ApiJavMost.getTopDaily(page: page);
       case '/best-rated':
         return ApiJavMost.getBestRating(page: page);
-      case '/online':
+      case '/search':
         return JavMostModel(result: [], success: true, total: 0);
       default:
         return ApiJavMost.getNewRelease(page: page);
     }
   }
 
-  List<Map<String, dynamic>> _mapJavMostNewReleaseToRows(
-    List<dynamic> items, {
+  List<Map<String, dynamic>> _filterOnlineRows(
+    List<Map<String, dynamic>> items, {
     String? videoCode,
     String? actressName,
     List<String>? categories,
@@ -649,11 +679,11 @@ class PageDownloadSearchTab {
     final qCategories = categories?.map((e) => HelperDecensor.decensor(e).trim().toLowerCase()).where((e) => e.isNotEmpty).toList() ?? const <String>[];
 
     for (final item in items) {
-      final rawCode = (item.name ?? '').toString().trim();
-      final rawTitle = (item.fullName ?? item.name ?? '').toString();
-      final rawRelease = (item.release ?? '').toString();
-      final rawActresses = (item.star ?? '').toString();
-      final rawCategories = (item.genre ?? '').toString();
+      final rawCode = (item['video_code'] ?? '').toString().trim();
+      final rawTitle = (item['title'] ?? item['video_code'] ?? '').toString();
+      final rawRelease = (item['release_date'] ?? '').toString();
+      final rawActresses = (item['actresses'] ?? '').toString();
+      final rawCategories = (item['categories'] ?? '').toString();
 
       final actresses = rawActresses
           .split(RegExp(r',|/'))
@@ -687,24 +717,12 @@ class PageDownloadSearchTab {
         if (year == null || year < yearStart || year > yearEnd) continue;
       }
 
-      final duration = int.tryParse((item.length ?? '').toString().replaceAll(RegExp(r'[^0-9]'), ''));
+      final duration = int.tryParse((item['duration'] ?? '').toString().replaceAll(RegExp(r'[^0-9]'), ''));
       if (durationMin != null || durationMax != null) {
         if (duration == null || duration <= 0 || (durationMin != null && duration < durationMin) || (durationMax != null && duration > durationMax)) continue;
       }
-      output.add({
-        'id': item.url ?? rawCode,
-        'video_code': rawCode,
-        'title': rawTitle,
-        'duration': duration,
-        'release_date': rawRelease,
-        'trailer': item.dataPreview ?? '',
-        'fan_art': item.cover ?? '',
-        'poster': item.cover ?? '',
-        'ssfirst': '',
-        'sslast': '',
-        'categories': categoryList.join(', '),
-        'actresses': actresses.join(', '),
-      });
+      output.add({...item, 'video_code': rawCode, 'title': rawTitle, 'release_date': rawRelease,
+        'duration': duration, 'categories': categoryList.join(', '), 'actresses': actresses.join(', ')});
     }
 
     return output;

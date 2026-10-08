@@ -13,8 +13,9 @@ import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
+import '../local_video_selection.dart';
 
-class PageExploreTab {
+class PageExploreTab with LocalVideoSelection {
   PageExploreTab(this.id, {RxSet<String>? pins, RxBool? savingPin})
       : _leftPins = pins ?? AppPref.getExplorePins().toSet().obs,
         isSavingPin = savingPin ?? false.obs {
@@ -24,6 +25,7 @@ class PageExploreTab {
 
   final int id;
   final isPinned = false.obs;
+  @override
   bool isClosed = false;
   final isLoading = false.obs;
   final isLoadingSelection = false.obs;
@@ -58,6 +60,13 @@ class PageExploreTab {
   final rightListViewMode = kLocal.obs;
   final rightListLocal = <Videos>[].obs;
   num get rightListLocalTotalSize => rightListLocal.fold<num>(0, (total, video) => total + (video.filesize ?? 0));
+  int _selectionModeRevision = 0;
+  @override
+  int get selectionRevision => _selectionRequest + _selectionModeRevision;
+  @override
+  Iterable<Videos> get selectionSource => rightListViewMode.value == kLocal ? rightListLocal : const <Videos>[];
+  @override
+  Future<void> refreshSelectionFiles() => onRefresh();
   final rightListR18 = <Map<String, dynamic>>[].obs;
   final rightListR18Filtered = <Map<String, dynamic>>[].obs;
   final rightListR18TotalVideo = 0.obs;
@@ -182,6 +191,7 @@ class PageExploreTab {
   }
 
   void close() {
+    selectedVideos.clear();
     isClosed = true;
     _menuRequest++;
     _selectionRequest++;
@@ -210,6 +220,7 @@ class PageExploreTab {
     isLoadingSelection.value = false;
     leftList.clear();
     leftListFiltered.clear();
+    selectedVideos.clear();
     rightListLocal.clear();
     _resetR18Pagination();
     currentMenuSelected.value = menu;
@@ -364,6 +375,7 @@ class PageExploreTab {
     leftListSelectedIndex.value = leftListFiltered.indexOf(item);
     if (!preserveMode && (isActive?.call() ?? true)) leftListFocusNode.requestFocus();
     _resetR18Pagination();
+    selectedVideos.clear();
     rightListLocal.clear();
     rightListR18TotalVideo.value = 0;
     error.value = '';
@@ -556,10 +568,17 @@ class PageExploreTab {
     );
   }
 
-  Future<void> onSectionLocalTap() async => rightListViewMode.value = kLocal;
+  Future<void> onSectionLocalTap() async {
+    if (isClosed) return;
+    _selectionModeRevision++;
+    selectedVideos.clear();
+    rightListViewMode.value = kLocal;
+  }
 
   Future<void> onSectionR18Tap() async {
     if (isClosed) return;
+    _selectionModeRevision++;
+    selectedVideos.clear();
     final request = ++_r18Request;
     rightListViewMode.value = kR18;
     currentPage.value = 1;

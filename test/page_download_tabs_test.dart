@@ -179,22 +179,22 @@ void main() {
       expect(find.text('/new-release'), findsOneWidget);
       expect(tester.getTopLeft(find.text('~ Type Something ~')), emptyPosition);
       if (useKeyboard) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        for (var i = 0; i < 5; i++) await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
         await tester.testTextInput.receiveAction(TextInputAction.done);
       } else {
-        await tester.tap(find.text('/online'));
+        await tester.tap(find.text('/search'));
       }
       await tester.pumpAndSettle();
       expect(tab.fnSearch.hasFocus, isTrue);
-      expect(tab.tecSearch.text, '/online ');
+      expect(tab.tecSearch.text, '/search ');
       expect(tab.tecSearch.selection, TextSelection.collapsed(offset: 8));
       expect(tab.isCommandSuggestionVisible.value, isFalse);
       expect(tab.pending, isEmpty);
       tester.testTextInput.updateEditingValue(TextEditingValue(
-        text: '/online keyword', selection: TextSelection.collapsed(offset: 15),
+        text: '/search keyword', selection: TextSelection.collapsed(offset: 15),
       ));
       await tester.pump();
-      expect(tab.tecSearch.text, '/online keyword');
+      expect(tab.tecSearch.text, '/search keyword');
     }
     await tester.enterText(find.byType(CupertinoTextField), '/');
     await tester.pumpAndSettle();
@@ -202,6 +202,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('/new-release'), findsNothing);
     expect(tester.getTopLeft(find.text('~ Type Something ~')), emptyPosition);
+    await tester.tap(find.byType(CupertinoTextField));
+    await tester.pumpAndSettle();
+    expect(find.text('/new-release'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(tab.tecSearch.text, '/top-monthly');
+    expect(tab.isCommandSuggestionVisible.value, isFalse);
+    tab.pending.single.complete(result('SSIS-001'));
+    await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox.shrink());
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant({TargetPlatform.macOS, TargetPlatform.windows, TargetPlatform.linux}));
@@ -255,7 +265,7 @@ void main() {
     tab.pendingHistory = Completer<List<String>>();
     await tester.enterText(find.byType(CupertinoTextField), 'old');
     await tester.pump(const Duration(milliseconds: 200));
-    await tester.enterText(find.byType(CupertinoTextField), '/on');
+    await tester.enterText(find.byType(CupertinoTextField), '/se');
     tab.pendingHistory!.complete(['stale']);
     await tester.pump();
     expect(tab.historySuggestions, isEmpty);
@@ -315,7 +325,7 @@ void main() {
     final restored = Get.put<PageDownloadController>(_Controller());
     expect(restored.tabs.length, 3);
     expect(restored.activeTabIndex.value, 1);
-    expect(restored.activeTab.tecSearch.text, '/online unsubmitted draft');
+    expect(restored.activeTab.tecSearch.text, '/search unsubmitted draft');
     expect(restored.tabs.first.toPreferences(), expected);
     expect(restored.tabs.last.filter.tecCategory.text, 'Unselected category');
     expect(restored.downloadStdout.value, '');
@@ -328,7 +338,7 @@ void main() {
     await tester.pump();
     expect(restored.tabs.first.havingOnly.value, isTrue);
     expect(restored.tabs.first.videos.single.videoCode, 'SSIS-001');
-    restored.tabs[1].tecSearch.text = '/online changed draft';
+    restored.tabs[1].tecSearch.text = '/search changed draft';
     final beforeRefresh = jsonDecode(jsonEncode(AppPref.getDownloadTabs()));
     final refresh = restored.onRefresh();
     (restored.tabs.first as _SearchTab).pending.last.complete(JavMostModel(success: true, total: 1, result: [

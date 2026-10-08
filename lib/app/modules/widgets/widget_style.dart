@@ -27,7 +27,7 @@ class AppStyle {
   }
 
   static ThemeData theme(Brightness brightness) {
-    final theme = ThemeData(brightness: brightness, useMaterial3: true);
+    final theme = ThemeData(brightness: brightness, useMaterial3: true, fontFamily: 'CupertinoSystemText');
     final storedAccent = AppPref.getAppAccent();
     final accent = storedAccent == null ? AppColor.defaultAccent(brightness) : Color(storedAccent);
     return theme.copyWith(

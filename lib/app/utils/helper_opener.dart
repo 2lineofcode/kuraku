@@ -107,6 +107,42 @@ mixin HelperOpener {
   // ────────────────────────────────────────────────────────────────
   // **
   // ────────────────────────────────────────────────────────────────
+  static String downloadUrlForVideo(String code, {String? sourceUrl}) {
+    if (sourceUrl != null && sourceUrl.trim().isNotEmpty) {
+      final uri = Uri.tryParse(sourceUrl.trim());
+      if (uri == null || !['https', 'http'].contains(uri.scheme) || uri.host.isEmpty || uri.userInfo.isNotEmpty) {
+        throw ArgumentError('Invalid download source URL'.tr);
+      }
+      return uri.toString();
+    }
+    final searchEngine = AppPref.getDefaultSearchEngine();
+    late String url;
+    switch (searchEngine.toLowerCase()) {
+      case 'njav':
+        url = '${Env.njavUrl}/en/$code'.replaceAll('/en/search', '');
+        url += '-uncensored-leak';
+        break;
+      case 'missav':
+        url = '${Env.missavUrl}/en/$code'.replaceAll('/en/search', '');
+        url += '-uncensored-leak';
+        break;
+      case 'javmost':
+        url = '${Env.javmostUrl}/$code'.replaceAll('/search', '');
+        break;
+      case 'sextb':
+        url = '${Env.sextbUrl}/$code'.replaceAll('/search', '');
+        break;
+      case 'javguru':
+        url = '${Env.javguruUrl}/?s=$code';
+        break;
+      default:
+        url = '${Env.njavUrl}/$code';
+        break;
+    }
+
+    return url;
+  }
+
   static Future<void> openVideoInfo(dynamic item) async {
     Map<String, dynamic>? dataVideo;
     HelperLoading.show();
@@ -162,7 +198,7 @@ mixin HelperOpener {
     try {
       if (resolvedCode.isEmpty) throw Exception('empty video code'.tr);
       final x = await DBVideos.getByCode(resolvedCode);
-      if (x.videoCode.isNotEmptyAndNotNull) {
+      if (x.videoCode.isNotEmptyAndNotNull && (item is! JavitSearchResult || item.sourceUrl.isEmptyOrNull)) {
         HelperLoading.dismiss();
         await HomePanelVideoInfo.open(x);
         return;
@@ -284,38 +320,7 @@ mixin HelperOpener {
                           if (method == null) return;
                           await Overlayment.dismissLast();
 
-                          final searchEngine = AppPref.getDefaultSearchEngine();
-                          late String url;
-                          switch (searchEngine.toLowerCase()) {
-                            case 'njav':
-                              // await launchUrlString('${Env.njavUrl}/${video.videoCode}');
-                              url = '${Env.njavUrl}/en/${video.videoCode}'.replaceAll('/en/search', '');
-                              url += '-uncensored-leak';
-                              // await shell.run('open downie://XUOpenURL?url=$url');
-                              break;
-                            case 'missav':
-                              // await launchUrlString('${Env.missavUrl}/${video.videoCode}');
-                              url = '${Env.missavUrl}/en/${video.videoCode}'.replaceAll('/en/search', '');
-                              url += '-uncensored-leak';
-                              // await shell.run('open downie://XUOpenURL?url=$url');
-                              break;
-                            case 'javmost':
-                              url = '${Env.javmostUrl}/${video.videoCode}'.replaceAll('/search', '');
-                              // await shell.run('open downie://XUOpenURL?url=$url');
-                              break;
-                            case 'sextb':
-                              url = '${Env.sextbUrl}/${video.videoCode}'.replaceAll('/search', '');
-                              // await shell.run('open downie://XUOpenURL?url=$url');
-                              break;
-                            case 'javguru':
-                              url = '${Env.javguruUrl}/?s=${video.videoCode}';
-                              // await shell.run('open downie://XUOpenURL?url=$url');
-                              break;
-                            default:
-                              url = '${Env.njavUrl}/${video.videoCode}';
-                              // await launchUrlString(url);
-                              break;
-                          }
+                          final url = downloadUrlForVideo(video.videoCode ?? '', sourceUrl: item is JavitSearchResult ? item.sourceUrl : null);
 
                           if (method == 'native') {
                             Get.find<PageDownloadController>().downloadWebsite(url);

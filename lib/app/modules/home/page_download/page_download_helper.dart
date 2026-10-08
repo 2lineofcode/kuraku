@@ -2,47 +2,64 @@ class PageDownloadCommand {
   final String value;
   final String title;
   final String description;
+  final String group;
 
   const PageDownloadCommand({
     required this.value,
     required this.title,
     required this.description,
+    required this.group,
   });
 }
 
 mixin PageDownloadCommandEngine {
   static const commands = <PageDownloadCommand>[
     PageDownloadCommand(
+      group: 'JavMost',
       value: '/new-release',
       title: 'New Release',
       description: 'Latest release list from JavMost',
     ),
     PageDownloadCommand(
+      group: 'JavMost',
       value: '/top-monthly',
       title: 'Top Monthly',
       description: 'Most popular videos in this month',
     ),
     PageDownloadCommand(
+      group: 'JavMost',
       value: '/top-weekly',
       title: 'Top Weekly',
       description: 'Most popular videos in this week',
     ),
     PageDownloadCommand(
+      group: 'JavMost',
       value: '/top-daily',
       title: 'Top Daily',
       description: 'Most popular videos today',
     ),
     PageDownloadCommand(
+      group: 'JavMost',
       value: '/best-rated',
       title: 'Best Rated',
       description: 'Highest rating videos',
     ),
     PageDownloadCommand(
-      value: '/online',
+      group: 'JavMost',
+      value: '/search',
       title: 'Online Search',
-      description: 'Search online catalog: /online your query',
+      description: 'Search online catalog: /search your query',
+    ),
+    PageDownloadCommand(
+      group: 'JavHey',
+      value: '/javhey',
+      title: 'JavHey Sub Indo',
+      description: 'Browse Sub Indo videos or search: /javhey your query',
     ),
   ];
+
+  static String normalizeQuery(String query) => query.trim().replaceFirst(RegExp(r'^/javsek(?=\s|$)', caseSensitive: false), '/javhey')
+      .replaceFirst(RegExp(r'^/online(?=\s|$)', caseSensitive: false), '/search');
 
   static List<PageDownloadCommand> byPrefix(String input) {
     final q = input.trim().toLowerCase();
