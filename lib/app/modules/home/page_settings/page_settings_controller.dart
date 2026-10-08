@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:ex_kit/ex.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:get/get.dart';
@@ -13,6 +16,7 @@ import '../../../core/app_pref.dart';
 import '../../../core/app_setting.dart';
 import '../../../core/app_translations.dart';
 import '../../../data/database/_init_db.dart';
+import '../../../data/database/app_backup.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/database/db_library.dart';
 import '../../../data/database/db_r18.dart';
@@ -22,6 +26,8 @@ import '../../../utils/helper_toast.dart';
 import '../../../utils/local_semantic_worker.dart';
 import '../../../utils/r18_updater.dart';
 import '../../../utils/semantic_search_service.dart';
+import '../../../utils/watch_session_tracker.dart';
+import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_style.dart';
 import '../../widgets/widget_surfaces.dart';
 import '../home_controller.dart';
@@ -32,6 +38,8 @@ import '../page_explore/page_explore_controller.dart';
 class PageSettingsController extends GetxController {
   final appSetting = Get.find<AppSettingService>();
   final dbR18Version = 0.obs;
+  final backupBusy = false.obs;
+  final restorePending = false.obs;
   final appVersion = '-'.obs;
 
   final totalLibrary = 0.obs;
@@ -361,6 +369,86 @@ class PageSettingsController extends GetxController {
 
   void clearAppLog() {
     HomePanelAppLog.clear();
+  }
+
+  Future<void> exportBackup() async {
+    if (backupBusy.value) return;
+    backupBusy.value = true;
+    try {
+      await WatchSessionTracker.flushAll();
+      final backup = await AppBackup.capture(Get.find<DBService>().dbMain, appSetting.pref);
+      await backup.validate();
+      final path = await FilePicker.saveFile(
+        bytes: Uint8List.fromList(utf8.encode(backup.encode())),
+        mimeType: 'application/json',
+        dialogTitle: 'Export Backup'.tr,
+        fileName: 'javit-${DateTime.now().toIso8601String().split('T').first}.javit-backup.json',
+        type: FileType.custom, allowedExtensions: ['json'],
+      );
+      if (path == null) return;
+      await HelperToast.success('Backup saved. Keep this file private; it contains your history and paths.'.tr);
+    } catch (e) {
+      AppLog.logE('Backup export failed: $e');
+      await HelperToast.error('Backup failed: @{error}'.trNamed({'error': '$e'}));
+    } finally {
+      backupBusy.value = false;
+    }
+  }
+
+  Future<void> restoreBackup() async {
+    if (backupBusy.value || restorePending.value) return;
+    backupBusy.value = true;
+    try {
+      final files = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: ['json']);
+      final path = files.isEmpty ? null : files.single.path;
+      if (path == null) return;
+      final backup = await AppBackup.read(File(path));
+      await backup.validate();
+      await WatchSessionTracker.flushAll();
+      final current = await AppBackup.capture(Get.find<DBService>().dbMain, appSetting.pref);
+      final confirmed = await Get.dialog<bool>(AppDialog(
+        title: Text('Restore Preview'.tr),
+        content: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('Backup created: @{date}'.trNamed({'date': backup.createdAt})),
+          const SizedBox(height: 12),
+          Text('Current → Backup'.tr),
+          for (final entry in {
+            'Libraries': 'library', 'Video metadata': 'videos', 'Playlists': 'playlist',
+            'Playlist items': 'playlist_item', 'Watch sessions': 'watch_session',
+            'Profile': 'profile', 'Achievements': 'achievement_unlock', 'Relapse history': 'relapse_event',
+            'Search history': 'historical',
+          }.entries)
+            Padding(padding: const EdgeInsets.only(top: 6),
+              child: Text('@{label}: @{current} → @{backup}'.trNamed({
+                'label': entry.key.tr, 'current': '${current.count(entry.value)}', 'backup': '${backup.count(entry.value)}',
+              }))),
+          const SizedBox(height: 6),
+          Text('@{label}: @{current} → @{backup}'.trNamed({
+            'label': 'Favorites'.tr, 'current': '${current.favorites}', 'backup': '${backup.favorites}',
+          })),
+          Text('@{label}: @{current} → @{backup}'.trNamed({
+            'label': 'Settings'.tr, 'current': '${current.settingsCount}', 'backup': '${backup.settingsCount}',
+          })),
+          const SizedBox(height: 12),
+          Text('On next startup, these records and settings will be replaced, including empty lists. Video files, R18, chats, downloads, and your app PIN are excluded. Video paths stay as saved in the backup.'.tr),
+          const SizedBox(height: 8),
+          Text('A recovery backup will be saved in @{path} before overwriting. Close and reopen the app after confirming.'.trNamed({'path': appSetting.appPath})),
+        ]),
+        actions: [
+          AppButton(onPressed: () => Get.back(result: false), variant: AppButtonVariant.outlined, label: 'Cancel'.tr),
+          AppButton(onPressed: () => Get.back(result: true), label: 'Restore on next startup'.tr),
+        ],
+      )) ?? false;
+      if (!confirmed) return;
+      await backup.write(File(p.join(appSetting.appPath, 'pending-restore.json')));
+      restorePending.value = true;
+      await HelperToast.success('Restore prepared. Close and reopen the app to apply it.'.tr);
+    } catch (e) {
+      AppLog.logE('Backup restore failed: $e');
+      await HelperToast.error('Restore failed: @{error}'.trNamed({'error': '$e'}));
+    } finally {
+      backupBusy.value = false;
+    }
   }
 
   Future<void> onResetAll() async {

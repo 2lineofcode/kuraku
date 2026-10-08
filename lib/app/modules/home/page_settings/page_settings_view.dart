@@ -121,6 +121,12 @@ class PageSettingsView extends GetView<PageSettingsController> {
               ])),
             ]);
             final utilities = _section('Utilities'.tr, [
+              Obx(() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                _action(HugeIcons.strokeRoundedArchive01, 'Export Backup'.tr, controller.backupBusy.value ? null : controller.exportBackup),
+                _action(HugeIcons.strokeRoundedArchive01, 'Restore Backup'.tr, controller.backupBusy.value || controller.restorePending.value ? null : controller.restoreBackup),
+                if (controller.backupBusy.value) const CupertinoActivityIndicator(),
+                if (controller.restorePending.value) Text('Restore prepared. Close and reopen the app to apply it.'.tr, style: const TextStyle(fontSize: 11)),
+              ])),
               _action(HugeIcons.strokeRoundedNote, 'Open App Log'.tr, controller.onOpenAppLog),
               _action(HugeIcons.strokeRoundedKeyboard, 'Keyboard Shortcuts'.tr, () => HelperOpener.openKeyboardShortcuts()),
               _action(HugeIcons.strokeRoundedFolderCog, 'Go App Folder'.tr, () => HelperOpener.openFolder(controller.appSetting.appPath)),

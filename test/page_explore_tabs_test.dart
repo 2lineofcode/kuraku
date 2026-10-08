@@ -200,6 +200,9 @@ void main() {
   test('actress cast mode restores legacy preferences and saves all three choices', () {
     final tab = _Tab(99);
     addTearDown(tab.dispose);
+    expect(tab.actressMode.value, ActressMode.all);
+    tab.restorePreferences({});
+    expect(tab.actressMode.value, ActressMode.all);
     tab.restorePreferences({'singleActress': false});
     expect(tab.actressMode.value, ActressMode.all);
     tab.restorePreferences({'singleActress': true});
@@ -212,7 +215,7 @@ void main() {
       expect(tab.actressMode.value, mode);
     }
     tab.restorePreferences({'actressMode': 'unknown'});
-    expect(tab.actressMode.value, ActressMode.single);
+    expect(tab.actressMode.value, ActressMode.all);
   });
 
   test('a pending selection cannot overwrite the count for a newer cast mode', () async {
@@ -273,7 +276,7 @@ void main() {
     for (final menu in [kActress, kCategory, kSeries, kLabel, kStudio, kDirector, kYear]) {
       tab.currentMenuSelected.value = menu;
       await tester.pumpAndSettle();
-      for (final option in const {'All': ActressMode.all, 'Multi Actress': ActressMode.multi, 'Single Actress': ActressMode.single}.entries) {
+      for (final option in const {'Multi Actress': ActressMode.multi, 'All': ActressMode.all, 'Single Actress': ActressMode.single}.entries) {
         tab.currentPage.value = 3;
         await tester.tap(find.byType(AppDropdown<ActressMode>));
         await tester.pumpAndSettle();

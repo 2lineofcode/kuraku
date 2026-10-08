@@ -78,7 +78,7 @@ class PageExploreTab with LocalVideoSelection {
   final tecSearchRight = TextEditingController();
   final fnSearchRight = FocusNode();
   final phSearchRight = 'Search...'.obs;
-  final actressMode = ActressMode.single.obs;
+  final actressMode = ActressMode.all.obs;
   final _perPage = 500;
   int _menuRequest = 0;
   int _selectionRequest = 0;
@@ -123,7 +123,7 @@ class PageExploreTab with LocalVideoSelection {
     if (leftSortOptions.contains(value['sort'])) leftSortSelected.value = value['sort'];
     rightListViewMode.value = value['mode'] == kR18 ? kR18 : kLocal;
     actressMode.value = ActressMode.values.firstWhereOrNull((mode) => mode.name == value['actressMode'])
-        ?? (value['singleActress'] == false ? ActressMode.all : ActressMode.single);
+        ?? (value['singleActress'] == true ? ActressMode.single : ActressMode.all);
     filter.isFiltered.value = value['filtered'] == true;
     filter.restoreBlacklist(value['blacklist']);
     filter.actressMode.value = ActressMode.values.firstWhereOrNull((mode) => mode.name == value['filterActressMode']) ?? ActressMode.all;
