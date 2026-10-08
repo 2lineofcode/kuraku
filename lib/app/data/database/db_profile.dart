@@ -25,7 +25,7 @@ mixin DBProfile {
   }
 
   static Future<void> syncCollectionBadge(int totalVideo) async {
-    await _db.update(_tableName, {'badge_for_collection': _collectionBadge(totalVideo)}, where: 'id = ?', whereArgs: ['1']);
+    await _db.update(_tableName, {'badge_for_collection': collectionBadge(totalVideo)}, where: 'id = ?', whereArgs: ['1']);
   }
 
   static Future<void> syncWatchDurationBadge() async {
@@ -37,8 +37,8 @@ mixin DBProfile {
     });
   }
 
-  static String _collectionBadge(int count) {
-    if (count == 0) return 'Noobless';
+  static String collectionBadge(int count) {
+    if (count <= 0) return 'Noobless';
     if (count > 0 && count <= 100) {
       return 'Newbie Explorer';
     } else if (count > 100 && count <= 200) {

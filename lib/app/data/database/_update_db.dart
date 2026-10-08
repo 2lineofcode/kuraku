@@ -21,6 +21,7 @@ mixin DBUpdate {
     14: (name: 'Separate todos, download logs and relapse events', run: _v14Activity),
     15: (name: 'Harden library integrity, caches and metadata', run: _v15Integrity),
     16: (name: 'Soft delete videos', run: _v16SoftDeleteVideos),
+    17: (name: 'Preserve file identity across library moves', run: _v17FileIdentity),
   };
 
   static int get version {
@@ -321,6 +322,17 @@ mixin DBUpdate {
 
   static Future<void> _v16SoftDeleteVideos(Database db) async {
     await db.execute('ALTER TABLE videos ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0 CHECK(is_deleted IN (0, 1))');
+  }
+
+  static Future<void> _v17FileIdentity(Database db) async {
+    await db.execute('''
+      CREATE TABLE video_file_identity (
+        video_id TEXT NOT NULL PRIMARY KEY REFERENCES videos(id) ON DELETE CASCADE,
+        filesize INTEGER NOT NULL CHECK(filesize > 0),
+        modified_at INTEGER NOT NULL,
+        fingerprint TEXT NOT NULL CHECK(length(fingerprint) = 64)
+      )
+    ''');
   }
 
   static Future<void> _v15Integrity(Database db) async {

@@ -1,13 +1,13 @@
 // ignore_for_file: depend_on_referenced_packages, implementation_imports
 
 import 'dart:async';
+import 'dart:ui' show FontFeature, ImageFilter;
 
 import 'package:chewie/src/center_play_button.dart';
 import 'package:chewie/src/chewie_player.dart';
 import 'package:chewie/src/chewie_progress_colors.dart';
 import 'package:chewie/src/helpers/utils.dart';
 import 'package:chewie/src/material/material_progress_bar.dart';
-import 'package:chewie/src/material/widgets/playback_speed_dialog.dart';
 import 'package:chewie/src/notifiers/index.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
@@ -21,7 +21,6 @@ import '../../core/app_color.dart';
 import '../../core/app_pref.dart';
 import '../../core/app_translations.dart';
 import '../../data/models/videos_entity.dart';
-import '../../utils/helper.dart';
 import 'widget_style.dart';
 
 
@@ -62,6 +61,9 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
   late VideoPlayerValue _latestValue;
 
   double? _latestVolume;
+  bool _isVolumeHovered = false;
+  bool _isVolumeDragging = false;
+  bool _isSpeedMenuOpen = false;
   Timer? _hideTimer;
   Timer? _initTimer;
   Timer? _showAfterExpandCollapseTimer;
@@ -74,7 +76,6 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
   late AnimationController _infoAnimationController;
   String _infoOverlayText = '';
 
-  final barHeight = 54.0 * 1.5;
   final marginSize = 5.0;
 
   late VideoPlayerController videoPlayercontroller;
@@ -252,17 +253,15 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
 
 
                       if (_showInfoOverlay) ...[
-                        FadeTransition(
+                        Center(child: IgnorePointer(child: FadeTransition(
                           opacity: _infoAnimationController,
-                          child: '$_infoOverlayText'.text.bold.make().pSymmetric(h: 8, v: 2).color(Colors.black).cornerRadius(90),
-                        ).positioned(bottom: 0),
+                          child: _glassPanel(Text(_infoOverlayText)),
+                        ))),
                       ],
 
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          _buildBottomBar(context),
-                        ],
+                      Positioned(
+                        left: 0, right: 0, bottom: 0,
+                        child: _buildBottomBar(context),
                       ),
                     ],
                   ),
@@ -305,122 +304,112 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
     super.didChangeDependencies();
   }
 
-  AnimatedOpacity _buildBottomBar(BuildContext context) {
-    return AnimatedOpacity(
-      opacity: notifier.hideStuff ? 0.0 : 1.0,
-      duration: Duration(milliseconds: 300),
-      child: Container(
-        // color: Colors.purple,
-        height: 130, // barHeight + (chewieController.isFullScreen ? 10.0 : 0) + 15,
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          // bottom: !chewieController.isFullScreen ? 10.0 : 0,
-        ),
-        child: Column(
-          // mainAxisSize: MainAxisSize.min,
-          // mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-        
-            // video title
-            widget.showTitle == false 
-              ? 0.heightBox 
-              : '${widget.video.title}'.text.maxLines(2).ellipsis.align(TextAlign.center).makeCentered().tooltip('${widget.video.videoPath ?? ''}'),
-            
-            // progress bar
-            _buildProgressBar(),
-        
-            Flexible(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // ** LAYOUT HERE **
-                  _buildVolumeButton(videoPlayercontroller),
-                  _buildSpeedButton().pOnly(right: 4),
-                  _buildPosition(),
-                  Spacer(),
-                  
-                 
-        
-                  Container(
-                    decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 90, fillColor: Colors.red.withAlpha(100)),
-                    child: HStack(
-                      [
-                        '${widget.video.videoCode}'.text.extraBold.size(11).minFontSize(11).make().onInkTap(() {
-                          HelperMisc.copyToClipboard(widget.video.videoCode, showToast: true);
-                        }),
-                        '${widget.video.viewCount != null && widget.video.viewCount! > 0 ? '(@{viewCount} Views)'.trNamed({'viewCount': '${widget.video.viewCount}'}) : ''}'.text.size(11).minFontSize(11).make().pOnly(left: widget.video.videoCode.isNotEmptyAndNotNull ? 8 : 0),
-                      ],
-                    ).pSymmetric(h: 8, v: 3),
-                  ).pOnly(left: 8),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVolumeButton(VideoPlayerController controller) {
-    return GestureDetector(
-      onTap: () {
-        _cancelAndRestartTimer();
-
-        if (_latestValue.volume == 0) {
-          controller.setVolume(_latestVolume ?? 0.5);
-        } else {
-          _latestVolume = controller.value.volume;
-          controller.setVolume(0.0);
-        }
-      },
-      child: AnimatedOpacity(
-        opacity: notifier.hideStuff ? 0.0 : 1.0,
-        duration: Duration(milliseconds: 300),
+  Widget _glassPanel(Widget child) => CupertinoTheme(
+    data: const CupertinoThemeData(brightness: Brightness.dark, primaryColor: Colors.white),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
-          child: HStack(
-            [
-              Icon(
-                _latestValue.volume == 0 ? CupertinoIcons.volume_off : CupertinoIcons.volume_up,
-                color: Colors.white,
-                size: AppStyle.iconSize,
-              ).pOnly(right: 8),
-              'Vol @{toInt}'.trNamed({'toInt': '${(controller.value.volume * 100).toInt()}'}).text.bold.size(11).minFontSize(11).make().pOnly(top: 0),
-            ],
-          ).pSymmetric(h: 10, v: 3),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPosition() {
-    final position = _latestValue.position;
-    final duration = _latestValue.duration;
-
-    return Container(
-      decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: Colors.red.withAlpha(0)),
-      child: RichText(
-        text: TextSpan(
-          text: '${formatDuration(position)} ',
-          children: <InlineSpan>[
-            TextSpan(
-              text: '/ ${formatDuration(duration)}',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.white.withValues(alpha: .75),
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-          ],
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C1C1E).withValues(alpha: .58),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: .12)),
+          ),
+          child: DefaultTextStyle(
+            style: const TextStyle(fontFamily: 'CupertinoSystemText', fontSize: 12, color: Colors.white),
+            child: child,
           ),
         ),
-      ).pSymmetric(h: 8, v: 3),
+      ),
+    ),
+  );
+
+  Widget _buildControlIcon({required IconData icon, required String tooltip, required VoidCallback onTap, double size = 16}) => Tooltip(
+    message: tooltip,
+    child: CupertinoButton(
+      padding: const EdgeInsets.all(8),
+      minimumSize: Size(size + 16, size + 16),
+      onPressed: () { _cancelAndRestartTimer(); onTap(); },
+      child: Icon(icon, color: Colors.white, size: size),
+    ),
+  );
+
+  Widget _buildBottomBar(BuildContext context) {
+    final position = _latestValue.position;
+    final duration = _latestValue.duration;
+    final remaining = duration > position ? duration - position : Duration.zero;
+    final transport = Row(mainAxisSize: MainAxisSize.min, children: [
+      _buildControlIcon(icon: CupertinoIcons.gobackward, tooltip: '${'Backward'.tr} 5s', onTap: _seekBackward5s, size: 20),
+      const SizedBox(width: 8),
+      _buildControlIcon(icon: _latestValue.isPlaying ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
+        tooltip: _latestValue.isPlaying ? 'Pause (Space)'.tr : 'Play (Space)'.tr, onTap: _playPause, size: AppStyle.playbackIconSize),
+      const SizedBox(width: 8),
+      _buildControlIcon(icon: CupertinoIcons.goforward, tooltip: '${'Forward'.tr} 5s', onTap: _seekForward5s, size: 20),
+    ]);
+    const timeStyle = TextStyle(color: Colors.white70, fontSize: 10, fontFeatures: [FontFeature.tabularFigures()]);
+    return IgnorePointer(
+      ignoring: notifier.hideStuff,
+      child: AnimatedOpacity(
+        opacity: notifier.hideStuff ? 0 : 1,
+        duration: const Duration(milliseconds: 180),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Align(alignment: Alignment.bottomCenter, child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: _glassPanel(LayoutBuilder(builder: (context, constraints) {
+              final volume = _buildVolumeButton(videoPlayercontroller);
+              final speed = _buildSpeedButton();
+              return Column(mainAxisSize: MainAxisSize.min, children: [
+                if (widget.showTitle != false) ...[
+                  Text(widget.video.title ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 4),
+                ],
+                Row(children: [
+                  Text(formatDuration(position), style: timeStyle),
+                  Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _buildProgressBar())),
+                  Text('-${formatDuration(remaining)}', style: timeStyle),
+                ]),
+                if (constraints.maxWidth < 440) ...[
+                  transport,
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [volume, speed]),
+                ] else Row(children: [
+                  Expanded(child: Align(alignment: Alignment.centerLeft, child: volume)),
+                  transport,
+                  Expanded(child: Align(alignment: Alignment.centerRight, child: speed)),
+                ]),
+              ]);
+            })),
+          )),
+        ),
+      ),
     );
   }
+
+  Widget _buildVolumeButton(VideoPlayerController controller) => MouseRegion(
+    onEnter: (_) { _hideTimer?.cancel(); setState(() => _isVolumeHovered = true); },
+    onExit: (_) { setState(() => _isVolumeHovered = false); _startHideTimer(); },
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      _buildControlIcon(
+        icon: _latestValue.volume == 0 ? CupertinoIcons.speaker_slash_fill : CupertinoIcons.speaker_3_fill,
+        tooltip: 'Mute (M)'.tr,
+        onTap: _mute,
+      ),
+      ClipRect(child: AnimatedSize(
+        duration: const Duration(milliseconds: 200),
+        child: SizedBox(width: _isVolumeHovered || _isVolumeDragging ? 84 : 0, child: CupertinoSlider(
+          value: _latestValue.volume.clamp(0.0, 1.0),
+          activeColor: Colors.white,
+          thumbColor: Colors.white,
+          onChangeStart: (_) { _hideTimer?.cancel(); setState(() => _isVolumeDragging = true); },
+          onChanged: (value) { controller.setVolume(value); AppPref.setPlayerVolume(value); },
+          onChangeEnd: (_) { setState(() => _isVolumeDragging = false); _startHideTimer(); },
+        )),
+      )),
+    ]),
+  );
 
   Widget _buildHitArea() {
     final bool isFinished = (_latestValue.position >= _latestValue.duration) && _latestValue.duration.inSeconds > 0;
@@ -430,7 +419,7 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
         if (_latestValue.isPlaying && !(_chewieController?.pauseOnBackgroundTap ?? false)) {
           _displayTapped ? setState(() => notifier.hideStuff = true) : _cancelAndRestartTimer();
         } else {
-          setState(() => notifier.hideStuff = true);
+          _cancelAndRestartTimer();
         }
       },
       child: Container(
@@ -458,50 +447,53 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
     );
   }
 
-  Future<void> _onSpeedButtonTap() async {
-    _hideTimer?.cancel();
-
-    final chosenSpeed = await showModalBottomSheet<double>(
-      context: context,
-      isScrollControlled: true,
-      useRootNavigator: chewieController.useRootNavigator,
-      builder: (context) => PlaybackSpeedDialog(
-        speeds: chewieController.playbackSpeeds,
-        selected: _latestValue.playbackSpeed,
+  Widget _buildSpeedButton() => MenuAnchor(
+    onOpen: () { _isSpeedMenuOpen = true; _hideTimer?.cancel(); },
+    onClose: () {
+      if (!mounted) return;
+      _isSpeedMenuOpen = false;
+      _cancelAndRestartTimer();
+      _focusNode.requestFocus();
+    },
+    style: const MenuStyle(
+      backgroundColor: WidgetStatePropertyAll(Colors.transparent),
+      surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
+      shadowColor: WidgetStatePropertyAll(Colors.transparent),
+      padding: WidgetStatePropertyAll(EdgeInsets.zero),
+    ),
+    builder: (context, menu, _) => Tooltip(
+      message: 'Playback speed'.tr,
+      child: CupertinoButton(
+        padding: const EdgeInsets.all(8),
+        minimumSize: const Size(32, 32),
+        onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+        child: Text('${_latestValue.playbackSpeed.toStringAsFixed(2)}×', style: const TextStyle(color: Colors.white, fontSize: 12)),
       ),
-    );
-
-    if (chosenSpeed != null) {
-      await videoPlayercontroller.setPlaybackSpeed(chosenSpeed);
-      AppPref.setPlayerSpeed(chosenSpeed);
-    }
-
-    if (_latestValue.isPlaying) {
-      _startHideTimer();
-    }
-  }
-
- 
-  Widget _buildSpeedButton() {
-    if (chewieController.playbackSpeeds.isEmpty) {
-      return SizedBox();
-    } else {
-      return GestureDetector(
-        onTap: _onSpeedButtonTap,
-        child: Container(
-          height: barHeight,
-          color: Colors.transparent,
-          padding: EdgeInsets.only(left: 12.0, right: 12.0),
-          child: HStack(
-            [
-              Icon(CupertinoIcons.speedometer, color: Colors.white, size: AppStyle.iconSize).pOnly(right: 8),
-              '${_latestValue.playbackSpeed.toDoubleStringAsFixed(digit: 2)}x'.text.size(12).make(),
-            ],
+    ),
+    menuChildren: [Builder(builder: (context) => _glassPanel(
+      CallbackShortcuts(
+        bindings: {const SingleActivator(LogicalKeyboardKey.escape): () => MenuController.maybeOf(context)?.close()},
+        child: SizedBox(width: 140, child: Column(mainAxisSize: MainAxisSize.min, children: [
+          for (final speed in chewieController.playbackSpeeds) CupertinoButton(
+            autofocus: speed == chewieController.playbackSpeeds.first,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            minimumSize: const Size(32, 32),
+            onPressed: () async {
+              MenuController.maybeOf(context)?.close();
+              await videoPlayercontroller.setPlaybackSpeed(speed);
+              AppPref.setPlayerSpeed(speed);
+              if (mounted) _focusNode.requestFocus();
+            },
+            child: Row(children: [
+              SizedBox(width: 20, child: speed == _latestValue.playbackSpeed
+                ? const Icon(CupertinoIcons.check_mark, color: Colors.white, size: 14) : null),
+              Text('${speed.toStringAsFixed(2)}×', style: const TextStyle(color: Colors.white, fontSize: 12)),
+            ]),
           ),
-        ),
-      );
-    }
-  }
+        ])),
+      ),
+    ))],
+  );
 
   void _cancelAndRestartTimer() {
     // print('Calling _cancelAndRestartTimer, showing controls');
@@ -544,10 +536,7 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
       videoPlayercontroller.play();
     }
 
-    setState(() {
-      // print('Playing/Pausing, will force hide controls');
-      notifier.hideStuff = true;
-    });
+    _cancelAndRestartTimer();
   }
 
   void _seekRelative(Duration relativeSeek) {
@@ -562,10 +551,7 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
       videoPlayercontroller.seekTo(position);
     }
 
-    setState(() {
-      // print('Seeking, will force hide controls');
-      notifier.hideStuff = true;
-    });
+    _cancelAndRestartTimer();
   }
 
   void _seekForward5s() {
@@ -617,9 +603,11 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
   }
 
   void _mute() {
-    videoPlayercontroller.setVolume(0.0);
-    AppPref.setPlayerVolume(0.0);
-    setState(() {});
+    final volume = _latestValue.volume == 0 ? _latestVolume ?? 0.5 : 0.0;
+    if (_latestValue.volume > 0) _latestVolume = _latestValue.volume;
+    videoPlayercontroller.setVolume(volume);
+    AppPref.setPlayerVolume(volume);
+    _cancelAndRestartTimer();
   }
 
   void _showInfoOverlayTemporarily(String text) {
@@ -645,6 +633,8 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
   }
 
   void _startHideTimer() {
+    _hideTimer?.cancel();
+    if (!_latestValue.isPlaying || _isSpeedMenuOpen || _isVolumeHovered || _isVolumeDragging) return;
     final hideControlsTimer = chewieController.hideControlsTimer.isNegative ? ChewieController.defaultHideControlsTimer : chewieController.hideControlsTimer;
     _hideTimer?.cancel();
     _hideTimer = Timer(hideControlsTimer, () {
@@ -686,23 +676,22 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
     });
   }
 
-  Widget _buildProgressBar() {
-    return Expanded(
-      child: MaterialVideoProgressBar(
-        videoPlayercontroller,
-        barHeight: 3,
-        height: 3,
-        onDragStart: () => _hideTimer?.cancel(),
-        onDragUpdate: () => _hideTimer?.cancel(),
-        onDragEnd: () => _startHideTimer(),
-        colors: chewieController.materialProgressColors ??
-            ChewieProgressColors(
-                playedColor: Colors.red,
-                handleColor: Colors.red,
-                bufferedColor: Theme.of(context).colorScheme.surface.withValues(alpha: 1),
-                backgroundColor: Theme.of(context).disabledColor.withValues(alpha: 1)),
-        draggableProgressBar: chewieController.draggableProgressBar,
+  Widget _buildProgressBar() => SizedBox(
+    height: 24,
+    child: MaterialVideoProgressBar(
+      videoPlayercontroller,
+      barHeight: 2,
+      handleHeight: 5,
+      onDragStart: () => _hideTimer?.cancel(),
+      onDragUpdate: () => _hideTimer?.cancel(),
+      onDragEnd: () => _startHideTimer(),
+      colors: ChewieProgressColors(
+        playedColor: Colors.white,
+        handleColor: Colors.white,
+        bufferedColor: Colors.white38,
+        backgroundColor: Colors.white24,
       ),
-    );
-  }
+      draggableProgressBar: chewieController.draggableProgressBar,
+    ),
+  );
 }

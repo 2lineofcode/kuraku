@@ -5,6 +5,7 @@ import '../../../core/app_logging.dart';
 import '../../../data/database/db_activity.dart';
 import '../../../data/database/db_profile.dart';
 import '../../../data/models/profile_entity.dart';
+import '../../../utils/watch_session_tracker.dart';
 import '../home_controller.dart';
 
 class PageProfileController extends GetxController {
@@ -17,12 +18,16 @@ class PageProfileController extends GetxController {
   final nameError = ''.obs;
   final notice = ''.obs;
   final totalRelapse = 0.obs;
+  final achievementSectionKey = GlobalKey();
+  final achievementFilter = 'All'.obs;
+  final achievementGroup = 'All'.obs;
 
   Future<void> onRefresh() async {
     if (isLoading.value || isSaving.value) return;
     isLoading.value = true;
     error.value = '';
     try {
+      await WatchSessionTracker.flushAll();
       await home.refreshProfile();
       final count = await DBActivity.countRelapse();
       if (!isClosed) totalRelapse.value = count;

@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import '../core/app_translations.dart';
+import '../data/database/db_profile.dart';
 import '../modules/widgets/widget_style.dart';
 
 
@@ -11,6 +12,7 @@ class BadgeProgress {
   final String nextTitle;
   final int currentValue;
   final int targetValue;
+  final int startValue;
   final bool isMaxLevel;
 
   BadgeProgress({
@@ -19,85 +21,43 @@ class BadgeProgress {
     required this.currentValue,
     required this.targetValue,
     required this.isMaxLevel,
+    this.startValue = 0,
   });
 
   int get percent {
     if (isMaxLevel) return 100;
-    if (targetValue <= 0) return 0;
-    return ((currentValue / targetValue) * 100).clamp(0, 100).toInt();
+    if (targetValue <= startValue) return 0;
+    return (((currentValue - startValue) / (targetValue - startValue)) * 100).clamp(0, 100).toInt();
   }
 }
 
 mixin HelperBadge {
-  static String getBadgeWatchDurationText(int seconds) {
-    if (seconds <= 0) return 'Fresh Eyes'.tr;
+  static String getBadgeWatchDurationText(int seconds) => DBProfile.watchDurationBadge(seconds).tr;
 
-    final hours = seconds ~/ 3600;
-    if (hours <= 10) {
-      return 'Warm Up'.tr;
-    } else if (hours <= 50) {
-      return 'Night Owl'.tr;
-    } else if (hours <= 150) {
-      return 'Screen Warrior'.tr;
-    } else if (hours <= 300) {
-      return 'Marathoner'.tr;
-    } else {
-      return 'Time Bender'.tr;
-    }
-  }
-
-  static String getBadgeTotVidText(int count) {
-    if (count == 0) return 'Noobless'.tr;
-    if (count > 0 && count <= 100) {
-      return 'Newbie Explorer'.tr;
-    } else if (count > 100 && count <= 200) {
-      return 'Jav Lover'.tr;
-    } else if (count > 200 && count <= 300) {
-      return 'Jav Hunter'.tr;
-    } else if (count > 300 && count <= 400) {
-      return 'True Nolep'.tr;
-    } else if (count > 400 && count <= 500) {
-      return 'Degenerate'.tr;
-    } else if (count > 500 && count <= 1000) {
-      return 'Certified Freak'.tr;
-    } else {
-      return 'Nolep x_x (beyond redemption)'.tr;
-    }
-  }
+  static String getBadgeTotVidText(int count) => DBProfile.collectionBadge((count < 0 ? 0 : count)).tr;
 
   static BadgeProgress getCollectionProgress(int count) {
-    final current = getBadgeTotVidText(count);
-    if (count <= 100) {
-      return BadgeProgress(currentTitle: current, nextTitle: 'Jav Lover'.tr, currentValue: count, targetValue: 101, isMaxLevel: false);
-    } else if (count <= 200) {
-      return BadgeProgress(currentTitle: current, nextTitle: 'Jav Hunter'.tr, currentValue: count, targetValue: 201, isMaxLevel: false);
-    } else if (count <= 300) {
-      return BadgeProgress(currentTitle: current, nextTitle: 'True Nolep'.tr, currentValue: count, targetValue: 301, isMaxLevel: false);
-    } else if (count <= 400) {
-      return BadgeProgress(currentTitle: current, nextTitle: 'Degenerate'.tr, currentValue: count, targetValue: 401, isMaxLevel: false);
-    } else if (count <= 500) {
-      return BadgeProgress(currentTitle: current, nextTitle: 'Certified Freak'.tr, currentValue: count, targetValue: 501, isMaxLevel: false);
-    } else if (count <= 1000) {
-      return BadgeProgress(currentTitle: current, nextTitle: 'Nolep x_x (beyond redemption)'.tr, currentValue: count, targetValue: 1001, isMaxLevel: false);
+    final value = (count < 0 ? 0 : count);
+    final current = getBadgeTotVidText(value);
+    const thresholds = [0, 1, 101, 201, 301, 401, 501, 1001];
+    for (var i = 1; i < thresholds.length; i++) {
+      if (value < thresholds[i]) return BadgeProgress(currentTitle: current,
+        nextTitle: getBadgeTotVidText(thresholds[i]), currentValue: value, targetValue: thresholds[i],
+        startValue: thresholds[i - 1], isMaxLevel: false);
     }
-
-    return BadgeProgress(currentTitle: current, nextTitle: current, currentValue: count, targetValue: count, isMaxLevel: true);
+    return BadgeProgress(currentTitle: current, nextTitle: current, currentValue: value, targetValue: value, isMaxLevel: true);
   }
 
   static BadgeProgress getWatchDurationProgress(int seconds) {
-    final current = getBadgeWatchDurationText(seconds);
-    final hours = seconds ~/ 3600;
-    if (hours <= 10) {
-      return BadgeProgress(currentTitle: current, nextTitle: 'Night Owl'.tr, currentValue: hours, targetValue: 11, isMaxLevel: false);
-    } else if (hours <= 50) {
-      return BadgeProgress(currentTitle: current, nextTitle: 'Screen Warrior'.tr, currentValue: hours, targetValue: 51, isMaxLevel: false);
-    } else if (hours <= 150) {
-      return BadgeProgress(currentTitle: current, nextTitle: 'Marathoner'.tr, currentValue: hours, targetValue: 151, isMaxLevel: false);
-    } else if (hours <= 300) {
-      return BadgeProgress(currentTitle: current, nextTitle: 'Time Bender'.tr, currentValue: hours, targetValue: 301, isMaxLevel: false);
+    final value = seconds < 0 ? 0 : seconds;
+    final current = getBadgeWatchDurationText(value);
+    const thresholds = [0, 1, 11 * 3600, 51 * 3600, 151 * 3600, 301 * 3600];
+    for (var i = 1; i < thresholds.length; i++) {
+      if (value < thresholds[i]) return BadgeProgress(currentTitle: current,
+        nextTitle: getBadgeWatchDurationText(thresholds[i]), currentValue: value, targetValue: thresholds[i],
+        startValue: thresholds[i - 1], isMaxLevel: false);
     }
-
-    return BadgeProgress(currentTitle: current, nextTitle: current, currentValue: hours, targetValue: hours, isMaxLevel: true);
+    return BadgeProgress(currentTitle: current, nextTitle: current, currentValue: value, targetValue: value, isMaxLevel: true);
   }
 
   static String getBadgeTotVidTooltip(int count) {

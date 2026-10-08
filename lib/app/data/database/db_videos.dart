@@ -190,10 +190,35 @@ mixin DBVideos {
 
     Future<void> move(DatabaseExecutor txn) async {
       for (final move in moves) {
-        final oldPath = (move['oldPath'] ?? '').trim();
-        final newPath = (move['newPath'] ?? '').trim();
-        final newRoot = (move['newRoot'] ?? '').trim();
-        if (oldPath.isEmpty || newPath.isEmpty || newRoot.isEmpty) continue;
+        final oldPath = move['oldPath'] ?? '';
+        final newPath = move['newPath'] ?? '';
+        final newRoot = move['newRoot'] ?? '';
+        if (oldPath.trim().isEmpty || newPath.trim().isEmpty || newRoot.trim().isEmpty) continue;
+
+        if (move['id'] != null) {
+          final source = await txn.query(_tableName, where: 'id = ? AND video_path = ?', whereArgs: [move['id'], oldPath]);
+          if (source.length != 1) throw StateError('The source changed during the library scan');
+          final target = await txn.query(_tableName, where: 'video_path = ?', whereArgs: [newPath]);
+          if (target.isNotEmpty) {
+            final destination = target.single;
+            if (destination['id'] != move['destinationId']) throw StateError('The destination changed during the library scan');
+            final sourceId = source.single['id'];
+            final targetId = destination['id'];
+            await txn.rawInsert('''
+              INSERT INTO playlist_item(playlist_id, video_id, created_at)
+              SELECT playlist_id, ?, created_at FROM playlist_item WHERE video_id = ?
+              ON CONFLICT(playlist_id, video_id) DO NOTHING
+            ''', [sourceId, targetId]);
+            await txn.update('watch_session', {'video_id': sourceId}, where: 'video_id = ?', whereArgs: [targetId]);
+            await txn.rawUpdate('''
+              UPDATE videos SET view_count = view_count + ?, is_favorite = MAX(is_favorite, ?),
+                is_deleted = MAX(is_deleted, ?) WHERE id = ?
+            ''', [destination['view_count'], destination['is_favorite'], destination['is_deleted'], sourceId]);
+            await txn.delete(_tableName, where: 'id = ?', whereArgs: [targetId]);
+          } else if (move['destinationId'] != null) {
+            throw StateError('The destination changed during the library scan');
+          }
+        }
 
         final affected = await txn.rawUpdate(
           '''
@@ -352,6 +377,7 @@ mixin DBVideos {
     if (changed == 0) return;
     video.isFavorite = favorite;
     video.updatedAt = now;
+    revision.value++;
   }
 
   static Future<void> addToFavorite(Videos video) => _setFavorite(video, 1);

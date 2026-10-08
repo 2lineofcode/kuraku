@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
+import 'package:javit/app/core/app_color.dart';
 import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/data/database/_init_db.dart';
 import 'package:javit/app/data/models/videos_entity.dart';
 import 'package:javit/app/modules/home/home_controller.dart';
 import 'package:javit/app/modules/home/home_panel/home_panel_cart.dart';
 import 'package:javit/app/modules/home/home_panel/home_panel_log.dart';
+import 'package:javit/app/modules/widgets/widget_style.dart';
 import 'package:javit/app/modules/widgets/widget_thumbnail.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:sqflite/sqflite.dart';
@@ -98,7 +100,7 @@ void main() {
 
   Future<void> pump(WidgetTester tester) async {
     await tester.pumpWidget(ToastificationWrapper(
-      child: GetMaterialApp(theme: ThemeData.dark(), home: const Scaffold(body: Text('Home'))),
+      child: GetMaterialApp(theme: AppStyle.theme(Brightness.dark), home: const Scaffold(body: Text('Home'))),
     ));
     await tester.pumpAndSettle();
   }
@@ -133,6 +135,9 @@ void main() {
     expect(find.textContaining('HD'), findsNWidgets(2), reason: 'FHD and HD both contain HD');
     expect(find.text('EN'), findsOneWidget);
     expect(find.text('RM'), findsOneWidget);
+    final subtitle = tester.widget<Text>(find.text('EN'));
+    final badge = tester.widget<Container>(find.ancestor(of: find.text('EN'), matching: find.byType(Container)).first);
+    expect(AppColor.contrast(subtitle.style!.color!, (badge.decoration! as BoxDecoration).color!), greaterThanOrEqualTo(4.5));
     expect(find.byTooltip('/movies/ABP-001-en.mp4'), findsOneWidget);
     expect(find.byTooltip('Play as Playlist'), findsOneWidget);
     expect(find.byTooltip('Open in Grid Player'), findsOneWidget);

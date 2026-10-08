@@ -106,7 +106,7 @@ class MyLayout extends StatelessWidget {
   Widget myAppBarDesktop() {
     return AppBar(
       backgroundColor: isDangerMode == true ? Color(0xFF4C191A) : AppColor.appBar,
-      surfaceTintColor: AppColor.selected.withAlpha(100),
+      surfaceTintColor: Colors.transparent,
       title: appBarTitle,
       elevation: 0,
       centerTitle: false,

@@ -21,7 +21,7 @@ class _Database implements Database {
     expect(table, 'achievement_unlock');
     queries.add({'where': where, 'args': whereArgs, 'orderBy': orderBy, 'limit': limit});
     var found = where == null ? rows.toList() : rows.where((row) => row['achievement_key'] == whereArgs!.first).toList();
-    if (orderBy == 'unlocked_at DESC') found.sort((a, b) => '${b['unlocked_at'] ?? ''}'.compareTo('${a['unlocked_at'] ?? ''}'));
+    if (orderBy == 'unlocked_at DESC, rowid DESC') found.sort((a, b) => '${b['unlocked_at'] ?? ''}'.compareTo('${a['unlocked_at'] ?? ''}'));
     if (limit != null && found.length > limit) found = found.sublist(0, limit);
     return found.map(Map<String, Object?>.from).toList();
   }
@@ -111,6 +111,6 @@ void main() {
     expect(limited, hasLength(1));
     expect(limited.single.achievementKey, 'new');
     expect(database.queries.last['limit'], 1);
-    expect(database.queries.last['orderBy'], 'unlocked_at DESC');
+    expect(database.queries.last['orderBy'], 'unlocked_at DESC, rowid DESC');
   });
 }

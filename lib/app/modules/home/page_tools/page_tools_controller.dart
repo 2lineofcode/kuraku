@@ -558,6 +558,8 @@ class PageToolsController extends GetxController with StateMixin {
     categories: (video) => video['categories'] ?? <String>[],
     releaseDate: (video) => video['release_date'] ?? '',
     durationMinutes: (video) => num.tryParse('${video['duration'] ?? video['runtime_mins'] ?? ''}'),
+    actressCount: (video) => video['actress_count'] as int?,
+    series: (video) => video['series'] as String?,
   );
 
   Future<void> applyAdvancedFilters() async {

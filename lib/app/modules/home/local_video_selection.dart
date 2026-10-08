@@ -86,7 +86,7 @@ mixin LocalVideoSelection {
       library.totalVideo = next.length;
       snapshots.add(library);
     }
-    await DBLibrary.commitScan(snapshots, moves: moves, deletedPaths: missing);
+    await DBLibrary.commitScan(snapshots, moves: moves);
     for (final move in moves) {
       final video = files[move['oldPath']]!;
       video.videoPath = move['newPath'];

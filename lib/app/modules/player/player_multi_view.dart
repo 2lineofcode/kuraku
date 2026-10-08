@@ -18,6 +18,7 @@ import '../../data/database/db_gamification.dart';
 import '../../data/models/videos_entity.dart';
 import '../../utils/semantic_search_service.dart';
 import '../../utils/watch_session_tracker.dart';
+import '../home/home_controller.dart';
 import '../widgets/widget_controls.dart';
 import '../widgets/widget_style.dart';
 
@@ -956,7 +957,13 @@ class _MultiVideoItem {
     focusNode.dispose();
     try {
       await _watchTracker.close();
-      if (player != null) await DBGamification.syncAndGetSummary();
+      if (player != null) {
+        if (Get.isRegistered<HomeController>()) {
+          await Get.find<HomeController>().refreshProfile();
+        } else {
+          await DBGamification.syncAndGetSummary();
+        }
+      }
     } catch (e) {
       AppLog.logW('Failed to close multi watch session: $e');
     }

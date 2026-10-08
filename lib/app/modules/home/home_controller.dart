@@ -17,6 +17,7 @@ import '../../data/database/db_gamification.dart';
 import '../../data/database/db_playlist.dart';
 import '../../data/database/db_profile.dart';
 import '../../data/database/db_videos.dart';
+import '../../data/database/db_watch_session.dart';
 import '../../data/models/library_entity.dart';
 import '../../data/models/playlist_entity.dart';
 import '../../data/models/profile_entity.dart';
@@ -67,6 +68,10 @@ class HomeController extends GetxController with StateMixin {
   // cart
   final cart = <Videos>[].obs;
   Worker? _videoWorker;
+  Worker? _gamificationWorker;
+  Future<void>? _profileRefresh;
+  bool _profileNeedsRefresh = false;
+  bool _hasLoadedGamification = false;
 
   String _cartIdentity(Videos video) {
     final videoPath = (video.videoPath ?? '').trim().toLowerCase();
@@ -110,6 +115,7 @@ class HomeController extends GetxController with StateMixin {
 
   // profile
   final profile = Profile().obs;
+  final gamification = Rxn<GamificationSummary>();
   final streakDays = 0.obs;
   final achievementCount = 0.obs;
   final latestAchievementTitles = <String>[].obs;
@@ -132,6 +138,9 @@ class HomeController extends GetxController with StateMixin {
     deduplicateCart();
     ever<List<Videos>>(cart, (value) => AppPref.setAppCart(value));
     _videoWorker = ever(DBVideos.revision, (_) => unawaited(refreshVideoContent()));
+    _gamificationWorker = everAll([DBVideos.revision, DBPlaylist.revision, DBWatchSession.revision], (_) {
+      unawaited(refreshProfile().catchError((Object e) => AppLog.logW('Refreshing gamification failed: $e')));
+    });
 
     sideMenuWidth.value = AppPref.getAppHideSideMenu() ? 65 : 180;
     change(200, status: RxStatus.success());
@@ -170,6 +179,7 @@ class HomeController extends GetxController with StateMixin {
   @override
   void onClose() {
     _videoWorker?.dispose();
+    _gamificationWorker?.dispose();
     HomePanelLibrary.stopAutoRescanWatcher();
     fnTopNavSearch.removeListener(_onTopNavSearchFocusChanged);
     tecTopNavSearch.dispose();
@@ -180,6 +190,10 @@ class HomeController extends GetxController with StateMixin {
   Future<void> refreshVideoContent() async {
     try {
       final refreshedCart = await Future.wait(cart.toList().map((video) async {
+        if ((video.id ?? '').isNotEmpty) {
+          final saved = await DBVideos.getAll(where: 'id = ?', whereArgs: [video.id], limit: 1);
+          if (saved.isNotEmpty) return saved.single;
+        }
         if ((video.videoPath ?? '').isEmpty) return video;
         return DBVideos.getByVideoPath(video.videoPath!);
       }));
@@ -226,8 +240,7 @@ class HomeController extends GetxController with StateMixin {
       final relapseToday = await DBActivity.getCountRelapseToday();
       isDangerMode.value = relapseToday >= AppPref.getAppMaxColi();
 
-      await _syncGamification();
-      profile.value = await DBProfile.getProfile() ?? Profile();
+      await refreshProfile();
       await updateFooterSummary();
 
       AppLog.logS('${preserveInputState ? 'Refresh Background Content'.tr : 'Refresh All Content'.tr} Take Time: ${sw.elapsedMilliseconds} ms');
@@ -677,17 +690,38 @@ class HomeController extends GetxController with StateMixin {
     await Get.find<PageProfileController>().onRefresh();
   }
 
-  Future<void> refreshProfile() async {
-    await _syncGamification();
-    profile.value = await DBProfile.getProfile() ?? Profile();
+  Future<void> refreshProfile() {
+    _profileNeedsRefresh = true;
+    return _profileRefresh ??= _loadProfile().whenComplete(() => _profileRefresh = null);
   }
 
-  Future<void> _syncGamification() async {
-    final summary = await DBGamification.syncAndGetSummary();
-    streakDays.value = summary.streakDays;
-    achievementCount.value = summary.achievementCount;
-    latestAchievementTitles.value = summary.latestAchievements.map((e) => e.title).toList();
-    achievementProgress.value = await DBGamification.getAchievementProgress();
+  Future<void> _loadProfile() async {
+    do {
+      _profileNeedsRefresh = false;
+      final summary = await DBGamification.syncAndGetSummary();
+      final updatedProfile = await DBProfile.getProfile() ?? Profile();
+      if (isClosed) return;
+      final previous = gamification.value;
+      profile.value = updatedProfile;
+      gamification.value = summary;
+      totalVideo.value = summary.stats['videos']!;
+      streakDays.value = summary.streakDays;
+      achievementCount.value = summary.achievementCount;
+      latestAchievementTitles.value = summary.latestAchievements.map((e) => e.title).toList();
+      achievementProgress.value = summary.progress;
+      if (_hasLoadedGamification && summary.newAchievementTitles.isNotEmpty && Get.context != null) {
+        final titles = summary.newAchievementTitles.take(3).map((title) => title.tr).join(' · ');
+        final more = summary.newAchievementTitles.length - 3;
+        final message = 'Milestones unlocked: @{titles} · +@{xp} XP'.trNamed({
+          'titles': more > 0 ? '$titles · ${'@{count} more'.trNamed({'count': '$more'})}' : titles,
+          'xp': '${summary.progress.where((item) => summary.newAchievementTitles.contains(item.title)).fold<int>(0, (xp, item) => xp + item.xp)}',
+        });
+        unawaited(HelperToast.success(summary.level > (previous?.level ?? 1)
+          ? '$message\n${'Level @{level}'.trNamed({'level': '${summary.level}'})} · ${summary.rank.tr}' : message,
+          duration: const Duration(seconds: 4), addToAppLog: false));
+      }
+      _hasLoadedGamification = true;
+    } while (_profileNeedsRefresh);
   }
 
   // ────────────────────────────────────────────────────────────────

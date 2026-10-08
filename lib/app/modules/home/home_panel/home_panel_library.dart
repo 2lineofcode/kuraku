@@ -19,6 +19,9 @@ import '../../../data/database/_init_db.dart';
 import '../../../data/database/db_library.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
+import '../../../data/database/library_health_check.dart';
+import '../../../data/database/library_reconciler.dart';
+import '../../../data/database/library_relocation.dart';
 import '../../../data/models/library_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_file_picker.dart';
@@ -29,29 +32,22 @@ import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_style.dart';
 import '../../widgets/widget_surfaces.dart';
 import '../home_controller.dart';
+import 'home_panel_library_health.dart';
+import 'home_panel_library_relocation.dart';
 
 /// A mixin for managing library-related functionalities in the home screen.
 mixin HomePanelLibrary {
-  static final _controller = Get.find<HomeController>();
+  static HomeController get _controller => Get.find<HomeController>();
   static final Map<String, StreamSubscription<FileSystemEvent>> _libraryWatchSubs = {};
-  static final Map<String, Timer> _libraryWatchDebounce = {};
-  static final Set<String> _libraryRescanInProgress = {};
+  static Timer? _libraryWatchDebounce;
+  static Future<void> _libraryScanQueue = Future.value();
+  static int _libraryScansPending = 0;
+  static int _watchRetries = 0;
+  static bool _watchersEnabled = false;
   static const Duration _watchDebounce = Duration(seconds: 3);
   static bool _repairInProgress = false;
   static bool fileDragInProgress = false;
-  static bool get canStartFileDrag => !fileDragInProgress && _libraryRescanInProgress.isEmpty;
-
-  static bool _isSupportedVideoPath(String path) {
-    final pth = path.toLowerCase();
-    return pth.endsWith('.mp4')
-        || pth.endsWith('.mkv')
-        || pth.endsWith('.avi')
-        || pth.endsWith('.mov')
-        || pth.endsWith('.wmv')
-        || pth.endsWith('.flv')
-        || pth.endsWith('.webm')
-        || pth.endsWith('.m4v');
-  }
+  static bool get canStartFileDrag => !fileDragInProgress && _libraryScansPending == 0;
 
   static bool _shouldIgnoreWatchEvent(FileSystemEvent event) {
     final path = event.path;
@@ -68,13 +64,14 @@ mixin HomePanelLibrary {
 
     // Folder move/rename events may not carry video extension.
     // Keep watcher responsive by allowing directory events to trigger rescan.
-    final isDirectoryEvent = Directory(path).existsSync();
+    final isDirectoryEvent = event.isDirectory || Directory(path).existsSync();
     if (isDirectoryEvent) return false;
 
-    return !_isSupportedVideoPath(path);
+    return !HelperFilePicker.isSupportedVideoPath(path);
   }
 
   static Future<void> startAutoRescanWatcher() async {
+    _watchersEnabled = true;
     final libraries = await DBLibrary.getAll();
     await _syncLibraryWatchers(libraries);
   }
@@ -91,28 +88,27 @@ mixin HomePanelLibrary {
   }
 
   static Future<void> stopAutoRescanWatcher() async {
+    _watchersEnabled = false;
     for (final sub in _libraryWatchSubs.values) {
       await sub.cancel();
     }
     _libraryWatchSubs.clear();
-    for (final t in _libraryWatchDebounce.values) {
-      t.cancel();
-    }
-    _libraryWatchDebounce.clear();
-    _libraryRescanInProgress.clear();
+    _libraryWatchDebounce?.cancel();
+    _libraryWatchDebounce = null;
   }
 
   static Future<void> _syncLibraryWatchers(List<Library> libraries) async {
+    if (!_watchersEnabled) return;
     final roots = libraries.map((e) => (e.rootFolder ?? '').trim()).where((e) => e.isNotEmpty).toSet();
 
     final toRemove = _libraryWatchSubs.keys.where((root) => !roots.contains(root)).toList();
     for (final root in toRemove) {
       await _libraryWatchSubs[root]?.cancel();
       _libraryWatchSubs.remove(root);
-      _libraryWatchDebounce.remove(root)?.cancel();
     }
 
     for (final root in roots) {
+      if (!_watchersEnabled) return;
       if (_libraryWatchSubs.containsKey(root)) continue;
       final dir = Directory(root);
       if (!dir.existsSync()) continue;
@@ -120,10 +116,7 @@ mixin HomePanelLibrary {
       try {
         final sub = dir.watch(recursive: true).listen((event) {
           if (_shouldIgnoreWatchEvent(event)) return;
-          _libraryWatchDebounce[root]?.cancel();
-          _libraryWatchDebounce[root] = Timer(_watchDebounce, () async {
-            await _runAutoRescanForRoot(root);
-          });
+          _scheduleAutoRescan();
         }, onError: (e) {
           AppLog.logW('[LibraryWatcher] Watch error for $root: $e');
         });
@@ -135,24 +128,24 @@ mixin HomePanelLibrary {
     }
   }
 
-  static Future<void> _runAutoRescanForRoot(String root) async {
-    if (fileDragInProgress) {
-      _libraryWatchDebounce[root] = Timer(_watchDebounce, () => _runAutoRescanForRoot(root));
+  static void _scheduleAutoRescan({bool retry = false}) {
+    if (!_watchersEnabled) return;
+    if (!retry) _watchRetries = 0;
+    if (retry && ++_watchRetries > 3) return;
+    _libraryWatchDebounce?.cancel();
+    _libraryWatchDebounce = Timer(_watchDebounce, _runAutoRescan);
+  }
+
+  static Future<void> _runAutoRescan() async {
+    if (!_watchersEnabled) return;
+    if (fileDragInProgress || _libraryScansPending > 0) {
+      _libraryWatchDebounce = Timer(_watchDebounce, _runAutoRescan);
       return;
     }
-    if (_libraryRescanInProgress.contains(root)) return;
-    _libraryRescanInProgress.add(root);
     try {
-      final libraries = await DBLibrary.getAll();
-      final library = libraries.firstWhereOrNull((e) => (e.rootFolder ?? '').trim() == root);
-      if (library == null) return;
-
-      AppLog.logD('[LibraryWatcher] Auto rescan triggered for: ${library.alias ?? root}');
-      await _doRescanVideoFromLibrary(library, fromAutoWatcher: true);
+      await doRescanAllVideoFromLibrary(await DBLibrary.getAll(), showSummaryToast: false);
     } catch (e) {
-      AppLog.logW('[LibraryWatcher] Auto rescan failed for $root: $e');
-    } finally {
-      _libraryRescanInProgress.remove(root);
+      AppLog.logW('[LibraryWatcher] Auto rescan failed: $e');
     }
   }
 
@@ -233,6 +226,19 @@ mixin HomePanelLibrary {
                 ),
               ),
             ]),
+            const SizedBox(height: 8),
+            AppButton(
+              label: 'Library Health Check'.tr,
+              icon: const HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle02, size: AppStyle.iconSize),
+              variant: AppButtonVariant.tonal,
+              onPressed: library.isEmpty ? null : () async {
+                await Overlayment.dismissLast();
+                if (Get.context == null) return;
+                final check = LibraryHealthCheck.run();
+                await showDialog<void>(context: Get.context!,
+                  builder: (_) => LibraryHealthDialog(check: check));
+              },
+            ),
             Divider(height: 24, color: AppColor.border),
             Expanded(child: library.isEmpty
                 ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -396,6 +402,14 @@ mixin HomePanelLibrary {
       actions: [
         if (library != null && !isFromDrop) ...[
           AppDialogAction(
+            child: Text('Relocate Library'.tr),
+            onPressed: () {
+              Get.back();
+              showDialog<void>(context: Get.context!, barrierDismissible: false,
+                builder: (_) => LibraryRelocationDialog(library: library, onApply: relocateLibrary));
+            },
+          ),
+          AppDialogAction(
             child: Text('Delete'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
             onPressed: () {
               DBLibrary.delete(library);
@@ -480,13 +494,14 @@ mixin HomePanelLibrary {
       _controller.change(200, status: RxStatus.loading());
     }
 
-    final videosToAdd = await _prepareVideos(library);
-    await DBLibrary.commitScan([library], additions: videosToAdd);
+    final libraries = await DBLibrary.getAll();
+    libraries.removeWhere((item) => item.rootFolder == library.rootFolder);
+    await doRescanAllVideoFromLibrary([...libraries, library], showSummaryToast: false);
 
     sw.stop();
     AppLog.logD('Time taken: ${sw.elapsedMilliseconds}ms');
     if (showFinishToast) {
-      await HelperToast.success('Finish • @{elapsedMilliseconds}ms | @{length} Videos Added'.trNamed({'elapsedMilliseconds': '${sw.elapsedMilliseconds}', 'length': '${videosToAdd.length}'}));
+      await HelperToast.success('Finish • @{elapsedMilliseconds}ms | @{length} Videos Added'.trNamed({'elapsedMilliseconds': '${sw.elapsedMilliseconds}', 'length': '${library.totalVideo ?? 0}'}));
     }
 
     if (refreshAfter) {
@@ -673,240 +688,85 @@ mixin HomePanelLibrary {
     await _controller.onRefreshAllContent();
   }
 
-  // ────────────────────────────────────────────────────────────────
-  // Rescan Single library
-  // workflow:
-  // - Scan folder (library.rootFolder) selected
-  // - compare old data with new data
-  // - collect (add, delete, update)
-  // - update library
-  // ────────────────────────────────────────────────────────────────
   static Future<void> _doRescanVideoFromLibrary(Library library, {bool fromAutoWatcher = true}) async {
-    try {
-      final oldData = library;
-      final newData = await HelperFilePicker.scanFolderAndSubFolder(library.rootFolder ?? '');
-
-      if (newData == null) return;
-
-      final pathToAdd = <String>[];
-      final pathToDelete = <String>[];
-      final stored = await DBVideos.getAll(where: 'root_path = ?', whereArgs: [oldData.rootFolder], includeDeleted: true);
-      final oldVideos = stored.map((video) => video.videoPath!).toSet();
-      final newVideos = Set<String>.from(newData.videos ?? const <String>[]);
-
-      pathToAdd.addAll(newVideos.difference(oldVideos));
-      pathToDelete.addAll(oldVideos.difference(newVideos));
-
-      final moves = <Map<String, String>>[];
-      final remainingAdds = <String>[];
-      final remainingDeletes = List<String>.from(pathToDelete);
-      final delByName = <String, List<String>>{};
-
-      for (final oldPath in pathToDelete) {
-        final name = p.basename(oldPath);
-        delByName.putIfAbsent(name, () => []).add(oldPath);
-      }
-
-      for (final newPath in pathToAdd) {
-        final name = p.basename(newPath);
-        final candidates = delByName[name];
-        if (candidates != null && candidates.isNotEmpty) {
-          final matchedOldPath = candidates.removeAt(0);
-          moves.add({
-            'oldRoot': oldData.rootFolder ?? '',
-            'oldPath': matchedOldPath,
-            'newRoot': oldData.rootFolder ?? '',
-            'newPath': newPath,
-          });
-          remainingDeletes.remove(matchedOldPath);
-        } else {
-          remainingAdds.add(newPath);
-        }
-      }
-
-      final additions = await _prepareVideos(Library(videos: remainingAdds, rootFolder: oldData.rootFolder));
-      final snapshot = Library.fromJson(oldData.toJson())
-        ..totalVideo = newData.totalVideo
-        ..videos = newData.videos
-        ..subFolder = newData.subFolder;
-      await DBLibrary.commitScan([snapshot], additions: additions, moves: moves, deletedPaths: remainingDeletes);
-      oldData.totalVideo = snapshot.totalVideo;
-      oldData.videos = snapshot.videos;
-      oldData.subFolder = snapshot.subFolder;
-      oldData.updatedAt = snapshot.updatedAt;
-
-      final recovered = fromAutoWatcher ? 0 : await DBVideos.recoverMissingVideoCodes(oldData.rootFolder ?? '');
-      if (recovered > 0) await HelperToast.info('@{recovered} video codes recovered'.trNamed({'recovered': '$recovered'}));
-      if (moves.isNotEmpty || remainingAdds.isNotEmpty || remainingDeletes.isNotEmpty || recovered > 0) {
-        await _controller.onRefreshAllContent(preserveInputState: fromAutoWatcher);
-      }
-    } catch (e) {
-      AppLog.logE(e);
-    }
+    await doRescanAllVideoFromLibrary(await DBLibrary.getAll(),
+      showSummaryToast: !fromAutoWatcher, preserveInputState: fromAutoWatcher, recoverVideoCodes: !fromAutoWatcher);
   }
 
-  // ────────────────────────────────────────────────────────────────
-  // Rescan All libraries (detect cross-library moves by basename)
-  // ────────────────────────────────────────────────────────────────
+  static Future<void> _queueLibraryChange(Future<void> Function() action) {
+    _libraryScansPending++;
+    final change = _libraryScanQueue.then((_) async {
+      try {
+        while (fileDragInProgress) { await Future<void>.delayed(const Duration(milliseconds: 250)); }
+        await action();
+      } finally {
+        _libraryScansPending--;
+      }
+    });
+    _libraryScanQueue = change.then<void>((_) {}, onError: (Object e) {
+      AppLog.logE('[Library]: $e');
+      _scheduleAutoRescan(retry: true);
+    });
+    return change;
+  }
+
+  static Future<void> relocateLibrary(LibraryRelocation preview) => _queueLibraryChange(() async {
+    await preview.apply();
+    // The relocation is already committed; a UI refresh failure must not report a rollback.
+    try {
+      await _syncLibraryWatchers(await DBLibrary.getAll());
+      if (!Get.isRegistered<HomeController>() || _controller.isClosed) return;
+      await _controller.updateFooterSummary();
+      await _controller.refreshVideoContent();
+    } catch (e) {
+      AppLog.logE('[Library] Relocation refresh failed: $e');
+    }
+  });
+
   static Future<void> doRescanAllVideoFromLibrary(
     List<Library> libraries, {
     bool showSummaryToast = true,
     bool preserveInputState = true,
     bool recoverVideoCodes = false,
-  }) async {
-    try {
-      if (libraries.isEmpty) return;
-
-      _controller.footerText.value = '◎ Rescanning...'.tr;
-
-      // Compare scans against committed video rows so interrupted imports can retry.
-      final Map<String, List<String>> oldMap = {};
-      for (final lib in libraries) {
-        final stored = await DBVideos.getAll(where: 'root_path = ?', whereArgs: [lib.rootFolder], includeDeleted: true);
-        oldMap[lib.rootFolder ?? ''] = stored.map((video) => video.videoPath!).toList();
-      }
-
-      // 2) Scan all roots and build newMap
-      final Map<String, List<String>> newMap = {};
-      final Map<String, int> newTotal = {};
-      final Map<String, List<String>?> newSubFolders = {};
-
-      // We also need to track which libraries were successfully scanned.
-      final List<Library> scannedLibraries = [];
-
-      for (final lib in libraries) {
-        final root = lib.rootFolder ?? '';
-
-        try {
-          final newData = await HelperFilePicker.scanFolderAndSubFolder(root);
-
-          if (newData != null) {
-            final newList = newData.videos ?? [];
-            newMap[root] = List<String>.from(newList);
-            newTotal[root] = (newData.totalVideo ?? 0).toInt();
-            newSubFolders[root] = newData.subFolder;
-            scannedLibraries.add(lib);
-          }
-        } catch (e) {
-          AppLog.logW('[RescanAll] Could not access folder: $root. Skipping this library.');
-        }
-      }
-
-      // 3) Build global candidate lists
-      final List<Map<String, String>> addCandidates = []; // {root, path}
-      final List<Map<String, String>> delCandidates = []; // {root, path}
-
-      // adds: present in newMap[root] but not in oldMap[root]
-      for (final root in newMap.keys) {
-        final newList = newMap[root]!;
-        final oldList = oldMap[root] ?? [];
-        for (final nv in newList) {
-          if (!oldList.contains(nv)) {
-            addCandidates.add({'root': root, 'path': nv});
+  }) {
+    return _queueLibraryChange(() async {
+        if (!Get.isRegistered<HomeController>() || _controller.isClosed) return;
+        if (libraries.isEmpty) return;
+        _controller.footerText.value = '◎ Rescanning...'.tr;
+        final snapshots = <Library>[];
+        for (final library in libraries) {
+          final saved = (library.id ?? '').isEmpty ? null : await DBLibrary.getByID(library.id!);
+          if (saved != null && saved.isEmpty) continue;
+          final current = saved?.single ?? library;
+          try {
+            final scanned = await HelperFilePicker.scanFolderAndSubFolder(current.rootFolder ?? '');
+            if (scanned == null) continue;
+            snapshots.add(Library.fromJson(current.toJson())
+              ..videos = scanned.videos..subFolder = scanned.subFolder..totalVideo = scanned.totalVideo);
+          } catch (e) {
+            AppLog.logW('[RescanAll] Could not access folder: ${library.rootFolder}. Skipping this library.');
           }
         }
-      }
-
-      // deletes: present in oldMap[root] but not in newMap[root]
-      for (final root in oldMap.keys) {
-        final oldList = oldMap[root] ?? [];
-        final newList = newMap[root] ?? [];
-
-        // This is the key change: only process if the root was in newMap (i.e., successfully scanned)
-        if (newMap.containsKey(root)) {
-          for (final ov in oldList) {
-            if (!newList.contains(ov)) {
-              delCandidates.add({'root': root, 'path': ov});
-            }
-          }
+        if (snapshots.isEmpty) return;
+        final result = await LibraryReconciler.reconcile(snapshots, prepareVideos: _prepareVideos);
+        if (!Get.isRegistered<HomeController>() || _controller.isClosed) return;
+        var recovered = 0;
+        if (recoverVideoCodes) {
+          for (final library in snapshots) { recovered += await DBVideos.recoverMissingVideoCodes(library.rootFolder!); }
         }
-      }
-
-      // 4) Match addCandidates <-> delCandidates by basename => moves
-      final List<Map<String, String>> moves = []; // {oldRoot, oldPath, newRoot, newPath}
-
-      // create index by basename for deletes for quick lookup
-      final Map<String, List<Map<String, String>>> delByName = {};
-      for (final del in delCandidates) {
-        final name = p.basename(del['path']!);
-        delByName.putIfAbsent(name, () => []).add(del);
-      }
-
-      final List<Map<String, String>> remainingAdds = [];
-      for (final add in addCandidates) {
-        final name = p.basename(add['path']!);
-        final delsForName = delByName[name];
-        if (delsForName != null && delsForName.isNotEmpty) {
-          // match to first available delete for that basename
-          final matchedDel = delsForName.removeAt(0);
-          moves.add({
-            'oldRoot': matchedDel['root']!,
-            'oldPath': matchedDel['path']!,
-            'newRoot': add['root']!,
-            'newPath': add['path']!,
-          });
-
-          // also remove this del from delCandidates list (so it won't be deleted later)
-          delCandidates.removeWhere((d) => d['path'] == matchedDel['path']);
-        } else {
-          remainingAdds.add(add);
-        }
-      }
-
-      // Prepare metadata outside the transaction.
-      final additions = <Videos>[];
-
-      // Group pending additions by root.
-      final Map<String, List<String>> addsByRoot = {};
-      for (final a in remainingAdds) {
-        final root = a['root']!;
-        addsByRoot.putIfAbsent(root, () => []).add(a['path']!);
-      }
-      for (final entry in addsByRoot.entries) {
-        final root = entry.key;
-        final list = entry.value;
-        final libToAdd = Library(videos: list, rootFolder: root);
-        additions.addAll(await _prepareVideos(libToAdd));
-      }
-
-      // Commit moves, additions, deletions and snapshots together.
-      final delPaths = List<String>.from(
-        List<Map<String, String>>.from(delCandidates).map((d) => d['path'] ?? '').where((p) => p.isNotEmpty),
-      );
-
-
-      final snapshots = scannedLibraries.map((lib) => Library.fromJson(lib.toJson())
-        ..totalVideo = newTotal[lib.rootFolder]
-        ..videos = newMap[lib.rootFolder]
-        ..subFolder = newSubFolders[lib.rootFolder]).toList();
-      final movedUpdatedRows = await DBLibrary.commitScan(snapshots, additions: additions, moves: moves, deletedPaths: delPaths);
-      var recovered = 0;
-      for (var i = 0; i < scannedLibraries.length; i++) {
-        final lib = scannedLibraries[i];
-        lib.totalVideo = snapshots[i].totalVideo;
-        lib.videos = snapshots[i].videos;
-        lib.subFolder = snapshots[i].subFolder;
-        lib.updatedAt = snapshots[i].updatedAt;
-        if (recoverVideoCodes) recovered += await DBVideos.recoverMissingVideoCodes(lib.rootFolder!);
-      }
-
-      // 9) Summary log
-      AppLog.logD('[RescanAll] Finished | Adds=${remainingAdds.length}, Deletes=${delCandidates.length}, Moves=${moves.length}, MoveUpdated=$movedUpdatedRows');
-      for (final mv in moves) {
-        AppLog.logD('[RescanAll] Move ${mv['oldPath']} -> ${mv['newPath']}');
-      }
-
-      await _controller.updateFooterSummary();
-
-      if (remainingAdds.isNotEmpty || delCandidates.isNotEmpty || moves.isNotEmpty || recovered > 0) {
+        if (result.retry) _scheduleAutoRescan(retry: true);
+        await _syncLibraryWatchers(await DBLibrary.getAll());
+        await _controller.updateFooterSummary();
         if (showSummaryToast) {
-          await HelperToast.info('Finish • @{length} added • @{length2} deleted • @{length3} moved • @{recovered} codes recovered'.trNamed({'length': '${remainingAdds.length}', 'length2': '${delCandidates.length}', 'length3': '${moves.length}', 'recovered': '$recovered'}));
+          await HelperToast.info('Finish • @{added} added • @{missing} missing • @{moved} moved'.trNamed({
+            'added': '${result.added}', 'missing': '${result.missing}', 'moved': '${result.moved}',
+          }));
         }
-        await _controller.onRefreshAllContent(preserveInputState: preserveInputState);
-      }
-    } catch (e) {
-      AppLog.logE('[RescanAll]: $e');
-    }
+        if (result.changed || recovered > 0) {
+          await _controller.refreshVideoContent();
+          if (!preserveInputState) await _controller.onRefreshAllContent();
+        }
+    });
   }
 
   static Future<void> _getVideoResolution(Videos video) async {

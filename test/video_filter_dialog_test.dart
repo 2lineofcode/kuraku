@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:javit/app/core/app_color.dart';
+import 'package:javit/app/data/database/db_r18.dart';
 import 'package:javit/app/modules/home/page_download/page_download_search_tab.dart';
 import 'package:javit/app/modules/home/page_explore/page_explore_tab.dart';
 import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
@@ -119,6 +120,93 @@ void main() {
       tab.dispose();
       copy.dispose();
     }
+  });
+
+  test('cast and series filters count distinct nonblank actresses and combine without changing metadata', () {
+    final state = VideoFilterState();
+    final adapter = VideoFilterAdapter<({List<String> cast, String? series, int? count})>(
+      videoCode: (_) => '', actresses: (video) => video.cast, actressCount: (video) => video.count,
+      categories: (_) => [], releaseDate: (_) => null, series: (video) => video.series,
+    );
+    final videos = [
+      (cast: <String>[], series: null, count: null),
+      (cast: [' ', 'Alice', ' ALICE '], series: ' ', count: null),
+      (cast: ['Alice', 'Bob'], series: 'Series', count: null),
+      (cast: <String>[], series: '日本語 series', count: 1),
+    ];
+    expect(state.actressMode.value, ActressMode.all);
+    expect(state.onlySeries.value, isFalse);
+    expect(state.apply(videos, adapter), videos);
+    state.actressMode.value = ActressMode.single;
+    expect(state.apply(videos, adapter), [videos[1], videos[3]]);
+    state.onlySeries.value = true;
+    expect(state.apply(videos, adapter), [videos[3]]);
+    state.actressMode.value = ActressMode.multi;
+    expect(state.apply(videos, adapter), [videos[2]]);
+    state.actressMode.value = ActressMode.all;
+    expect(state.apply(videos, adapter), [videos[2], videos[3]]);
+    expect(state.hasFilters, isTrue);
+    state.reset();
+    expect(state.hasFilters, isFalse);
+    expect(state.apply(videos, adapter), videos);
+    expect(videos[1].cast, [' ', 'Alice', ' ALICE ']);
+  });
+
+  test('cast and series preferences survive tab recreation and older preferences default to All', () {
+    final tabs = [PageSearchTab(0), PageDownloadSearchTab(0), PageExploreTab(0, pins: <String>{}.obs)];
+    final restored = [PageSearchTab(1), PageDownloadSearchTab(1), PageExploreTab(1, pins: <String>{}.obs)];
+    for (var i = 0; i < tabs.length; i++) {
+      final dynamic tab = tabs[i];
+      final dynamic copy = restored[i];
+      tab.filter.actressMode.value = ActressMode.multi;
+      tab.filter.onlySeries.value = true;
+      copy.restorePreferences(jsonDecode(jsonEncode(tab.toPreferences())) as Map<String, dynamic>);
+      expect(copy.filter.actressMode.value, ActressMode.multi);
+      expect(copy.filter.onlySeries.value, isTrue);
+      expect(copy.filter.isFiltered.value, isTrue);
+      copy.restorePreferences({'filterActressMode': 'invalid', 'onlySeries': 'true'});
+      expect(copy.filter.actressMode.value, ActressMode.all);
+      expect(copy.filter.onlySeries.value, isFalse);
+      tab.dispose();
+      copy.dispose();
+    }
+  });
+
+  testWidgets('cast and series dropdowns keep drafts until Apply, Cancel discards them and Reset restores All', (tester) async {
+    final state = VideoFilterState();
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: TextButton(
+      onPressed: () => HelperOpener.openFilterDialog(state: state, allVideos: <String>[], videos: <String>[].obs,
+        adapter: adapter, showActressName: false, showCategories: false, showYears: false), child: const Text('Open')))));
+    Future<void> open() async { await tester.tap(find.text('Open')); await tester.pumpAndSettle(); }
+    Future<void> select(Finder dropdown, String option) async {
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(MenuItemButton, option));
+      await tester.pumpAndSettle();
+    }
+    await open();
+    await select(find.byType(AppDropdown<ActressMode>), 'Multiple Actress');
+    await select(find.byType(AppDropdown<bool>), 'Only videos with series');
+    expect(state.hasFilters, isFalse);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(state.actressMode.value, ActressMode.all);
+    expect(state.onlySeries.value, isFalse);
+    await open();
+    await select(find.byType(AppDropdown<ActressMode>), 'Single Actress');
+    await select(find.byType(AppDropdown<bool>), 'Only videos with series');
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(state.actressMode.value, ActressMode.single);
+    expect(state.onlySeries.value, isTrue);
+    await open();
+    expect(tester.widget<AppDropdown<ActressMode>>(find.byType(AppDropdown<ActressMode>)).value, ActressMode.single);
+    await tester.tap(find.text('Reset'));
+    await tester.pumpAndSettle();
+    expect(state.hasFilters, isFalse);
+    expect(state.actressMode.value, ActressMode.all);
+    expect(state.onlySeries.value, isFalse);
+    expect(tester.takeException(), isNull);
   });
 
   test('blacklist excludes any matching field and restores only valid rules', () {
@@ -245,8 +333,7 @@ void main() {
     expect(find.text('^ABC-'), findsOneWidget);
     await tester.tap(find.text('Reset'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Apply'));
-    await tester.pumpAndSettle();
+    expect(find.text('Apply'), findsNothing);
     expect(state.hasFilters, isFalse);
     expect(videos, ['AD-123', 'ABC-123']);
   });
@@ -270,14 +357,14 @@ void main() {
     expect(state.durationMin.value, 120);
     expect(state.durationMax.value, 180);
     await open();
-    await tester.tap(find.text('Reset'));
+    await tester.enterText(find.byKey(const ValueKey('filter-duration-min')), '60');
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(state.durationMin.value, 120);
     await open();
     await tester.tap(find.text('Reset'));
-    await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
+    expect(find.text('Apply'), findsNothing);
     expect(state.hasFilters, isFalse);
   });
 
@@ -289,6 +376,7 @@ void main() {
     state.isFiltered.value = true;
     final videos = ['ABC'].obs;
     var available = true;
+    var resetCount = 0;
     Future<void>? dialog;
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: TextButton(
       onPressed: () {
@@ -298,6 +386,7 @@ void main() {
           videos: videos,
           adapter: adapter,
           isAvailable: () => available,
+          onReset: () async { resetCount++; },
         );
       },
       child: const Text('Open'),
@@ -318,10 +407,10 @@ void main() {
 
     await open();
     await tester.tap(find.text('Reset'));
-    expect(state.tecVideoCode.text, 'ABC');
-    await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     await dialog;
+    expect(find.text('Apply'), findsNothing);
+    expect(resetCount, 1);
     expect(state.hasFilters, isFalse);
     expect(state.isFiltered.value, isFalse);
     expect(videos, ['ABC', 'DEF']);

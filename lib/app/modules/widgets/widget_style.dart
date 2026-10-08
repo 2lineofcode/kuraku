@@ -30,10 +30,29 @@ class AppStyle {
     final theme = ThemeData(brightness: brightness, useMaterial3: true, fontFamily: 'CupertinoSystemText');
     final storedAccent = AppPref.getAppAccent();
     final accent = storedAccent == null ? AppColor.defaultAccent(brightness) : Color(storedAccent);
+    final container = AppColor.containerFor(brightness);
+    // Selection is a surface tint; raw user colors must not become text or control colors.
+    var selected = storedAccent == null || accent.a == 0 ? AppColor.defaultAccent(brightness)
+        : Color.alphaBlend(accent.withValues(alpha: accent.a * .12), container);
+    final primary = AppColor.readableAccent(accent, [
+      container, selected, theme.colorScheme.surface, theme.colorScheme.surfaceContainerHighest,
+      AppColor.bodyFor(brightness),
+      AppColor.panelFor(brightness),
+      AppColor.hoverFor(brightness),
+      AppColor.appBarFor(brightness),
+      AppColor.footerFor(brightness),
+    ], theme.colorScheme.onSurface);
+    if (AppColor.contrast(selected, container) < 1.1) {
+      selected = brightness == Brightness.dark
+          ? Color.alphaBlend(primary.withValues(alpha: .12), container) : AppColor.defaultAccent(brightness);
+    }
     return theme.copyWith(
+      extensions: [AppAccentTheme(accent)],
+      primaryColor: primary,
       cupertinoOverrideTheme: const CupertinoThemeData(primaryColor: CupertinoColors.activeBlue, primaryContrastingColor: CupertinoColors.white),
-      colorScheme: theme.colorScheme.copyWith(primary: accent,
-        onPrimary: Color.alphaBlend(accent, theme.colorScheme.surface).computeLuminance() > .179 ? Colors.black : Colors.white),
+      colorScheme: theme.colorScheme.copyWith(primary: primary,
+        onPrimary: primary.computeLuminance() > .179 ? Colors.black : Colors.white,
+        primaryContainer: selected, onPrimaryContainer: theme.colorScheme.onSurface),
       textTheme: theme.textTheme.copyWith(
         bodyMedium: theme.textTheme.bodyMedium?.copyWith(fontSize: fontSize),
         bodySmall: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
@@ -42,6 +61,8 @@ class AppStyle {
         titleSmall: theme.textTheme.titleSmall?.copyWith(fontSize: 13),
         titleMedium: theme.textTheme.titleMedium?.copyWith(fontSize: 14),
       ),
+      textSelectionTheme: TextSelectionThemeData(cursorColor: primary,
+        selectionColor: selected, selectionHandleColor: primary),
       iconTheme: theme.iconTheme.copyWith(size: iconSize),
       menuTheme: MenuThemeData(style: MenuStyle(
         shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radius)))),
@@ -49,7 +70,9 @@ class AppStyle {
       )),
       chipTheme: theme.chipTheme.copyWith(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
-        labelStyle: const TextStyle(fontSize: 11),
+        selectedColor: selected, secondarySelectedColor: selected,
+        checkmarkColor: theme.colorScheme.onSurface,
+        labelStyle: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       ),
       dialogTheme: DialogThemeData(

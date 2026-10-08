@@ -43,13 +43,16 @@ void main() {
   test('Collection progress reports the next tier, its target and a clamped percentage', () {
     final fresh = HelperBadge.getCollectionProgress(0);
     expect([fresh.currentTitle, fresh.nextTitle, fresh.currentValue, fresh.targetValue, fresh.isMaxLevel, fresh.percent],
-        ['Noobless', 'Jav Lover', 0, 101, false, 0]);
+        ['Noobless', 'Newbie Explorer', 0, 1, false, 0]);
 
     final halfway = HelperBadge.getCollectionProgress(50);
     expect([halfway.currentTitle, halfway.nextTitle, halfway.targetValue, halfway.percent], ['Newbie Explorer', 'Jav Lover', 101, 49]);
 
     final hunter = HelperBadge.getCollectionProgress(250);
     expect([hunter.currentTitle, hunter.nextTitle, hunter.targetValue, hunter.isMaxLevel], ['Jav Hunter', 'True Nolep', 301, false]);
+    expect(hunter.percent, 49);
+    expect(HelperBadge.getCollectionProgress(201).percent, 0);
+    expect(HelperBadge.getCollectionProgress(-1).currentValue, 0);
 
     for (final entry in {101: 'Jav Hunter', 201: 'True Nolep', 301: 'Degenerate', 401: 'Certified Freak', 501: 'Nolep x_x (beyond redemption)'}.entries) {
       expect(HelperBadge.getCollectionProgress(entry.key).nextTitle, entry.value, reason: 'count ${entry.key}');
@@ -63,15 +66,15 @@ void main() {
     expect(maxed.percent, 100);
   });
 
-  test('Watch duration progress counts in hours and tops out at Time Bender', () {
+  test('Watch duration progress keeps second precision and measures the current tier', () {
     final fresh = HelperBadge.getWatchDurationProgress(0);
-    expect([fresh.currentTitle, fresh.nextTitle, fresh.currentValue, fresh.targetValue, fresh.percent], ['Fresh Eyes', 'Night Owl', 0, 11, 0]);
+    expect([fresh.currentTitle, fresh.nextTitle, fresh.currentValue, fresh.targetValue, fresh.percent], ['Fresh Eyes', 'Warm Up', 0, 1, 0]);
 
     final partial = HelperBadge.getWatchDurationProgress(5 * hour + 1800);
-    expect([partial.currentTitle, partial.currentValue, partial.targetValue, partial.percent], ['Warm Up', 5, 11, 45]);
+    expect([partial.currentTitle, partial.currentValue, partial.targetValue, partial.percent], ['Warm Up', 5 * hour + 1800, 11 * hour, 49]);
 
     final owl = HelperBadge.getWatchDurationProgress(20 * hour);
-    expect([owl.currentTitle, owl.nextTitle, owl.currentValue, owl.targetValue, owl.percent], ['Night Owl', 'Screen Warrior', 20, 51, 39]);
+    expect([owl.currentTitle, owl.nextTitle, owl.currentValue, owl.targetValue, owl.percent], ['Night Owl', 'Screen Warrior', 20 * hour, 51 * hour, 22]);
 
     for (final entry in {51 * hour: 'Marathoner', 151 * hour: 'Time Bender'}.entries) {
       expect(HelperBadge.getWatchDurationProgress(entry.key).nextTitle, entry.value, reason: 'seconds ${entry.key}');
@@ -79,10 +82,12 @@ void main() {
 
     final maxed = HelperBadge.getWatchDurationProgress(400 * hour);
     expect(maxed.isMaxLevel, isTrue);
+    expect(HelperBadge.getWatchDurationProgress(11 * hour).percent, 0);
+    expect(HelperBadge.getWatchDurationProgress(-1).currentValue, 0);
     expect(maxed.currentTitle, 'Time Bender');
     expect(maxed.nextTitle, maxed.currentTitle);
-    expect(maxed.currentValue, 400);
-    expect(maxed.targetValue, 400);
+    expect(maxed.currentValue, 400 * hour);
+    expect(maxed.targetValue, 400 * hour);
     expect(maxed.percent, 100);
   });
 

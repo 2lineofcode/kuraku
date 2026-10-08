@@ -47,7 +47,7 @@ class SearchHistoryDropdown extends StatelessWidget {
               return InkWell(
                 onTap: () => onPick(query),
                 child: Container(
-                  color: selectedIndex == index ? AppColor.selected.withAlpha(90) : Colors.transparent,
+                  color: selectedIndex == index ? AppColor.selected : Colors.transparent,
                   padding: const EdgeInsets.only(left: 8, right: 2),
                   child: Row(children: [
                     const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: AppStyle.iconSize),

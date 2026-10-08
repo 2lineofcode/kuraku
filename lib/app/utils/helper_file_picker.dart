@@ -6,6 +6,9 @@ import 'helper_misc.dart';
 
 mixin HelperFilePicker {
 
+  static bool isSupportedVideoPath(String path) =>
+    ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v'].contains(path.split('.').last.toLowerCase());
+
   // ** pickFolderSubFolder
   static Future<Library?> pickFolderSubFolder() async {
     String? selectedDirectory = await FilePicker.getDirectoryPath();
@@ -32,8 +35,7 @@ mixin HelperFilePicker {
       }
 
       if (file is! File || await file.length() < 10 * 1024 * 1024) continue;
-      final extension = file.path.split('.').last.toLowerCase();
-      if (['mp4', 'mkv', 'avi', 'mov'].contains(extension)) videoFiles.add(file.path);
+      if (isSupportedVideoPath(file.path)) videoFiles.add(file.path);
     }
 
     final item = Library(

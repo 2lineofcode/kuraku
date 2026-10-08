@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_translations.dart';
 import '../../../data/database/db_historical.dart';
+import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_misc.dart';
@@ -79,6 +80,8 @@ class PageSearchTab with LocalVideoSelection {
     'durationMin': filter.durationMin.value,
     'durationMax': filter.durationMax.value,
     'blacklist': filter.blacklistPreferences,
+    'filterActressMode': filter.actressMode.value.name,
+    'onlySeries': filter.onlySeries.value,
   };
 
   void restorePreferences(Map<String, dynamic> value) {
@@ -94,6 +97,9 @@ class PageSearchTab with LocalVideoSelection {
     if (['All qualities', 'FHD only', 'HD only'].contains(value['quality'])) qualityFilter.value = value['quality'];
     filter.isFiltered.value = value['filtered'] == true;
     filter.restoreBlacklist(value['blacklist']);
+    filter.actressMode.value = ActressMode.values.firstWhereOrNull((mode) => mode.name == value['filterActressMode']) ?? ActressMode.all;
+    filter.onlySeries.value = value['onlySeries'] == true;
+    if (filter.actressMode.value != ActressMode.all || filter.onlySeries.value) filter.isFiltered.value = true;
     filter.tecVideoCode.text = value['videoCode'] is String ? value['videoCode'] : '';
     filter.tecActressName.text = value['actress'] is String ? value['actress'] : '';
     filter.tecCategory.text = value['categoryDraft'] is String ? value['categoryDraft'] : '';
@@ -117,7 +123,7 @@ class PageSearchTab with LocalVideoSelection {
       field.addListener(onChanged);
     }
     _preferenceWorker = everAll([
-      isListView, isSemanticMode, visualSensitivity, sortBy, qualityFilter, _hasSort, filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax, filter.blacklist,
+      isListView, isSemanticMode, visualSensitivity, sortBy, qualityFilter, _hasSort, filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax, filter.blacklist, filter.actressMode, filter.onlySeries,
     ], (_) => onChanged());
   }
 
@@ -406,6 +412,11 @@ class PageSearchTab with LocalVideoSelection {
     categories: (video) => (video.category ?? []).map((category) => category.category ?? ''),
     releaseDate: (video) => video.releaseDate,
     durationMinutes: (video) => video.duration,
+    actressCount: (video) => (video.actress ?? []).map((actress) => (actress.id ?? 0) > 0 ? actress.id
+      : [actress.nameRomaji, actress.nameKana, actress.nameKanji].whereType<String>()
+        .map((name) => name.trim().toLowerCase()).where((name) => name.isNotEmpty).firstOrNull)
+      .where((value) => value != null).toSet().length,
+    series: (video) => video.series,
   );
 
   Future<void> openDialogFilter({bool Function()? isAvailable}) async {

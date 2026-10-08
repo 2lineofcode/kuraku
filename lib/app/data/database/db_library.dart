@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/v4.dart';
 
 import '../../core/app_logging.dart';
+import '../../utils/video_file_identity.dart';
 import '../models/library_entity.dart';
 import '../models/videos_entity.dart';
 import '_init_db.dart';
@@ -43,10 +44,13 @@ mixin DBLibrary {
   }
 
   static Future<int> commitScan(List<Library> snapshots, {
-    List<Videos> additions = const [], List<Map<String, String>> moves = const [], List<String> deletedPaths = const [],
+    List<Videos> additions = const [], List<Map<String, String>> moves = const [],
+    Map<String, FileIdentity> identities = const {},
+    Map<String, String> pathRoots = const {},
+    DatabaseExecutor? executor,
   }) async {
     final copies = snapshots.map((library) => Library.fromJson(library.toJson())..id = library.id).toList();
-    final moved = await _db.transaction((txn) async {
+    Future<int> commit(DatabaseExecutor txn) async {
       for (final library in copies) {
         if ((library.id ?? '').isEmpty) {
           if (!await add(library, executor: txn)) throw StateError('Library root is already registered');
@@ -55,10 +59,23 @@ mixin DBLibrary {
         }
       }
       final moved = await DBVideos.moveVideoPaths(moves, executor: txn);
-      await DBVideos.deleteByVideoPaths(deletedPaths, executor: txn);
       await DBVideos.addBulk(additions, executor: txn);
+      for (final entry in identities.entries) {
+        final identity = entry.value;
+        await txn.rawInsert('''
+          INSERT INTO video_file_identity(video_id, filesize, modified_at, fingerprint)
+          SELECT id, ?, ?, ? FROM videos WHERE video_path = ?
+          ON CONFLICT(video_id) DO UPDATE SET
+            filesize = excluded.filesize, modified_at = excluded.modified_at, fingerprint = excluded.fingerprint
+        ''', [identity.size, identity.modifiedAt, identity.fingerprint, entry.key]);
+        await txn.update('videos', {
+          'filesize': identity.size,
+          if (pathRoots.containsKey(entry.key)) 'root_path': pathRoots[entry.key],
+        }, where: 'video_path = ?', whereArgs: [entry.key]);
+      }
       return moved;
-    });
+    }
+    final moved = executor == null ? await _db.transaction(commit) : await commit(executor);
     for (var i = 0; i < snapshots.length; i++) {
       snapshots[i].id = copies[i].id;
       snapshots[i].createdAt = copies[i].createdAt;

@@ -21,7 +21,6 @@ import '../../core/app_pref.dart';
 import '../../core/app_translations.dart';
 import '../../data/database/db_activity.dart';
 import '../../data/database/db_gamification.dart';
-import '../../data/database/db_profile.dart';
 import '../../data/database/db_videos.dart';
 import '../../data/models/videos_entity.dart';
 import '../../utils/helper.dart';
@@ -82,13 +81,10 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     try {
       await _watchTracker.flush();
       if (!_watchVideoReady && currentVideo.value.id == null) return;
-      final summary = await DBGamification.syncAndGetSummary();
       if (Get.isRegistered<HomeController>()) {
-        final home = Get.find<HomeController>();
-        home.profile.value = await DBProfile.getProfile() ?? home.profile.value;
-        home.streakDays.value = summary.streakDays;
-        home.achievementCount.value = summary.achievementCount;
-        home.latestAchievementTitles.value = summary.latestAchievements.map((e) => e.title).toList();
+        await Get.find<HomeController>().refreshProfile();
+      } else {
+        await DBGamification.syncAndGetSummary();
       }
     } catch (e) {
       AppLog.logW('Failed to save watch duration: $e');

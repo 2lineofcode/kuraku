@@ -148,7 +148,7 @@ class PageSearchTabView extends StatelessWidget {
               builder: (context, menu, child) => AppButton(
                 style: TextButton.styleFrom(
                   backgroundColor: AppColor.selected,
-                  foregroundColor: AppColor.onAccent,
+                  foregroundColor: AppColor.onSelected,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   minimumSize: const Size(0, 32),

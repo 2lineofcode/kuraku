@@ -16,12 +16,13 @@ class WatchSession {
 }
 
 mixin DBWatchSession {
+  static final revision = 0.obs;
   static Database get _db => Get.find<DBService>().dbMain;
 
   static Future<void> saveSessions(List<WatchSession> sessions) async {
     if (sessions.isEmpty) return;
+    var addedSeconds = 0;
     await _db.transaction((txn) async {
-      var addedSeconds = 0;
       for (final session in sessions) {
         if (session.id.isEmpty || session.duration.isNegative) throw ArgumentError('Invalid watch session');
         final seconds = session.duration.inSeconds;
@@ -46,14 +47,16 @@ mixin DBWatchSession {
         'badge_for_watch_duration': DBProfile.watchDurationBadge(profile.single['total_watch_duration'] as int),
       }, where: 'id = ?', whereArgs: ['1']);
     });
+    if (addedSeconds > 0) revision.value++;
   }
 
   static Future<int> getCurrentStreakDays({DateTime? now}) async {
     final date = now ?? DateTime.now();
     final today = DateTime.utc(date.year, date.month, date.day);
     final maps = await _db.rawQuery('''
-      SELECT DISTINCT substr(created_at, 1, 10) AS day FROM watch_session
-      WHERE watched_seconds > 0 AND substr(created_at, 1, 10) <= ? ORDER BY day DESC
+      SELECT substr(created_at, 1, 10) AS day FROM watch_session
+      WHERE substr(created_at, 1, 10) <= ?
+      GROUP BY day HAVING SUM(watched_seconds) >= 60 ORDER BY day DESC
     ''', [today.toIso8601String().substring(0, 10)]);
     var cursor = today;
     var streak = 0;

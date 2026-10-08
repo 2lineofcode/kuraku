@@ -38,7 +38,7 @@ mixin DBAchievement {
   static Future<List<AchievementUnlock>> getAll({int? limit}) async {
     final maps = await _db.query(
       _tableName,
-      orderBy: 'unlocked_at DESC',
+      orderBy: 'unlocked_at DESC, rowid DESC',
       limit: limit,
     );
     return maps.map(AchievementUnlock.fromMap).toList();

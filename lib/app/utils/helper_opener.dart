@@ -38,6 +38,7 @@ import '../modules/widgets/widget_auto_complate.dart';
 import '../modules/widgets/widget_chiwie_custom.dart';
 import '../modules/widgets/widget_controls.dart';
 import '../modules/widgets/widget_download_method.dart';
+import '../modules/widgets/widget_keyboard_shortcuts.dart';
 import '../modules/widgets/widget_media_stack.dart';
 import '../modules/widgets/widget_style.dart';
 import '../modules/widgets/widget_surfaces.dart';
@@ -755,35 +756,47 @@ mixin HelperOpener {
         zoomAndPan: true,
         allowMuting: true,
         looping: false,
-        customControls: ExChewieCustom(video: video),
+        customControls: ExChewieCustom(video: video, showTitle: false),
       );
 
       if (cancelled) return;
       HelperLoading.dismiss();
       loading = false;
       WidgetsBinding.instance.scheduleFrame();
-      await Overlayment.show(
-        context: Get.context,
-        OverPanel(
-          alignment: Alignment.center,
-          width: Get.width * 90 / 100,
-          height: Get.width * 9.0 / 16.0,
-          child: MediaStack(
-            [
-              Chewie(controller: chewie).centered(),
-              Align(
-                alignment: Alignment.topRight,
-                child: Container(
-                  decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                  child: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize).p8(),
-                ).onInkTap(() {
-                  Overlayment.dismissLast();
-                }),
-              ).positioned(right: 8, top: 8, bottom: 0),
-            ],
-          ),
-        ),
-      );
+      await Get.dialog<void>(Builder(
+        builder: (context) {
+          final size = MediaQuery.sizeOf(context);
+          final padding = MediaQuery.paddingOf(context);
+          // Keep room for playback controls on portrait trailers.
+          final ratio = max(16 / 9, controller.value.aspectRatio);
+          final availableHeight = max(0.0, size.height - padding.vertical - MediaQuery.viewInsetsOf(context).vertical - 76);
+          final width = max(0.0, min(960.0, min(size.width - padding.horizontal - 32, availableHeight * ratio)));
+          return AppDialog(
+            child: SizedBox(width: width, child: Column(mainAxisSize: MainAxisSize.min, children: [
+              SizedBox(height: 44, child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(children: [
+                  Text('Trailer'.tr, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 12),
+                  if ((video.videoCode ?? '').isNotEmpty) ...[
+                    Text(video.videoCode!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(child: Text(HelperDecensor.decensor(video.title ?? ''), maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: AppColor.muted))),
+                  const SizedBox(width: 8),
+                  AppIconButton(tooltip: 'Close'.tr, icon: const Icon(Icons.close, size: AppStyle.iconSize),
+                    onPressed: () => Get.back()),
+                ]),
+              )),
+              SizedBox(width: width, height: width / ratio,
+                // Chewie adds a full-video scrim on non-iOS themes.
+                child: Theme(data: Theme.of(context).copyWith(platform: TargetPlatform.iOS),
+                  child: ColoredBox(color: Colors.black, child: Chewie(controller: chewie!)))),
+            ])),
+          );
+        },
+      ));
     } catch (e) {
       if (loading) {
         HelperLoading.dismiss();
@@ -806,76 +819,11 @@ mixin HelperOpener {
   }
 
   static Future<void> openKeyboardShortcuts() async {
-    final shortcuts = <Map<String, String>>[
-      {'key': 'Esc',    'action': 'Close dialog/panel'.tr},
-
-      {'key': '⌘ + 1',  'action': 'Go to Home'.tr},
-      {'key': '⌘ + 2',  'action': 'Go to Library'.tr},
-      {'key': '⌘ + 3',  'action': 'Go to Explore'.tr},
-      {'key': '⌘ + 4',  'action': 'Go to Downloads'.tr},
-      {'key': '⌘ + 5',  'action': 'Go to Tools'.tr},
-      {'key': '⌘ + B',  'action': 'Show/hide side menu (mini mode)'.tr},
-      {'key': '⌘ + D',  'action': 'Open new download dialog'.tr},
-      {'key': '⌘ + E',  'action': 'Open video cart panel'.tr},
-      {'key': '⌘ + L',  'action': 'Open app log panel'.tr},
-      {'key': '⌘ + P',  'action': 'Open playlist panel'.tr},
-      {'key': '⌘ + R',  'action': 'Reload all pages'.tr},
-      {'key': '⌘ + T',  'action': 'Add new todo'.tr},
-
-      {'key': '⌘ + ,',  'action': 'Open Settings'.tr},
-      {'key': '⌘ + .',  'action': 'Open relapse panel'.tr},
-    ];
-
-
-    WidgetsBinding.instance.scheduleFrame();
-    await Overlayment.show(
-      context: Get.context,
-      OverPanel(
-        alignment: Alignment.centerLeft,
-        width: 400,
-        height: Get.height,
-        backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
-        animation: OverSlideAnimation(beginAlignment: Alignment.centerLeft, reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: AppColor.panel,
-        child: VStack(
-          [
-            HStack(
-              [
-                'Keyboard Shortcuts'.tr.text.bold.size(16).make().pOnly(left: 12),
-                Spacer(),
-                AppIconButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize),
-                  onPressed: () => Overlayment.dismissLast(),
-                ),
-              ],
-            ).pOnly(bottom: 4),
-            Table(
-              border: TableBorder.all(color: AppColor.border),
-              columnWidths: const {
-                0: FlexColumnWidth(1),
-                1: FlexColumnWidth(4),
-              },
-              children: [
-                TableRow(
-                  decoration: BoxDecoration(color: AppColor.container),
-                  children: [
-                    'Key'.tr.text.bold.make().p8(),
-                    'Action'.tr.text.bold.make().p8(),
-                  ],
-                ),
-
-                // items
-                ...List.generate(
-                  shortcuts.length,
-                  (index) => TableRow(children: [
-                    '${shortcuts[index]['key']}'.text.make().p4(),
-                    '${shortcuts[index]['action']}'.text.make().p4(),
-                  ]),
-                ),
-              ],
-            ).p12(),
-          ],
-        ).scrollVertical().p12(),
+    if (Get.context == null) return;
+    await showDialog<void>(
+      context: Get.context!,
+      builder: (context) => AppDialog(
+        child: SizedBox(width: 480, child: KeyboardShortcutsPanel(onClose: () => Navigator.of(context).pop())),
       ),
     );
   }
@@ -933,6 +881,8 @@ mixin HelperOpener {
     state.blacklist.assignAll(values.blacklist);
     state.durationMin.value = values.durationMin;
     state.durationMax.value = values.durationMax;
+    state.actressMode.value = values.actressMode;
+    state.onlySeries.value = values.onlySeries;
     state.isFiltered.value = state.hasFilters;
     if (applyLocalFilter) videos.assignAll(state.apply(allVideos, adapter));
     if (!state.hasFilters) {
@@ -951,6 +901,8 @@ class VideoFilterAdapter<T> {
     required this.releaseDate,
     this.durationMinutes,
     this.title,
+    this.actressCount,
+    this.series,
   });
 
   final String Function(T video) videoCode;
@@ -959,6 +911,8 @@ class VideoFilterAdapter<T> {
   final Iterable<String> Function(T video) categories;
   final String? Function(T video) releaseDate;
   final num? Function(T video)? durationMinutes;
+  final int? Function(T video)? actressCount;
+  final String? Function(T video)? series;
 }
 
 enum VideoBlacklistField { videoCode, title }
@@ -992,6 +946,8 @@ class VideoFilterState {
   final blacklist = <VideoBlacklistRule>[].obs;
   final durationMin = RxnInt();
   final durationMax = RxnInt();
+  final actressMode = ActressMode.all.obs;
+  final onlySeries = false.obs;
   final RxBool isFiltered;
   final tecVideoCode = TextEditingController();
   final tecActressName = TextEditingController();
@@ -1030,6 +986,8 @@ class VideoFilterState {
     currentRange.value = RangeValues(2000, DateTime.now().year.toDouble());
     durationMin.value = null;
     durationMax.value = null;
+    actressMode.value = ActressMode.all;
+    onlySeries.value = false;
     isFiltered.value = false;
   }
 
@@ -1037,7 +995,7 @@ class VideoFilterState {
 
   bool get hasYearFilter => currentRange.value.start > 2000 || currentRange.value.end < DateTime.now().year;
 
-  bool get hasFilters => blacklist.isNotEmpty || tecVideoCode.text.trim().isNotEmpty || tecActressName.text.trim().isNotEmpty || categoriesSelected.isNotEmpty || hasYearFilter || hasDurationFilter;
+  bool get hasFilters => blacklist.isNotEmpty || tecVideoCode.text.trim().isNotEmpty || tecActressName.text.trim().isNotEmpty || categoriesSelected.isNotEmpty || hasYearFilter || hasDurationFilter || actressMode.value != ActressMode.all || onlySeries.value;
 
   List<T> applyBlacklist<T>(List<T> allVideos, VideoFilterAdapter<T> adapter) => allVideos.where((video) {
     return !blacklist.any((rule) => rule.regex.hasMatch(
@@ -1054,6 +1012,17 @@ class VideoFilterState {
 
   List<T> apply<T>(List<T> allVideos, VideoFilterAdapter<T> adapter) {
     var filteredVideos = applyBlacklist(allVideos, adapter);
+
+    if (actressMode.value != ActressMode.all) {
+      filteredVideos = filteredVideos.where((video) {
+        final count = adapter.actressCount?.call(video)
+          ?? adapter.actresses(video).map((name) => name.trim().toLowerCase()).where((name) => name.isNotEmpty).toSet().length;
+        return actressMode.value == ActressMode.single ? count == 1 : count > 1;
+      }).toList();
+    }
+    if (onlySeries.value) {
+      filteredVideos = filteredVideos.where((video) => adapter.series?.call(video)?.trim().isNotEmpty == true).toList();
+    }
 
     if (tecVideoCode.text.isNotBlank) {
       final query = HelperDecensor.decensor(tecVideoCode.text).trim().toLowerCase();
@@ -1104,7 +1073,7 @@ class VideoFilterState {
   }
 }
 
-typedef _VideoFilterValues = ({String videoCode, String actress, List<String> categories, List<VideoBlacklistRule> blacklist, RangeValues years, int? durationMin, int? durationMax});
+typedef _VideoFilterValues = ({String videoCode, String actress, List<String> categories, List<VideoBlacklistRule> blacklist, RangeValues years, int? durationMin, int? durationMax, ActressMode actressMode, bool onlySeries});
 
 class _VideoFilterDialog extends StatefulWidget {
   const _VideoFilterDialog({required this.state, required this.widthFactor, required this.showVideoCode, required this.showActressName, required this.showCategories, required this.showYears, required this.matchAllCategories});
@@ -1134,6 +1103,8 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
   final _blacklistErrors = <TextEditingController, String>{};
   String? _durationError;
   late RangeValues _years = widget.state.currentRange.value;
+  late ActressMode _actressMode = widget.state.actressMode.value;
+  late bool _onlySeries = widget.state.onlySeries.value;
 
   @override
   void dispose() {
@@ -1159,7 +1130,10 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
       _durationMax.clear();
       _durationError = null;
       _years = RangeValues(2000, DateTime.now().year.toDouble());
+      _actressMode = ActressMode.all;
+      _onlySeries = false;
     });
+    _apply();
   }
 
   void _apply() {
@@ -1186,6 +1160,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
     }
     Navigator.of(context).pop<_VideoFilterValues>((
       durationMin: min, durationMax: max, blacklist: rules,
+      actressMode: _actressMode, onlySeries: _onlySeries,
       videoCode: widget.showVideoCode ? _code.text.trim() : '',
       actress: widget.showActressName ? _actress.text.trim() : '',
       categories: widget.showCategories ? List<String>.from(_categories) : <String>[],
@@ -1193,7 +1168,6 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
     ));
   }
 
-  static Color get _accent => AppColor.accent;
   static Color get _muted => AppColor.muted;
 
   Widget _label(String text) => Padding(
@@ -1251,7 +1225,7 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                 Container(
                   padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(color: AppColor.selected, borderRadius: BorderRadius.circular(10)),
-                  child: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: AppStyle.iconSize, color: AppColor.onAccent),
+                  child: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: AppStyle.iconSize, color: AppColor.onSelected),
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1285,6 +1259,28 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                       }),
                       const SizedBox(height: 20),
                     ],
+                    Row(children: [
+                      SizedBox(width: 92, child: Text('Actress count'.tr, style: TextStyle(fontSize: 12, color: AppColor.text))),
+                      Expanded(child: AppDropdown<ActressMode>(
+                        value: _actressMode, isExpanded: true, isDense: true,
+                        style: TextStyle(fontSize: 12, color: AppColor.text),
+                        items: const {ActressMode.all: 'All', ActressMode.single: 'Single Actress', ActressMode.multi: 'Multiple Actress'}
+                          .entries.map((entry) => DropdownMenuItem(value: entry.key, child: Text(entry.value.tr))).toList(),
+                        onChanged: (value) { if (value != null) setState(() => _actressMode = value); },
+                      )),
+                    ]),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      SizedBox(width: 92, child: Text('Series'.tr, style: TextStyle(fontSize: 12, color: AppColor.text))),
+                      Expanded(child: AppDropdown<bool>(
+                        value: _onlySeries, isExpanded: true, isDense: true,
+                        style: TextStyle(fontSize: 12, color: AppColor.text),
+                        items: const {false: 'All', true: 'Only videos with series'}
+                          .entries.map((entry) => DropdownMenuItem(value: entry.key, child: Text(entry.value.tr))).toList(),
+                        onChanged: (value) { if (value != null) setState(() => _onlySeries = value); },
+                      )),
+                    ]),
+                    const SizedBox(height: 20),
                     if (widget.showCategories) ...[
                       Container(
                         padding: const EdgeInsets.all(14),
@@ -1318,12 +1314,12 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                               spacing: 6,
                               runSpacing: 4,
                               children: _categories.map((category) => InputChip(
-                                label: Text(HelperDecensor.decensor(category), style: TextStyle(fontSize: 11, color: AppColor.onAccent)),
+                                label: Text(HelperDecensor.decensor(category), style: TextStyle(fontSize: 11, color: AppColor.onSelected)),
                                 backgroundColor: AppColor.selected,
                                 side: BorderSide.none,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                 visualDensity: VisualDensity.compact,
-                                deleteIcon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize, color: AppColor.onAccent),
+                                deleteIcon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize, color: AppColor.onSelected),
                                 onDeleted: () => setState(() => _categories.remove(category)),
                               )).toList(),
                             ),
@@ -1457,8 +1453,8 @@ class _VideoFilterDialogState extends State<_VideoFilterDialog> {
                 const SizedBox(width: 8),
                 AppButton(variant: AppButtonVariant.filled,
                   style: FilledButton.styleFrom(
-                    backgroundColor: _accent,
-                    foregroundColor: AppColor.onAccent,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                     padding: const EdgeInsets.symmetric(horizontal: 22),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

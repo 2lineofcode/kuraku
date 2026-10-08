@@ -8,9 +8,12 @@ import '../models/videos_entity.dart';
 import '_init_db.dart';
 
 mixin DBPlaylist {
+  static final revision = 0.obs;
   static Database get _db => Get.find<DBService>().dbMain;
 
-  static Future<void> deleteAll() async => await _db.delete('playlist');
+  static Future<void> deleteAll() async {
+    if (await _db.delete('playlist') > 0) revision.value++;
+  }
 
   static Future<List<Playlist>> getAllPlaylist() async {
     final maps = await _db.rawQuery('''
@@ -66,7 +69,7 @@ mixin DBPlaylist {
 
   static Future<void> deletePlaylist(Playlist playlist) async {
     if (playlist.id.isNullOrEmpty) return;
-    await _db.delete('playlist', where: 'id = ?', whereArgs: [playlist.id]);
+    if (await _db.delete('playlist', where: 'id = ?', whereArgs: [playlist.id]) > 0) revision.value++;
   }
 
   static Future<void> addPlaylistItemBulk(String playlistId, List<Videos> videos) async {
@@ -83,9 +86,10 @@ mixin DBPlaylist {
         ''', [playlistId, video.id, now]);
       }
     });
+    revision.value++;
   }
 
   static Future<void> deletePlaylistItems(String playlistId, String videoId) async {
-    await _db.delete('playlist_item', where: 'playlist_id = ? AND video_id = ?', whereArgs: [playlistId, videoId]);
+    if (await _db.delete('playlist_item', where: 'playlist_id = ? AND video_id = ?', whereArgs: [playlistId, videoId]) > 0) revision.value++;
   }
 }

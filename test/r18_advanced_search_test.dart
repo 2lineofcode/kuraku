@@ -24,11 +24,12 @@ class _Tools extends PageToolsController {
 }
 
 class _Database implements Database {
-  _Database({this.includeFallback = false, this.includeBrowseDuplicates = false, this.includePagination = false});
+  _Database({this.includeFallback = false, this.includeBrowseDuplicates = false, this.includePagination = false, this.includeSeriesGaps = false});
 
   final bool includeFallback;
   final bool includeBrowseDuplicates;
   final bool includePagination;
+  final bool includeSeriesGaps;
   Future<List<Map<String, Object?>>> Function(String, List<Object?>)? run;
 
   @override
@@ -115,13 +116,15 @@ if sys.argv[3] == 'true':
 indexer = runpy.run_path('assets/r18_database_importer.py')['create_catalog_indexes']
 indexer(c)
 indexer(c)
+if sys.argv[5] == 'true':
+    c.execute("UPDATE derived_video SET series_id=NULL WHERE content_id='b'")
 assert c.execute('SELECT count(*) FROM derived_video').fetchone()[0] == before
 q, args = json.loads(sys.argv[1])
 if 'summary AS' in q:
     plan = c.execute('EXPLAIN QUERY PLAN ' + q, args).fetchall()
     assert any('idx_dv_advanced_codes' in row[3] for row in plan), [tuple(row) for row in plan]
 print(json.dumps([dict(r) for r in c.execute(q,args)]))
-''', jsonEncode([sql, arguments ?? []]), '$includeFallback', '$includeBrowseDuplicates', '$includePagination']);
+''', jsonEncode([sql, arguments ?? []]), '$includeFallback', '$includeBrowseDuplicates', '$includePagination', '$includeSeriesGaps']);
     if (result.exitCode != 0) throw StateError('${result.stderr}');
     return (jsonDecode('${result.stdout}') as List).map((row) => Map<String, Object?>.from(row as Map)).toList();
   }
@@ -197,7 +200,7 @@ void main() {
     expect(rows.single['trailer'], 'trailer');
     expect(rows.single['fan_art'], 'fan');
     expect(rows.single['poster'], 'poster');
-    expect(rows.single.keys, unorderedEquals(['id', 'video_code', 'release_date', 'title', 'duration', 'trailer', 'fan_art', 'poster']));
+    expect(rows.single.keys, unorderedEquals(['id', 'video_code', 'release_date', 'title', 'duration', 'trailer', 'fan_art', 'poster', 'actress_count', 'series']));
     expect(await DBR18.getCountAllVideosByCategory('Cast'), 2);
     expect((await DBR18.getAllVideosByCategory('Cast', page: 2, perPage: 1)).single['video_code'], 'ABC-125');
   });
@@ -217,6 +220,33 @@ void main() {
     }
     expect((await DBR18.getAllVideosByActress(1, actressMode: ActressMode.all, page: 2, perPage: 1)).single['video_code'], 'ABC-125');
     expect(await DBR18.getAllVideosByActress(1, actressMode: ActressMode.multi, page: 2, perPage: 1), isEmpty);
+  });
+
+  test('shared cast and series filters agree across SQL results, counts and pagination', () async {
+    Get.find<DBService>().dbR18 = _Database(includeSeriesGaps: true);
+    for (final mode in ActressMode.values) {
+      for (final onlySeries in [false, true]) {
+        final expected = switch (mode) {
+          ActressMode.all => onlySeries ? ['ABC-123'] : ['ABC-123', 'ABC-124'],
+          ActressMode.single => onlySeries ? <String>[] : ['ABC-124'],
+          ActressMode.multi => ['ABC-123'],
+        };
+        final rows = await DBR18.getByFilter(actressMode: mode, onlySeries: onlySeries);
+        expect(rows.map((row) => row['video_code']), expected);
+        expect(await DBR18.getByFilterCount(actressMode: mode, onlySeries: onlySeries), expected.length);
+        expect((await DBR18.search('ABC', actressMode: mode, onlySeries: onlySeries)).map((row) => row['video_code']), expected);
+        expect(await DBR18.getSearchCount('ABC', actressMode: mode, onlySeries: onlySeries), expected.length);
+        expect((await DBR18.search('', actressMode: mode, onlySeries: onlySeries)).map((row) => row['video_code']), expected);
+        expect(await DBR18.getSearchCount('', actressMode: mode, onlySeries: onlySeries), expected.length);
+        expect((await DBR18.getByFilter(actressMode: mode, onlySeries: onlySeries, page: 2, perPage: 1))
+          .map((row) => row['video_code']), expected.skip(1));
+      }
+    }
+    final rows = await DBR18.getByFilter();
+    expect(rows.first['actress_count'], 2);
+    expect(rows.first['series'], 'Cast');
+    expect(rows.last['actress_count'], 1);
+    expect(rows.last['series'], isNull);
   });
 
   test('every R18 browse type filters cast before counting and pagination', () async {
@@ -533,7 +563,6 @@ void main() {
     await tester.tap(find.byTooltip('More filters: video code, year and duration'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Reset'));
-    await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     expect(controller.releaseFilter.value, 'upcoming');
     expect(find.text('1 of 2 videos'), findsOneWidget);

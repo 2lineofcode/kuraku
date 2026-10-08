@@ -79,7 +79,7 @@ void main() {
     expect(await DBPlaylist.getPlaylist('p1'), isEmpty);
     expect((await DBPlaylist.getAllPlaylist()).single.total, 0);
     await DBLibrary.commitScan([], additions: [Videos(rootPath: '/videos', videoPath: '/videos/a.mp4')]);
-    await DBLibrary.commitScan([], deletedPaths: ['/videos/a.mp4']);
+    await DBLibrary.commitScan([]);
     expect(await DBVideos.getAll(includeDeleted: true), hasLength(1));
     await DBLibrary.commitScan([], moves: [{'oldPath': '/videos/a.mp4', 'newPath': '/videos/b.mp4', 'newRoot': '/videos'}]);
     await DBLibrary.commitScan([], additions: [Videos(rootPath: '/videos', videoPath: '/videos/b.mp4')]);
@@ -227,7 +227,7 @@ void main() {
     expect((await DBVideos.getAll()).single.duration, 90);
   });
 
-  test('scan commits roll back moves, deletes, additions and snapshots together, then retry succeeds', () async {
+  test('scan commits roll back moves, additions and snapshots together and retain missing records', () async {
     final db = await _database();
     Get.put<DBService>(_Service()..dbMain = db);
     final library = Library(rootFolder: '/videos', totalVideo: 2, videos: ['/videos/a.mp4', '/videos/deleted.mp4']);
@@ -243,7 +243,7 @@ void main() {
     final snapshot = Library.fromJson(library.toJson())..videos = ['/videos/b.mp4']..totalVideo = 1;
     final moves = [{'oldPath': '/videos/a.mp4', 'newPath': '/videos/b.mp4', 'newRoot': '/videos'}];
     final newLibrary = Library(rootFolder: '/new');
-    await expectLater(DBLibrary.commitScan([snapshot, newLibrary], moves: moves, deletedPaths: ['/videos/deleted.mp4'], additions: [
+    await expectLater(DBLibrary.commitScan([snapshot, newLibrary], moves: moves, additions: [
       Videos(rootPath: '/videos', videoPath: '/videos/new.mp4'),
       Videos(rootPath: '/videos', videoPath: '/videos/invalid.mp4', duration: -1),
     ]), throwsA(isA<SqliteTestException>()));
@@ -251,13 +251,13 @@ void main() {
     expect((await db.query('library')).single, beforeLibrary);
     expect(await db.query('playlist_item'), hasLength(1));
     expect(newLibrary.id, isNull);
-    await DBLibrary.commitScan([snapshot], moves: moves, deletedPaths: ['/videos/deleted.mp4']);
-    expect(await db.query('playlist_item'), isEmpty);
-    expect((await DBVideos.getAll()).single.id, oldVideo.id);
-    expect((await DBVideos.getAll()).single.videoPath, '/videos/b.mp4');
+    await DBLibrary.commitScan([snapshot], moves: moves);
+    expect(await db.query('playlist_item'), hasLength(1));
+    expect((await DBVideos.getByVideoPath('/videos/b.mp4'))!.id, oldVideo.id);
+    expect(await DBVideos.getAll(), hasLength(2));
     expect((await DBLibrary.getAll()).single.videos, ['/videos/b.mp4']);
-    await DBLibrary.commitScan([Library.fromJson(snapshot.toJson())..videos = []..totalVideo = 0], deletedPaths: ['/videos/b.mp4']);
-    expect(await DBVideos.getAll(), isEmpty);
+    await DBLibrary.commitScan([Library.fromJson(snapshot.toJson())..videos = []..totalVideo = 0]);
+    expect(await DBVideos.getAll(), hasLength(2));
     expect((await DBLibrary.getAll()).single.totalVideo, 0);
   });
 
@@ -310,6 +310,6 @@ void main() {
     expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
     expect((await db.rawQuery('PRAGMA quick_check')).single.values.single, 'ok');
     expect((await db.rawQuery('SELECT COUNT(*) AS count FROM video_embeddings e WHERE NOT EXISTS (SELECT 1 FROM videos v WHERE v.id=e.video_id)')).single['count'], 0);
-    print('Local backup v15 verified: $videoCount videos, ${(await db.query('video_embeddings')).length} embeddings retained');
+    print('Local backup v${DBUpdate.version} verified: $videoCount videos, ${(await db.query('video_embeddings')).length} embeddings retained');
   }, skip: Platform.environment['JAVIT_ACTIVITY_DB'] == null ? 'Set JAVIT_ACTIVITY_DB to verify a read-only local backup' : false);
 }

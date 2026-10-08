@@ -4,6 +4,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:get_secure_storage/get_secure_storage.dart';
+import 'package:hugeicons/hugeicons.dart';
+import 'package:javit/app/core/app_color.dart';
+import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/data/database/_init_db.dart';
 import 'package:javit/app/data/database/db_gamification.dart';
 import 'package:javit/app/data/database/db_profile.dart';
@@ -12,7 +16,16 @@ import 'package:javit/app/modules/home/home_controller.dart';
 import 'package:javit/app/modules/home/home_view.dart';
 import 'package:javit/app/modules/home/page_profile/page_profile_controller.dart';
 import 'package:javit/app/modules/home/page_profile/page_profile_view.dart';
+import 'package:javit/app/modules/widgets/widget_style.dart';
 import 'package:sqflite/sqflite.dart';
+
+class _Preferences implements GetSecureStorage {
+  int? accent;
+  @override
+  T? read<T>(String key) => (key == '_kAppAccent' ? accent : null) as T?;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class _Home extends HomeController {
   bool failLoad = false;
@@ -183,6 +196,76 @@ void main() {
     expect(find.text('Noobless'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Gamification shows level rewards, filters milestones and jumps to next goals', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(360, 900));
+    home.achievementProgress.add(AchievementProgress(key: 'studio_3', title: 'Studio Sampler',
+      description: 'Collect videos from 3 different studios.', group: 'Exploration', currentValue: 2,
+      targetValue: 3, isUnlocked: false, unlockedAt: '', xp: 100, unit: 'studios'));
+    home.gamification.value = GamificationSummary(streakDays: 3, latestAchievements: [], newAchievementTitles: [],
+      stats: {'studios': 2, 'actresses': 5, 'categories': 3, 'favorites': 10, 'playlists': 1},
+      progress: [AchievementProgress(key: 'level', title: 'Level', description: '', group: 'Collection',
+        currentValue: 1, targetValue: 1, isUnlocked: true, unlockedAt: '', xp: 550)]);
+    await tester.pumpWidget(GetMaterialApp(theme: ThemeData.dark(), home: const Scaffold(body: PageProfileView())));
+    expect(find.text('Level 2'), findsOneWidget);
+    expect(find.text('Rising Curator'), findsOneWidget);
+    expect(find.text('50/500 XP · Next level: 3'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('View goals'), 250, scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.text('View goals'));
+    await tester.pumpAndSettle();
+    expect(controller.achievementGroup.value, 'Exploration');
+    expect(controller.achievementFilter.value, 'In progress');
+    expect(find.text('2/3 studios · In progress'), findsOneWidget);
+    expect(find.text('10/50 · In progress'), findsNothing);
+    expect(find.text('Unlocked Jul 18, 2026'), findsNothing);
+    await tester.tap(find.text('Unlocked'));
+    await tester.pumpAndSettle();
+    expect(find.text('No milestones in this filter.'), findsOneWidget);
+    await tester.tap(find.text('All').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Unlocked Jul 18, 2026'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Gamification foreground stays readable with default and custom accents in both themes', (tester) async {
+    final preferences = _Preferences();
+    final service = Get.put(AppSettingService()..pref = preferences);
+    addTearDown(service.onClose);
+    home.achievementProgress.add(AchievementProgress(key: 'studio_3', title: 'Studio Sampler',
+      description: 'Collect videos from 3 different studios.', group: 'Exploration', currentValue: 2,
+      targetValue: 3, isUnlocked: false, unlockedAt: '', xp: 100, unit: 'studios'));
+    for (final brightness in Brightness.values) {
+      for (final accent in [AppColor.defaultAccent(brightness), const Color(0xffdce6f5), const Color(0xff202c43),
+        Colors.white, Colors.black, Colors.red, const Color(0x30205080)]) {
+        preferences.accent = accent.toARGB32();
+        final theme = AppStyle.theme(brightness);
+        await tester.pumpWidget(GetMaterialApp(theme: theme,
+          home: const Scaffold(body: PageProfileView())));
+        await tester.pumpAndSettle();
+        final rank = tester.widget<Text>(find.text('New Explorer'));
+        final icons = tester.widgetList<HugeIcon>(find.byType(HugeIcon)).where((icon) => icon.size == 28);
+        final bars = tester.widgetList<LinearProgressIndicator>(find.byType(LinearProgressIndicator));
+        expect(AppColor.accent.toARGB32(), accent.toARGB32());
+        if ((brightness == Brightness.dark && accent == Colors.white) || (brightness == Brightness.light && accent == Colors.black)) {
+          expect(rank.style!.color, accent);
+        }
+        expect(icons.single.color, rank.style!.color);
+        expect(bars.first.color, rank.style!.color);
+        final labels = tester.widgetList<Text>(find.text('+100 XP'));
+        expect(labels.single.style!.color, rank.style!.color);
+        for (final background in [AppColor.body, AppColor.panel, AppColor.hover, theme.colorScheme.surface]) {
+          final a = Color.alphaBlend(rank.style!.color!, background).computeLuminance();
+          final b = background.computeLuminance();
+          expect(a > b ? (a + .05) / (b + .05) : (b + .05) / (a + .05), greaterThanOrEqualTo(4.5),
+            reason: '$brightness / $accent');
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    }
   });
 
   test('Name updates reject empty input and a missing profile', () async {

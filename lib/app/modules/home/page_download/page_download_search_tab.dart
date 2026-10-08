@@ -26,6 +26,8 @@ typedef _DownloadQuery = ({
   int? yearEnd,
   int? durationMin,
   int? durationMax,
+  ActressMode actressMode,
+  bool onlySeries,
 });
 
 class PageDownloadSearchTab {
@@ -88,6 +90,8 @@ class PageDownloadSearchTab {
     'durationMin': filter.durationMin.value,
     'durationMax': filter.durationMax.value,
     'blacklist': filter.blacklistPreferences,
+    'filterActressMode': filter.actressMode.value.name,
+    'onlySeries': filter.onlySeries.value,
   };
 
   void restorePreferences(Map<String, dynamic> value) {
@@ -96,6 +100,9 @@ class PageDownloadSearchTab {
     havingOnly.value = value['havingOnly'] == true;
     filter.isFiltered.value = value['filtered'] == true;
     filter.restoreBlacklist(value['blacklist']);
+    filter.actressMode.value = ActressMode.values.firstWhereOrNull((mode) => mode.name == value['filterActressMode']) ?? ActressMode.all;
+    filter.onlySeries.value = value['onlySeries'] == true;
+    if (filter.actressMode.value != ActressMode.all || filter.onlySeries.value) filter.isFiltered.value = true;
     filter.tecVideoCode.text = value['videoCode'] is String ? value['videoCode'] : '';
     filter.tecActressName.text = value['actress'] is String ? value['actress'] : '';
     filter.tecCategory.text = value['categoryDraft'] is String ? value['categoryDraft'] : '';
@@ -132,7 +139,7 @@ class PageDownloadSearchTab {
       field.addListener(onChanged);
     }
     _preferenceWorker = everAll([
-      havingOnly, filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax, filter.blacklist,
+      havingOnly, filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax, filter.blacklist, filter.actressMode, filter.onlySeries,
     ], (_) => onChanged());
   }
 
@@ -400,8 +407,11 @@ class PageDownloadSearchTab {
     final yearEnd = _filterYearEnd();
     final durationMin = filter.durationMin.value;
     final durationMax = filter.durationMax.value;
+    final actressMode = filter.actressMode.value;
+    final onlySeries = filter.onlySeries.value;
     _query = (query: query, route: route, videoCode: videoCode, actressName: actressName,
-      categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax);
+      categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
+      actressMode: actressMode, onlySeries: onlySeries);
 
     try {
       final int total;
@@ -410,13 +420,13 @@ class PageDownloadSearchTab {
           total = await DBR18.getByFilterCount(
             matchAllCategories: true,
             videoCode: videoCode, actressName: actressName, categories: categories,
-            yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
+            yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax, actressMode: actressMode, onlySeries: onlySeries,
           );
           break;
         case PageDownloadQueryRoute.dbSearch:
           total = await DBR18.getSearchCount(
             query, matchAllCategories: true, videoCode: videoCode, actressName: actressName, categories: categories,
-            yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
+            yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax, actressMode: actressMode, onlySeries: onlySeries,
           );
           break;
         default:
@@ -444,6 +454,8 @@ class PageDownloadSearchTab {
     categories: (video) => video.categories ?? <String>[],
     releaseDate: (video) => video.releaseDate,
     durationMinutes: (video) => video.duration,
+    actressCount: (video) => video.actressCount,
+    series: (video) => video.series,
   );
 
   void showHavingOnly(bool value) {
@@ -479,6 +491,8 @@ class PageDownloadSearchTab {
       final yearEnd = snapshot.yearEnd;
       final durationMin = snapshot.durationMin;
       final durationMax = snapshot.durationMax;
+      final actressMode = snapshot.actressMode;
+      final onlySeries = snapshot.onlySeries;
 
       final List<Map<String, dynamic>> r18videos;
       final isOnlineApi = route == PageDownloadQueryRoute.apiCommand;
@@ -513,7 +527,7 @@ class PageDownloadSearchTab {
             actressName: actressName,
             categories: categories,
             yearStart: yearStart,
-            yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
+            yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax, actressMode: actressMode, onlySeries: onlySeries,
           );
           break;
         case PageDownloadQueryRoute.dbFilterOnly:
@@ -525,7 +539,7 @@ class PageDownloadSearchTab {
             actressName: actressName,
             categories: categories,
             yearStart: yearStart,
-            yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
+            yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax, actressMode: actressMode, onlySeries: onlySeries,
           );
           break;
         case PageDownloadQueryRoute.dbSearch:
@@ -537,7 +551,7 @@ class PageDownloadSearchTab {
             actressName: actressName,
             categories: categories,
             yearStart: yearStart,
-            yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
+            yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax, actressMode: actressMode, onlySeries: onlySeries,
           );
           break;
         case PageDownloadQueryRoute.none:
@@ -561,7 +575,7 @@ class PageDownloadSearchTab {
         if (videoCode.isValidVideoCode() == false) continue;
         final hasMatch = _existingVideoCodes.contains(videoCode);
 
-        final actresses = pageItems[i]['actresses'].toString().split(',').map((e) => e.trim()).toList();
+        final actresses = (pageItems[i]['actresses'] ?? '').toString().split(RegExp(r',|/')).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
         final categories = pageItems[i]['categories'].toString().split(',').map((e) => e.trim()).toList();
 
         output.add(
@@ -579,6 +593,8 @@ class PageDownloadSearchTab {
             isReleased: DateTime.tryParse(pageItems[i]['release_date'] ?? '')?.isBefore(DateTime.now()),
             actresses: actresses,
             categories: categories,
+            series: pageItems[i]['series'],
+            actressCount: pageItems[i]['actress_count'],
           ),
         );
       }
@@ -628,10 +644,7 @@ class PageDownloadSearchTab {
   }
 
   bool _hasAnyFilter() {
-    return _filterVideoCode() != null ||
-        _filterActressName() != null ||
-        (_filterCategories()?.isNotEmpty ?? false) ||
-        _hasCustomYearRange || filter.hasDurationFilter || filter.blacklist.isNotEmpty;
+    return filter.hasFilters;
   }
 
   Future<Set<String>> loadExistingVideoCodes() async => (await DBVideos.getAll()).map((video) => video.videoCode ?? '').toSet();
@@ -671,6 +684,8 @@ class PageDownloadSearchTab {
     int? yearEnd,
     int? durationMin,
     int? durationMax,
+    ActressMode actressMode = ActressMode.all,
+    bool onlySeries = false,
   }) {
     final output = <Map<String, dynamic>>[];
 
@@ -695,6 +710,11 @@ class PageDownloadSearchTab {
           .map((e) => e.trim())
           .where((e) => e.isNotEmpty)
           .toList();
+
+      final count = item['actress_count'] is int ? item['actress_count'] as int
+        : actresses.map((name) => name.toLowerCase()).toSet().length;
+      if (actressMode == ActressMode.single && count != 1 || actressMode == ActressMode.multi && count <= 1) continue;
+      if (onlySeries && '${item['series'] ?? ''}'.trim().isEmpty) continue;
 
       if (qVideoCode != null && qVideoCode.isNotEmpty) {
         if (rawCode.toLowerCase().contains(qVideoCode) == false) continue;

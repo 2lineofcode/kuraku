@@ -107,6 +107,8 @@ class PageExploreTab with LocalVideoSelection {
     'durationMin': filter.durationMin.value,
     'durationMax': filter.durationMax.value,
     'blacklist': filter.blacklistPreferences,
+    'filterActressMode': filter.actressMode.value.name,
+    'onlySeries': filter.onlySeries.value,
   };
 
   void restorePreferences(Map<String, dynamic> value) {
@@ -124,6 +126,9 @@ class PageExploreTab with LocalVideoSelection {
         ?? (value['singleActress'] == false ? ActressMode.all : ActressMode.single);
     filter.isFiltered.value = value['filtered'] == true;
     filter.restoreBlacklist(value['blacklist']);
+    filter.actressMode.value = ActressMode.values.firstWhereOrNull((mode) => mode.name == value['filterActressMode']) ?? ActressMode.all;
+    filter.onlySeries.value = value['onlySeries'] == true;
+    if (filter.actressMode.value != ActressMode.all || filter.onlySeries.value) filter.isFiltered.value = true;
     filter.tecVideoCode.text = value['videoCode'] is String ? value['videoCode'] : '';
     filter.tecCategory.text = value['categoryDraft'] is String ? value['categoryDraft'] : '';
     if (value['categories'] is List) filter.categoriesSelected.assignAll((value['categories'] as List).whereType<String>().toSet());
@@ -147,6 +152,7 @@ class PageExploreTab with LocalVideoSelection {
     }
     _preferenceWorker = everAll([
       currentMenuSelected, leftListSelected, leftSortSelected, rightListViewMode, actressMode,
+      filter.actressMode, filter.onlySeries,
       filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax, filter.blacklist,
     ], (_) => onChanged());
   }
@@ -516,6 +522,8 @@ class PageExploreTab with LocalVideoSelection {
     categories: (video) => _splitCsvField(video['categories']),
     releaseDate: (video) => video['release_date'] ?? '',
     durationMinutes: (video) => num.tryParse('${video['duration'] ?? video['runtime_mins'] ?? ''}'),
+    actressCount: (video) => video['actress_count'] as int?,
+    series: (video) => video['series'] as String?,
   );
 
   Future<void> _applyFilter() async {

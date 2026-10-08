@@ -379,7 +379,7 @@ class PageToolsView extends GetView<PageToolsController> {
       const SizedBox(height: 12),
       Expanded(child: LayoutBuilder(builder: (context, constraints) {
         final todo = _todoColumn('TODO', pending, HugeIcons.strokeRoundedCircle, AppColor.muted, 'No pending todos'.tr);
-        final done = _todoColumn('DOWNLOADED', downloaded, HugeIcons.strokeRoundedCheckmarkCircle02, AppColor.accent, 'No downloaded todos yet'.tr);
+        final done = _todoColumn('DOWNLOADED', downloaded, HugeIcons.strokeRoundedCheckmarkCircle02, AppColor.accentForeground, 'No downloaded todos yet'.tr);
         if (constraints.maxWidth < 560) return Column(children: [Expanded(child: todo), const SizedBox(height: 12), Expanded(child: done)]);
         return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [Expanded(child: todo), const SizedBox(width: 12), Expanded(child: done)]);
       })),

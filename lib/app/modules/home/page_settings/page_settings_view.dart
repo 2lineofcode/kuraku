@@ -28,7 +28,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
     return Obx(
       () => controller.appLogMode.value == false
         ? uiMainContent(context).scrollVertical()
-        : uiAppLog(context).scrollVertical(),
+        : uiAppLog(context),
     );
   }
 
@@ -287,7 +287,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
 
   Widget _storageRow(StorageUsage item) {
     final usedPct = item.usedPct.clamp(0, 100);
-    final color = usedPct >= 90 ? Colors.redAccent : usedPct >= 80 ? Colors.orange : AppColor.accent;
+    final color = usedPct >= 90 ? Colors.redAccent : usedPct >= 80 ? Colors.orange : AppColor.accentForeground;
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -312,135 +312,134 @@ class PageSettingsView extends GetView<PageSettingsController> {
   }
 
   Widget uiAppLog(BuildContext context) {
-    return VStack(
-      [
-        HStack([
+    AppColor.dependOn(context);
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: LayoutBuilder(builder: (context, constraints) {
+        final compact = constraints.maxWidth < 560;
+        final heading = Row(children: [
           AppIconButton(
-            onPressed: () {
-              controller.appLogMode.value = false;
-            },
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft02, size: AppStyle.iconSize),
-          ).pOnly(right: 12),
-          'APP LOG'.tr.text.bold.make(),
-          Spacer(),
-
-          AppTextField(
+            tooltip: 'Back'.tr,
+            onPressed: () => controller.appLogMode.value = false,
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft02, size: AppStyle.iconSize),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('APP LOG'.tr, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            Obx(() => Text('@{visible} of @{total} logs'.trNamed({
+              'visible': '${controller.filteredAppLogs.length}', 'total': '${controller.appLogData.length}',
+            }), style: TextStyle(fontSize: 11, color: AppColor.muted))),
+          ])),
+        ]);
+        final filters = Row(children: [
+          Expanded(child: AppTextField(
             controller: controller.tecAppLogFilter,
-            style: TextStyle(color: AppColor.text),
             placeholder: 'Filter logs...'.tr,
-            placeholderStyle: TextStyle(fontSize: 12, color: Vx.neutral500),
-            onChanged: (s) => controller.appLogKeyword.value = s,
-          ).w(150).pOnly(right: 12),
-
-
-          Obx(() => AppDropdown<String>(
+            prefix: Padding(padding: const EdgeInsets.only(left: 10),
+              child: Icon(Icons.search, size: AppStyle.iconSize, color: AppColor.muted)),
+            clearButtonMode: OverlayVisibilityMode.editing,
+            onChanged: (value) => controller.appLogKeyword.value = value,
+          )),
+          const SizedBox(width: 8),
+          SizedBox(width: 100, child: Obx(() => AppDropdown<String>(
             value: controller.appLogLevelSelected.value,
-            prefix: const HugeIcon(icon: HugeIcons.strokeRoundedLeftToRightListBullet, size: AppStyle.iconSize),
             items: [for (final level in ['ALL', 'DEBUG', 'INFO', 'WARN', 'ERROR'])
               DropdownMenuItem(value: level, child: Text(level.tr)),
             ],
             onChanged: (value) {
               if (value != null) controller.appLogLevelSelected.value = value;
             },
-          )),
-
-          8.widthBox,
-          AppButton(
+          ))),
+          const SizedBox(width: 8),
+          Obx(() => AppButton(
             label: 'Clear'.tr,
-            labelSize: 11,
-            height: 28,
-            width: 60,
-            onPressed: () => controller.clearAppLog(),
-          ),
-        ]).pOnly(bottom: 12),
-
-
-        Obx(() {
-          final logs = controller.filteredAppLogs;
-          Color _badgeText(String level) {
-            switch (level) {
-              case 'DEBUG': return Color(0xFF60A5FA);
-              case 'INFO': return AppColor.success;
-              case 'WARN': return Color(0xFFF59E0B);
-              case 'ERROR': return Color(0xFFEF4444);
-              case 'OK': return AppColor.success;
-              default: return Color(0xFF9CA3AF);
-            }
-          }
-
-          Color _badgeBg(String level) {
-            switch (level) {
-              case 'DEBUG': return Color(0x332563EB);
-              case 'INFO': return Color(0x3322C55E);
-              case 'WARN': return Color(0x33F59E0B);
-              case 'ERROR': return Color(0x33EF4444);
-              case 'OK': return Color(0x3310B981);
-              default: return Color(0x334B5563);
-            }
-          }
-
-          return Container(
+            variant: AppButtonVariant.outlined,
+            onPressed: controller.appLogData.isEmpty ? null : controller.clearAppLog,
+          )),
+        ]);
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (constraints.maxWidth < 680) ...[heading, const SizedBox(height: 12), filters]
+          else Row(children: [Expanded(child: heading), const SizedBox(width: 24), SizedBox(width: 380, child: filters)]),
+          const SizedBox(height: 16),
+          Expanded(child: Container(
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
+              color: AppColor.panel,
+              borderRadius: BorderRadius.circular(AppStyle.radius + 2),
               border: Border.all(color: AppColor.border),
             ),
-            child: VStack([
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-                  border: Border(bottom: BorderSide(color: AppColor.border)),
-                ),
-                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: HStack([
-                  'TIME'.tr.text.size(11).semiBold.make().w(160),
-                  'LEVEL'.tr.text.size(11).semiBold.make().w(84),
-                  'MESSAGE'.tr.text.size(11).semiBold.make().expand(),
-                ]),
+            child: Column(children: [
+              if (!compact) Container(
+                color: AppColor.container,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: DefaultTextStyle.merge(style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColor.muted),
+                  child: Row(children: [
+                    SizedBox(width: 100, child: Text('TIME'.tr)),
+                    SizedBox(width: 76, child: Text('LEVEL'.tr)),
+                    Expanded(child: Text('MESSAGE'.tr)),
+                  ])),
               ),
-              if (logs.isEmpty)
-                'No app logs'.tr.text.size(12).make().p12()
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: NeverScrollableScrollPhysics(),
+              Expanded(child: Obx(() {
+                final logs = controller.filteredAppLogs;
+                if (logs.isEmpty) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.article_outlined, size: 32, color: AppColor.muted),
+                  const SizedBox(height: 12),
+                  Text((controller.appLogData.isEmpty ? 'No app logs' : 'No matching items').tr,
+                    style: TextStyle(fontSize: 12, color: AppColor.muted)),
+                ]));
+                return ListView.separated(
                   itemCount: logs.length,
-                  itemBuilder: (c, index) {
+                  separatorBuilder: (context, index) => Divider(height: 1, thickness: .5, color: AppColor.border),
+                  itemBuilder: (context, index) {
                     final item = logs[index];
                     final level = controller.normalizeLogLevel(item.type);
-                    final createdAt = (item.createdAt ?? '-').replaceAll('T', ' ').split('.').first;
-
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: index % 2 == 0 ? AppColor.container : AppColor.hover,
-                        border: Border(
-                          bottom: BorderSide(
-                            color: AppColor.hover,
-                            width: index == logs.length - 1 ? 0 : 1,
-                          ),
-                        ),
-                      ),
-                      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      child: HStack([
-                        createdAt.text.size(11).make().w(160),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: _badgeBg(level),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                          child: level.text.size(10).semiBold.color(_badgeText(level)).makeCentered(),
-                        ).w(80),
-                        (item.content ?? '-').text.size(12).make().pOnly(left: 12).onInkTap(() {
-                          HelperMisc.copyToClipboard(item.content ?? '-', showToast: true, toastDuration: 500.milliseconds);
-                        }).expand(),
+                    final dark = Theme.of(context).brightness == Brightness.dark;
+                    final color = switch (level) {
+                      'DEBUG' => dark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
+                      'WARN' => dark ? const Color(0xFFFCD34D) : const Color(0xFF92400E),
+                      'ERROR' => Theme.of(context).colorScheme.error,
+                      'INFO' || 'OK' => AppColor.success,
+                      _ => AppColor.muted,
+                    };
+                    final date = DateTime.tryParse(item.createdAt ?? '');
+                    final time = date == null ? item.createdAt ?? '-' :
+                      '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')}';
+                    final timestamp = Tooltip(message: item.createdAt ?? '-', child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(time, style: TextStyle(fontSize: 11, color: AppColor.muted, fontFeatures: const [FontFeature.tabularFigures()])),
+                        if (date != null) Text(date.toString().split(' ').first, style: TextStyle(fontSize: 9, color: AppColor.muted)),
+                      ],
+                    ));
+                    final badge = Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: color.withValues(alpha: .1), borderRadius: BorderRadius.circular(4)),
+                      child: Text(level, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+                    );
+                    final message = Tooltip(message: 'Copy message'.tr, child: InkWell(
+                      onTap: () => HelperMisc.copyToClipboard(item.content ?? '-', showToast: true, toastDuration: 500.milliseconds),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Text(item.content ?? '-', style: const TextStyle(fontSize: 12, height: 1.5))),
+                    ));
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: compact ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        Row(children: [Expanded(child: timestamp), badge]),
+                        const SizedBox(height: 6),
+                        message,
+                      ]) : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        SizedBox(width: 100, child: timestamp),
+                        SizedBox(width: 76, child: Align(alignment: Alignment.centerLeft, child: badge)),
+                        Expanded(child: message),
                       ]),
                     );
                   },
-                ),
+                );
+              })),
             ]),
-          );
-        }),
-      ],
+          )),
+        ]);
+      }),
     );
   }
   Widget buildLanguageSetting() => _settingRow('Language'.tr, Obx(() => _dropdown<String>(

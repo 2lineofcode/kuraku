@@ -93,7 +93,7 @@ mixin DBR18 {
     'TK1', 'TK2', 'TK3', 'EC', '4D', '5D', 'DL',
   ];
 
-  static Map<String, dynamic> _buildFilterClause({ bool correlatedRelations = false, bool matchAllCategories = false, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, int? durationMin, int? durationMax, }) {
+  static Map<String, dynamic> _buildFilterClause({ bool correlatedRelations = false, bool matchAllCategories = false, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, int? durationMin, int? durationMax, ActressMode actressMode = ActressMode.all, bool onlySeries = false, }) {
     final clauses = <String>[];
     final args = <Object?>[];
 
@@ -145,8 +145,10 @@ mixin DBR18 {
       args.add(durationMax);
     }
 
+    if (onlySeries) clauses.add("EXISTS (SELECT 1 FROM derived_series s WHERE s.id = v.series_id AND COALESCE(NULLIF(TRIM(s.name_en), ''), NULLIF(TRIM(s.name_ja), '')) IS NOT NULL)");
+    final sql = clauses.isEmpty ? '' : ' AND ${clauses.join(' AND ')}';
     return {
-      'sql': clauses.isEmpty ? '' : ' AND ${clauses.join(' AND ')}',
+      'sql': '$sql${actressMode == ActressMode.all ? '' : ' ${_actressModeClause(actressMode)}'}',
       'args': args,
     };
   }
@@ -266,16 +268,18 @@ mixin DBR18 {
     SELECT v.content_id AS id, v.video_code, v.runtime_mins AS duration,
       COALESCE((SELECT t.target_en FROM machine_translation t WHERE t.source_ja = v.title_ja LIMIT 1), v.title_en, v.title_ja) AS title,
       page.release_date, v.sample_url AS trailer, v.jacket_full_url AS fan_art, v.jacket_thumb_url AS poster,
-      v.gallery_full_first AS ssfirst, v.gallery_full_last AS sslast, categories.categories, actresses.actresses
+      v.gallery_full_first AS ssfirst, v.gallery_full_last AS sslast, categories.categories, actresses.actresses,
+      (SELECT COUNT(DISTINCT dva.actress_id) FROM derived_video_actress dva WHERE dva.content_id = v.content_id) AS actress_count,
+      (SELECT COALESCE(NULLIF(TRIM(s.name_en), ''), NULLIF(TRIM(s.name_ja), '')) FROM derived_series s WHERE s.id = v.series_id LIMIT 1) AS series
     FROM page JOIN derived_video v ON v.rowid = page.video_rowid
     LEFT JOIN categories ON categories.video_code = page.video_code
     LEFT JOIN actresses ON actresses.video_code = page.video_code
     ORDER BY page.release_date DESC, v.video_code
   ''', [...args.take(args.length - 2), ...searchArgs, ...args.take(args.length - 2), ...args]);
 
-  static Future<List<Map<String, dynamic>>> search(String query, { bool matchAllCategories = false, int? page = 1, int? perPage = 100, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, int? durationMin, int? durationMax}) async {
+  static Future<List<Map<String, dynamic>>> search(String query, { bool matchAllCategories = false, int? page = 1, int? perPage = 100, String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, int? durationMin, int? durationMax, ActressMode actressMode = ActressMode.all, bool onlySeries = false}) async {
     if (!_isReady()) return [];
-    if (query.trim().isEmpty) return getByFilter(matchAllCategories: matchAllCategories, page: page, perPage: perPage, videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax);
+    if (query.trim().isEmpty) return getByFilter(matchAllCategories: matchAllCategories, page: page, perPage: perPage, videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax, actressMode: actressMode, onlySeries: onlySeries);
 
     final searchString = '%${query.trim()}%';
     final contentSearch = '%${query.trim().replaceAll('-', '')}%';
@@ -293,7 +297,7 @@ mixin DBR18 {
     )
   ''';
 
-    final filter = _buildFilterClause(correlatedRelations: true, matchAllCategories: matchAllCategories,videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax);
+    final filter = _buildFilterClause(correlatedRelations: true, matchAllCategories: matchAllCategories,videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax, actressMode: actressMode, onlySeries: onlySeries);
     final blacklist = _buildBlacklistClause();
 
     final maps = await _catalogQuery('''
@@ -306,9 +310,9 @@ mixin DBR18 {
     return maps;
   }
 
-  static Future<int> getSearchCount(String query, {bool matchAllCategories = false,String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, int? durationMin, int? durationMax}) async {
+  static Future<int> getSearchCount(String query, {bool matchAllCategories = false,String? videoCode, String? actressName, List<String>? categories, int? yearStart, int? yearEnd, int? durationMin, int? durationMax, ActressMode actressMode = ActressMode.all, bool onlySeries = false}) async {
     if (!_isReady()) return 0;
-    if (query.trim().isEmpty) return getByFilterCount(matchAllCategories: matchAllCategories, videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax);
+    if (query.trim().isEmpty) return getByFilterCount(matchAllCategories: matchAllCategories, videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax, actressMode: actressMode, onlySeries: onlySeries);
 
     final searchString = '%${query.trim()}%';
     final contentSearch = '%${query.trim().replaceAll('-', '')}%';
@@ -323,7 +327,7 @@ mixin DBR18 {
     )
   ''';
 
-    final filter = _buildFilterClause(matchAllCategories: matchAllCategories,videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax);
+    final filter = _buildFilterClause(matchAllCategories: matchAllCategories,videoCode: videoCode, actressName: actressName, categories: categories, yearStart: yearStart, yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax, actressMode: actressMode, onlySeries: onlySeries);
     final blacklist = _buildBlacklistClause();
 
     final maps = await _rawQuery('''
@@ -349,6 +353,7 @@ mixin DBR18 {
     List<String>? categories,
     int? yearStart,
     int? yearEnd, int? durationMin, int? durationMax,
+    ActressMode actressMode = ActressMode.all, bool onlySeries = false,
   }) async {
     if (!_isReady()) return [];
 
@@ -361,7 +366,7 @@ mixin DBR18 {
       actressName: actressName,
       categories: categories,
       yearStart: yearStart,
-      yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
+      yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax, actressMode: actressMode, onlySeries: onlySeries,
     );
     final blacklist = _buildBlacklistClause();
 
@@ -382,6 +387,7 @@ mixin DBR18 {
     List<String>? categories,
     int? yearStart,
     int? yearEnd, int? durationMin, int? durationMax,
+    ActressMode actressMode = ActressMode.all, bool onlySeries = false,
   }) async {
     if (!_isReady()) return 0;
 
@@ -392,7 +398,7 @@ mixin DBR18 {
       actressName: actressName,
       categories: categories,
       yearStart: yearStart,
-      yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax,
+      yearEnd: yearEnd, durationMin: durationMin, durationMax: durationMax, actressMode: actressMode, onlySeries: onlySeries,
     );
     final blacklist = _buildBlacklistClause();
 
@@ -720,7 +726,9 @@ mixin DBR18 {
       page.release_date AS release_date,
       v.sample_url AS trailer,
       v.jacket_full_url AS fan_art,
-      v.jacket_thumb_url AS poster
+      v.jacket_thumb_url AS poster,
+      (SELECT COUNT(DISTINCT dva.actress_id) FROM derived_video_actress dva WHERE dva.content_id = v.content_id) AS actress_count,
+      (SELECT COALESCE(NULLIF(TRIM(s.name_en), ''), NULLIF(TRIM(s.name_ja), '')) FROM derived_series s WHERE s.id = v.series_id LIMIT 1) AS series
       $extraColumns
     FROM page
     JOIN derived_video v ON v.rowid = page.video_rowid
@@ -927,7 +935,7 @@ mixin DBR18 {
         ORDER BY
           v.release_date DESC, v.video_code
         LIMIT ? OFFSET ?
-      ''', [series, ...blacklist['args'], limit, offset], extraColumns: ', (SELECT s.name_en FROM derived_series s WHERE s.id = v.series_id LIMIT 1) AS series');
+      ''', [series, ...blacklist['args'], limit, offset]);
     return maps;
   }
 

@@ -442,7 +442,7 @@ class PageSqleditorTabView extends StatelessWidget {
                   for (final entry in controller.snippetsFor(source).entries)
                     ListTile(dense: true, visualDensity: VisualDensity.compact,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                      selected: selected == entry.key, selectedTileColor: Get.theme.colorScheme.primary.withValues(alpha: 0.10),
+                      selected: selected == entry.key, selectedTileColor: AppColor.selected,
                       leading: const HugeIcon(icon: HugeIcons.strokeRoundedSourceCode, size: AppStyle.iconSize), minLeadingWidth: 16,
                       title: Text(entry.key, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
                       trailing: selected == entry.key ? const HugeIcon(icon: HugeIcons.strokeRoundedTick02, size: AppStyle.iconSize) : null,

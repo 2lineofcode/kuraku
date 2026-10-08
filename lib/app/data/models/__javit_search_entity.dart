@@ -59,6 +59,8 @@ class JavitSearchResult {
   bool? isUncensoredLeak;
   List<String>? actresses;
   List<String>? categories;
+  String? series;
+  int? actressCount;
 
   JavitSearchResult({
     this.videoId,
@@ -77,6 +79,8 @@ class JavitSearchResult {
     this.isUncensoredLeak,
     this.actresses,
     this.categories,
+    this.series,
+    this.actressCount,
   });
 
   JavitSearchResult.fromJson(Map<String, dynamic> json) {
@@ -94,6 +98,8 @@ class JavitSearchResult {
     isReleased = json['is_released'] ?? false;
     isClicked = json['is_clicked'] ?? false;
     isUncensoredLeak = json['is_uncensored_leak'] ?? false;
+    series = json['series'] is String ? json['series'] : null;
+    actressCount = json['actress_count'] is int ? json['actress_count'] : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -112,6 +118,8 @@ class JavitSearchResult {
     data['is_released'] = isReleased;
     data['is_clicked'] = isClicked;
     data['is_uncensored_leak'] = isUncensoredLeak;
+    if (series != null) data['series'] = series;
+    if (actressCount != null) data['actress_count'] = actressCount;
     return data;
   }
 

@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:javit/app/core/app_translations.dart';
 import 'package:javit/app/data/database/_init_db.dart';
 import 'package:javit/app/modules/home/home_panel/home_panel_library.dart';
+import 'package:javit/app/modules/home/home_panel/home_panel_library_relocation.dart';
 import 'package:javit/app/modules/widgets/widget_controls.dart';
 import 'package:javit/app/modules/widgets/widget_style.dart';
 import 'package:javit/app/modules/widgets/widget_surfaces.dart';
@@ -64,6 +65,7 @@ void main() {
     await pump(tester);
     expect(find.text('No Data'), findsOneWidget);
     expect(find.text('Add New Library'), findsOneWidget);
+    expect(tester.widget<AppButton>(find.byWidgetPredicate((widget) => widget is AppButton && widget.label == 'Library Health Check')).onPressed, isNull);
     for (final tooltip in ['Rescan All Folders', 'Repair Metadata from R18']) {
       expect(tester.widget<AppIconButton>(find.byWidgetPredicate((widget) => widget is AppIconButton && widget.tooltip == tooltip)).onPressed, isNull);
     }
@@ -115,6 +117,21 @@ void main() {
       expect(Overlayment.count, 0);
       expect(tester.takeException(), isNull);
     }
+  });
+
+  testWidgets('editing a library exposes relocation with Apply disabled until a preview exists', (tester) async {
+    database.libraries = [{'id': 'one', 'alias': 'Movies', 'root_folder': '/movies', 'total_video': 1}];
+    await pump(tester);
+    await tester.tap(find.text('Movies'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Relocate Library'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LibraryRelocationDialog), findsOneWidget);
+    expect(tester.widget<AppButton>(find.byWidgetPredicate((widget) => widget is AppButton && widget.label == 'Apply')).onPressed, isNull);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LibraryRelocationDialog), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('close action dismisses the library panel', (tester) async {

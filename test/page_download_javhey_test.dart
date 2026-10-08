@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:javit/app/core/app_setting.dart';
+import 'package:javit/app/data/database/db_r18.dart';
 import 'package:javit/app/data/models/__javit_search_entity.dart';
 import 'package:javit/app/data/models/__javmost_new_release.dart';
 import 'package:javit/app/modules/home/page_download/page_download_controller.dart';
@@ -83,6 +84,38 @@ void main() {
     expect(tab.videos.single.match, isTrue);
     expect(tab.videos.single.categories, ['Drama', 'Solowork']);
     expect(tab.javMostRequests, 0);
+    expect(tab.error.value, isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('cast and series filters skip nonmatching API pages and persist on incoming matches', (tester) async {
+    final tab = _Tab(1);
+    addTearDown(tab.dispose);
+    tab.filter.actressMode.value = ActressMode.multi;
+    tab.filter.onlySeries.value = true;
+    final search = tab.onSearch('/javhey');
+    tab.pending.single.complete(result('ABC-001', hasNext: true));
+    await search;
+    expect(tab.videos, isEmpty);
+    expect(tab.hasNextPage.value, isTrue);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: ListView(
+      controller: tab.scrollController, children: const [Text('Results')],
+    ))));
+    tab.onViewportMetricsChanged();
+    await tester.pump();
+    expect(tab.requests.last.page, 2);
+    final response = result('ABC-002', total: 2);
+    response.result!.single..actresses = ['Actor A', 'Actor B']..series = 'Keep series';
+    tab.pending.last.complete(response);
+    await tester.pumpAndSettle();
+    expect(tab.videos.single.videoCode, 'ABC-002');
+    expect(tab.videos.single.series, 'Keep series');
+    expect(tab.videos.single.actresses, ['Actor A', 'Actor B']);
+    tab.showHavingOnly(true);
+    expect(tab.videos, isEmpty);
+    tab.showHavingOnly(false);
+    expect(tab.videos.single.videoCode, 'ABC-002');
+    expect(tab.hasNextPage.value, isFalse);
     expect(tab.error.value, isEmpty);
     await tester.pumpWidget(const SizedBox.shrink());
   });

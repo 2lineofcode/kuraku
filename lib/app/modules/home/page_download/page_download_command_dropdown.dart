@@ -77,8 +77,8 @@ class _DownloadCommandDropdownState extends State<DownloadCommandDropdown> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
-                  color: selected ? AppColor.selected.withAlpha(40) : Colors.transparent,
-                  border: Border(left: BorderSide(color: selected ? AppColor.accent : Colors.transparent, width: 2)),
+                  color: selected ? AppColor.selected : Colors.transparent,
+                  border: Border(left: BorderSide(color: selected ? AppColor.accentForeground : Colors.transparent, width: 2)),
                 ),
                 child: Row(children: [
                   SizedBox(width: 124, child: Text(command.value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColor.text))),

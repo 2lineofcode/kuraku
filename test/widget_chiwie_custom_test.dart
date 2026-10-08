@@ -1,8 +1,10 @@
 // ignore_for_file: depend_on_referenced_packages
 
 import 'dart:async';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:chewie/chewie.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -103,7 +105,7 @@ class _FakeVideoPlayerPlatform with MockPlatformInterfaceMixin implements VideoP
 
 void main() {
   late _FakeVideoPlayerPlatform platform;
-  late _Preferences preferences;
+  final preferences = _Preferences();
   late VideoPlayerController videoController;
   late ChewieController chewieController;
   late Videos video;
@@ -111,7 +113,7 @@ void main() {
   setUp(() async {
     platform = _FakeVideoPlayerPlatform();
     VideoPlayerPlatform.instance = platform;
-    preferences = _Preferences();
+    preferences.values.clear();
     Get.put(AppSettingService()..pref = preferences);
 
     video = Videos(videoCode: 'ABP-001', title: 'A test movie', videoPath: '/movies/ABP-001.mp4');
@@ -147,6 +149,74 @@ void main() {
     expect(find.byType(ExChewieCustom), findsOneWidget);
     expect(videoController.value.isInitialized, isTrue);
     expect(videoController.value.duration, const Duration(minutes: 10));
+  });
+
+  testWidgets('player-style transport, volume and speed controls work in a narrow window', (tester) async {
+    await pump(tester);
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    final play = find.byTooltip('Play (Space)');
+    expect(tester.getCenter(play).dx, closeTo(400, 1));
+    expect(tester.getCenter(find.byTooltip('Mute (M)')).dx, lessThan(tester.getCenter(play).dx));
+    expect(tester.getCenter(find.byTooltip('Playback speed')).dx, greaterThan(tester.getCenter(play).dx));
+    expect(find.text('ABP-001'), findsNothing);
+
+    await tester.tap(play);
+    await tester.pump();
+    expect(platform.playing, isTrue);
+    await tester.tap(find.byTooltip('Pause (Space)'));
+    await tester.pump();
+    expect(platform.playing, isFalse);
+    await tester.tap(find.byTooltip('Forward 5s'));
+    await tester.pump();
+    expect(platform.position, const Duration(seconds: 5));
+    await tester.tap(find.byTooltip('Backward 5s'));
+    await tester.pump();
+    expect(platform.position, Duration.zero);
+
+    await tester.tap(find.byTooltip('Mute (M)'));
+    await tester.pump();
+    expect(platform.volume, 0);
+    await tester.tap(find.byTooltip('Mute (M)'));
+    await tester.pump();
+    expect(platform.volume, 1);
+
+    await tester.tap(find.byTooltip('Playback speed'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('1.50×'));
+    await tester.pumpAndSettle();
+    expect(videoController.value.playbackSpeed, 1.5);
+    expect(preferences.values['_kPlayerSpeed'], 1.5);
+    expect(find.text('1.50×'), findsOneWidget);
+    await tester.tap(find.byTooltip('Playback speed'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('1.50×'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(platform.playing, isTrue);
+    expect(platform.speed, 1.5);
+    await videoController.pause();
+
+    await tester.binding.setSurfaceSize(const Size(420, 300));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpAndSettle();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer();
+    await mouse.moveTo(tester.getCenter(find.byTooltip('Mute (M)')));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(CupertinoSlider)).width, 84);
+    await mouse.down(tester.getCenter(find.byType(CupertinoSlider)));
+    await mouse.moveTo(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(CupertinoSlider)).width, 84);
+    await mouse.up();
+    await tester.pumpAndSettle();
+    expect(preferences.values['_kPlayerVolume'], videoController.value.volume);
+    expect(tester.takeException(), isNull);
+    await mouse.removePointer();
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('space toggles playback and announces the new state', (tester) async {

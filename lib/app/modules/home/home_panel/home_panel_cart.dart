@@ -149,8 +149,8 @@ mixin HomePanelCart {
           Wrap(spacing: 4, runSpacing: 4, children: [
             if (quality.isNotEmpty) _badge(HelperMisc.formatVideoQuality(quality), AppColor.text),
             if (path.isHasUncensored()) _badge('RM', Theme.of(context).colorScheme.error),
-            if (path.isHasEnSub()) _badge('EN', AppColor.accent),
-            if (path.isHasIdSub()) _badge('ID', AppColor.accent),
+            if (path.isHasEnSub()) _badge('EN', AppColor.accentForeground),
+            if (path.isHasIdSub()) _badge('ID', AppColor.accentForeground),
           ]),
           const SizedBox(height: 6),
           Text(video.filesize == null || video.filesize! <= 0 ? 'Unknown size'.tr : video.filesize!.toFileSizeFormat(),
