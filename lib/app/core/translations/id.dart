@@ -1,4 +1,12 @@
 const indonesianTranslations = <String, String>{
+  'Deleted Items': 'Item Dihapus',
+  'Restoring only returns the record to your library. It does not recover a file deleted from disk. Missing or offline files remain unavailable.': 'Restore hanya mengembalikan record ke library. File yang sudah dihapus dari disk tidak dipulihkan. File yang hilang atau offline tetap tidak bisa diakses.',
+  'Search video code, title or path': 'Cari video code, judul, atau path',
+  'Could not load deleted items. Try again.': 'Gagal memuat item yang dihapus. Coba lagi.',
+  'Could not restore the record. Try again.': 'Gagal restore record. Coba lagi.',
+  'No deleted items.': 'Tidak ada item yang dihapus.',
+  'Restoring…': 'Memulihkan…',
+  'Restore record': 'Restore record',
   'Video is no longer in the library.': 'Video sudah tidak ada di Library.',
   'Could not open video info.': 'Tidak bisa membuka info video.',
   'Offline drives are not counted as missing files.': 'Drive offline tidak dihitung sebagai file hilang.',

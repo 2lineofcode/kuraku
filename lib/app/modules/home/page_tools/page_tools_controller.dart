@@ -26,6 +26,23 @@ class PageToolsController extends GetxController with StateMixin {
   // ** part: top menu
   final menus = [kTopLargeFile, kDuplicate, kAdvanceSearch, kTodo].obs;
   final currentMenuSelected = kTopLargeFile.obs;
+  int _deletedMenuRequest = 0;
+
+  Future<void> refreshDeletedItemsMenu() async {
+    final request = ++_deletedMenuRequest;
+    try {
+      final deleted = await DBVideos.getAll(includeDeleted: true, where: 'is_deleted = 1', limit: 1);
+      if (isClosed || request != _deletedMenuRequest) return;
+      if (deleted.isNotEmpty) {
+        if (!menus.contains(kDeletedItems)) menus.insert(2, kDeletedItems);
+      } else {
+        menus.remove(kDeletedItems);
+        if (currentMenuSelected.value == kDeletedItems) currentMenuSelected.value = kTopLargeFile;
+      }
+    } catch (e) {
+      AppLog.logE('Refreshing deleted items menu failed: $e');
+    }
+  }
 
   // ** part: large filesize
   final missingQualityCount = 0.obs;
@@ -110,6 +127,7 @@ class PageToolsController extends GetxController with StateMixin {
   Future<void> onRefresh() async {
     final sw = Stopwatch()..start();
 
+    await refreshDeletedItemsMenu();
     await getTopLargeFileSize();
     await checkIsHasDataNotScanned();
     await onReset();
@@ -608,6 +626,7 @@ class PageToolsController extends GetxController with StateMixin {
 
 // ** filter type
 const kDuplicate = 'Duplicate Videos';
+const kDeletedItems = 'Deleted Items';
 const kTodo = 'Todo';
 const kTopLargeFile = 'Large File';
 const kAdvanceSearch = 'Advanced Search (R18)';

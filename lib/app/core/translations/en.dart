@@ -1,4 +1,12 @@
 const englishTranslations = <String, String>{
+  'Deleted Items': 'Deleted Items',
+  'Restoring only returns the record to your library. It does not recover a file deleted from disk. Missing or offline files remain unavailable.': 'Restoring only returns the record to your library. It does not recover a file deleted from disk. Missing or offline files remain unavailable.',
+  'Search video code, title or path': 'Search video code, title or path',
+  'Could not load deleted items. Try again.': 'Could not load deleted items. Try again.',
+  'Could not restore the record. Try again.': 'Could not restore the record. Try again.',
+  'No deleted items.': 'No deleted items.',
+  'Restoring…': 'Restoring…',
+  'Restore record': 'Restore record',
   'Video is no longer in the library.': 'Video is no longer in the library.',
   'Could not open video info.': 'Could not open video info.',
   'Offline drives are not counted as missing files.': 'Offline drives are not counted as missing files.',

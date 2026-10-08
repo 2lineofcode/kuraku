@@ -207,6 +207,7 @@ class HomeController extends GetxController with StateMixin {
         if (Get.isRegistered<PageExploreController>() && !Get.isPrepared<PageExploreController>())
           Get.find<PageExploreController>().onRefresh(),
         if (Get.isRegistered<PageToolsController>() && !Get.isPrepared<PageToolsController>()) ...[
+          Get.find<PageToolsController>().refreshDeletedItemsMenu(),
           Get.find<PageToolsController>().getTopLargeFileSize(mode: Get.find<PageToolsController>().topLargeFilterMode.value),
           Get.find<PageToolsController>().getDuplicateVideos(),
           Get.find<PageToolsController>().checkIsHasDataNotScanned(),

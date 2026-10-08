@@ -92,6 +92,31 @@ void main() {
     expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
   });
 
+  test('restore preserves identity and related data without recreating missing files', () async {
+    final db = await _database();
+    Get.put<DBService>(_Service()..dbMain = db);
+    await db.execute("INSERT INTO videos(id,root_path,video_path,video_code,title,is_favorite,view_count,is_deleted) VALUES ('v1','/missing','/missing/a.mp4','TEST-001','Keep title',1,4,1),('v2','/missing','/missing/b.mp4','TEST-002','Active',0,0,0)");
+    await db.execute("INSERT INTO playlist(id,name) VALUES ('p1','Keep')");
+    await db.execute("INSERT INTO playlist_item VALUES ('p1','v1','created')");
+    await db.execute("INSERT INTO watch_session VALUES ('w1','v1','TEST-001',42,'2020-01-01')");
+    final deleted = (await DBVideos.getAll(includeDeleted: true, where: 'is_deleted = 1')).single;
+    final watch = await db.query('watch_session');
+    final revision = DBVideos.revision.value;
+    expect(await DBVideos.restore(deleted), 1);
+    expect(DBVideos.revision.value, revision + 1);
+    final restored = await DBVideos.getByID('v1');
+    expect([restored.id, restored.videoPath, restored.title, restored.isFavorite, restored.viewCount],
+      ['v1', '/missing/a.mp4', 'Keep title', 1, 4]);
+    expect(await DBVideos.getAll(includeDeleted: true, where: 'is_deleted = 1'), isEmpty);
+    expect((await DBPlaylist.getPlaylist('p1')).single.id, 'v1');
+    expect((await DBPlaylist.getAllPlaylist()).single.total, 1);
+    expect(await db.query('watch_session'), watch);
+    expect(await DBVideos.restore(deleted), 0);
+    expect(await DBVideos.restore(Videos(id: 'gone')), 0);
+    expect(DBVideos.revision.value, revision + 1);
+    expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
+  });
+
   test('v15 preserves core data and relationships, cleans only rebuildable caches', () async {
     final db = await _database(version: 14);
     await db.execute("INSERT INTO library(id,root_folder,total_video,videos) VALUES ('l1','/videos',1,'[\"/videos/a.mp4\"]')");

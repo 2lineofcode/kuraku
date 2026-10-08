@@ -19,6 +19,7 @@ import '../../widgets/widget_thumbnail.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_video_info.dart';
 import '../page_explore/page_explore_controller.dart';
+import 'page_deleted_items_view.dart';
 import 'page_tools_controller.dart';
 
 class PageToolsView extends GetView<PageToolsController> {
@@ -38,6 +39,7 @@ class PageToolsView extends GetView<PageToolsController> {
           switch (controller.currentMenuSelected.value) {
             case kTopLargeFile: return uiTopLargeFileSize().expand();
             case kDuplicate: return uiDuplicateVideo().expand();
+            case kDeletedItems: return const PageDeletedItemsView().expand();
             case kTodo: return uiTODO().expand();
             case kAdvanceSearch: return uiAdvanceSearch(context).expand();
             default: return Container();
@@ -48,7 +50,7 @@ class PageToolsView extends GetView<PageToolsController> {
   }
 
   Widget _buildMenu() {
-    return ListView.builder(
+    return Obx(() => ListView.builder(
       itemCount: controller.menus.length,
       scrollDirection: Axis.horizontal,
       itemBuilder: (context, index) {
@@ -64,7 +66,7 @@ class PageToolsView extends GetView<PageToolsController> {
           ).pOnly(right: 8),
         );
       },
-    );
+    ));
   }
 
   // ────────────────────────────────────────────────────────────────

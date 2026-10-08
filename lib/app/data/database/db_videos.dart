@@ -155,6 +155,14 @@ mixin DBVideos {
     if (changed > 0) revision.value++;
   }
 
+  static Future<int> restore(Videos video) async {
+    final changed = await _db.update(_tableName,
+      {'is_deleted': 0, 'updated_at': DateTime.now().toStringEx()},
+      where: 'id = ? AND is_deleted = 1', whereArgs: [video.id]);
+    if (changed > 0) revision.value++;
+    return changed;
+  }
+
   static Future<void> deleteByVideoPaths(List<String> videoPaths, {DatabaseExecutor? executor}) async {
     if (videoPaths.isEmpty) return;
     final unique = videoPaths.where((p) => p.trim().isNotEmpty).toSet().toList();
