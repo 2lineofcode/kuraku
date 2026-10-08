@@ -1,4 +1,6 @@
 const englishTranslations = <String, String>{
+  'Translating...': 'Translating...',
+  'Unable to translate title. Try again.': 'Unable to translate title. Try again.',
   'Invalid download source URL': 'Invalid download source URL',
   'JavHey catalogue not found': 'JavHey catalogue not found',
   'Invalid JavHey response': 'Invalid JavHey response',

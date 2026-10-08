@@ -18,6 +18,7 @@ import 'package:javit/app/modules/home/page_settings/page_settings_view.dart';
 import 'package:javit/app/modules/widgets/widget_controls.dart';
 import 'package:javit/app/modules/widgets/widget_surfaces.dart';
 import 'package:javit/app/utils/r18_updater.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class _Preferences implements GetSecureStorage {
   final values = <String, dynamic>{};
@@ -52,11 +53,17 @@ class _Home extends HomeController {
 
 void main() {
   testWidgets('Settings adapts to window sizes and keeps controls connected', (tester) async {
+    PackageInfo.setMockInitialValues(appName: 'JavIt', packageName: 'javit', version: '1.2.3', buildNumber: '', buildSignature: '');
     Get.testMode = true;
     final service = Get.put<AppSettingService>(AppSettingService()..pref = _Preferences());
     final home = Get.put<HomeController>(_Home());
     final controller = _Settings();
     Get.put<PageSettingsController>(controller);
+    await controller.refreshAppVersion();
+    expect(controller.appVersion.value, '1.2.3');
+    PackageInfo.setMockInitialValues(appName: 'JavIt', packageName: 'javit', version: '1.2.3', buildNumber: '20261008.60', buildSignature: '');
+    await controller.refreshAppVersion();
+    expect(controller.appVersion.value, '1.2.3+20261008.60');
     controller.totalLibrary.value = 2;
     controller.totalVideos.value = 485;
     controller.totalFilesize.value = 861151872778;
@@ -117,6 +124,7 @@ void main() {
             expect(tester.getTopLeft(theme).dx, tester.getTopLeft(languageControl).dx);
             expect(tester.getSize(theme).width, lessThanOrEqualTo(320));
           }
+          expect(find.text('1.2.3+20261008.60'), findsOneWidget);
           expect(tester.takeException(), isNull, reason: 'language=$language width=$width dark=$dark');
           if (output.isNotEmpty && width == 1100) {
             await tester.runAsync(() async {

@@ -47,8 +47,8 @@ class DownloadMethodDialog extends StatelessWidget {
                       Container(
                         width: 36,
                         height: 36,
-                        decoration: BoxDecoration(color: AppColor.accent.withAlpha(18), borderRadius: BorderRadius.circular(8)),
-                        child: HugeIcon(icon: option.$4, size: AppStyle.iconSize, color: AppColor.accent).p(6),
+                        decoration: BoxDecoration(color: AppColor.muted.withAlpha(18), borderRadius: BorderRadius.circular(8)),
+                        child: HugeIcon(icon: option.$4, size: AppStyle.iconSize, color: AppColor.text).p(6),
                       ),
                       const SizedBox(width: 12),
                       Expanded(

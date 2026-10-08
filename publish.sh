@@ -35,16 +35,38 @@ case "$TARGET" in
   *) fail "Usage: ./publish.sh [auto|macos|windows]" ;;
 esac
 
+resolved_target="$TARGET"
+if [ "$resolved_target" = "auto" ]; then
+  case "$(uname -s)" in
+    Darwin) resolved_target="macos" ;;
+    MINGW*|MSYS*|CYGWIN*|Windows_NT) resolved_target="windows" ;;
+    *) fail "Unsupported OS: $(uname -s). Run with explicit target if needed." ;;
+  esac
+fi
+
 current_version="$(awk '/^version:/ {print $2; exit}' "$PUBSPEC")"
 [ -n "$current_version" ] || fail "Cannot read version from $PUBSPEC"
 
+[[ "$current_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\+[0-9]+(\.[0-9]+)?)?$ ]] || fail "Invalid version: $current_version"
 base_version="${current_version%%+*}"
-app_version="${base_version} ($(date '+%Y-%m-%d'))"
-build_number="$(date '+%Y%m%d').$(git rev-list --count HEAD)"
+build_date="$(date '+%Y%m%d')"
+build_sequence="$(git rev-list --count HEAD)"
+[[ "$build_sequence" =~ ^[0-9]+$ ]] || fail "Cannot read commit count"
+build_sequence=$((10#$build_sequence))
+if [[ "$current_version" =~ \+([0-9]{8})\.([0-9]+)$ ]]; then
+  previous_date="${BASH_REMATCH[1]}"
+  previous_sequence=$((10#${BASH_REMATCH[2]}))
+  [[ "$build_date" < "$previous_date" ]] && fail "Build date is older than the current version"
+  if [ "$build_date" = "$previous_date" ] && [ "$build_sequence" -le "$previous_sequence" ]; then
+    build_sequence=$((previous_sequence + 1))
+  fi
+fi
+build_number="${build_date}.${build_sequence}"
 new_version="${base_version}+${build_number}"
 
-log "Update version: $current_version -> $new_version"
-tmp_pubspec="$(mktemp)"
+log "Build version: $current_version -> $new_version"
+tmp_pubspec="$(mktemp "${PUBSPEC}.XXXXXX")"
+trap 'rm -f "$tmp_pubspec"' EXIT
 awk -v current="$current_version" -v newver="$new_version" '
   $1 == "version:" && $2 == current {
     print "version: " newver
@@ -59,45 +81,17 @@ awk -v current="$current_version" -v newver="$new_version" '
   rm -f "$tmp_pubspec"
   fail "Failed to update version in $PUBSPEC"
 }
-mv "$tmp_pubspec" "$PUBSPEC"
-
-log "Update APP_VER: $app_version"
-tmp_env="$(mktemp)"
-awk -v appver="$app_version" '
-  /^APP_VER=/ {
-    print "APP_VER='\''" appver "'\''"
-    done = 1
-    next
-  }
-  { print }
-  END {
-    if (done != 1) exit 1
-  }
-' "$ENV_FILE" > "$tmp_env" || {
-  rm -f "$tmp_env"
-  fail "Failed to update APP_VER in $ENV_FILE"
-}
-mv "$tmp_env" "$ENV_FILE"
-
 log "Generate secure env"
 dart run enven
 
 log "Refresh dependencies"
 flutter pub get
 
-resolved_target="$TARGET"
-if [ "$resolved_target" = "auto" ]; then
-  case "$(uname -s)" in
-    Darwin) resolved_target="macos" ;;
-    MINGW*|MSYS*|CYGWIN*|Windows_NT) resolved_target="windows" ;;
-    *) fail "Unsupported OS: $(uname -s). Run with explicit target if needed." ;;
-  esac
-fi
+log "Build $APP_NAME for $resolved_target"
+flutter build "$resolved_target" --release --no-tree-shake-icons --build-name="$base_version" --build-number="$build_number"
 
 case "$resolved_target" in
   macos)
-    log "Build $APP_NAME for macOS"
-    flutter build macos --release --no-tree-shake-icons
     log "Output: build/macos/Build/Products/Release"
     app_bundle="build/macos/Build/Products/Release/javit.app"
     installed_app="/Applications/javit.app"
@@ -113,11 +107,12 @@ case "$resolved_target" in
     log "Installed: $installed_app"
     ;;
   windows)
-    log "Build $APP_NAME for Windows"
-    flutter build windows --release --no-tree-shake-icons
     log "Output: build/windows/x64/runner/Release"
     ;;
 esac
+
+mv "$tmp_pubspec" "$PUBSPEC"
+log "Saved version: $new_version"
 
 log "Clean compile cache"
 find . -type d -name '__pycache__' -prune -exec rm -rf {} +

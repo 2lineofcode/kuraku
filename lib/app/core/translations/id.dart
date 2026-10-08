@@ -1,4 +1,6 @@
 const indonesianTranslations = <String, String>{
+  'Translating...': 'Menerjemahkan...',
+  'Unable to translate title. Try again.': 'Gagal menerjemahkan judul. Coba lagi.',
   'Invalid download source URL': 'URL sumber download tidak valid',
   'JavHey catalogue not found': 'Katalog JavHey tidak ditemukan',
   'Invalid JavHey response': 'Respons JavHey tidak valid',

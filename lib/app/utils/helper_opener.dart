@@ -42,6 +42,7 @@ import '../modules/widgets/widget_media_stack.dart';
 import '../modules/widgets/widget_style.dart';
 import '../modules/widgets/widget_surfaces.dart';
 import '../modules/widgets/widget_thumbnail.dart';
+import '../modules/widgets/widget_title_translation.dart';
 import '../routes/app_pages.dart';
 import 'helper.dart';
 
@@ -262,18 +263,13 @@ mixin HelperOpener {
                     '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
                       HelperMisc.copyToClipboard(video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title, showToast: true);
                     }).pSymmetric(v: 8),
-                    Obx(
+                    TitleTranslation(title: video.title ?? '', child: Obx(
                       () => _translatedTitle.value.text.align(TextAlign.center).size(10).minFontSize(10).makeCentered().onInkTap(
                         () async {
                           HelperMisc.copyToClipboard(video.title, showToast: true);
-                          // final translator = GoogleTranslator();
-                          // final result = await translator.translate(video.title ?? '', from: 'en', to: 'id');
-                          // final translated = '${result.text}'.trim();
-                          // _translatedTitle.value = HelperDecensor.decensor(translated);
-                          // video.title = translated;
                         },
                       ),
-                    ).tooltip(video.videoPath ?? ''),
+                    ).tooltip(video.videoPath ?? '')),
                     ExDivider().pSymmetric(v: 16),
                   ],
                 ).pSymmetric(h: 16),

@@ -4,6 +4,7 @@ import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:get/get.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -31,6 +32,7 @@ import '../page_explore/page_explore_controller.dart';
 class PageSettingsController extends GetxController {
   final appSetting = Get.find<AppSettingService>();
   final dbR18Version = 0.obs;
+  final appVersion = '-'.obs;
 
   final totalLibrary = 0.obs;
   final totalVideos = 0.obs;
@@ -79,7 +81,17 @@ class PageSettingsController extends GetxController {
   @override
   Future<void> onInit() async {
     super.onInit();
+    await refreshAppVersion();
     await onRefresh();
+  }
+
+  Future<void> refreshAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      appVersion.value = info.buildNumber.isEmpty ? info.version : '${info.version}+${info.buildNumber}';
+    } catch (e) {
+      AppLog.logE('Could not read app version: $e');
+    }
   }
 
   Future<void> setLanguage(String code) async {

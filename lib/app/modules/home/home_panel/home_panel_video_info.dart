@@ -19,6 +19,7 @@ import '../../../utils/helper.dart';
 import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_style.dart';
 import '../../widgets/widget_thumbnail.dart';
+import '../../widgets/widget_title_translation.dart';
 import '../home_controller.dart';
 import '../page_explore/page_explore_controller.dart';
 import '../page_home/page_home_controller.dart';
@@ -98,7 +99,7 @@ mixin HomePanelVideoInfo {
                       final textToCopy = video.videoCode.isNotEmptyAndNotNull ? video.videoCode! : video.title;
                       HelperMisc.copyToClipboard(textToCopy, showToast: true);
                     }).pSymmetric(v: 8),
-                    Obx(
+                    TitleTranslation(title: video.title ?? '', child: Obx(
                       () => _translatedTitle.value.text
                           .align(TextAlign.center)
                           .size(10)
@@ -107,14 +108,9 @@ mixin HomePanelVideoInfo {
                           .onInkTap(
                         () async {
                           HelperMisc.copyToClipboard(video.title, showToast: true);
-                          // final translator = GoogleTranslator();
-                          // final result = await translator.translate(video.title ?? '', from: 'en', to: 'id');
-                          // final translated = '${result.text}'.trim();
-                          // _translatedTitle.value = HelperDecensor.decensor(translated);
-                          // video.title = translated;
                         },
                       ),
-                    ).tooltip(video.videoPath ?? ''),
+                    ).tooltip(video.videoPath ?? '')),
 
                     ExDivider().pSymmetric(v: 16),
 

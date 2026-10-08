@@ -7,7 +7,6 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../../env.g.dart';
 import '../../../core/app_color.dart';
 import '../../../core/app_pin.dart';
 import '../../../core/app_pref.dart';
@@ -110,7 +109,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
             ]);
             final info = _section('Application Info'.tr, [
               Obx(() => Column(children: [
-                _infoRow('Version'.tr, '${Env.appVer}'),
+                _infoRow('Version'.tr, controller.appVersion.value),
                 Divider(height: 24, color: AppColor.border),
                 _infoRow('Total Library'.tr, '${controller.totalLibrary.value}'),
                 _infoRow('Total Video'.tr, controller.totalVideos.value.numberFormat()),
