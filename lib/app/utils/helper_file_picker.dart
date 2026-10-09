@@ -9,6 +9,23 @@ mixin HelperFilePicker {
   static bool isSupportedVideoPath(String path) =>
     ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v'].contains(path.split('.').last.toLowerCase());
 
+  static bool isSupportedImagePath(String path) =>
+    ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(path.split('.').last.toLowerCase());
+
+  static Future<List<String>> existingImages(Iterable<String> paths, {bool Function()? cancelled}) async {
+    final unique = paths.toSet().toList();
+    final available = <String>[];
+    for (var start = 0; start < unique.length; start += 16) {
+      if (cancelled?.call() ?? false) return [];
+      final batch = unique.skip(start).take(16).toList();
+      final exists = await Future.wait(batch.map((path) => File(path).exists()));
+      for (var index = 0; index < batch.length; index++) {
+        if (exists[index]) available.add(batch[index]);
+      }
+    }
+    return available;
+  }
+
   // ** pickFolderSubFolder
   static Future<Library?> pickFolderSubFolder() async {
     String? selectedDirectory = await FilePicker.getDirectoryPath();
@@ -27,6 +44,7 @@ mixin HelperFilePicker {
     final directory = Directory(path);
     final subfolders = <String>[];
     final videoFiles = <String>[];
+    final imageFiles = <String>[];
 
     await for (final file in directory.list(recursive: true)) {
       if (file is Directory) {
@@ -34,15 +52,22 @@ mixin HelperFilePicker {
         continue;
       }
 
-      if (file is! File || await file.length() < 10 * 1024 * 1024) continue;
+      if (file is! File) continue;
+      if (isSupportedImagePath(file.path)) {
+        if (!file.path.split(Platform.pathSeparator).any((part) => part.startsWith('.'))) imageFiles.add(file.path);
+        continue;
+      }
+      if (await file.length() < 10 * 1024 * 1024) continue;
       if (isSupportedVideoPath(file.path)) videoFiles.add(file.path);
     }
 
+    imageFiles.sort();
     final item = Library(
       totalVideo: videoFiles.length,
       rootFolder: path,
       subFolder: subfolders,
       videos: videoFiles,
+      images: imageFiles,
     );
     return item;
   }

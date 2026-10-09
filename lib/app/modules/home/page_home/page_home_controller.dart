@@ -4,7 +4,9 @@ import 'package:get/get.dart';
 
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
+import '../../../data/database/db_library.dart';
 import '../../../data/database/db_videos.dart';
+import '../../../data/models/library_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../local_video_selection.dart';
 
@@ -18,6 +20,8 @@ class PageHomeController extends GetxController with LocalVideoSelection {
   final listNeverWatch = <Videos>[].obs;
   final listOldest = <Videos>[].obs;
   final totalVideo = 0.obs;
+  final listImageAlbums = <Library>[].obs;
+  final imageAlbumCovers = <String, String>{};
   int _recommendationRequest = 0;
 
   int _selectionRevision = 0;
@@ -70,6 +74,7 @@ class PageHomeController extends GetxController with LocalVideoSelection {
     final sw = Stopwatch()..start();
 
     homeSectionOrder.value = AppPref.getHomeOrderList();
+    if (!homeSectionOrder.contains(AppPref.homeSecImageAlbums)) homeSectionOrder.add(AppPref.homeSecImageAlbums);
     final count = DBVideos.getCount();
     await Future.wait([
       getListNewRelease(),
@@ -80,10 +85,23 @@ class PageHomeController extends GetxController with LocalVideoSelection {
       getListRandom(),
       getListNeverWatch(),
       getListOldest(),
+      getImageAlbums(),
     ]);
     totalVideo.value = await count;
 
     AppLog.logI('page home ==> onInit called: ${sw.elapsedMilliseconds} ms');
+  }
+
+  Future<void> getImageAlbums() async {
+    final libraries = await DBLibrary.getAll();
+    if (isClosed) return;
+    final albums = libraries.where((library) => library.images?.isNotEmpty ?? false).toList();
+    final random = math.Random();
+    imageAlbumCovers.clear();
+    for (final album in albums) {
+      imageAlbumCovers[album.rootFolder!] = album.images![random.nextInt(album.images!.length)];
+    }
+    listImageAlbums.assignAll(albums);
   }
 
   Future<void> getListNewRelease() async {

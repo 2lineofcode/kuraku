@@ -24,6 +24,7 @@ import '../../../data/database/library_reconciler.dart';
 import '../../../data/database/library_relocation.dart';
 import '../../../data/models/library_entity.dart';
 import '../../../data/models/videos_entity.dart';
+import '../../../routes/app_pages.dart';
 import '../../../utils/helper_file_picker.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
@@ -46,6 +47,7 @@ mixin HomePanelLibrary {
   static bool _watchersEnabled = false;
   static const Duration _watchDebounce = Duration(seconds: 3);
   static bool _repairInProgress = false;
+  static int _imageAlbumOpen = 0;
   static bool fileDragInProgress = false;
   static bool get canStartFileDrag => !fileDragInProgress && _libraryScansPending == 0;
 
@@ -67,7 +69,7 @@ mixin HomePanelLibrary {
     final isDirectoryEvent = event.isDirectory || Directory(path).existsSync();
     if (isDirectoryEvent) return false;
 
-    return !HelperFilePicker.isSupportedVideoPath(path);
+    return !HelperFilePicker.isSupportedVideoPath(path) && !HelperFilePicker.isSupportedImagePath(path);
   }
 
   static Future<void> startAutoRescanWatcher() async {
@@ -156,7 +158,10 @@ mixin HomePanelLibrary {
 
     if (Overlayment.count > 0) { await Overlayment.dismissLast(); return; }
 
-    final library = await DBLibrary.getAll();
+    final libraries = await DBLibrary.getAll();
+    bool isImageAlbum(Library item) => (item.images?.isNotEmpty ?? false) && (item.totalVideo ?? 0) == 0;
+    final videoLibraries = libraries.where((item) => !isImageAlbum(item)).toList();
+    final library = [...videoLibraries, ...libraries.where(isImageAlbum)];
     final totalVideos = await DBVideos.getCount();
 
     Future<void> addLibrary() async {
@@ -204,12 +209,11 @@ mixin HomePanelLibrary {
             ]),
             const SizedBox(height: 8),
             Row(children: [
-              Expanded(child: AppButton(
-                label: 'Add New Library'.tr,
+              AppIconButton(
+                tooltip: 'Add New Library'.tr,
                 icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
-                variant: AppButtonVariant.tonal,
                 onPressed: addLibrary,
-              )),
+              ),
               const SizedBox(width: 8),
               AppIconButton(
                 icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
@@ -218,6 +222,7 @@ mixin HomePanelLibrary {
                   'Rescan All Folders'.tr, () => doRescanAllVideoFromLibrary(library, recoverVideoCodes: true),
                 ),
               ),
+              const SizedBox(width: 8),
               AppIconButton(
                 icon: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: AppStyle.iconSize),
                 tooltip: 'Repair Metadata from R18'.tr,
@@ -225,20 +230,19 @@ mixin HomePanelLibrary {
                   'Repair Metadata from R18'.tr, () => _repairAllMetadata(library),
                 ),
               ),
+              const SizedBox(width: 8),
+              AppIconButton(
+                tooltip: 'Library Health Check'.tr,
+                icon: const HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle02, size: AppStyle.iconSize),
+                onPressed: library.isEmpty ? null : () async {
+                  await Overlayment.dismissLast();
+                  if (Get.context == null) return;
+                  final check = LibraryHealthCheck.run();
+                  await showDialog<void>(context: Get.context!,
+                    builder: (_) => LibraryHealthDialog(check: check));
+                },
+              ),
             ]),
-            const SizedBox(height: 8),
-            AppButton(
-              label: 'Library Health Check'.tr,
-              icon: const HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle02, size: AppStyle.iconSize),
-              variant: AppButtonVariant.tonal,
-              onPressed: library.isEmpty ? null : () async {
-                await Overlayment.dismissLast();
-                if (Get.context == null) return;
-                final check = LibraryHealthCheck.run();
-                await showDialog<void>(context: Get.context!,
-                  builder: (_) => LibraryHealthDialog(check: check));
-              },
-            ),
             Divider(height: 24, color: AppColor.border),
             Expanded(child: library.isEmpty
                 ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -255,56 +259,90 @@ mixin HomePanelLibrary {
                     itemBuilder: (context, index) {
                       final item = library[index];
                       final path = item.rootFolder ?? '';
+                      final imageCount = item.images?.length ?? 0;
+                      final imageOnly = isImageAlbum(item);
+                      final unavailable = imageCount > 0 && !Directory(path).existsSync();
                       final alias = item.alias?.trim().isNotEmpty == true ? item.alias! : p.basename(path);
-                      return AppPanel(
-                        bordered: true,
-                        padding: const EdgeInsets.all(4),
-                        child: Row(children: [
-                          AppIconButton(
-                            onPressed: path.isEmpty ? null : () => HelperOpener.openFolder(path),
-                            icon: const HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: AppStyle.iconSize),
-                            tooltip: 'Open Folder `@{alias}`'.trNamed({'alias': alias}),
+                      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        if (index == 0 || index == videoLibraries.length) ...[
+                          if (index > 0) Divider(height: 16, color: AppColor.border),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text((imageOnly ? 'Images' : 'Videos').tr,
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColor.muted)),
                           ),
-                          const SizedBox(width: 4),
-                          Expanded(child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(AppStyle.radius),
-                              onTap: () async {
-                                await Overlayment.dismissLast();
-                                await showDialogAddorEditLibrary(library: item);
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                  Text(alias, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                                  const SizedBox(height: 4),
-                                  Tooltip(message: path, child: Text(path.isEmpty ? '<Select Path>'.tr : path.getLastSegments(),
-                                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(fontSize: 11, color: AppColor.muted))),
-                                ]),
+                        ],
+                        AppPanel(
+                          bordered: true,
+                          padding: const EdgeInsets.all(4),
+                          child: Row(children: [
+                            AppIconButton(
+                              onPressed: path.isEmpty ? null : () => HelperOpener.openFolder(path),
+                              icon: const HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: AppStyle.iconSize),
+                              tooltip: 'Open Folder `@{alias}`'.trNamed({'alias': alias}),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(AppStyle.radius),
+                                onTap: () async {
+                                  await Overlayment.dismissLast();
+                                  if (imageOnly) {
+                                    await openImageAlbum(item);
+                                  } else {
+                                    await showDialogAddorEditLibrary(library: item);
+                                  }
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    Text(alias, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                                    if (!imageOnly) ...[
+                                      if (imageCount > 0) Text(
+                                        unavailable ? 'Unavailable'.tr : 'Images: @{count}'.trNamed({'count': '$imageCount'}),
+                                        style: TextStyle(fontSize: 11, color: AppColor.muted)),
+                                      const SizedBox(height: 4),
+                                      Tooltip(message: path, child: Text(path.isEmpty ? '<Select Path>'.tr : path.getLastSegments(),
+                                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 11, color: AppColor.muted))),
+                                    ],
+                                  ]),
+                                ),
+                              ),
+                            )),
+                            if (!imageOnly) Tooltip(
+                              message: 'Total Video: @{value}'.trNamed({'value': '${item.totalVideo ?? 0}'}),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                decoration: BoxDecoration(color: AppColor.selected, borderRadius: BorderRadius.circular(AppStyle.radius)),
+                                child: Text('${item.totalVideo ?? 0}', style: const TextStyle(fontSize: 11)),
                               ),
                             ),
-                          )),
-                          Tooltip(
-                            message: 'Total Video: @{value}'.trNamed({'value': '${item.totalVideo ?? 0}'}),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                              decoration: BoxDecoration(color: AppColor.selected, borderRadius: BorderRadius.circular(AppStyle.radius)),
-                              child: Text('${item.totalVideo ?? 0}', style: const TextStyle(fontSize: 11)),
+                            if (imageCount > 0) AppIconButton(
+                              icon: HugeIcon(icon: imageOnly ? HugeIcons.strokeRoundedEdit01 : HugeIcons.strokeRoundedImage01, size: AppStyle.iconSize),
+                              tooltip: (imageOnly ? 'Edit album' : 'Open image album').tr,
+                              onPressed: () async {
+                                await Overlayment.dismissLast();
+                                if (imageOnly) {
+                                  await showDialogAddorEditLibrary(library: item);
+                                } else {
+                                  await openImageAlbum(item);
+                                }
+                              },
                             ),
-                          ),
-                          AppIconButton(
-                            icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
-                            tooltip: 'Rescan Folder `@{alias}`'.trNamed({'alias': alias}),
-                            onPressed: path.isEmpty ? null : () async {
-                              await Overlayment.dismissLast();
-                              await _doRescanVideoFromLibrary(item, fromAutoWatcher: false);
-                            },
-                          ),
-                        ]),
-                      );
+                            AppIconButton(
+                              icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
+                              tooltip: 'Rescan Folder `@{alias}`'.trNamed({'alias': alias}),
+                              onPressed: path.isEmpty ? null : () async {
+                                await Overlayment.dismissLast();
+                                await _doRescanVideoFromLibrary(item, fromAutoWatcher: false);
+                              },
+                            ),
+                          ]),
+                        ),
+                      ]);
                     },
                   )),
             const SizedBox(height: 12),
@@ -314,12 +352,44 @@ mixin HomePanelLibrary {
               child: Wrap(alignment: WrapAlignment.spaceBetween, spacing: 12, runSpacing: 4, children: [
                 Text('Total Folder: @{getCount}'.trNamed({'getCount': '${library.length}'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
                 Text('Total Video: @{getCount}'.trNamed({'getCount': '$totalVideos'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
+                if (library.any((item) => item.images?.isNotEmpty ?? false))
+                  Text('Images: @{count}'.trNamed({'count': '${library.fold<int>(0, (count, item) => count + (item.images?.length ?? 0))}'}),
+                    style: TextStyle(fontSize: 11, color: AppColor.muted)),
               ]),
             ),
           ]).p(AppStyle.panelPadding);
         }),
       ),
     );
+  }
+
+  static Future<void> openImageAlbum(Library library) async {
+    final request = ++_imageAlbumOpen;
+    final route = Get.currentRoute;
+    bool cancelled() => request != _imageAlbumOpen || Get.currentRoute != route;
+    try {
+      final available = await Directory(library.rootFolder ?? '').exists();
+      if (cancelled()) return;
+      if (!available) {
+        await HelperToast.warn('Album folder is unavailable. Reconnect the drive and try again.'.tr);
+        return;
+      }
+      final images = await HelperFilePicker.existingImages(library.images ?? <String>[], cancelled: cancelled);
+      if (cancelled()) return;
+      if (images.isEmpty) {
+        await HelperToast.warn('No image found'.tr);
+        return;
+      }
+      await Get.toNamed(Routes.IMG_VIEWER, arguments: {
+        'images': images,
+        'title': library.alias ?? p.basename(library.rootFolder ?? ''),
+        'albumRoot': library.rootFolder,
+      });
+    } catch (e) {
+      AppLog.logW('Could not open image album: $e');
+      if (cancelled()) return;
+      await HelperToast.warn('Could not open image album. Check folder permissions and try again.'.tr);
+    }
   }
 
   /// Opens a dialog to add or edit a library.
@@ -332,6 +402,7 @@ mixin HomePanelLibrary {
     final librarySelected = Library().obs;
     final isClicked = false.obs;
     final totalVideo = 0.obs;
+    final totalImages = (isFromDrop ? library?.images?.length ?? 0 : 0).obs;
 
     if (isFromDrop) fnAlias.requestFocus();
 
@@ -370,6 +441,7 @@ mixin HomePanelLibrary {
                       tfAlias.text = path.alias?.toTitleCase ?? '';
                       tfRootPath.text = path.rootFolder ?? '';
                       totalVideo.value = path.videos?.length ?? 0;
+                      totalImages.value = path.images?.length ?? 0;
                     }
                     isClicked.value = false;
                   });
@@ -395,6 +467,7 @@ mixin HomePanelLibrary {
                 );
               },
             ).pOnly(bottom: 16),
+            Obx(() => totalImages.value != 0 ? Text('Images: @{count}'.trNamed({'count': '${totalImages.value}'})) : 0.heightBox),
             Obx(() => totalVideo.value != 0 ? Text('Total Video: @{value}'.trNamed({'value': '${totalVideo.value}'})) : 0.heightBox),
           ],
         ),
@@ -462,6 +535,7 @@ mixin HomePanelLibrary {
         Get.back();
         await DBLibrary.update(library);
         await startAutoRescanWatcher();
+        await _controller.refreshVideoContent();
       }
       return;
     }
@@ -501,7 +575,7 @@ mixin HomePanelLibrary {
     sw.stop();
     AppLog.logD('Time taken: ${sw.elapsedMilliseconds}ms');
     if (showFinishToast) {
-      await HelperToast.success('Finish • @{elapsedMilliseconds}ms | @{length} Videos Added'.trNamed({'elapsedMilliseconds': '${sw.elapsedMilliseconds}', 'length': '${library.totalVideo ?? 0}'}));
+      await HelperToast.success('Library saved'.tr);
     }
 
     if (refreshAfter) {
@@ -742,7 +816,7 @@ mixin HomePanelLibrary {
             final scanned = await HelperFilePicker.scanFolderAndSubFolder(current.rootFolder ?? '');
             if (scanned == null) continue;
             snapshots.add(Library.fromJson(current.toJson())
-              ..videos = scanned.videos..subFolder = scanned.subFolder..totalVideo = scanned.totalVideo);
+              ..images = scanned.images..videos = scanned.videos..subFolder = scanned.subFolder..totalVideo = scanned.totalVideo);
           } catch (e) {
             AppLog.logW('[RescanAll] Could not access folder: ${library.rootFolder}. Skipping this library.');
           }

@@ -19,7 +19,7 @@ class AppBackup {
     'achievement_unlock', 'relapse_event', 'historical'];
   static const _boolKeys = ['_kAppHideSideMenu', '_kAppDarkMode', '_kAppIsDarkMode', '_kPlayerAudioNormalization',
     '_kHomeSecNewRelease', '_kHomeSecRecommendation', '_kHomeSecFavorite', '_kHomeSecNewAdd',
-    '_kHomeSecMostWatch', '_kHomeSecNeverWatch', '_kHomeSecRandom', '_kHomeSecOldest', 'chat_sidebar_visible'];
+    '_kHomeSecMostWatch', '_kHomeSecNeverWatch', '_kHomeSecRandom', '_kHomeSecOldest', '_kHomeSecImageAlbums', 'chat_sidebar_visible'];
   static const _intKeys = ['_kAppMaxColi', '_kDownloadChunk', '_kPlayerSeekShort', '_kPlayerSeekMid', '_kPlayerSeekLong', '_kAppAccent'];
   static const _stringKeys = ['_kAppLanguage', '_kAppTheme', '_kFavoriteCoverURL', '_kDefaultSearchEngine',
     '_kDefaultPlayer', '_kDownloadPath', '_kDownloadLang', '_kSemanticSearchModel'];
@@ -49,18 +49,26 @@ class AppBackup {
   static AppBackup decode(String content) {
     if (utf8.encode(content).length > 128 * 1024 * 1024) throw const FormatException('Backup exceeds the 128 MB limit.');
     final data = jsonDecode(content);
-    // ponytail: require matching schemas; add backup migrations when cross-version restore is needed.
+    // v17 backups only lack the image album list.
     if (data is! Map<String, dynamic> || data['format'] != 'javit-backup' || data['version'] != 1
-        || data['database_version'] != DBUpdate.version || data['created_at'] is! String
+        || (data['database_version'] != DBUpdate.version && data['database_version'] != 17) || data['created_at'] is! String
         || DateTime.tryParse(data['created_at']) == null) {
       throw const FormatException('Invalid backup or incompatible app/database version.');
     }
     final rows = data['tables'];
     final settings = data['settings'];
+    if (settings is Map<String, dynamic>) settings.putIfAbsent('_kHomeSecImageAlbums', () => true);
     if (rows is! Map || rows.length != tables.length || !tables.every((table) => rows[table] is List)
         || settings is! Map<String, dynamic> || settings.length != settingKeys.length
         || !settingKeys.every(settings.containsKey)) {
       throw const FormatException('Backup tables or settings are missing or unsupported.');
+    }
+    if (data['database_version'] == 17) {
+      for (final row in rows['library']) {
+        if (row is! Map<String, dynamic> || row.containsKey('images')) throw const FormatException('Invalid v17 library row.');
+        row['images'] = '[]';
+      }
+      data['database_version'] = DBUpdate.version;
     }
     for (final table in tables) {
       for (final row in rows[table]) {

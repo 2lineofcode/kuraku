@@ -88,7 +88,10 @@ mixin LibraryReconciler {
     final changed = additions.isNotEmpty || moves.isNotEmpty || snapshots.any((library) {
       final previous = (previousLibraries[library.id]?.videos ?? <String>[]).toSet();
       final current = (library.videos ?? <String>[]).toSet();
-      return previous.length != current.length || !previous.containsAll(current);
+      final previousImages = (previousLibraries[library.id]?.images ?? <String>[]).toSet();
+      final currentImages = (library.images ?? <String>[]).toSet();
+      return previous.length != current.length || !previous.containsAll(current)
+        || previousImages.length != currentImages.length || !previousImages.containsAll(currentImages);
     });
     final changedIdentities = Map<String, FileIdentity>.from(identities)..removeWhere((path, identity) =>
       !movedPaths.contains(path) && identity == cached[byPath[path]?.id] && byPath[path]?.rootPath == paths[path]);

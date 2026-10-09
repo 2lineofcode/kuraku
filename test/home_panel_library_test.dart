@@ -1,15 +1,21 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:javit/app/core/app_translations.dart';
 import 'package:javit/app/data/database/_init_db.dart';
 import 'package:javit/app/modules/home/home_panel/home_panel_library.dart';
 import 'package:javit/app/modules/home/home_panel/home_panel_library_relocation.dart';
+import 'package:javit/app/modules/img_viewer/img_viewer_controller.dart';
+import 'package:javit/app/modules/img_viewer/img_viewer_view.dart';
 import 'package:javit/app/modules/widgets/widget_controls.dart';
 import 'package:javit/app/modules/widgets/widget_style.dart';
 import 'package:javit/app/modules/widgets/widget_surfaces.dart';
+import 'package:javit/app/routes/app_pages.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -52,6 +58,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(GetMaterialApp(
+      getPages: AppPages.routes.where((page) => page.name == Routes.IMG_VIEWER).toList(),
       theme: AppStyle.theme(dark ? Brightness.dark : Brightness.light),
       translations: AppTranslations(), locale: const Locale('en'),
       home: const Scaffold(body: Text('Home')),
@@ -61,15 +68,59 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+
+  testWidgets('image album opens the viewer from its Library row and keeps editing available', (tester) async {
+    final directory = Directory.systemTemp.createTempSync('library_album_ui_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final image = File('${directory.path}/cover.png')..writeAsBytesSync(base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
+    database.libraries = [{'id': 'album', 'alias': 'My album', 'root_folder': directory.path,
+      'total_video': 0, 'images': jsonEncode([image.path])}];
+    await pump(tester, narrow: true);
+    expect(find.byTooltip('Edit album'), findsOneWidget);
+    expect(find.text('Unavailable'), findsNothing);
+    expect(find.byTooltip(directory.path), findsNothing);
+    expect(find.text('1'), findsNothing);
+    final albumRow = find.ancestor(of: find.text('My album'), matching: find.byType(AppPanel));
+    expect(find.descendant(of: albumRow, matching: find.text('Images: 1')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.runAsync(() async {
+      await tester.tap(find.text('My album'));
+      await tester.pumpAndSettle();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await tester.pumpAndSettle();
+    expect(find.byType(ImgViewerView), findsOneWidget);
+    expect(Get.find<ImgViewerController>().images, [image.path]);
+    expect(Get.find<ImgViewerController>().title.value, 'My album');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(ImgViewerView), findsNothing);
+  });
+
+  testWidgets('image album rows show only the title and actions even when offline', (tester) async {
+    database.libraries = [{'id': 'album', 'alias': 'Offline album', 'root_folder': '/missing/album',
+      'total_video': 0, 'images': jsonEncode(['/missing/album/cover.png'])}];
+    await pump(tester, narrow: true);
+    expect(find.text('Offline album'), findsOneWidget);
+    expect(find.text('Unavailable'), findsNothing);
+    expect(find.text('1'), findsNothing);
+    expect(find.byTooltip('/missing/album'), findsNothing);
+    expect(find.byTooltip('Edit album'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('empty library has an add action and disables maintenance', (tester) async {
     await pump(tester);
     expect(find.text('No Data'), findsOneWidget);
-    expect(find.text('Add New Library'), findsOneWidget);
-    expect(tester.widget<AppButton>(find.byWidgetPredicate((widget) => widget is AppButton && widget.label == 'Library Health Check')).onPressed, isNull);
+    expect(find.byTooltip('Add New Library'), findsOneWidget);
+    expect(tester.widget<AppIconButton>(find.byWidgetPredicate((widget) => widget is AppIconButton && widget.tooltip == 'Library Health Check')).onPressed, isNull);
     for (final tooltip in ['Rescan All Folders', 'Repair Metadata from R18']) {
       expect(tester.widget<AppIconButton>(find.byWidgetPredicate((widget) => widget is AppIconButton && widget.tooltip == tooltip)).onPressed, isNull);
     }
-    await tester.tap(find.text('Add New Library'));
+    await tester.tap(find.byTooltip('Add New Library'));
     await tester.pumpAndSettle();
     expect(Overlayment.count, 0);
     expect(find.byType(AppTextField), findsNWidgets(2));
@@ -98,6 +149,26 @@ void main() {
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
     }
+  });
+
+
+  testWidgets('video and mixed libraries appear before the separated image albums', (tester) async {
+    database.libraries = [
+      {'id': 'album', 'alias': 'Album', 'root_folder': '/album', 'total_video': 0, 'images': '["/album/one.png"]'},
+      {'id': 'video', 'alias': 'Video folder', 'root_folder': '/video', 'total_video': 1},
+      {'id': 'mixed', 'alias': 'Mixed folder', 'root_folder': '/mixed', 'total_video': 1, 'images': '["/mixed/one.png"]'},
+    ];
+    await pump(tester, narrow: true);
+    expect(find.text('Videos'), findsOneWidget);
+    expect(find.text('Images'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('Video folder')).dy, lessThan(tester.getTopLeft(find.text('Mixed folder')).dy));
+    expect(tester.getTopLeft(find.text('Mixed folder')).dy, lessThan(tester.getTopLeft(find.text('Images')).dy));
+    expect(tester.getTopLeft(find.text('Images')).dy, lessThan(tester.getTopLeft(find.text('Album')).dy));
+    expect(find.descendant(of: find.byType(ListView), matching: find.byType(Divider)), findsOneWidget);
+    expect(find.byTooltip('Open image album'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('maintenance actions ask for confirmation and No cancels without running', (tester) async {

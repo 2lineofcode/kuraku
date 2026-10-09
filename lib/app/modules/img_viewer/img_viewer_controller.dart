@@ -1,9 +1,21 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/app_logging.dart';
+import '../../data/database/db_library.dart';
+import '../../data/models/library_entity.dart';
+import '../../utils/helper_file_picker.dart';
+
 class ImgViewerController extends GetxController {
   final images = <String>[].obs;
+  final albums = <Library>[].obs;
+  final albumPanelVisible = false.obs;
+  final albumsLoading = false.obs;
+  final albumError = ''.obs;
+  final selectedAlbumRoot = ''.obs;
   final selectedIndex = 0.obs;
   final title = ''.obs;
   final videoPath = ''.obs;
@@ -11,6 +23,7 @@ class ImgViewerController extends GetxController {
   final transformationController = TransformationController();
   final thumbnailScrollController = ScrollController();
   final focusNode = FocusNode();
+  int _albumSelection = 0;
 
   @override
   void onInit() {
@@ -27,6 +40,7 @@ class ImgViewerController extends GetxController {
 
   @override
   void onClose() {
+    _albumSelection++;
     transformationController.dispose();
     thumbnailScrollController.dispose();
     focusNode.dispose();
@@ -61,6 +75,55 @@ class ImgViewerController extends GetxController {
 
       title.value = args['title']?.toString() ?? '';
       videoPath.value = args['videoPath']?.toString() ?? '';
+      selectedAlbumRoot.value = args['albumRoot']?.toString() ?? '';
+    }
+  }
+
+  Future<void> toggleAlbumPanel() async {
+    albumPanelVisible.toggle();
+    focusNode.requestFocus();
+    if (albumPanelVisible.value) await loadAlbums();
+  }
+
+  Future<void> loadAlbums() async {
+    if (albumsLoading.value) return;
+    albumsLoading.value = true;
+    albumError.value = '';
+    try {
+      final libraries = await DBLibrary.getAll();
+      if (isClosed) return;
+      albums.assignAll(libraries.where((album) => album.images?.isNotEmpty ?? false));
+    } catch (e) {
+      AppLog.logW('Could not load image albums: $e');
+      if (!isClosed) albumError.value = 'Could not load albums. Reopen the panel to retry.';
+    } finally {
+      if (!isClosed) albumsLoading.value = false;
+    }
+  }
+
+  Future<void> selectAlbum(Library? album) async {
+    final selection = ++_albumSelection;
+    bool cancelled() => isClosed || selection != _albumSelection;
+    try {
+      if (album != null && !await Directory(album.rootFolder ?? '').exists()) return;
+      if (cancelled()) return;
+      final paths = album == null ? albums.expand((item) => item.images ?? <String>[]) : album.images ?? <String>[];
+      final available = await HelperFilePicker.existingImages(paths, cancelled: cancelled);
+      if (cancelled()) return;
+      albumError.value = '';
+      selectedIndex.value = 0;
+      images.assignAll(available);
+      selectedAlbumRoot.value = album?.rootFolder ?? 'all';
+      title.value = album == null ? 'All'.tr : album.alias?.trim().isNotEmpty == true ? album.alias! : p.basename(album.rootFolder ?? '');
+      videoPath.value = '';
+      resetZoom();
+      focusNode.requestFocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!isClosed) _scrollThumbnailToSelected(jump: true);
+      });
+    } catch (e) {
+      AppLog.logW('Could not select image album: $e');
+      if (!cancelled()) albumError.value = 'Could not open image album. Check folder permissions and try again.'.tr;
     }
   }
 

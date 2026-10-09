@@ -13,6 +13,7 @@ class Library {
   String? rootFolder;
   List<String>? subFolder;
   List<String>? videos;
+  List<String>? images;
   String? createdAt;
   String? updatedAt;
 
@@ -24,6 +25,7 @@ class Library {
     this.rootFolder,
     this.subFolder,
     this.videos,
+    this.images,
     this.createdAt,
     this.updatedAt
   });
@@ -35,6 +37,7 @@ class Library {
     rootFolder = json['root_folder'] ?? '';
     subFolder = json['sub_folder'] == null || (json['sub_folder'] as String).isEmpty ? null : List<String>.from(jsonDecode(json['sub_folder']));
     videos = json['videos'] == null || (json['videos'] as String).isEmpty ? null : List<String>.from(jsonDecode(json['videos']));
+    images = json['images'] == null ? [] : List<String>.from(jsonDecode(json['images']));
     createdAt = json['created_at'] ?? '';
     updatedAt = json['updated_at'] ?? '';
   }
@@ -55,6 +58,7 @@ class Library {
     } else {
       data['videos'] = null;
     }
+    data['images'] = jsonEncode(images ?? <String>[]);
     data['created_at'] = createdAt ?? DateTime.now().toStringEx();
     data['updated_at'] = updatedAt ?? DateTime.now().toStringEx();
     return data;

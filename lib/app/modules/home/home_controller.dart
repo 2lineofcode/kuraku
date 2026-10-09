@@ -212,6 +212,8 @@ class HomeController extends GetxController with StateMixin {
           Get.find<PageToolsController>().getDuplicateVideos(),
           Get.find<PageToolsController>().checkIsHasDataNotScanned(),
         ],
+        if (Get.isRegistered<PageSettingsController>() && !Get.isPrepared<PageSettingsController>())
+          Get.find<PageSettingsController>().refreshLibraryStats(),
         getAllPlaylist(),
         HomePanelPlaylist.refreshVideoContent(),
         updateFooterSummary(),

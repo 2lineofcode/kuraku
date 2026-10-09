@@ -124,7 +124,7 @@ class LibraryRelocation {
         }
       }
       final updated = current.single..rootFolder = destination.rootFolder
-        ..videos = fresh.destination.videos..subFolder = fresh.destination.subFolder..totalVideo = fresh.destination.totalVideo;
+        ..images = fresh.destination.images..videos = fresh.destination.videos..subFolder = fresh.destination.subFolder..totalVideo = fresh.destination.totalVideo;
       await DBLibrary.commitScan([updated], executor: txn,
         moves: [for (final entry in entries) {
           'id': entry.id, 'oldPath': entry.oldPath, 'newPath': entry.newPath, 'newRoot': destination.rootFolder!,

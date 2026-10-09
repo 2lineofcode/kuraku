@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -7,10 +9,12 @@ import '../../../core/app_color.dart';
 import '../../../core/app_pref.dart';
 import '../../../core/app_translations.dart';
 import '../../../core/const.dart';
+import '../../../data/models/library_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widgets.dart';
 import '../home_controller.dart';
+import '../home_panel/home_panel_library.dart';
 import '../home_panel/home_panel_video_info.dart';
 import '../local_video_selection_item.dart';
 import '../page_explore/page_explore_controller.dart';
@@ -23,7 +27,7 @@ class PageHomeView extends GetView<PageHomeController> {
   Widget build(BuildContext context) {
     AppColor.dependOn(context);
     return Obx(
-      () => controller.totalVideo.value != 0
+      () => controller.totalVideo.value != 0 || controller.listImageAlbums.isNotEmpty
           ? Column(children: [
               Align(alignment: Alignment.centerRight, child: LocalVideoSelectionClear(controller: controller)),
               Expanded(child: buildPage()),
@@ -55,7 +59,7 @@ class PageHomeView extends GetView<PageHomeController> {
             case AppPref.homeSecNewRelease:
               return Obx(
                 key: ValueKey(AppPref.homeSecNewRelease),
-                () => _buildVideoSection(
+                () => _buildMediaSection(
                   title: 'New Release'.tr,
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedFire, size: AppStyle.iconSize, color: Colors.amber),
                   height: 170,
@@ -70,7 +74,7 @@ class PageHomeView extends GetView<PageHomeController> {
             case AppPref.homeSecRecommendation:
               return Obx(
                 key: ValueKey(AppPref.homeSecRecommendation),
-                () => _buildVideoSection(
+                () => _buildMediaSection(
                   title: 'Recommended for You'.tr,
                   // subtitle: controller.recommendationSubtitle.value,
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedSparkles, size: AppStyle.iconSize, color: Vx.amber300),
@@ -86,7 +90,7 @@ class PageHomeView extends GetView<PageHomeController> {
             case AppPref.homeSecRandom:
               return Obx(
                 key: ValueKey(AppPref.homeSecRandom),
-                () => _buildVideoSection(
+                () => _buildMediaSection(
                   title: 'Random Video'.tr,
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedShuffle, size: AppStyle.iconSize, color: Vx.blue300),
                   list: controller.listRandom,
@@ -101,7 +105,7 @@ class PageHomeView extends GetView<PageHomeController> {
             case AppPref.homeSecMostWatch:
               return Obx(
                 key: ValueKey(AppPref.homeSecMostWatch),
-                () => _buildVideoSection(
+                () => _buildMediaSection(
                   title: 'Most Watch'.tr,
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedRanking, size: AppStyle.iconSize, color: Vx.pink300),
                   list: controller.listTop10Watch,
@@ -115,7 +119,7 @@ class PageHomeView extends GetView<PageHomeController> {
             case AppPref.homeSecFavorite:
               return Obx(
                 key: ValueKey(AppPref.homeSecFavorite),
-                () => _buildVideoSection(
+                () => _buildMediaSection(
                   title: 'Favorite'.tr,
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: AppStyle.iconSize, color: Vx.red400),
                   list: controller.listFavorite,
@@ -129,7 +133,7 @@ class PageHomeView extends GetView<PageHomeController> {
             case AppPref.homeSecNewAdd:
               return Obx(
                 key: ValueKey(AppPref.homeSecNewAdd),
-                () => _buildVideoSection(
+                () => _buildMediaSection(
                   title: 'New Added'.tr,
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedFileAdd, size: AppStyle.iconSize, color: Vx.cyan400),
                   list: controller.listNewAdded,
@@ -143,7 +147,7 @@ class PageHomeView extends GetView<PageHomeController> {
             case AppPref.homeSecNeverWatch:
               return Obx(
                 key: ValueKey(AppPref.homeSecNeverWatch),
-                () => _buildVideoSection(
+                () => _buildMediaSection(
                   title: 'Never Watch'.tr,
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedPlaySquare, size: AppStyle.iconSize, color: AppColor.success),
                   list: controller.listNeverWatch,
@@ -157,7 +161,7 @@ class PageHomeView extends GetView<PageHomeController> {
             case AppPref.homeSecOldest:
               return Obx(
                 key: ValueKey(AppPref.homeSecOldest),
-                () => _buildVideoSection(
+                () => _buildMediaSection(
                   title: 'Oldest'.tr,
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedHistory, size: AppStyle.iconSize, color: Vx.lime300),
                   list: controller.listOldest,
@@ -169,6 +173,22 @@ class PageHomeView extends GetView<PageHomeController> {
                   index: index,
                 ),
               );
+            case AppPref.homeSecImageAlbums:
+              return Obx(
+                key: const ValueKey(AppPref.homeSecImageAlbums),
+                () => _buildMediaSection<Library>(
+                  title: 'Image Albums'.tr,
+                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: AppStyle.iconSize),
+                  list: controller.listImageAlbums,
+                  prefKey: AppPref.homeSecImageAlbums,
+                  refreshAction: controller.getImageAlbums,
+                  layoutBuilder: buildLayoutAlbum,
+                  emptyLayoutBuilder: () => const SizedBox.shrink(),
+                  showDirectToExplore: false,
+                  height: 170,
+                  index: index,
+                ),
+              );
             default:
               return SizedBox.shrink(key: ValueKey(sectionKey));
           }
@@ -177,16 +197,16 @@ class PageHomeView extends GetView<PageHomeController> {
     );
   }
 
-  Widget _buildVideoSection({
+  Widget _buildMediaSection<T>({
     Key? key,
     required int index,
     required String title,
     String? subtitle,
     required Widget icon,
-    required RxList<Videos> list,
+    required RxList<T> list,
     required String prefKey,
     required VoidCallback refreshAction,
-    required Widget Function(Videos video) layoutBuilder,
+    required Widget Function(T item) layoutBuilder,
     required Widget Function() emptyLayoutBuilder,
     double? width,
     double? height,
@@ -278,6 +298,31 @@ class PageHomeView extends GetView<PageHomeController> {
   // ────────────────────────────────────────────────────────────────
   // ⵌ REUSABLE WIDGETS
   // ────────────────────────────────────────────────────────────────
+  Widget buildLayoutAlbum(Library album) {
+    final cover = File(controller.imageAlbumCovers[album.rootFolder] ?? album.images!.first);
+    final available = Directory(album.rootFolder ?? '').existsSync();
+    Widget placeholder() => Center(child: HugeIcon(icon: HugeIcons.strokeRoundedImage01,
+      size: AppStyle.emptyIconSize, color: AppColor.muted));
+    return SizedBox(width: 220, child: Material(
+      color: AppColor.container, borderRadius: BorderRadius.circular(8), clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => HomePanelLibrary.openImageAlbum(album),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SizedBox(width: double.infinity, height: 120,
+            child: cover.existsSync() ? Image(image: ResizeImage(FileImage(cover), width: 440, height: 880,
+              policy: ResizeImagePolicy.fit), fit: BoxFit.fitWidth, alignment: Alignment.topCenter,
+              errorBuilder: (_, _, _) => placeholder()) : placeholder()),
+          Padding(padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(album.alias?.trim().isNotEmpty == true ? album.alias! : (album.rootFolder ?? '').getLastPath(),
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              Text(available ? 'Images: @{count}'.trNamed({'count': '${album.images!.length}'}) : 'Unavailable'.tr,
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: AppColor.muted)),
+            ])),
+        ]),
+    ))).pOnly(right: 8);
+  }
+
   Widget buildLayoutFanArt(Videos video, {List<Videos>? items}) {
     final double width = 260;
     return LocalVideoSelectionItem(

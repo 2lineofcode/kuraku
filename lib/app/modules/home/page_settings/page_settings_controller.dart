@@ -44,6 +44,8 @@ class PageSettingsController extends GetxController {
 
   final totalLibrary = 0.obs;
   final totalVideos = 0.obs;
+  final totalAlbums = 0.obs;
+  final totalImages = 0.obs;
   final totalFilesize = Rx<num>(0);
   final lastRelapse = ''.obs;
   final r18TotalVideo = 0.obs;
@@ -143,11 +145,19 @@ class PageSettingsController extends GetxController {
     }
   }
 
+  Future<void> refreshLibraryStats() async {
+    final libraries = await DBLibrary.getAll();
+    if (isClosed) return;
+    totalLibrary.value = libraries.length;
+    totalAlbums.value = libraries.where((library) => library.images?.isNotEmpty ?? false).length;
+    totalImages.value = libraries.fold<int>(0, (count, library) => count + (library.images?.length ?? 0));
+  }
+
   Future<void> onRefresh() async {
     final sw = Stopwatch()..start();
     final r18db = Get.find<DBService>().dbR18;
     dbR18Version.value = r18db == null ? 0 : await r18db.getVersion();
-    totalLibrary.value = await DBLibrary.getCount();
+    await refreshLibraryStats();
     totalVideos.value = await DBVideos.getCount();
     totalFilesize.value = await DBVideos.getTotalFileSizeAllVideo() ?? 0;
     await refreshSemanticStatus();

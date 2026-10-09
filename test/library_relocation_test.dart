@@ -103,6 +103,39 @@ void main() {
     return (await DBLibrary.getByRootFolder(internal.path)).single;
   }
 
+
+  test('image albums persist, rescan changes and preserve lists for offline folders', () async {
+    final first = File('${internal.path}/first.jpg')..writeAsStringSync('image');
+    await scan();
+    final library = (await DBLibrary.getByRootFolder(internal.path)).single;
+    expect(library.images, [first.path]);
+    expect(await DBVideos.getCount(), 0);
+    final home = _Home();
+    Get.put<HomeController>(home);
+    first.deleteSync();
+    final second = File('${internal.path}/second.png')..writeAsStringSync('image');
+    await HomePanelLibrary.doRescanAllVideoFromLibrary([library], showSummaryToast: false);
+    expect((await DBLibrary.getByID(library.id!)).single.images, [second.path]);
+    expect(home.refreshes, 1);
+    internal.renameSync('${internal.path}-offline');
+    await HomePanelLibrary.doRescanAllVideoFromLibrary([library], showSummaryToast: false);
+    expect((await DBLibrary.getByID(library.id!)).single.images, [second.path]);
+    expect(home.refreshes, 1);
+  });
+
+  test('image-only relocation replaces album paths with the destination scan', () async {
+    File('${internal.path}/cover.jpg').writeAsStringSync('image');
+    await scan(roots: [internal]);
+    File('${external.path}/cover.jpg').writeAsStringSync('image');
+    final library = (await DBLibrary.getByRootFolder(internal.path)).single;
+    final preview = await LibraryRelocation.preview(library, external.path);
+    expect(preview.canApply, isTrue);
+    await preview.apply();
+    final relocated = (await DBLibrary.getByID(library.id!)).single;
+    expect(relocated.rootFolder, external.path);
+    expect(relocated.images, ['${external.path}/cover.jpg']);
+  });
+
   test('relocation preview is read-only and preserves nested, missing and soft-deleted records from an offline root', () async {
     final nested = Directory('${internal.path}/日本語 folder')..createSync();
     final source = video(nested, 'a .mp4');

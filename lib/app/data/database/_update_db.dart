@@ -22,7 +22,12 @@ mixin DBUpdate {
     15: (name: 'Harden library integrity, caches and metadata', run: _v15Integrity),
     16: (name: 'Soft delete videos', run: _v16SoftDeleteVideos),
     17: (name: 'Preserve file identity across library moves', run: _v17FileIdentity),
+    18: (name: 'Add library image albums', run: _v18ImageAlbums),
   };
+
+  static Future<void> _v18ImageAlbums(Database db) async {
+    await db.execute("ALTER TABLE library ADD COLUMN images TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(images) AND json_type(images) = 'array')");
+  }
 
   static int get version {
     var expected = 2;

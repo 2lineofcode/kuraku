@@ -293,6 +293,8 @@ mixin AppPref {
 
   static const String homeSecOldest = _kHomeSecOldest;
 
+  static const String homeSecImageAlbums = '_kHomeSecImageAlbums';
+
   // ** player
   static String getDefaultPlayer() => _pref.read(_kDefaultPlayer) ?? 'In App'; // In App | Default System
   static void setDefaultPlayer(String value) => _pref.write(_kDefaultPlayer, value);

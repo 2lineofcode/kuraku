@@ -83,6 +83,7 @@ class AppSettingService extends GetxService {
       AppPref.homeSecNewAdd,
       AppPref.homeSecNeverWatch,
       AppPref.homeSecOldest,
+      AppPref.homeSecImageAlbums,
     ]);
     await pref.writeIfNull(AppPref.homeSecNewRelease, true);
     await pref.writeIfNull(AppPref.homeSecRecommendation, true);
@@ -92,9 +93,14 @@ class AppSettingService extends GetxService {
     await pref.writeIfNull(AppPref.homeSecNewAdd, true);
     await pref.writeIfNull(AppPref.homeSecNeverWatch, true);
     await pref.writeIfNull(AppPref.homeSecOldest, true);
+    await pref.writeIfNull(AppPref.homeSecImageAlbums, true);
 
     final storedHomeOrder = pref.read<List>('_kHomeOrderList');
     final homeOrder = storedHomeOrder == null ? <String>[] : List<String>.from(storedHomeOrder);
+    if (!homeOrder.contains(AppPref.homeSecImageAlbums)) {
+      homeOrder.add(AppPref.homeSecImageAlbums);
+      await pref.write('_kHomeOrderList', homeOrder);
+    }
     if (homeOrder.contains(AppPref.homeSecRecommendation) == false) {
       homeOrder.insert(1, AppPref.homeSecRecommendation);
       await pref.write('_kHomeOrderList', homeOrder);

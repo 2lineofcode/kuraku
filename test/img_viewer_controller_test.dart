@@ -1,9 +1,33 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:javit/app/data/database/_init_db.dart';
+import 'package:javit/app/data/models/library_entity.dart';
 import 'package:javit/app/modules/img_viewer/img_viewer_controller.dart';
+import 'package:sqflite/sqflite.dart';
+
+class _Service extends DBService {
+  @override
+  Future<void> onReady() async {}
+}
+
+class _AlbumsDatabase implements Database {
+  bool fail = false;
+  @override
+  Future<List<Map<String, Object?>>> query(String table, {bool? distinct, List<String>? columns, String? where,
+    List<Object?>? whereArgs, String? groupBy, String? having, String? orderBy, int? limit, int? offset}) async {
+    if (fail) throw StateError('Database unavailable');
+    return [
+      {'root_folder': '/album', 'alias': 'Album', 'images': '["/album/a.png"]'},
+      {'root_folder': '/videos', 'total_video': 1, 'images': '[]'},
+    ];
+  }
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 void main() {
   ImgViewerController build(List<String> images, {String title = ''}) {
@@ -13,6 +37,80 @@ void main() {
     addTearDown(controller.onClose);
     return controller;
   }
+
+  test('album panel starts hidden, reloads on open and keeps the gallery on load failure', () async {
+    final db = _AlbumsDatabase();
+    Get.put<DBService>(_Service()..dbMain = db);
+    addTearDown(Get.reset);
+    final controller = build(['/dropped.png']);
+    expect(controller.albumPanelVisible.value, isFalse);
+    await controller.toggleAlbumPanel();
+    expect(controller.albumPanelVisible.value, isTrue);
+    expect(controller.albums.map((album) => album.rootFolder), ['/album']);
+    expect(controller.images, ['/dropped.png']);
+    await controller.toggleAlbumPanel();
+    expect(controller.albumPanelVisible.value, isFalse);
+    db.fail = true;
+    await controller.toggleAlbumPanel();
+    expect(controller.albumError.value, isNotEmpty);
+    expect(controller.albumsLoading.value, isFalse);
+    expect(controller.images, ['/dropped.png']);
+    await controller.toggleAlbumPanel();
+    db.fail = false;
+    await controller.toggleAlbumPanel();
+    expect(controller.albumError.value, isEmpty);
+  });
+
+  test('album selection resets navigation and All skips missing files and duplicate paths', () async {
+    final directory = Directory.systemTemp.createTempSync('viewer_albums_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final first = File('${directory.path}/first.png')..writeAsStringSync('image');
+    final second = File('${directory.path}/second.png')..writeAsStringSync('image');
+    final album = Library(rootFolder: directory.path, alias: 'Album', images: [first.path, second.path]);
+    final offline = Library(rootFolder: '${directory.path}/offline', images: ['${directory.path}/offline/missing.png']);
+    final controller = build(['/old.png', '/other.png']);
+    controller.albums.assignAll([album, Library(rootFolder: directory.path, images: [first.path]), offline]);
+    controller.selectedIndex.value = 1;
+    controller.videoPath.value = '/old.mp4';
+    controller.zoomIn();
+    controller.albumError.value = 'Previous selection failed';
+    await controller.selectAlbum(album);
+    expect(controller.albumError.value, isEmpty);
+    expect(controller.images, [first.path, second.path]);
+    expect(controller.selectedIndex.value, 0);
+    expect(controller.selectedAlbumRoot.value, directory.path);
+    expect(controller.videoPath.value, isEmpty);
+    expect(controller.transformationController.value, Matrix4.identity());
+    await controller.selectAlbum(offline);
+    expect(controller.images, [first.path, second.path]);
+    await controller.selectAlbum(null);
+    expect(controller.images, [first.path, second.path]);
+    expect(controller.selectedAlbumRoot.value, 'all');
+    expect(album.images, [first.path, second.path]);
+    controller.albums.clear();
+    await controller.selectAlbum(null);
+    expect(controller.images, isEmpty);
+    expect(controller.currentImage, isEmpty);
+  });
+
+  test('latest album selection wins and closing ignores pending results', () async {
+    final directory = await Directory.systemTemp.createTemp('viewer_album_race_');
+    addTearDown(() => directory.delete(recursive: true));
+    final image = await File('${directory.path}/image.png').writeAsString('image');
+    final album = Library(rootFolder: directory.path, images: [image.path]);
+    final controller = build(['/old.png']);
+    final first = controller.selectAlbum(album);
+    final second = controller.selectAlbum(null);
+    await Future.wait([first, second]);
+    expect(controller.selectedAlbumRoot.value, 'all');
+    expect(controller.images, isEmpty);
+
+    final closing = ImgViewerController()..images.assignAll(['/old.png']);
+    final pending = closing.selectAlbum(album);
+    closing.onClose();
+    await pending;
+    expect(closing.images, ['/old.png']);
+  });
 
   test('navigates through the gallery and stops at both ends', () {
     final controller = build(['/a.jpg', '/b.jpg', '/c.jpg']);
@@ -165,11 +263,13 @@ void main() {
       'index': 5,
       'title': 'Screenshots',
       'videoPath': '/Volumes/Movies/one.mp4',
+      'albumRoot': '/album',
     });
     expect(fromMap.images, ['/a.jpg', '/b.jpg']);
     expect(fromMap.selectedIndex.value, 1, reason: 'the index is clamped to the last image');
     expect(fromMap.title.value, 'Screenshots');
     expect(fromMap.videoPath.value, '/Volumes/Movies/one.mp4');
+    expect(fromMap.selectedAlbumRoot.value, '/album');
     await close();
 
     final fromString = await open('/single.jpg');

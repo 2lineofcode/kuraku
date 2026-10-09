@@ -113,6 +113,8 @@ class PageSettingsView extends GetView<PageSettingsController> {
                 Divider(height: 24, color: AppColor.border),
                 _infoRow('Total Library'.tr, '${controller.totalLibrary.value}'),
                 _infoRow('Total Video'.tr, controller.totalVideos.value.numberFormat()),
+                _infoRow('Total Albums'.tr, controller.totalAlbums.value.numberFormat()),
+                _infoRow('Total Images'.tr, controller.totalImages.value.numberFormat()),
                 _infoRow('Library size'.tr, controller.totalFilesize.value.toFileSizeFormat()),
                 _infoRow('Last Relapse'.tr, controller.lastRelapse.value),
                 Divider(height: 24, color: AppColor.border),

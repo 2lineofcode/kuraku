@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:javit/app/data/database/_init_db.dart';
+import 'package:javit/app/data/database/_update_db.dart';
 import 'package:javit/app/data/database/db_library.dart';
 import 'package:javit/app/data/models/library_entity.dart';
 import 'package:sqflite/sqflite.dart';
@@ -80,6 +81,23 @@ void main() {
     Get.put<DBService>(_Service()..dbMain = database);
   });
   tearDown(Get.reset);
+
+
+  test('v18 migration preserves existing libraries and validates album lists in SQLite', () async {
+    final db = await SqliteTestDatabase.open();
+    addTearDown(db.close);
+    await DBService.onCreate(db, 17);
+    await db.execute("INSERT INTO library(id, root_folder, alias, videos) VALUES ('old', '/old', 'Keep', '[]')");
+    await DBUpdate.onUpgrade(db, 17, 18);
+    final old = Library.fromJson((await db.query('library')).single);
+    expect(old.alias, 'Keep');
+    expect(old.images, isEmpty);
+    await db.update('library', {'images': jsonEncode(['/old/cover.jpg'])});
+    expect(Library.fromJson((await db.query('library')).single).images, ['/old/cover.jpg']);
+    for (final invalid in ['invalid', '{}']) {
+      await expectLater(db.update('library', {'images': invalid}), throwsA(isA<SqliteTestException>()));
+    }
+  });
 
   test('adds a library with a generated id, timestamps and encoded list columns', () async {
     final library = Library(rootFolder: '/Volumes/Movies', alias: 'Movies', totalVideo: 2, subFolder: ['/Volumes/Movies/a'], videos: ['/Volumes/Movies/a/one.mp4']);

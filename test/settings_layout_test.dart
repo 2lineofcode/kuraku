@@ -66,6 +66,8 @@ void main() {
     expect(controller.appVersion.value, '1.2.3+20261008.60');
     controller.totalLibrary.value = 2;
     controller.totalVideos.value = 485;
+    controller.totalAlbums.value = 3;
+    controller.totalImages.value = 112;
     controller.totalFilesize.value = 861151872778;
     controller.lastRelapse.value = 'Oct, 3 2026 11:12';
     controller.r18TotalVideo.value = 1907649;
@@ -125,6 +127,9 @@ void main() {
             expect(tester.getSize(theme).width, lessThanOrEqualTo(320));
           }
           expect(find.text('1.2.3+20261008.60'), findsOneWidget);
+          expect(find.text('Total Albums'.tr), findsOneWidget);
+          expect(find.text('Total Images'.tr), findsOneWidget);
+          expect(find.text('112'), findsOneWidget);
           expect(tester.takeException(), isNull, reason: 'language=$language width=$width dark=$dark');
           if (output.isNotEmpty && width == 1100) {
             await tester.runAsync(() async {

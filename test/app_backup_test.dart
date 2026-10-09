@@ -165,6 +165,26 @@ void main() {
     expect(pref.values['_kHomeOrderList'], order);
   });
 
+
+  test('v17 backups restore with empty albums and current backups preserve images', () async {
+    await _seed(db);
+    final data = jsonDecode((await AppBackup.capture(db, pref)).encode()) as Map<String, dynamic>;
+    data['database_version'] = 17;
+    data['settings'].remove('_kHomeSecImageAlbums');
+    for (final row in data['tables']['library']) { row.remove('images'); }
+    final legacy = AppBackup.decode(jsonEncode(data));
+    await legacy.validate();
+    await legacy.apply(db, pref);
+    expect(pref.values['_kHomeSecImageAlbums'], isTrue);
+    expect((await db.query('library')).first['images'], '[]');
+    await db.update('library', {'images': jsonEncode(['/offline/cover.jpg'])});
+    final current = await AppBackup.capture(db, pref);
+    await current.validate();
+    await db.update('library', {'images': '[]'});
+    await current.apply(db, pref);
+    expect((await db.query('library')).first['images'], jsonEncode(['/offline/cover.jpg']));
+  });
+
   test('invalid envelope, missing data and invalid settings are rejected', () async {
     final original = (await AppBackup.capture(db, pref)).encode();
     for (final mutate in <void Function(Map<String, dynamic>)>[
