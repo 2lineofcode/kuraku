@@ -221,6 +221,8 @@ mixin AppPref {
   static String getFavoriteCoverURL() => _pref.read(_kFavoriteCoverURL) ?? 'https://www.zenra.net/imgcache/max-content-width/blog/10/best-debuts-and-honorable-mentions-xx-677ad45348fe4.png';
   static void setFavoriteCoverURL(String value) => _pref.write(_kFavoriteCoverURL, value);
 
+  static const searchEngines = ['NJAV', 'MISSAV', 'JAVMOST', 'SEXTB', 'JAVGURU'];
+
   static String getDefaultSearchEngine() => _pref.read(_kDefaultSearchEngine) ?? 'NJAV';
   static void setDefaultSearchEngine(String value) => _pref.write(_kDefaultSearchEngine, value);
 

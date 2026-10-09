@@ -1,7 +1,7 @@
 name: javit
 description: "A new Flutter project."
 publish_to: "none"
-version: 1.0.0+20261008.64
+version: 1.0.0+20261009.65
 
 environment:
   sdk: ^3.13.0

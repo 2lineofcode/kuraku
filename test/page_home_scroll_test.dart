@@ -25,10 +25,11 @@ class _Controller extends PageHomeController {
 
 class _HomeView extends PageHomeView {
   @override
-  Widget buildLayoutFanArt(Videos video) => SizedBox(width: 260, child: Text(video.title!));
+  Widget buildLayoutFanArt(Videos video, {List<Videos>? items}) => SizedBox(width: 260, child: Text(video.title!));
 
   @override
   Widget buildLayoutPoster(Videos video, {
+    List<Videos>? items,
     double width = 135, double height = 210,
     showReleaseDate = true, showViewCount = true, showQuality = true,
   }) => SizedBox(width: width, child: Text(video.title!));

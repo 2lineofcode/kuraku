@@ -57,7 +57,7 @@ class _R18Database implements Database {
     if (emptyMetadata) return [];
     if (sql.contains('derived_category')) return [{'id': 1, 'category': 'Drama'}];
     if (sql.contains('derived_actress')) return [{'id': 2, 'name_romaji': 'jane doe'}];
-    if (sql.contains('derived_director')) return [{'name_romaji': 'Director'}];
+    if (sql.contains('derived_director')) return [{'director': 'Director'}];
     throw StateError('Unexpected query: $sql');
   }
 

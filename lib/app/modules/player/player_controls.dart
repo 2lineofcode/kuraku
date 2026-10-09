@@ -192,6 +192,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       LogicalKeySet(LogicalKeyboardKey.keyA): ToggleVideoFitIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyP): MiniPlayerIntent(),
       LogicalKeySet(LogicalKeyboardKey.comma): ToggleVideoAdjustmentsIntent(),
+      LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowLeft): RotateLeftIntent(),
+      LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowRight): RotateRightIntent(),
 
       // Navigation shortcuts from player_view
       LogicalKeySet(LogicalKeyboardKey.keyL): OpenListIntent(),
@@ -219,6 +221,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       EqualTapIntent: CallbackAction<EqualTapIntent>( onInvoke: (intent) { _handleEqualPress(); return null; }, ),
       ToggleVideoFitIntent: CallbackAction<ToggleVideoFitIntent>( onInvoke: (intent) => widget.controller.toggleVideoFit() ),
       ToggleVideoAdjustmentsIntent: CallbackAction<ToggleVideoAdjustmentsIntent>( onInvoke: (intent) { _toggleVideoAdjustments(); return null; }, ),
+      RotateLeftIntent: CallbackAction<RotateLeftIntent>( onInvoke: (intent) { _rotateVideo(clockwise: false); return null; }, ),
+      RotateRightIntent: CallbackAction<RotateRightIntent>( onInvoke: (intent) { _rotateVideo(clockwise: true); return null; }, ),
       OpenListIntent: CallbackAction<OpenListIntent>( onInvoke: (intent) { widget.controller.openList(); return null; }, ),
       MiniPlayerIntent: CallbackAction<MiniPlayerIntent>( onInvoke: (intent) { widget.controller.enterMiniMode(); Get.back(); return null; }, ),
       BackIntent: CallbackAction<BackIntent>(onInvoke: (intent) { widget.controller.stopPlayback(); Get.back(); return null; }),
@@ -867,6 +871,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
         bindings: {
           const SingleActivator(LogicalKeyboardKey.comma): _toggleVideoAdjustments,
           const SingleActivator(LogicalKeyboardKey.escape): _toggleVideoAdjustments,
+          const SingleActivator(LogicalKeyboardKey.arrowLeft, meta: true, alt: true): () => _rotateVideo(clockwise: false),
+          const SingleActivator(LogicalKeyboardKey.arrowRight, meta: true, alt: true): () => _rotateVideo(clockwise: true),
         },
         child: Focus(
           focusNode: panelFocus,
@@ -1429,6 +1435,8 @@ class MuteIntent extends Intent { const MuteIntent(); }
 class EqualTapIntent extends Intent { const EqualTapIntent(); }
 class ToggleVideoFitIntent extends Intent { const ToggleVideoFitIntent(); }
 class ToggleVideoAdjustmentsIntent extends Intent { const ToggleVideoAdjustmentsIntent(); }
+class RotateLeftIntent extends Intent { const RotateLeftIntent(); }
+class RotateRightIntent extends Intent { const RotateRightIntent(); }
 class OpenListIntent extends Intent { const OpenListIntent(); }
 class BackIntent extends Intent { const BackIntent(); }
 class OpenScreenshotIntent extends Intent { const OpenScreenshotIntent(); }

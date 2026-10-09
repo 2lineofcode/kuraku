@@ -163,7 +163,8 @@ void main() {
     expect(find.byTooltip('/Volumes/Movies/ABP-001.mp4'), findsWidgets);
     expect(find.byTooltip('Play'), findsOneWidget);
     expect(find.byTooltip('Add/Remove Favorite'), findsOneWidget);
-    expect(find.byTooltip('Renew Metadata'), findsOneWidget);
+    expect(find.byTooltip('Renew Metadata'), findsNothing);
+    expect(find.byTooltip('Trailer'), findsOneWidget);
     expect(find.byTooltip('Open File Path'), findsOneWidget);
     expect(find.byTooltip('Add to Panel Cart'), findsOneWidget);
     expect(find.byTooltip('Add To Playlist'), findsOneWidget);
@@ -213,16 +214,32 @@ void main() {
     await cleanup(tester);
   });
 
-  testWidgets('renew metadata is delegated to the search controller', (tester) async {
+  testWidgets('local info exposes the trailer action and hides renew metadata', (tester) async {
     final video = _video();
     await pump(tester);
 
     unawaited(HomePanelVideoInfo.open(video));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Renew Metadata'));
-    await tester.pumpAndSettle();
+    expect(find.byTooltip('Trailer'), findsOneWidget);
+    expect(find.byTooltip('Renew Metadata'), findsNothing);
+    expect(search.renewed, isNull);
+    await cleanup(tester);
+  });
 
-    expect(search.renewed, same(video));
+  testWidgets('trailer is hidden for NON-JAV and recognizes codes from local filenames', (tester) async {
+    await pump(tester);
+    for (final (code, path, showTrailer) in [
+      (null, '/Volumes/Movies/Personal clip.mp4', false),
+      ('NON-JAV', '/Volumes/Movies/Personal clip.mp4', false),
+      ('', '/Volumes/Movies/ABP-001.mp4', true),
+    ]) {
+      final video = _video()..videoCode = code..videoPath = path;
+      unawaited(HomePanelVideoInfo.open(video));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Trailer'), showTrailer ? findsOneWidget : findsNothing);
+      unawaited(Overlayment.dismissLast());
+      await tester.pumpAndSettle();
+    }
     await cleanup(tester);
   });
 

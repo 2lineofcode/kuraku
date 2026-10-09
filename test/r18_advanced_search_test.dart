@@ -24,12 +24,13 @@ class _Tools extends PageToolsController {
 }
 
 class _Database implements Database {
-  _Database({this.includeFallback = false, this.includeBrowseDuplicates = false, this.includePagination = false, this.includeSeriesGaps = false});
+  _Database({this.includeFallback = false, this.includeBrowseDuplicates = false, this.includePagination = false, this.includeSeriesGaps = false, this.includeNameFallback = false});
 
   final bool includeFallback;
   final bool includeBrowseDuplicates;
   final bool includePagination;
   final bool includeSeriesGaps;
+  final bool includeNameFallback;
   Future<List<Map<String, Object?>>> Function(String, List<Object?>)? run;
 
   @override
@@ -42,14 +43,14 @@ c.row_factory = sqlite3.Row
 c.executescript("""
 CREATE TABLE derived_video(content_id TEXT, dvd_id TEXT, series_id INTEGER, release_date TEXT, title_en TEXT, title_ja TEXT, runtime_mins INTEGER, sample_url TEXT, jacket_full_url TEXT, jacket_thumb_url TEXT, service_code TEXT DEFAULT 'digital', maker_id INTEGER DEFAULT 1, label_id INTEGER DEFAULT 1, site_id INTEGER DEFAULT 1, gallery_full_first TEXT, gallery_full_last TEXT);
 CREATE TABLE derived_maker(id INTEGER, name_en TEXT, name_ja TEXT);
-CREATE TABLE derived_label(id INTEGER, name_en TEXT);
+CREATE TABLE derived_label(id INTEGER, name_en TEXT, name_ja TEXT);
 CREATE TABLE derived_site(id INTEGER, name TEXT);
-CREATE TABLE derived_director(id INTEGER, name_romaji TEXT, name_kana TEXT);
+CREATE TABLE derived_director(id INTEGER, name_romaji TEXT, name_kana TEXT, name_kanji TEXT);
 CREATE TABLE derived_video_director(content_id TEXT, director_id INTEGER);
 INSERT INTO derived_maker VALUES (1,'Studio',NULL);
-INSERT INTO derived_label VALUES (1,'Label');
+INSERT INTO derived_label VALUES (1,'Label',NULL);
 INSERT INTO derived_site VALUES (1,'FANZA');
-INSERT INTO derived_director VALUES (1,'Director',NULL);
+INSERT INTO derived_director VALUES (1,'Director',NULL,NULL);
 CREATE TABLE derived_series(id INTEGER, name_en TEXT, name_ja TEXT);
 CREATE TABLE derived_category(id INTEGER, name_en TEXT, name_ja TEXT);
 CREATE TABLE derived_actress(id INTEGER, name_romaji TEXT, name_kanji TEXT, name_kana TEXT);
@@ -118,13 +119,28 @@ indexer(c)
 indexer(c)
 if sys.argv[5] == 'true':
     c.execute("UPDATE derived_video SET series_id=NULL WHERE content_id='b'")
+if sys.argv[6] == 'true':
+    c.execute("UPDATE derived_series SET name_en='   ' WHERE id=1")
+    c.execute("UPDATE derived_series SET name_en=NULL, name_ja='日本語シリーズ' WHERE id=2")
+    c.executescript("""
+    UPDATE derived_maker SET name_en=NULL, name_ja='スタジオ' WHERE id=1;
+    UPDATE derived_label SET name_en='   ', name_ja='レーベル' WHERE id=1;
+    UPDATE derived_director SET name_romaji=NULL, name_kanji='監督', name_kana='かんとく' WHERE id=1;
+    INSERT INTO derived_maker VALUES (2,'   ','別スタジオ'), (3,NULL,NULL);
+    INSERT INTO derived_label VALUES (2,NULL,'別レーベル'), (3,'   ','   ');
+    INSERT INTO derived_director VALUES (2,'   ','かな','   '), (3,NULL,NULL,NULL);
+    UPDATE derived_video SET maker_id=2, label_id=2 WHERE content_id='b';
+    UPDATE derived_video SET maker_id=3, label_id=3 WHERE content_id='c';
+    UPDATE derived_video_director SET director_id=2 WHERE content_id='b';
+    UPDATE derived_video_director SET director_id=3 WHERE content_id='c';
+    """)
 assert c.execute('SELECT count(*) FROM derived_video').fetchone()[0] == before
 q, args = json.loads(sys.argv[1])
 if 'summary AS' in q:
     plan = c.execute('EXPLAIN QUERY PLAN ' + q, args).fetchall()
     assert any('idx_dv_advanced_codes' in row[3] for row in plan), [tuple(row) for row in plan]
 print(json.dumps([dict(r) for r in c.execute(q,args)]))
-''', jsonEncode([sql, arguments ?? []]), '$includeFallback', '$includeBrowseDuplicates', '$includePagination', '$includeSeriesGaps']);
+''', jsonEncode([sql, arguments ?? []]), '$includeFallback', '$includeBrowseDuplicates', '$includePagination', '$includeSeriesGaps', '$includeNameFallback']);
     if (result.exitCode != 0) throw StateError('${result.stderr}');
     return (jsonDecode('${result.stdout}') as List).map((row) => Map<String, Object?>.from(row as Map)).toList();
   }
@@ -143,6 +159,35 @@ void main() {
     Get.put<DBService>(_Service()..dbR18 = database..dbMain = database);
   });
   tearDown(Get.reset);
+
+  test('video info uses Japanese series names when English is null or blank', () async {
+    expect((await DBR18.getVideo('ABC-123'))!['series'], 'Cast');
+    database = _Database(includeNameFallback: true);
+    Get.find<DBService>().dbR18 = database;
+    expect((await DBR18.getVideo('ABC-123'))!['series'], '日本語');
+    expect((await DBR18.getVideo('ABC-124'))!['series'], '日本語シリーズ');
+    database = _Database(includeSeriesGaps: true);
+    Get.find<DBService>().dbR18 = database;
+    expect((await DBR18.getVideo('ABC-124'))!['series'], isNull);
+  });
+
+  test('metadata names prefer English or Romaji and fall back to Japanese', () async {
+    final original = (await DBR18.getVideo('ABC-123'))!;
+    expect(original['label'], 'Label');
+    expect(original['studio'], 'Studio');
+    expect((await DBR18.getDirector('ABC-123'))!['director'], 'Director');
+    Get.find<DBService>().dbR18 = _Database(includeNameFallback: true);
+    for (final (code, label, studio, director) in [
+      ('ABC-123', 'レーベル', 'スタジオ', '監督'),
+      ('ABC-124', '別レーベル', '別スタジオ', 'かな'),
+      ('ABC-125', null, null, null),
+    ]) {
+      final video = (await DBR18.getVideo(code))!;
+      expect(video['label'], label);
+      expect(video['studio'], studio);
+      expect((await DBR18.getDirector(code))!['director'], director);
+    }
+  });
 
   test('Explore and Advanced Search count the same valid series videos', () async {
     final advanced = await DBR18.getAdvancedSearchVideos('Series', 1);

@@ -185,9 +185,9 @@ mixin DBR18 {
           v.video_code as video_code,                                     -- video_code
           COALESCE(t.target_en, v.title_en, v.title_ja) AS title,     -- title
           v.title_ja,                                                 -- title_ja
-          s.name_en as series,                                        -- series
-          COALESCE(m.name_en, m.name_ja) AS studio,                   -- studio/maker
-          l.name_en as label,                                         -- label
+          COALESCE(NULLIF(TRIM(s.name_en), ''), NULLIF(TRIM(s.name_ja), '')) AS series, -- series
+          COALESCE(NULLIF(TRIM(m.name_en), ''), NULLIF(TRIM(m.name_ja), '')) AS studio,                   -- studio/maker
+          COALESCE(NULLIF(TRIM(l.name_en), ''), NULLIF(TRIM(l.name_ja), '')) AS label,                                         -- label
           site.name as site,                                          -- site
           v.runtime_mins as duration,                                 -- duration 
           v.release_date as release_date,                             -- release_date
@@ -688,7 +688,8 @@ mixin DBR18 {
 
     final maps = await _rawQuery('''
         SELECT
-          d.*
+          d.*,
+          COALESCE(NULLIF(TRIM(d.name_romaji), ''), NULLIF(TRIM(d.name_kanji), ''), NULLIF(TRIM(d.name_kana), '')) AS director
         FROM derived_director d
         WHERE d.id IN (
           SELECT vd.director_id

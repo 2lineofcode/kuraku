@@ -480,6 +480,7 @@ class PageExploreTabView extends StatelessWidget {
             return MediaStack(
               [
                 ExThumbnail(
+                  screenshotItems: controller.rightListR18Filtered,
                   imageUrl: item['fan_art'] ?? '',
                   videoCode: item['video_code'],
                   width: 300,
@@ -538,10 +539,10 @@ class PageExploreTabView extends StatelessWidget {
 
                 // ** open screenshot
                 HugeIcon(icon: HugeIcons.strokeRoundedImage01).p(6).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
-                  HelperOpener.openScreenshot(item);
+                  HelperOpener.openScreenshot(item, items: controller.rightListR18Filtered);
                 }).positioned(right: 8, top: 36),
               ],
-            ).onInkTap(() async => await HelperOpener.openVideoInfo(item)).pOnly(bottom: 12);
+            ).onInkTap(() async => await HelperOpener.openVideoInfo(item, items: controller.rightListR18Filtered)).pOnly(bottom: 12);
           },
         ).expand()
       ],
@@ -559,13 +560,14 @@ class PageExploreTabView extends StatelessWidget {
   }) {
     return LocalVideoSelectionItem(
       controller: controller, video: video,
-      onSingleTap: () async => await HomePanelVideoInfo.open(video),
+      onSingleTap: () async => await HomePanelVideoInfo.open(video, items: controller.rightListLocal.value),
       onDoubleTap: () async => await HelperOpener.openVideoFile(video, playlist: controller.rightListLocal.value),
       child: Container(
         color: AppColor.container,
         child: MediaStack([
           ExThumbnail(
             imageUrl: video.fanArt,
+            screenshotItems: controller.rightListLocal.value,
             videoPath: video.videoPath,
             contextMenuIsAllowed: (_) => controller.selectedVideos.isEmpty,
             width: width,

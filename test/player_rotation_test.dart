@@ -325,9 +325,26 @@ void main() {
       valueListenable: showControls,
       builder: (context, visible, child) => visible ? PlayerControls(controller: controller, videoState: VideoState()) : const SizedBox.shrink(),
     ))));
+    Future<void> rotateWithShortcuts() async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pumpAndSettle();
+      expect(native.commands, [
+        ['cycle-values', 'video-rotate', '0', '270', '180', '90'],
+        ['cycle-values', 'video-rotate', '0', '90', '180', '270'],
+      ]);
+      native.commands.clear();
+    }
+    await tester.pumpAndSettle();
+    await rotateWithShortcuts();
     await tester.sendKeyEvent(LogicalKeyboardKey.comma);
     await tester.pumpAndSettle();
     expect(Overlayment.count, 1);
+    await rotateWithShortcuts();
     final brightnessSlider = find.descendant(
       of: find.ancestor(of: find.text('Brightness'), matching: find.byType(Column)).first,
       matching: find.byType(Slider),

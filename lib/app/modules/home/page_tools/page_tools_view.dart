@@ -195,7 +195,7 @@ class PageToolsView extends GetView<PageToolsController> {
       color: Colors.transparent,
       child: InkWell(
         hoverColor: AppColor.hover,
-        onTap: () => HomePanelVideoInfo.open(item),
+        onTap: () => HomePanelVideoInfo.open(item, items: controller.topLargeFileSizeList),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(children: [
@@ -300,13 +300,13 @@ class PageToolsView extends GetView<PageToolsController> {
         Text(reason, style: TextStyle(fontSize: 10, color: AppColor.muted)),
         for (final video in videos) ...[
           Divider(height: 20, thickness: .5, color: AppColor.border),
-          _duplicateFile(video),
+          _duplicateFile(video, videos),
         ],
       ]),
     );
   }
 
-  Widget _duplicateFile(Videos video) {
+  Widget _duplicateFile(Videos video, List<Videos> videos) {
     final path = video.videoPath ?? '';
     final available = controller.duplicateFileAvailable[path] == true;
     final poster = (video.poster ?? '').isNotEmpty ? video.poster! : video.fanArt ?? '';
@@ -335,7 +335,7 @@ class PageToolsView extends GetView<PageToolsController> {
       Column(mainAxisSize: MainAxisSize.min, children: [
         AppIconButton(tooltip: 'Open Info'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: AppStyle.iconSize),
           style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-          onPressed: () => HomePanelVideoInfo.open(video),
+          onPressed: () => HomePanelVideoInfo.open(video, items: videos),
         ),
         AppIconButton(tooltip: 'Open File Path'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedFolderOpen, size: AppStyle.iconSize),
           style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
@@ -713,6 +713,7 @@ class PageToolsView extends GetView<PageToolsController> {
           borderRadius: BorderRadius.circular(8),
           child: MediaStack([
             ExThumbnail(
+              screenshotItems: controller.rightListFiltered,
               imageUrl: item['fan_art'] ?? '',
               videoCode: item['video_code'],
               width: constraints.maxWidth,
@@ -755,10 +756,10 @@ class PageToolsView extends GetView<PageToolsController> {
                 tooltip: 'Open screenshots'.tr,
                 style: IconButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
                 icon: const HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: AppStyle.iconSize),
-                onPressed: () => HelperOpener.openScreenshot(item),
+                onPressed: () => HelperOpener.openScreenshot(item, items: controller.rightListFiltered),
               ),
             ])),
-          ]).onInkTap(() async => await HelperOpener.openVideoInfo(item)),
+          ]).onInkTap(() async => await HelperOpener.openVideoInfo(item, items: controller.rightListFiltered)),
         ));
       },
     );

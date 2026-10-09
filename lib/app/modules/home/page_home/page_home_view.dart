@@ -62,7 +62,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   list: controller.listNewRelease,
                   prefKey: AppPref.homeSecNewRelease,
                   refreshAction: controller.getListNewRelease,
-                  layoutBuilder: (video) => buildLayoutFanArt(video),
+                  layoutBuilder: (video) => buildLayoutFanArt(video, items: controller.listNewRelease),
                   emptyLayoutBuilder: buildLayoutEmptyFanArt,
                   index: index,
                 ),
@@ -77,7 +77,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   list: controller.listRecommendation,
                   prefKey: AppPref.homeSecRecommendation,
                   refreshAction: controller.getListRecommendation,
-                  layoutBuilder: (video) => buildLayoutPoster(video),
+                  layoutBuilder: (video) => buildLayoutPoster(video, items: controller.listRecommendation),
                   emptyLayoutBuilder: buildLayoutEmptyPoster,
                   showDirectToExplore: false,
                   index: index,
@@ -92,7 +92,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   list: controller.listRandom,
                   prefKey: AppPref.homeSecRandom,
                   refreshAction: controller.getListRandom,
-                  layoutBuilder: (video) => buildLayoutPoster(video),
+                  layoutBuilder: (video) => buildLayoutPoster(video, items: controller.listRandom),
                   emptyLayoutBuilder: buildLayoutEmptyPoster,
                   showDirectToExplore: false,
                   index: index,
@@ -107,7 +107,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   list: controller.listTop10Watch,
                   prefKey: AppPref.homeSecMostWatch,
                   refreshAction: controller.getListMostWatch,
-                  layoutBuilder: (video) => buildLayoutPoster(video),
+                  layoutBuilder: (video) => buildLayoutPoster(video, items: controller.listTop10Watch),
                   emptyLayoutBuilder: buildLayoutEmptyPoster,
                   index: index,
                 ),
@@ -121,7 +121,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   list: controller.listFavorite,
                   prefKey: AppPref.homeSecFavorite,
                   refreshAction: controller.getListFavorite,
-                  layoutBuilder: (video) => buildLayoutPoster(video),
+                  layoutBuilder: (video) => buildLayoutPoster(video, items: controller.listFavorite),
                   emptyLayoutBuilder: buildLayoutEmptyPoster,
                   index: index,
                 ),
@@ -135,7 +135,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   list: controller.listNewAdded,
                   prefKey: AppPref.homeSecNewAdd,
                   refreshAction: controller.getListNewAdded,
-                  layoutBuilder: (video) => buildLayoutPoster(video),
+                  layoutBuilder: (video) => buildLayoutPoster(video, items: controller.listNewAdded),
                   emptyLayoutBuilder: buildLayoutEmptyPoster,
                   index: index,
                 ),
@@ -149,7 +149,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   list: controller.listNeverWatch,
                   prefKey: AppPref.homeSecNeverWatch,
                   refreshAction: controller.getListNeverWatch,
-                  layoutBuilder: (video) => buildLayoutPoster(video),
+                  layoutBuilder: (video) => buildLayoutPoster(video, items: controller.listNeverWatch),
                   emptyLayoutBuilder: buildLayoutEmptyPoster,
                   index: index,
                 ),
@@ -163,7 +163,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   list: controller.listOldest,
                   prefKey: AppPref.homeSecOldest,
                   refreshAction: controller.getListOldest,
-                  layoutBuilder: (video) => buildLayoutPoster(video),
+                  layoutBuilder: (video) => buildLayoutPoster(video, items: controller.listOldest),
                   emptyLayoutBuilder: buildLayoutEmptyPoster,
                   showDirectToExplore: false,
                   index: index,
@@ -278,17 +278,18 @@ class PageHomeView extends GetView<PageHomeController> {
   // ────────────────────────────────────────────────────────────────
   // ⵌ REUSABLE WIDGETS
   // ────────────────────────────────────────────────────────────────
-  Widget buildLayoutFanArt(Videos video) {
+  Widget buildLayoutFanArt(Videos video, {List<Videos>? items}) {
     final double width = 260;
     return LocalVideoSelectionItem(
       controller: controller, video: video,
-      onSingleTap: () => HomePanelVideoInfo.open(video),
+      onSingleTap: () => HomePanelVideoInfo.open(video, items: items),
       onDoubleTap: () => HelperOpener.openVideoFile(video),
       child: Container(
         color: AppColor.container,
         child: MediaStack([
           ExThumbnail(
             imageUrl: video.fanArt,
+            screenshotItems: items,
             videoPath: video.videoPath,
             contextMenuIsAllowed: (_) => controller.selectedVideos.isEmpty,
             width: width,
@@ -322,6 +323,7 @@ class PageHomeView extends GetView<PageHomeController> {
 
   Widget buildLayoutPoster(
     Videos video, {
+    List<Videos>? items,
     double width = 135,
     double height = 210,
     showReleaseDate = true,
@@ -330,13 +332,14 @@ class PageHomeView extends GetView<PageHomeController> {
   }) {
     return LocalVideoSelectionItem(
       controller: controller, video: video,
-      onSingleTap: () async => await HomePanelVideoInfo.open(video),
+      onSingleTap: () async => await HomePanelVideoInfo.open(video, items: items),
       onDoubleTap: () async => await HelperOpener.openVideoFile(video),
       child: Container(
         color: AppColor.container,
         child: MediaStack([
           ExThumbnail(
             imageUrl: video.fanArt,
+            screenshotItems: items,
             videoPath: video.videoPath,
             contextMenuIsAllowed: (_) => controller.selectedVideos.isEmpty,
             width: width,

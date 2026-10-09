@@ -714,7 +714,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       requestFocusOnPlayer();
       return;
     }
-    await HomePanelVideoInfo.open(currentVideo.value);
+    await HomePanelVideoInfo.open(currentVideo.value, items: playlist);
     requestFocusOnPlayer();
   }
 
@@ -992,7 +992,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
   Future<void> openSS() async {
     try {
-      await HelperOpener.openScreenshot(currentVideo.value);
+      await HelperOpener.openScreenshot(currentVideo.value, items: playlist);
     } finally {
       requestFocusOnPlayer();
     }

@@ -633,7 +633,7 @@ mixin HomePanelLibrary {
       newVideo.durationFormated = HelperMisc.durationFormatDB(newVideo.duration ?? 0);
       newVideo.releaseDateFormated = newVideo.releaseDate.isNotEmptyAndNotNull
           ? newVideo.releaseDate!.reformatDate(from: kYMd, to: kMdY) : '';
-      newVideo.director = dataDirector?['name_romaji'] ?? '';
+      newVideo.director = dataDirector?['director'] ?? '';
       newVideo.fanArt = dataVideo['fan_art'] ?? '';
       newVideo.poster = dataVideo['poster'] ?? '';
 

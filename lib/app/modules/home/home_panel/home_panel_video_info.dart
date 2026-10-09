@@ -1,5 +1,3 @@
-import 'dart:math' show max;
-
 import 'package:ex_kit/ex.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:flutter/material.dart';
@@ -9,7 +7,6 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:path/path.dart' as p;
-import 'package:zoom_hover_pinch_image/zoom_hover_pinch_image.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
@@ -29,7 +26,9 @@ import 'home_panel_playlist.dart';
 
 mixin HomePanelVideoInfo {
   //
-  static Future<void> open(Videos video) async {
+  static Future<void> open(Videos video, {List<dynamic>? items, int? itemIndex}) async {
+    final source = List<dynamic>.of(items ?? [video]);
+    final index = itemIndex ?? HelperOpener.screenshotItemIndex(video, source);
     final _controller = Get.find<PageSearchController>();
     final _mediaInfo = <String>[].obs;
     final _translatedTitle = HelperDecensor.decensor(video.title ?? '').obs;
@@ -59,7 +58,7 @@ mixin HomePanelVideoInfo {
                 }
 
                 if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                  HelperOpener.openScreenshot(video);
+                  HelperOpener.openScreenshot(video, items: source, itemIndex: index);
                   Overlayment.dismissLast();
                 }
 
@@ -78,12 +77,13 @@ mixin HomePanelVideoInfo {
                 ZStack([
                   ExThumbnail(
                     imageUrl: video.fanArt,
+                    screenshotItems: source, screenshotItemIndex: index,
                     videoPath: video.videoPath,
                     width: 300,
                     height: 200,
                     fitMemory: BoxFit.fitHeight,
                     fitUrl: BoxFit.contain,
-                  ).color(AppColor.selected).onInkTap(() => _openScreenshot(video)),
+                  ).color(AppColor.selected).onInkTap(() => HelperOpener.openScreenshot(video, items: source, itemIndex: index, localFrames: true)),
 
                   // quality
                   if (video.quality.isNotEmptyAndNotNull) ...[
@@ -151,17 +151,14 @@ mixin HomePanelVideoInfo {
                           ).pOnly(right: 8).tooltip('Add/Remove Favorite'.tr),
                         ),
 
-                        // renew metadata
-                        // video.videoCode?.isNotBlank ?? false
-                        //     ?
-                            Container(
-                                decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
-                                child: AppIconButton(
-                                  icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
-                                  onPressed: () => _controller.renewMetadata(video),
-                                ),
-                              ).pOnly(right: 8).tooltip('Renew Metadata'.tr),
-                            // : 0.heightBox,
+                        // trailer
+                        if (HelperMisc.resolveVideoCode(videoCode: video.videoCode, videoPath: video.videoPath, title: video.title).isNotEmpty) Container(
+                          decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
+                          child: AppIconButton(
+                            icon: HugeIcon(icon: HugeIcons.strokeRoundedVideo01, size: AppStyle.iconSize),
+                            onPressed: () async => { await Overlayment.dismissLast(), await HelperOpener.openTrailer(video)}
+                          ),
+                        ).pOnly(right: 8).tooltip('Trailer'.tr),
 
                         Container(
                           decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
@@ -358,220 +355,6 @@ mixin HomePanelVideoInfo {
   // ────────────────────────────────────────────────────────────────
   // ⵌ ~
   // ────────────────────────────────────────────────────────────────
-  static Future<void> _openScreenshot(Videos video) async {
-    final idxSelectedJav = 0.obs;
-    final idxSelectedNonJav = 10.obs;
-    final focusNode = FocusNode();
-
-    await Overlayment.show(
-      context: Get.context,
-      OverPanel(
-        alignment: Alignment.center,
-        width: max(Get.width * 90 / 100, 400),
-        height: max(Get.height * 80 / 100, 400),
-        backgroundSettings: BackgroundSettings(blur: 5, color: Colors.transparent),
-        animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: AppColor.panel,
-        actions: OverlayActions(onReady: () async => focusNode.requestFocus()),
-        child: FocusScope(
-          autofocus: true,
-          child: KeyboardListener(
-            focusNode: focusNode,
-            onKeyEvent: (event) {
-              if (event is KeyDownEvent) {
-                // ** non jav
-                if (video.screenshot.isEmptyOrNull) {
-                  if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                    idxSelectedNonJav.value = idxSelectedNonJav.value - 10;
-                  } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                    idxSelectedNonJav.value = idxSelectedNonJav.value + 10;
-                  } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                    Overlayment.dismissLast();
-                  }
-                }
-
-                // **  jav
-                else {
-                  if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                    if (idxSelectedJav.value > 0) idxSelectedJav.value--;
-                  } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                    if (idxSelectedJav.value < video.screenshot!.length - 1) idxSelectedJav.value++;
-                  } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                    Overlayment.dismissLast();
-                  }
-                }
-              }
-            },
-            child: VStack(
-              [
-                // ** non jav
-                if (video.screenshot.isEmptyOrNull) ...[
-
-                  ZStack([
-                    Obx(
-                      () => Zoom(
-                        width: max(Get.width * 90 / 100, 400),
-                        height: max(Get.height * 80 / 100, 400) - 80,
-                        child: ExThumbnail(
-                          imageUrl: '',
-                          videoPath: video.videoPath,
-                          width: max(Get.width * 90 / 100, 400),
-                          height: max(Get.height * 80 / 100, 400) - 80,
-                          fitMemory: BoxFit.contain,
-                          position: idxSelectedNonJav.value,
-                        ),
-                      ),
-                    ),
-
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Container(
-                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
-                        child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: AppStyle.iconSize).p12(),
-                      ).onInkTap(() => idxSelectedNonJav.value = idxSelectedNonJav.value + 10),
-                    ).positioned(right: 8, top: 0, bottom: 0),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
-                        child: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: AppStyle.iconSize).p12(),
-                      ).onInkTap(() => idxSelectedNonJav.value = idxSelectedNonJav.value - 10),
-                    ).positioned(left: 8, top: 0, bottom: 0),
-
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: Container(
-                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
-                        child: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize).p8(),
-                      ).onInkTap(() {
-                        Overlayment.dismissLast();
-                      }),
-                    ).positioned(right: 8, top: 12, bottom: 0),
-                  ]),
-
-                  Container(height: 5, color: AppColor.container),
-                  ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: 7,
-                    itemBuilder: (context, index) {
-                      final pos = max(index * ExRandom.between(60, 180), 3);
-                      return ZStack(
-                        [
-                          ExThumbnail(
-                            imageUrl: '',
-                            videoPath: video.videoPath,
-                            width: 120,
-                            height: 70,
-                            fitMemory: BoxFit.cover,
-                            position: pos,
-                          ).onInkTap(() => idxSelectedNonJav.value = pos).pOnly(right: 4),
-                          Obx(
-                            () => Container(
-                              width: 120,
-                              height: 70,
-                              color: Colors.green.withAlpha(100),
-                            ).onInkTap(() => idxSelectedNonJav.value = pos).pOnly(right: 4).hide(isVisible: idxSelectedNonJav.value == pos),
-                          ),
-                        ],
-                      );
-                    },
-                  ).wh(double.infinity, 70),
-                  Container(height: 5, color: AppColor.container),
-                ]
-
-                // ** jav
-                else ...[
-                  ZStack(
-                    [
-                      Obx(
-                        () => Zoom(
-                          width: max(Get.width * 90 / 100, 400),
-                          height: max(Get.height * 80 / 100, 400) - 80,
-                          child: ExThumbnail(
-                            imageUrl: '${video.screenshot?[idxSelectedJav.value]}',
-                            videoPath: video.videoPath,
-                            width: max(Get.width * 90 / 100, 400),
-                            height: max(Get.height * 80 / 100, 400) - 80,
-                            fitUrl: BoxFit.contain,
-                          ),
-                        ),
-                      ),
-                      Obx(
-                        () => Container(
-                          decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
-                          child: '${idxSelectedJav.value + 1}/${video.screenshot!.length}'.text.size(11).minFontSize(11).make().p4(),
-                        ),
-                      ).p12(),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Container(
-                          decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
-                          child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: AppStyle.iconSize).p12(),
-                        ).onInkTap(() {
-                          if (idxSelectedJav.value < video.screenshot!.length - 1) {
-                            idxSelectedJav.value++;
-                          }
-                        }),
-                      ).positioned(right: 8, top: 0, bottom: 0),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Container(
-                          decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
-                          child: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: AppStyle.iconSize).p12(),
-                        ).onInkTap(() {
-                          if (idxSelectedJav.value > 0) {
-                            idxSelectedJav.value--;
-                          }
-                        }),
-                      ).positioned(left: 8, top: 0, bottom: 0),
-                      Align(
-                        alignment: Alignment.topRight,
-                        child: Container(
-                          decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black180),
-                          child: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize).p8(),
-                        ).onInkTap(() {
-                          Overlayment.dismissLast();
-                        }),
-                      ).positioned(right: 8, top: 12, bottom: 0),
-                    ],
-                  ),
-                  Container(height: 5, color: AppColor.container),
-                  ListView.builder(
-                    itemCount: video.screenshot!.length,
-                    scrollDirection: Axis.horizontal,
-                    itemBuilder: (context, index) {
-                      return ZStack(
-                        [
-                          ExThumbnail(
-                            imageUrl: '${video.screenshot?[index]}',
-                            videoPath: video.videoPath,
-                            width: 120,
-                            height: 70,
-                            fitUrl: BoxFit.cover,
-                          ).onInkTap(() {
-                            idxSelectedJav.value = index;
-                          }).pOnly(right: 4),
-                          Obx(
-                            () => Container(
-                              width: 120,
-                              height: 70,
-                              color: Colors.green.withAlpha(100),
-                            ).onInkTap(() => idxSelectedJav.value = index).pOnly(right: 4).hide(isVisible: idxSelectedJav.value == index),
-                          ),
-                        ],
-                      );
-                    },
-                  ).wh(double.infinity, 70),
-                  Container(height: 5, color: AppColor.container),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   static Future<void> _onItemActressClick(Videos video, int index) async {
     final newTab = PageExploreController.isNewTabModifierPressed;
     final name = '${video.actress?[index].nameRomaji == '' ? '${video.actress?[index].nameKana}' : '${video.actress?[index].nameRomaji}'}';

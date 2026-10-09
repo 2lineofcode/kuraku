@@ -4,13 +4,16 @@ import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/app_color.dart';
+import '../../core/app_pref.dart';
 import 'widget_controls.dart';
 import 'widget_style.dart';
 
 class DownloadMethodDialog extends StatelessWidget {
-  const DownloadMethodDialog({super.key, required this.onSelected});
+  const DownloadMethodDialog({super.key, required this.onSelected, required this.defaultEngine, this.hasSourceUrl = false});
 
-  final ValueChanged<String?> onSelected;
+  final ValueChanged<({String method, String? engine})?> onSelected;
+  final String defaultEngine;
+  final bool hasSourceUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -33,36 +36,56 @@ class DownloadMethodDialog extends StatelessWidget {
             ])
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: AppButton(
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColor.text,
-                    backgroundColor: AppColor.container,
-                    padding: const EdgeInsets.all(12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    side: BorderSide(color: AppColor.border),
-                  ),
-                  onPressed: () => onSelected(option.$1),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(color: AppColor.muted.withAlpha(18), borderRadius: BorderRadius.circular(8)),
-                        child: HugeIcon(icon: option.$4, size: AppStyle.iconSize, color: AppColor.text).p(6),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(option.$2, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 3),
-                            Text(option.$3, style: TextStyle(fontSize: 11, fontWeight: FontWeight.normal, color: AppColor.muted)),
-                          ],
+                child: MenuAnchor(
+                  animated: false,
+                  consumeOutsideTap: true,
+                  menuChildren: [
+                    for (final engine in [if (hasSourceUrl) null, ...AppPref.searchEngines])
+                      MenuItemButton(
+                        onPressed: () => onSelected((method: option.$1, engine: engine)),
+                        leadingIcon: HugeIcon(
+                          icon: engine == (hasSourceUrl ? null : defaultEngine) ? HugeIcons.strokeRoundedCheckmarkCircle02 : HugeIcons.strokeRoundedCircle,
+                          size: AppStyle.iconSize,
                         ),
+                        child: Text(engine ?? 'Original URL'.tr),
                       ),
-                      HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: AppStyle.iconSize, color: AppColor.muted),
-                    ],
+                  ],
+                  builder: (context, menu, child) => AppButton(
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColor.text,
+                      backgroundColor: AppColor.container,
+                      padding: const EdgeInsets.all(12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      side: BorderSide(color: AppColor.border),
+                    ),
+                    onPressed: () => onSelected((method: option.$1, engine: hasSourceUrl ? null : defaultEngine)),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(color: AppColor.muted.withAlpha(18), borderRadius: BorderRadius.circular(8)),
+                          child: HugeIcon(icon: option.$4, size: AppStyle.iconSize, color: AppColor.text).p(6),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(option.$2, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 3),
+                              Text(option.$3, style: TextStyle(fontSize: 11, fontWeight: FontWeight.normal, color: AppColor.muted)),
+                            ],
+                          ),
+                        ),
+                        AppIconButton(
+                          key: ValueKey('download-engine-${option.$1}'),
+                          tooltip: 'Search Engine'.tr,
+                          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: AppStyle.iconSize, color: AppColor.muted),
+                          onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

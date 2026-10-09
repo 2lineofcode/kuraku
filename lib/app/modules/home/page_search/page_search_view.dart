@@ -262,7 +262,7 @@ class PageSearchTabView extends StatelessWidget {
 
   Widget _buildSelectableItem(Videos video, Widget child) => LocalVideoSelectionItem(
     controller: controller, video: video,
-    onSingleTap: () => HomePanelVideoInfo.open(video),
+    onSingleTap: () => HomePanelVideoInfo.open(video, items: controller.videos),
     onDoubleTap: () => HelperOpener.openVideoFile(video),
     child: child,
   );
@@ -356,6 +356,7 @@ class PageSearchTabView extends StatelessWidget {
         child: MediaStack([
           ExThumbnail(
             imageUrl: video.fanArt,
+            screenshotItems: controller.videos,
             videoPath: video.videoPath,
             width: width,
             height: height,

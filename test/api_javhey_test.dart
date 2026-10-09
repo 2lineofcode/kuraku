@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:javit/app/data/api/api_javhey.dart';
 import 'package:javit/app/data/models/__javit_search_entity.dart';
 import 'package:javit/app/utils/helper_opener.dart';
+import 'package:javit/env.g.dart';
 
 String card({String title = 'JAV Subtitle Indonesia - ABC-001 A &amp; B', String url = '/video/100/abc-001-title', String image = '//cdn.example.com/cover.webp'}) =>
     '<article class="item"><div class="item_header"><img src="$image"></div><div class="item_content"><h3><a href="$url">$title</a></h3></div></article>';
@@ -22,6 +23,19 @@ void main() {
     expect(video.releaseDate, isNull);
     expect(video.duration, isNull);
     expect(ApiJavHey.parsePage(page(card())).hasNextPage, isFalse);
+  });
+
+  test('explicit engine overrides the source URL', () {
+    final urls = {
+      'NJAV': '${Env.njavUrl}/en/ABC-001-uncensored-leak'.replaceAll('/en/search', ''),
+      'MISSAV': '${Env.missavUrl}/en/ABC-001-uncensored-leak'.replaceAll('/en/search', ''),
+      'JAVMOST': '${Env.javmostUrl}/ABC-001'.replaceAll('/search', ''),
+      'SEXTB': '${Env.sextbUrl}/ABC-001'.replaceAll('/search', ''),
+      'JAVGURU': '${Env.javguruUrl}/?s=ABC-001',
+    };
+    for (final entry in urls.entries) {
+      expect(HelperOpener.downloadUrlForVideo('ABC-001', sourceUrl: 'https://javhey.com/video/100/abc-001-title', searchEngine: entry.key), entry.value);
+    }
   });
 
   test('search excludes non-Indonesian entries and matches complete video codes exactly', () {

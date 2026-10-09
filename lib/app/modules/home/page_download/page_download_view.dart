@@ -230,6 +230,7 @@ class PageDownloadSearchView extends StatelessWidget {
             color: AppColor.container,
             child: MediaStack([
               ExThumbnail(
+                screenshotItems: controller.videos,
                 imageUrl: item.fanArt ?? '',
                 videoCode: item.videoCode,
                 onDownload: item.sourceUrl == null ? null : () => Get.find<PageDownloadController>().downloadWebsite(item.sourceUrl!),
@@ -286,7 +287,7 @@ class PageDownloadSearchView extends StatelessWidget {
 
             // ** open screenshot
             HugeIcon(icon: HugeIcons.strokeRoundedImage01).p(6).wh(30, 30).color(Vx.black).cornerRadius(12).onInkTap(() {
-              HelperOpener.openScreenshot(item);
+              HelperOpener.openScreenshot(item, items: controller.videos);
             }).positioned(right: 8, top: 36),
 
             Container(
@@ -302,7 +303,7 @@ class PageDownloadSearchView extends StatelessWidget {
             ).positioned(bottom: 0, left: 0, right: 0),
             ]),
           ).cornerRadius(8).onInkTap(() {
-            HelperOpener.openVideoInfo(item);
+            HelperOpener.openVideoInfo(item, items: controller.videos);
           });
         },
       ),

@@ -72,7 +72,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
                 ))),
                 _settingRow('Search Engine'.tr, Obx(() => _dropdown<String>(
                   value: controller.tecDefaultSearchEngine.value.isEmpty ? 'NJAV' : controller.tecDefaultSearchEngine.value,
-                  items: ['NJAV', 'MISSAV', 'JAVMOST', 'SEXTB', 'JAVGURU'].map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                  items: AppPref.searchEngines.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
                   onChanged: (value) {
                     if (value == null) return;
                     controller.tecDefaultSearchEngine.value = value;

@@ -13,7 +13,6 @@ import 'package:overlayment/overlayment.dart';
 import 'package:process_run/process_run.dart' as cmd;
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:video_player/video_player.dart';
-import 'package:zoom_hover_pinch_image/zoom_hover_pinch_image.dart';
 
 import '../../env.g.dart';
 import '../core/app_color.dart';
@@ -39,7 +38,7 @@ import '../modules/widgets/widget_chiwie_custom.dart';
 import '../modules/widgets/widget_controls.dart';
 import '../modules/widgets/widget_download_method.dart';
 import '../modules/widgets/widget_keyboard_shortcuts.dart';
-import '../modules/widgets/widget_media_stack.dart';
+import '../modules/widgets/widget_screenshot_viewer.dart';
 import '../modules/widgets/widget_style.dart';
 import '../modules/widgets/widget_surfaces.dart';
 import '../modules/widgets/widget_thumbnail.dart';
@@ -109,17 +108,16 @@ mixin HelperOpener {
   // ────────────────────────────────────────────────────────────────
   // **
   // ────────────────────────────────────────────────────────────────
-  static String downloadUrlForVideo(String code, {String? sourceUrl}) {
-    if (sourceUrl != null && sourceUrl.trim().isNotEmpty) {
+  static String downloadUrlForVideo(String code, {String? sourceUrl, String? searchEngine}) {
+    if (searchEngine == null && sourceUrl != null && sourceUrl.trim().isNotEmpty) {
       final uri = Uri.tryParse(sourceUrl.trim());
       if (uri == null || !['https', 'http'].contains(uri.scheme) || uri.host.isEmpty || uri.userInfo.isNotEmpty) {
         throw ArgumentError('Invalid download source URL'.tr);
       }
       return uri.toString();
     }
-    final searchEngine = AppPref.getDefaultSearchEngine();
     late String url;
-    switch (searchEngine.toLowerCase()) {
+    switch ((searchEngine ?? AppPref.getDefaultSearchEngine()).toLowerCase()) {
       case 'njav':
         url = '${Env.njavUrl}/en/$code'.replaceAll('/en/search', '');
         url += '-uncensored-leak';
@@ -145,7 +143,9 @@ mixin HelperOpener {
     return url;
   }
 
-  static Future<void> openVideoInfo(dynamic item) async {
+  static Future<void> openVideoInfo(dynamic item, {List<dynamic>? items}) async {
+    final source = List<dynamic>.of(items ?? [item]);
+    final itemIndex = screenshotItemIndex(item, source);
     Map<String, dynamic>? dataVideo;
     HelperLoading.show();
 
@@ -202,7 +202,7 @@ mixin HelperOpener {
       final x = await DBVideos.getByCode(resolvedCode);
       if (x.videoCode.isNotEmptyAndNotNull && (item is! JavitSearchResult || item.sourceUrl.isEmptyOrNull)) {
         HelperLoading.dismiss();
-        await HomePanelVideoInfo.open(x);
+        await HomePanelVideoInfo.open(x, items: source, itemIndex: itemIndex);
         return;
       }
     } catch (_) {}
@@ -210,7 +210,7 @@ mixin HelperOpener {
     // prefix
     video.category = dataCategory.map((e) => VideoCategory.fromJson(e)).toList();
     video.actress = dataActress.map((e) => VideoActress.fromJson(e)).toList();
-    video.director = dataDirector?['name_romaji'] ?? '';
+    video.director = dataDirector?['director'] ?? '';
     video.releaseDateFormated = video.releaseDate?.reformatDate(from: kYMd, to: kMdY);
     video.durationFormated = HelperMisc.durationFormatDB(video.duration ?? 0);
 
@@ -244,7 +244,7 @@ mixin HelperOpener {
                   Overlayment.dismissLast();
                 }
                 if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                  HelperOpener.openScreenshot(video);
+                  HelperOpener.openScreenshot(video, items: source, itemIndex: itemIndex);
                   Overlayment.dismissLast();
                 }
               }
@@ -253,12 +253,13 @@ mixin HelperOpener {
               [
                 ExThumbnail(
                   imageUrl: video.fanArt,
+                  screenshotItems: source, screenshotItemIndex: itemIndex,
                   videoPath: video.videoPath,
                   width: 300,
                   height: 200,
                   fitMemory: BoxFit.fitHeight,
                   fitUrl: BoxFit.contain,
-                ).color(AppColor.selected).onInkTap(() => openScreenshot(video)),
+                ).color(AppColor.selected).onInkTap(() => openScreenshot(video, items: source, itemIndex: itemIndex)),
                 VStack(
                   [
                     '${video.videoCode.isNotEmptyAndNotNull ? video.videoCode : video.title.maxWords(3)}'.text.maxLines(2).align(TextAlign.center).bold.makeCentered().onInkTap(() {
@@ -286,7 +287,7 @@ mixin HelperOpener {
                       child: AppIconButton(
                         icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: AppStyle.iconSize),
                         onPressed: () async {
-                          await openScreenshot(item);
+                          await openScreenshot(item, items: source, itemIndex: itemIndex);
                         },
                       ),
                     ).pOnly(right: 8).tooltip('Screenshot'.tr),
@@ -298,7 +299,7 @@ mixin HelperOpener {
                         icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload01, size: AppStyle.iconSize),
                         onPressed: () async {
                           WidgetsBinding.instance.scheduleFrame();
-                          final method = await Overlayment.show<String>(
+                          final selection = await Overlayment.show<({String method, String? engine})>(
                             context: Get.context,
                             OverWindow(
                               name: 'download-method',
@@ -311,13 +312,18 @@ mixin HelperOpener {
                                 border: Border.all(color: AppColor.border),
                                 boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 24, offset: Offset(0, 8))],
                               ),
-                              child: DownloadMethodDialog(onSelected: (method) => Overlayment.dismissName('download-method', result: method)),
+                              child: DownloadMethodDialog(
+                                defaultEngine: AppPref.getDefaultSearchEngine(),
+                                hasSourceUrl: item is JavitSearchResult && item.sourceUrl.isNotEmptyAndNotNull,
+                                onSelected: (selection) => Overlayment.dismissName('download-method', result: selection),
+                              ),
                             ),
                           );
-                          if (method == null) return;
+                          if (selection == null) return;
+                          final method = selection.method;
                           await Overlayment.dismissLast();
 
-                          final url = downloadUrlForVideo(video.videoCode ?? '', sourceUrl: item is JavitSearchResult ? item.sourceUrl : null);
+                          final url = downloadUrlForVideo(video.videoCode ?? '', sourceUrl: item is JavitSearchResult ? item.sourceUrl : null, searchEngine: selection.engine);
 
                           if (method == 'native') {
                             Get.find<PageDownloadController>().downloadWebsite(url);
@@ -350,7 +356,7 @@ mixin HelperOpener {
                       decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                       child: AppIconButton(
                         icon: HugeIcon(icon: HugeIcons.strokeRoundedVideo01, size: AppStyle.iconSize),
-                        onPressed: () async => await openTrailer(item),
+                        onPressed: () async => {await Overlayment.dismissLast(), await openTrailer(item),}
                       ),
                     ).pOnly(right: 8).tooltip('Trailer'.tr),
                     Spacer(),
@@ -506,52 +512,64 @@ mixin HelperOpener {
     );
   }
 
-  static Future<void> openScreenshot(dynamic item) async {
-    late Map<String, dynamic>? dataVideo;
-    HelperLoading.show();
+  static int screenshotItemIndex(dynamic item, List<dynamic> items) {
+    final index = items.indexOf(item);
+    if (index >= 0) return index;
+    String code(dynamic value) {
+      if (value is Videos) return HelperMisc.resolveVideoCode(videoCode: value.videoCode, videoPath: value.videoPath, title: value.title);
+      if (value is JavitSearchResult) return value.videoCode?.getVideoCode() ?? '';
+      return value is Map ? '${value['video_code'] ?? ''}' : '';
+    }
+    if (item is Videos && (item.videoPath ?? '').isNotEmpty) {
+      final pathIndex = items.indexWhere((value) => value is Videos && value.videoPath == item.videoPath);
+      if (pathIndex >= 0) return pathIndex;
+    }
+    final currentCode = code(item);
+    return currentCode.isEmpty ? -1 : items.indexWhere((value) => code(value) == currentCode);
+  }
 
-    // ** -> from download page
+  static Future<Videos> resolveScreenshotVideo(dynamic item, {bool localFrames = false}) async {
+    if (localFrames && item is Videos) return item;
+    final String code;
     if (item is JavitSearchResult) {
-      final fixCode = item.videoCode?.getVideoCode() ?? '';
-      dataVideo = await DBR18.getVideo(fixCode);
+      code = item.videoCode?.getVideoCode() ?? '';
+    } else if (item is Videos) {
+      code = HelperMisc.resolveVideoCode(videoCode: item.videoCode, videoPath: item.videoPath, title: item.title);
+    } else {
+      code = item['video_code'];
     }
-
-    // ** -> from library
-    else if (item is Videos) {
-      final fixCode = HelperMisc.resolveVideoCode(videoCode: item.videoCode, videoPath: item.videoPath, title: item.title);
-      dataVideo = await DBR18.getVideo(fixCode);
+    final data = await DBR18.getVideo(code);
+    final video = Videos.fromJson(data ?? {});
+    if ((video.videoCode ?? '').trim().isEmpty) video.videoCode = code;
+    if ((video.fanArt ?? '').trim().isEmpty) {
+      final cover = item is Videos ? item.fanArt : item is JavitSearchResult ? item.fanArt : item['fan_art'];
+      video.fanArt = [data?['jacket_full_url'], cover, if (item is Map) item['jacket_full_url']]
+          .map((value) => '${value ?? ''}'.trim()).firstWhere((value) => value.isNotEmpty, orElse: () => '');
     }
-
-    // ** -> direct from r18
-    else {
-      dataVideo = await DBR18.getVideo(item['video_code']);
-    }
-
-    final video = Videos.fromJson(dataVideo ?? {});
-
-    // Logic for screenshot
-    if (dataVideo?['sslast'] != null) {
-      final screenshots = <String>[];
-      final total = int.parse(dataVideo!['sslast'].toString().split('-').last);
-      final filename = dataVideo['ssfirst'].toString();
+    if (data?['sslast'] != null && data?['ssfirst'] != null) {
+      final total = int.tryParse(data!['sslast'].toString().split('-').last) ?? 0;
+      final filename = data['ssfirst'].toString();
       final base = filename.contains('jp-') ? filename.removeLast(1) : '${filename.allBefore('-')}jp-';
-
-      for (var i = 1; i <= total; i++) {
-        screenshots.add('$base$i');
-      }
-      video.screenshot = screenshots;
+      video.screenshot = [for (var i = 1; i <= total; i++) '$base$i'];
     }
+    return video;
+  }
 
-    HelperLoading.dismiss();
-
-    if (video.screenshot == null || video.screenshot!.isEmpty) {
-      await HelperToast.warn('No screenshot found'.tr);
+  static Future<void> openScreenshot(dynamic item, {List<dynamic>? items, int? itemIndex, bool localFrames = false}) async {
+    final source = List<dynamic>.of(items ?? [item]);
+    final index = itemIndex ?? screenshotItemIndex(item, source);
+    late Videos video;
+    HelperLoading.show();
+    try {
+      video = await resolveScreenshotVideo(item, localFrames: localFrames);
+    } catch (e) {
+      AppLog.logW('openScreenshot: $e');
+      HelperLoading.dismiss();
+      await HelperToast.warn('Failed to load screenshots'.tr);
       return;
     }
-
-    final idxSelected = 0.obs;
-    final focusNode = FocusNode();
-
+    HelperLoading.dismiss();
+    final viewerKey = GlobalKey<ScreenshotViewerState>();
     WidgetsBinding.instance.scheduleFrame();
     await Overlayment.show(
       context: Get.context,
@@ -562,113 +580,13 @@ mixin HelperOpener {
         backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
         animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
         color: AppColor.panel,
-        actions: OverlayActions(onReady: () async => focusNode.requestFocus()),
-        child: FocusScope(
-          autofocus: true,
-          child: KeyboardListener(
-            focusNode: focusNode,
-            onKeyEvent: (event) {
-              if (event is KeyDownEvent) {
-                if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                  if (idxSelected.value > 0) {
-                    idxSelected.value--;
-                  }
-                } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                  if (idxSelected.value < video.screenshot!.length - 1) {
-                    idxSelected.value++;
-                  }
-                } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                  Overlayment.dismissLast();
-                }
-              }
-            },
-            child: VStack(
-              [
-                MediaStack(
-                  [
-                    Obx(
-                      () => Zoom(
-                        width: max(Get.width * 90 / 100, 400),
-                        height: max(Get.height * 80 / 100, 400) - 80,
-                        child: ExThumbnail(
-                          imageUrl: '${video.screenshot?[idxSelected.value]}',
-                          videoPath: video.videoPath,
-                          width: max(Get.width * 90 / 100, 400),
-                          height: max(Get.height * 80 / 100, 400) - 80,
-                          fitUrl: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                    Obx(
-                      () => Container(
-                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                        child: '${idxSelected.value + 1}/${video.screenshot!.length}'.text.size(11).minFontSize(11).make().p4(),
-                      ),
-                    ).p12(),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Container(
-                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                        child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: AppStyle.iconSize).p12(),
-                      ).onInkTap(() {
-                        if (idxSelected.value < video.screenshot!.length - 1) {
-                          idxSelected.value++;
-                        }
-                      }),
-                    ).positioned(right: 8, top: 0, bottom: 0),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                        child: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: AppStyle.iconSize).p12(),
-                      ).onInkTap(() {
-                        if (idxSelected.value > 0) {
-                          idxSelected.value--;
-                        }
-                      }),
-                    ).positioned(left: 8, top: 0, bottom: 0),
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: Container(
-                        decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
-                        child: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize).p8(),
-                      ).onInkTap(() {
-                        Overlayment.dismissLast();
-                      }),
-                    ).positioned(right: 8, top: 8, bottom: 0),
-                  ],
-                ),
-                Container(height: 5, color: AppColor.container),
-                ListView.builder(
-                  itemCount: video.screenshot!.length,
-                  scrollDirection: Axis.horizontal,
-                  itemBuilder: (context, index) {
-                    return MediaStack(
-                      [
-                        ExThumbnail(
-                          imageUrl: '${video.screenshot?[index]}',
-                          videoPath: video.videoPath,
-                          width: 120,
-                          height: 70,
-                          fitUrl: BoxFit.cover,
-                        ).onInkTap(() {
-                          idxSelected.value = index;
-                        }).pOnly(right: 4),
-                        Obx(
-                          () => Container(
-                            width: 120,
-                            height: 70,
-                            color: Colors.green.withAlpha(100),
-                          ).onInkTap(() => idxSelected.value = index).pOnly(right: 4).hide(isVisible: idxSelected.value == index),
-                        ),
-                      ],
-                    );
-                  },
-                ).wh(double.infinity, 70),
-                Container(height: 5, color: AppColor.container),
-              ],
-            ),
-          ),
+        actions: OverlayActions(onReady: () async => viewerKey.currentState?.requestFocus()),
+        child: ScreenshotViewer(
+          key: viewerKey,
+          video: video, items: source, itemIndex: index, localFrames: localFrames,
+          loadVideo: (value) => resolveScreenshotVideo(value, localFrames: localFrames),
+          onClose: () => Overlayment.dismissLast(),
+          onWarning: (message) => HelperToast.warn(message.tr),
         ),
       ),
     );
