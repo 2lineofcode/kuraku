@@ -34,6 +34,7 @@ import '../home_controller.dart';
 import '../home_panel/home_panel_log.dart';
 import '../page_chat/page_chat_controller.dart';
 import '../page_explore/page_explore_controller.dart';
+import '../page_sqleditor/page_sqleditor_controller.dart';
 
 class PageSettingsController extends GetxController {
   final appSetting = Get.find<AppSettingService>();
@@ -385,6 +386,13 @@ class PageSettingsController extends GetxController {
     if (backupBusy.value) return;
     backupBusy.value = true;
     try {
+      final chat = Get.isRegistered<PageChatController>() && !Get.isPrepared<PageChatController>() ? Get.find<PageChatController>() : null;
+      if (chat != null && !await chat.flushDraft()) return;
+      if (Get.isRegistered<PageSqleditorController>() && !Get.isPrepared<PageSqleditorController>()) {
+        final sql = Get.find<PageSqleditorController>();
+        await sql.saveTabs();
+        if (sql.saveError.value.isNotEmpty) throw StateError(sql.saveError.value);
+      }
       await WatchSessionTracker.flushAll();
       final backup = await AppBackup.capture(Get.find<DBService>().dbMain, appSetting.pref);
       await backup.validate();
@@ -426,8 +434,10 @@ class PageSettingsController extends GetxController {
             'Libraries': 'library', 'Video metadata': 'videos', 'Playlists': 'playlist',
             'Playlist items': 'playlist_item', 'Watch sessions': 'watch_session',
             'Profile': 'profile', 'Achievements': 'achievement_unlock', 'Relapse history': 'relapse_event',
-            'Search history': 'historical',
-          }.entries)
+            'Search history': 'historical', 'Todo': 'todo', 'Download history': 'download_log',
+            'File identities': 'video_file_identity', 'Chats': 'chat_conversation', 'Chat messages': 'chat_message',
+            'Title translations': 'chat_translation',
+          }.entries.where((entry) => backup.includes(entry.value)))
             Padding(padding: const EdgeInsets.only(top: 6),
               child: Text('@{label}: @{current} → @{backup}'.trNamed({
                 'label': entry.key.tr, 'current': '${current.count(entry.value)}', 'backup': '${backup.count(entry.value)}',
@@ -440,7 +450,8 @@ class PageSettingsController extends GetxController {
             'label': 'Settings'.tr, 'current': '${current.settingsCount}', 'backup': '${backup.settingsCount}',
           })),
           const SizedBox(height: 12),
-          Text('On next startup, these records and settings will be replaced, including empty lists. Video files, R18, chats, downloads, and your app PIN are excluded. Video paths stay as saved in the backup.'.tr),
+          Text('On next startup, included records and settings will be replaced, including empty lists. Video/image files, R18, embedding caches, and your app PIN are excluded. Saved paths stay as saved in the backup. Download history does not restart downloads.'.tr),
+          if (backup.isLegacy) Text('This older backup may omit todos, downloads, chats, cart, tabs, and SQL snippets. Omitted data and settings will be kept.'.tr),
           const SizedBox(height: 8),
           Text('A recovery backup will be saved in @{path} before overwriting. Close and reopen the app after confirming.'.trNamed({'path': appSetting.appPath})),
         ]),

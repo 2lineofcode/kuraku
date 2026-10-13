@@ -15,6 +15,11 @@ import 'package:javit/app/modules/player/player_controls.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+class _FullscreenControlsState extends VideoState {
+  @override
+  bool isFullscreen() => true;
+}
+
 class _Preferences implements GetSecureStorage {
   @override
   T? read<T>(String key) => null;
@@ -26,12 +31,23 @@ class _Preferences implements GetSecureStorage {
 class _Controller extends PlayerController {
   String? subtitle;
   int subtitlePicks = 0;
+  int stops = 0;
+  Future<void> Function()? fullscreenAction;
+
+  @override
+  Future<void> stopPlayback() async { stops++; }
+
+  @override
+  Future<void> toggleFullscreen(VideoState state) async { await fullscreenAction?.call(); }
 
   @override
   Future<void> togglePlayPause() async { isPlaying.toggle(); }
 
   @override
   Future<void> seek(Duration target) async { position.value = target; }
+
+  @override
+  Future<void> seekRelative(Duration offset) async { position.value += offset; }
 
   @override
   Future<void> setPlaybackRate(double value) async { playbackSpeed.value = value; }
@@ -126,6 +142,58 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  for (final mini in [false, true]) {
+    testWidgets('leaving fullscreen returns home with mini mode = $mini', (tester) async {
+      controller.isPlayerVisible.value = true;
+      controller.infoAnimationController = AnimationController(vsync: tester);
+      addTearDown(controller.infoAnimationController.dispose);
+      final navigator = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(GetMaterialApp(navigatorKey: navigator, home: const Scaffold(body: Text('Home'))));
+      navigator.currentState!.push(MaterialPageRoute<void>(builder: (_) => Scaffold(
+        body: PlayerControls(controller: controller, videoState: VideoState()),
+      )));
+      await tester.pumpAndSettle();
+      navigator.currentState!.push(MaterialPageRoute<void>(builder: (_) => Scaffold(
+        body: PlayerControls(controller: controller, videoState: _FullscreenControlsState()),
+      )));
+      await tester.pumpAndSettle();
+      controller.isFullScreen.value = true;
+      controller.fullscreenAction = () async {
+        expect(controller.stops, 0);
+        navigator.currentState!.pop();
+        controller.isFullScreen.value = false;
+      };
+      await tester.sendKeyEvent(mini ? LogicalKeyboardKey.keyP : LogicalKeyboardKey.keyQ);
+      await tester.pumpAndSettle();
+      expect(controller.stops, mini ? 0 : 1);
+      expect(controller.isMiniMode.value, mini);
+      expect(find.byType(PlayerControls), findsNothing);
+      expect(find.text('Home'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  testWidgets('player tooltip survives resize and app reassembly', (tester) async {
+    addTearDown(tester.view.reset);
+    controller.infoAnimationController = AnimationController(vsync: tester);
+    addTearDown(controller.infoAnimationController.dispose);
+    await pump(tester);
+    final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+    await mouse.addPointer(location: tester.getCenter(find.byTooltip('Fullscreen')));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    for (final width in [360.0, 1400.0, 760.0]) {
+      tester.view.physicalSize = Size(width, 600);
+      final reassembly = tester.binding.reassembleApplication();
+      await tester.pumpAndSettle();
+      await reassembly;
+      expect(tester.takeException(), isNull);
+    }
+    await mouse.removePointer();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('Video clicks toggle controls while mouse hover and playback actions still work', (tester) async {
     addTearDown(tester.view.reset);
     controller.infoAnimationController = AnimationController(vsync: tester);
@@ -156,6 +224,57 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byTooltip('Pause (Space)').hitTestable(), findsOneWidget);
     expect(controller.isPlaying.value, isTrue);
+    await mouse.removePointer();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Cmd Option C disables only playback controls until toggled again', (tester) async {
+    addTearDown(tester.view.reset);
+    controller.infoAnimationController = AnimationController(vsync: tester);
+    addTearDown(controller.infoAnimationController.dispose);
+    await pump(tester);
+    Future<void> toggle() async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pumpAndSettle();
+    }
+    expect(find.byTooltip('Play (Space)').hitTestable(), findsOneWidget);
+    final shortcuts = tester.widget<Shortcuts>(find.descendant(of: find.byType(PlayerControls), matching: find.byType(Shortcuts)).first);
+    expect(shortcuts.shortcuts.containsKey(LogicalKeySet(LogicalKeyboardKey.equal)), isFalse);
+    expect(find.byTooltip('Fullscreen').hitTestable(), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+    await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+    await tester.pumpAndSettle();
+    expect(controller.isFullScreen.value, isFalse);
+    await toggle();
+    expect(controller.showPlaybackControls.value, isFalse);
+    expect(find.byTooltip('Play (Space)').hitTestable(), findsNothing);
+    expect(find.byTooltip('Subtitles').hitTestable(), findsOneWidget);
+    final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(380, 250));
+    await mouse.moveTo(const Offset(390, 250));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(controller.position.value.inSeconds, greaterThan(37));
+    expect(controller.isPlaying.value, isTrue);
+    expect(find.byTooltip('Pause (Space)').hitTestable(), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    controller.currentVideo.value = Videos(title: 'Next video');
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Play (Space)').hitTestable(), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pump(tester);
+    expect(find.byTooltip('Play (Space)').hitTestable(), findsNothing, reason: 'new controls instances share the toggle');
+    await toggle();
+    expect(find.byTooltip('Play (Space)').hitTestable(), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Pause (Space)').hitTestable(), findsNothing, reason: 'auto-hide remains enabled');
     await mouse.removePointer();
     await tester.pumpWidget(const SizedBox.shrink());
   });

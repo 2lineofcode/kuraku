@@ -22,6 +22,7 @@ import '../modules/home/page_download/page_download_controller.dart';
 import '../modules/home/page_settings/page_settings_controller.dart';
 import '../modules/home/page_tools/page_tools_controller.dart';
 import '../routes/app_pages.dart';
+import '../utils/helper_opener.dart';
 import '../utils/local_semantic_worker.dart';
 import 'app_logging.dart';
 import 'app_pref.dart';
@@ -133,12 +134,22 @@ class AppSettingService extends GetxService {
   // ────────────────────────────────────────────────────────────────
   // ⵌ hotkey
   // ────────────────────────────────────────────────────────────────
+  bool _handleKeyboardShortcutsShortcut(KeyEvent event) {
+    if (event is! KeyDownEvent || !const SingleActivator(LogicalKeyboardKey.slash, meta: true).accepts(event, HardwareKeyboard.instance)) return false;
+    unawaited(HelperOpener.openKeyboardShortcuts());
+    return true;
+  }
+
   bool _handleSearchShortcut(KeyEvent event) {
-    if (event is! KeyDownEvent || !const SingleActivator(LogicalKeyboardKey.slash).accepts(event, HardwareKeyboard.instance)) return false;
+    if (event is! KeyDownEvent) return false;
+    final commandF = const SingleActivator(LogicalKeyboardKey.keyF, meta: true).accepts(event, HardwareKeyboard.instance);
+    if (!commandF && !const SingleActivator(LogicalKeyboardKey.slash).accepts(event, HardwareKeyboard.instance)) return false;
     final context = FocusManager.instance.primaryFocus?.context;
     if (context?.widget is EditableText || context?.findAncestorWidgetOfExactType<EditableText>() != null) return false;
     if (!Get.isRegistered<HomeController>()) return false;
-    Get.find<HomeController>().focusTopNavSearch();
+    final home = Get.find<HomeController>();
+    if (commandF && home.currentMenuSelected.value == kMenuChat && (Get.currentRoute == Routes.HOME || Get.currentRoute == Routes.ROOT)) return false;
+    home.focusTopNavSearch();
     return true;
   }
 
@@ -147,13 +158,16 @@ class AppSettingService extends GetxService {
     _themeTimer?.cancel();
     LocalSemanticWorker.cancelSetup();
     LocalSemanticWorker.stop();
+    HardwareKeyboard.instance.removeHandler(_handleKeyboardShortcutsShortcut);
     HardwareKeyboard.instance.removeHandler(_handleSearchShortcut);
     super.onClose();
   }
 
   Future<void> setupHotkey() async {
+    HardwareKeyboard.instance.removeHandler(_handleKeyboardShortcutsShortcut);
     HardwareKeyboard.instance.removeHandler(_handleSearchShortcut);
     HardwareKeyboard.instance.addHandler(_handleSearchShortcut);
+    HardwareKeyboard.instance.addHandler(_handleKeyboardShortcutsShortcut);
     void _logHotkeyError(String action, Object e, StackTrace stackTrace) {
       AppLog.logE('Hotkey action failed [$action]: $e');
       AppLog.logE('$stackTrace');

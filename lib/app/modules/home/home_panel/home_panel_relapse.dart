@@ -14,6 +14,7 @@ import '../../../data/database/db_activity.dart';
 import '../../../data/models/activity_entity.dart';
 import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_style.dart';
+import '../../widgets/widget_surfaces.dart';
 import '../home_controller.dart';
 import '../page_profile/page_profile_controller.dart';
 import '../page_settings/page_settings_controller.dart';
@@ -64,8 +65,8 @@ class _RelapsePanelState extends State<_RelapsePanel> {
     super.dispose();
   }
 
-  Future<void> _run([Future<void> Function()? action]) async {
-    if (_busy) return;
+  Future<bool> _run([Future<void> Function()? action]) async {
+    if (_busy) return false;
     setState(() { _busy = true; _error = ''; });
     var saved = false;
     try {
@@ -80,10 +81,12 @@ class _RelapsePanelState extends State<_RelapsePanel> {
         Get.find<PageProfileController>().totalRelapse.value = await DBActivity.countRelapse();
       }
       if (mounted) setState(() { _items = items; _loaded = true; });
+      return true;
     } catch (_) {
       if (mounted) setState(() {
         _error = saved ? 'Saved, but could not refresh. Retry loading.'.tr : 'Could not complete the request. Please retry.'.tr;
       });
+      return false;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -137,37 +140,50 @@ class _RelapsePanelState extends State<_RelapsePanel> {
     return Material(
       color: AppColor.panel,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Expanded(child: Text('Relapse'.tr, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
             AppIconButton(tooltip: 'Close'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize), onPressed: () => Overlayment.dismissLast()),
           ]),
-          const SizedBox(height: 12),
-          Text('TODAY'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),
-          const SizedBox(height: 4),
-          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Expanded(child: Text(_loaded ? '$todayCount / $limit' : '— / $limit', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600,
-              color: _loaded && reached ? Theme.of(context).colorScheme.error : AppColor.text))),
-            Text(_loaded && reached ? 'Daily limit reached'.tr : 'Daily limit'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),
-          ]),
-          const SizedBox(height: 6),
-          Text(latest == null ? 'No records yet'.tr : 'Last recorded @{latest}'.trNamed({'latest': '${_elapsed(latest)}'}), style: TextStyle(fontSize: 12, color: AppColor.muted)),
-          const SizedBox(height: 16),
-          AppButton(variant: AppButtonVariant.outlined,
-            width: double.infinity,
-            height: 32,
-
-            label: 'Log relapse'.tr,
-            labelSize: 12,
-            labelColor: _busy || !_loaded ? AppColor.muted : AppColor.text,
-            borderColor: AppColor.border,
-            backgroundColor: AppColor.container,
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize, color: _busy || !_loaded ? AppColor.muted : AppColor.text),
-            onPressed: _busy || !_loaded ? null : () => _run(() async {
-              if (await DBActivity.addRelapse() == null) throw StateError('Record was not saved'.tr);
-            }),
-          ),
+          const SizedBox(height: 8),
+          AppPanel(bordered: true, padding: const EdgeInsets.all(12), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Expanded(child: Text('TODAY'.tr, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColor.muted))),
+                Flexible(child: Text(_loaded && reached ? 'Daily limit reached'.tr : 'Daily limit'.tr,
+                  textAlign: TextAlign.end, style: TextStyle(fontSize: 11, color: _loaded && reached ? Theme.of(context).colorScheme.error : AppColor.muted))),
+              ]),
+              const SizedBox(height: 6),
+              Text(_loaded ? '$todayCount / $limit' : '— / $limit', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600,
+                color: _loaded && reached ? Theme.of(context).colorScheme.error : AppColor.text)),
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: !_loaded ? null : limit <= 0 ? 1 : (todayCount / limit).clamp(0.0, 1.0),
+                minHeight: 4, borderRadius: BorderRadius.circular(4), backgroundColor: AppColor.border,
+                color: reached ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
+                semanticsLabel: 'Daily limit'.tr,
+              ),
+              const SizedBox(height: 8),
+              Text(latest == null ? 'No records yet'.tr : 'Last recorded @{latest}'.trNamed({'latest': '${_elapsed(latest)}'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
+              const SizedBox(height: 12),
+              AppButton(variant: AppButtonVariant.filled,
+                width: double.infinity,
+                height: 32,
+                label: 'Log relapse'.tr,
+                labelSize: 12,
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize,
+                  color: _busy || !_loaded ? AppColor.muted : Theme.of(context).colorScheme.onPrimary),
+                onPressed: _busy || !_loaded ? null : () async {
+                  final success = await _run(() async {
+                    if (await DBActivity.addRelapse() == null) throw StateError('Record was not saved'.tr);
+                  });
+                  if (success && mounted) await Overlayment.dismissLast();
+                },
+              ),
+            ],
+          )),
           if (_busy) const LinearProgressIndicator(minHeight: 2),
           if (_error.isNotEmpty) Row(children: [
             Expanded(child: Text(_error, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.error))),
@@ -180,17 +196,21 @@ class _RelapsePanelState extends State<_RelapsePanel> {
               _removed = null;
             }), child: Text('Undo'.tr)),
           ]),
-          const SizedBox(height: 16),
-          Row(children: [_stat('This week'.tr, weekCount), _stat('This month'.tr, monthCount), _stat('Total'.tr, total)]),
+          const SizedBox(height: 12),
+          AppPanel(padding: const EdgeInsets.all(12), child: Row(children: [
+            _stat('This week'.tr, weekCount), _stat('This month'.tr, monthCount), _stat('Total'.tr, total),
+          ])),
           const SizedBox(height: 8),
           Text('@{difference}@{difference2} vs last full week (@{previousCount})'.trNamed({'difference': '${difference > 0 ? '+' : ''}', 'difference2': '$difference', 'previousCount': '$previousCount'}), style: TextStyle(fontSize: 12, color: AppColor.muted)),
-          const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
-          Text('History'.tr, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+          AppSectionHeading(title: 'History'.tr),
+          const SizedBox(height: 4),
           Expanded(child: _items.isEmpty
             ? Center(child: Text(_loaded ? 'No records yet'.tr : 'Loading history…'.tr, style: TextStyle(fontSize: 13, color: AppColor.muted)))
-            : ListView.builder(
+            : ListView.separated(
+              padding: EdgeInsets.zero,
               itemCount: _items.length,
+              separatorBuilder: (_, _) => Divider(height: 1, thickness: .5, color: AppColor.border),
               itemBuilder: (context, index) {
                 final item = _items[index];
                 final day = _day(item);
@@ -198,12 +218,12 @@ class _RelapsePanelState extends State<_RelapsePanel> {
                 final title = day == null ? 'Invalid date'.tr : day == today ? 'Today'.tr : day == yesterday ? 'Yesterday'.tr : day.toStringEx(format: 'MMM d, yyyy');
                 final stamp = DateTime.tryParse(item.createdAt ?? '');
                 return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Row(children: [
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(title, style: const TextStyle(fontSize: 13)),
-                      const SizedBox(height: 4),
-                      Text(stamp == null ? 'Time unavailable'.tr : 'Last recorded at @{mm}'.trNamed({'mm': '${stamp.toStringEx(format: 'HH:mm')}'}), style: TextStyle(fontSize: 12, color: AppColor.muted)),
+                      const SizedBox(height: 2),
+                      Text(stamp == null ? 'Time unavailable'.tr : stamp.toStringEx(format: 'HH:mm'), style: TextStyle(fontSize: 11, color: AppColor.muted)),
                     ])),
                     Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(color: AppColor.selected, borderRadius: BorderRadius.circular(12)),

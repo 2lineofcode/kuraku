@@ -16,6 +16,12 @@ mixin DBVideos {
   static Database get _db => Get.find<DBService>().dbMain;
   static const _tableName = 'videos';
   static final revision = 0.obs;
+  static const _metadataColumns = {
+    'video_code', 'title', 'title_ja', 'description', 'fan_art', 'poster', 'trailer',
+    'actress', 'category', 'release_date', 'release_date_formated',
+    'duration', 'duration_formated', 'studio', 'label', 'director',
+    'series', 'screenshot', 'site',
+  };
   static const _allowedColumns = {
     'id', 'root_path', 'video_path', 'video_code', 'title', 'title_ja',
     'description', 'fan_art', 'poster', 'trailer', 'actress', 'category',
@@ -88,13 +94,7 @@ mixin DBVideos {
 
   static Future<int> updateMetadata(Videos video, Videos metadata) async {
     _normalizeMetadata(metadata);
-    const columns = {
-      'video_code', 'title', 'title_ja', 'fan_art', 'poster', 'trailer',
-      'actress', 'category', 'release_date', 'release_date_formated',
-      'duration', 'duration_formated', 'studio', 'label', 'director',
-      'series', 'screenshot', 'site',
-    };
-    final values = metadata.toJson()..removeWhere((key, value) => !columns.contains(key)
+    final values = metadata.toJson()..removeWhere((key, value) => !_metadataColumns.contains(key)
         || value == null || value == '' || value == 'null' || value == '[]'
         || (value is String && value.trim().isEmpty));
     if ((metadata.duration ?? 0) <= 0) {
@@ -109,10 +109,9 @@ mixin DBVideos {
 
   static Future<void> update(Videos videos) async {
     videos.updatedAt = DateTime.now().toStringEx();
-    final values = videos.toJson();
-    for (final field in ['duration', 'view_count', 'is_favorite', 'filesize']) {
-      if (values[field] == null) values.remove(field);
-    }
+    final values = videos.toJson()..removeWhere((key, value) => !_metadataColumns.contains(key)
+      || key == 'duration' && value == null);
+    values['updated_at'] = videos.updatedAt;
     final changed = await _db.update(_tableName, values, where: 'id = ? AND is_deleted = 0', whereArgs: [videos.id]);
     if (changed == 0) throw StateError('Video no longer exists');
     revision.value++;
@@ -158,6 +157,13 @@ mixin DBVideos {
   static Future<int> restore(Videos video) async {
     final changed = await _db.update(_tableName,
       {'is_deleted': 0, 'updated_at': DateTime.now().toStringEx()},
+      where: 'id = ? AND is_deleted = 1', whereArgs: [video.id]);
+    if (changed > 0) revision.value++;
+    return changed;
+  }
+
+  static Future<int> deletePermanently(Videos video) async {
+    final changed = await _db.delete(_tableName,
       where: 'id = ? AND is_deleted = 1', whereArgs: [video.id]);
     if (changed > 0) revision.value++;
     return changed;
@@ -304,15 +310,17 @@ mixin DBVideos {
 
   static Future<List<Videos>> getAllVideoPath(String column, String like) async {
     final safeColumn = _safeColumn(column);
-    final normalizedLike = like.endsWith('%') ? like : '$like%';
-    final basePath = normalizedLike.endsWith('%') ? normalizedLike.substring(0, normalizedLike.length - 1) : normalizedLike;
-    final nestedPrefix = '$basePath/%/%';
+    final basePath = p.normalize(like);
+    final directory = basePath.endsWith(p.separator) ? basePath : '$basePath${p.separator}';
+    final escaped = directory.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
+    final normalizedLike = '$escaped%';
+    final nestedPrefix = '$escaped%${p.separator == '\\' ? '\\\\' : p.separator}%';
 
     final maps = await _db.rawQuery('''
       SELECT * FROM $_tableName
       WHERE is_deleted = 0
-        AND $safeColumn LIKE ? 
-        AND $safeColumn NOT LIKE ?
+        AND $safeColumn LIKE ? ESCAPE '\\'
+        AND $safeColumn NOT LIKE ? ESCAPE '\\'
       ORDER BY video_code ASC, title ASC
     ''', [normalizedLike, nestedPrefix]);
 

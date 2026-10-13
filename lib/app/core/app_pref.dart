@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:io';
@@ -8,6 +9,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_secure_storage/get_secure_storage.dart';
 
 import '../data/models/videos_entity.dart';
 import 'app_setting.dart';
@@ -136,9 +138,7 @@ mixin AppPref {
       value = {'salt': salt, 'hash': await _hashAppPin(pin, salt)};
     }
     try {
-      await _pref.write('_kAppPin', value);
-      // write() schedules the disk flush; wait before confirming the PIN change.
-      await _pref.queue.add<void>(() {});
+      await savePreferences(_pref, {'_kAppPin': value});
     } catch (_) {
       _pref.writeInMemory('_kAppPin', previous);
       rethrow;
@@ -146,6 +146,19 @@ mixin AppPref {
     _pinFailures = 0;
     _pinRetryAt = null;
     return true;
+  }
+
+  static Future<void> savePreferences(GetSecureStorage pref, Map<String, dynamic> settings) async {
+    final saved = Completer<void>();
+    unawaited(runZonedGuarded(() async {
+      for (final key in settings.keys) pref.writeInMemory(key, settings[key]);
+      await pref.save();
+      await pref.queue.add<void>(() {});
+      if (!saved.isCompleted) saved.complete();
+    }, (error, stack) {
+      if (!saved.isCompleted) saved.completeError(error, stack);
+    }));
+    await saved.future;
   }
 
   static String getAppLanguage() {

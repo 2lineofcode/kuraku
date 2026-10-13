@@ -484,10 +484,13 @@ mixin HomePanelLibrary {
           ),
           AppDialogAction(
             child: Text('Delete'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
-            onPressed: () {
-              DBLibrary.delete(library);
-              _doDeleteVideoFromLibrary(library);
-              Get.back();
+            onPressed: () async {
+              try {
+                await _doDeleteVideoFromLibrary(library);
+                Get.back();
+              } catch (e) {
+                await HelperToast.error(e.toString());
+              }
             },
           ),
         ],
@@ -754,10 +757,7 @@ mixin HomePanelLibrary {
   /// Deletes all videos associated with a specific library.
   // ────────────────────────────────────────────────────────────────
   static Future<void> _doDeleteVideoFromLibrary(Library library) async {
-    await Get.find<DBService>().dbMain.transaction((txn) async {
-      await txn.delete('videos', where: 'root_path = ?', whereArgs: [library.rootFolder]);
-      await txn.delete('library', where: 'id = ?', whereArgs: [library.id]);
-    });
+    await _queueLibraryChange(() => DBLibrary.deleteWithVideos(library));
     await startAutoRescanWatcher();
     await _controller.onRefreshAllContent();
   }

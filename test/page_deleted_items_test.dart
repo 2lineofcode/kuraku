@@ -33,6 +33,7 @@ class _Database implements Database {
   ];
   bool failLoad = false;
   bool failRestore = false;
+  bool failDelete = false;
   Completer<void>? restoring;
   int writes = 0;
 
@@ -54,6 +55,17 @@ class _Database implements Database {
     final row = rows.singleWhere((row) => row['id'] == whereArgs!.single);
     row['is_deleted'] = 0;
     return 1;
+  }
+
+  @override
+  Future<int> delete(String table, {String? where, List<Object?>? whereArgs}) async {
+    expect(where, 'id = ? AND is_deleted = 1');
+    writes++;
+    await restoring?.future;
+    if (failDelete) throw StateError('Delete failed');
+    final count = rows.length;
+    rows.removeWhere((row) => row['id'] == whereArgs!.single && row['is_deleted'] == 1);
+    return count - rows.length;
   }
 
   @override
@@ -130,6 +142,40 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('permanent delete requires confirmation, allows retry and disables conflicting actions', (tester) async {
+    final db = _Database();
+    await open(tester, db);
+    await tester.enterText(find.byType(CupertinoTextField), 'ABC-001');
+    await tester.pumpAndSettle();
+    Future<void> confirm() async {
+      await tester.tap(find.widgetWithText(AppButton, 'Delete permanently'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Files still on disk'), findsOneWidget);
+      await tester.tap(find.widgetWithText(CupertinoDialogAction, 'Delete permanently'));
+    }
+    await tester.tap(find.widgetWithText(AppButton, 'Delete permanently'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CupertinoDialogAction, 'Cancel'));
+    await tester.pumpAndSettle();
+    expect(db.writes, 0);
+    db.failDelete = true;
+    await confirm();
+    await tester.pumpAndSettle();
+    expect(find.text('Could not delete the record permanently. Try again.'), findsOneWidget);
+    expect(db.rows.any((row) => row['id'] == 'a'), isTrue);
+    db.failDelete = false;
+    db.restoring = Completer<void>();
+    await confirm();
+    await tester.pump();
+    expect(tester.widget<AppButton>(find.widgetWithText(AppButton, 'Restore record')).onPressed, isNull);
+    expect(tester.widget<AppButton>(find.widgetWithText(AppButton, 'Refresh')).onPressed, isNull);
+    db.restoring!.complete();
+    await tester.pumpAndSettle();
+    expect(db.rows.any((row) => row['id'] == 'a'), isFalse);
+    expect(find.text('First title'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('failed load and restore allow retry, pending restore disables buttons', (tester) async {
     final db = _Database()..failLoad = true;

@@ -11,7 +11,7 @@ import '_init_db.dart';
 mixin DBChat {
   static Database get _db => Get.find<DBService>().dbMain;
 
-  static Future<void> recoverInterrupted(Database db) async {
+  static Future<void> recoverInterrupted(DatabaseExecutor db) async {
     await db.update('chat_message', {
       'status': 'failed', 'error_message': 'Response interrupted when the app closed.',
       'updated_at': DateTime.now().toUtc().toIso8601String(),

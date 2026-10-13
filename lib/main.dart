@@ -174,13 +174,15 @@ class _JavItState extends State<JavIt> with WindowListener {
 
   @override
   void onWindowEnterFullScreen([int? windowId]) {
-    Get.forceAppUpdate();
+    WidgetsBinding.instance.addPostFrameCallback((_) => Get.forceAppUpdate());
+    WidgetsBinding.instance.ensureVisualUpdate();
     AppLog.logD('onWindowEnterFullScreen');
   }
 
   @override
   void onWindowLeaveFullScreen([int? windowId]) {
-    Get.forceAppUpdate();
+    WidgetsBinding.instance.addPostFrameCallback((_) => Get.forceAppUpdate());
+    WidgetsBinding.instance.ensureVisualUpdate();
     AppLog.logD('onWindowLeaveFullScreen');
   }
 

@@ -4,7 +4,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
 
 import '../modules/widgets/widget_controls.dart';
-import '../modules/widgets/widget_style.dart';
 import '../modules/widgets/widget_surfaces.dart';
 import 'app_pref.dart';
 import 'app_scroll_behavior.dart';
@@ -21,6 +20,8 @@ class AppPinGate extends StatefulWidget {
 
 class _AppPinGateState extends State<AppPinGate> {
   late bool _unlocked;
+  bool _dialogOpen = false;
+  int _counter = 0;
 
   @override
   void initState() {
@@ -29,6 +30,24 @@ class _AppPinGateState extends State<AppPinGate> {
     Get.addTranslations(AppTranslations().keys);
     Get.locale = Locale(AppPref.getAppLanguage());
     Get.fallbackLocale = AppTranslations.fallbackLocale;
+  }
+
+  Future<void> _showPin(BuildContext context) async {
+    if (_dialogOpen || _unlocked) return;
+    _dialogOpen = true;
+    try {
+      final unlocked = await showAdaptiveDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AppPinForm(
+          unlock: true,
+          onSuccess: () => Navigator.of(context).pop(true),
+        ),
+      );
+      if (unlocked == true && mounted) setState(() => _unlocked = true);
+    } finally {
+      _dialogOpen = false;
+    }
   }
 
   @override
@@ -40,16 +59,25 @@ class _AppPinGateState extends State<AppPinGate> {
       locale: Get.locale,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: AppTranslations.languages.keys.map((code) => Locale(code)).toList(),
-      themeMode: AppPref.getAppTheme().resolve(),
-      theme: AppStyle.theme(Brightness.light),
-      darkTheme: AppStyle.theme(Brightness.dark),
-      home: Scaffold(body: Center(child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: SizedBox(width: 320, child: AppPinForm(
-          unlock: true,
-          onSuccess: () => setState(() => _unlocked = true),
+      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple)),
+      home: Builder(builder: (context) => CallbackShortcuts(
+        bindings: {const SingleActivator(LogicalKeyboardKey.keyX, meta: true, alt: true): () => _showPin(context)},
+        child: Focus(autofocus: true, child: Scaffold(
+          appBar: AppBar(
+            backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+            title: const Text('Flutter Demo Home Page'),
+          ),
+          body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const Text('You have pushed the button this many times:'),
+            Text('$_counter', style: Theme.of(context).textTheme.headlineMedium),
+          ])),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => setState(() => _counter++),
+            tooltip: 'Increment',
+            child: const Icon(Icons.add),
+          ),
         )),
-      ))),
+      )),
     );
   }
 }
@@ -131,7 +159,7 @@ class _AppPinFormState extends State<AppPinForm> {
 
   @override
   Widget build(BuildContext context) {
-    final title = Text(widget.unlock ? 'Unlock JavIt'.tr : widget.disable ? 'Disable PIN lock'.tr
+    final title = Text(widget.unlock ? 'Unlock'.tr : widget.disable ? 'Disable PIN lock'.tr
         : _needsCurrent ? 'Change PIN'.tr : 'Set PIN'.tr);
     final content = Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (widget.unlock) Padding(
@@ -148,31 +176,30 @@ class _AppPinFormState extends State<AppPinForm> {
         child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
       ),
     ]);
-    return PopScope(
-      canPop: !_busy,
-      child: widget.unlock ? Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        DefaultTextStyle.merge(style: Theme.of(context).textTheme.titleMedium, child: title),
-        content,
-        const SizedBox(height: 16),
-        AppButton(variant: AppButtonVariant.filled,
-          onPressed: _busy ? null : _submit,
-          child: Text('Unlock'.tr),
+    return CallbackShortcuts(
+      bindings: {
+        if (widget.unlock) const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (!_busy) Navigator.of(context).pop(false);
+        },
+      },
+      child: PopScope(
+        canPop: !_busy,
+        child: AppConfirmDialog(
+          title: title,
+          content: content,
+          actions: [
+            AppDialogAction(
+              onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+              child: Text('Cancel'.tr),
+            ),
+            AppDialogAction(
+              isDefaultAction: true,
+              isDestructiveAction: widget.disable,
+              onPressed: _busy ? null : _submit,
+              child: Text(widget.unlock ? 'Unlock'.tr : widget.disable ? 'Disable'.tr : 'Save'.tr),
+            ),
+          ],
         ),
-      ]) : AppConfirmDialog(
-        title: title,
-        content: content,
-        actions: [
-          AppDialogAction(
-            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
-            child: Text('Cancel'.tr),
-          ),
-          AppDialogAction(
-            isDefaultAction: true,
-            isDestructiveAction: widget.disable,
-            onPressed: _busy ? null : _submit,
-            child: Text(widget.disable ? 'Disable'.tr : 'Save'.tr),
-          ),
-        ],
       ),
     );
   }

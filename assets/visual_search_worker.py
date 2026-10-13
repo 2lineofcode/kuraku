@@ -308,10 +308,24 @@ class Worker:
             'image': [stat.st_size, stat.st_mtime_ns], 'video': [video.st_size, video.st_mtime_ns]}, sort_keys=True)
 
     def indexed_ids(self):
-        records = self.db.execute("""SELECT e.video_id, e.embedding FROM video_embeddings e JOIN videos v ON v.id=e.video_id
+        records = self.db.execute("""SELECT e.video_id, e.embedding, e.source_text, v.video_path FROM video_embeddings e JOIN videos v ON v.id=e.video_id
             WHERE v.is_deleted=0 AND e.model=? AND typeof(e.embedding)='blob' AND length(e.embedding)=2048
             AND json_extract(CASE WHEN json_valid(e.source_text) THEN e.source_text ELSE '{}' END, '$.path')=v.video_path""", (MODEL,))
-        return {row['video_id'] for row in records if self.valid_vector(row['embedding']) is not None}
+        indexed = set()
+        for row in records:
+            if self.valid_vector(row['embedding']) is None:
+                continue
+            source = json.loads(row['source_text'])
+            if not isinstance(source.get('video'), list) or len(source['video']) != 2:
+                continue
+            try:
+                stat = Path(row['video_path']).stat()
+            except OSError:
+                indexed.add(row['video_id'])
+                continue
+            if source.get('video') == [stat.st_size, stat.st_mtime_ns]:
+                indexed.add(row['video_id'])
+        return indexed
 
     def summary(self):
         total = self.db.execute('SELECT count(*) FROM videos WHERE is_deleted = 0').fetchone()[0]

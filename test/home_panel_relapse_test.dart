@@ -197,7 +197,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  panelTest('empty state supports logging without closing the panel', (tester) async {
+  panelTest('logging saves and refreshes state before closing the panel', (tester) async {
     await pump(tester);
     unawaited(HomePanelRelapse.open());
     await tester.pumpAndSettle();
@@ -206,9 +206,12 @@ void main() {
     await tester.tap(find.text('Log relapse'));
     await tester.pumpAndSettle();
     expect(database.rows, hasLength(1));
-    expect(find.text('1 / 2'), findsOneWidget);
-    expect(Overlayment.count, 1);
+    expect(find.text('Log relapse'), findsNothing);
+    expect(Overlayment.count, 0);
     expect(settings.refreshes, 2);
+    unawaited(HomePanelRelapse.open());
+    await tester.pumpAndSettle();
+    expect(find.text('1 / 2'), findsOneWidget);
   });
 
   panelTest('opening the panel again closes it', (tester) async {
@@ -249,16 +252,44 @@ void main() {
     await tester.tap(find.text('Log relapse'));
     await tester.pumpAndSettle();
     expect(database.rows, isEmpty);
+    expect(Overlayment.count, 1);
     expect(find.text('Could not complete the request. Please retry.'), findsOneWidget);
     database.failInsert = false;
     database.insertGate = Completer<void>();
     await tester.tap(find.text('Log relapse'));
     await tester.pump();
+    expect(Overlayment.count, 1);
     await tester.tap(find.text('Log relapse'));
     database.insertGate!.complete();
     await tester.pumpAndSettle();
     expect(database.rows, hasLength(1));
-    expect(find.text('1 / 2'), findsOneWidget);
+    expect(Overlayment.count, 0);
+    expect(settings.refreshes, 2);
+  });
+
+  panelTest('compact panel fits short windows and handles a zero daily limit in both themes', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(640, 480);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    settings.tecAppMaxColi.text = '0';
+    await settings.saveRelapseLimit();
+    addTearDown(() async {
+      settings.tecAppMaxColi.text = '2';
+      await settings.saveRelapseLimit();
+    });
+    for (final brightness in Brightness.values) {
+      await tester.pumpWidget(GetMaterialApp(theme: ThemeData(brightness: brightness), home: const Scaffold(body: Text('Home'))));
+      await tester.pumpAndSettle();
+      unawaited(HomePanelRelapse.open());
+      await tester.pumpAndSettle();
+      expect(find.text('0 / 0'), findsOneWidget);
+      expect(find.text('Daily limit reached'), findsOneWidget);
+      expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value, 1);
+      expect(tester.takeException(), isNull);
+      unawaited(Overlayment.dismissLast());
+      await tester.pumpAndSettle();
+    }
   });
 
   test('daily limit changes only on save and zero blocks playback', () async {

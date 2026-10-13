@@ -66,25 +66,25 @@ class ChatKnowledge {
   Map<String, dynamic>? directQuery(String text) {
     final query = text.trim().toLowerCase().replaceFirst(RegExp(r'[?!.]+$'), '').trim();
     if (const ['berapa jumlah video saya', 'berapa video saya', 'berapa video yang saya punya', 'jumlah video saya', 'total video saya', 'how many videos do i have', 'count my videos', 'koleksi gue ada berapa video', 'berapa video aku', 'berapa video gue'].contains(query)) {
-      return {'sql': 'SELECT COUNT(*) AS total_videos FROM main.videos'};
+      return {'sql': 'SELECT COUNT(*) AS total_videos FROM temp.videos'};
     }
     if (const ['berapa jumlah video r18', 'jumlah video r18', 'total video r18', 'count r18 videos'].contains(query)) {
       return {'sql': "SELECT COUNT(*) AS catalog_records, COUNT(DISTINCT NULLIF(TRIM(dvd_id), '')) AS unique_videos FROM r18.derived_video"};
     }
     if (const ['tampilkan favorit saya', 'video favorit saya', 'show my favorites', 'tampilkan favorit gue', 'tampilkan favorit aku'].contains(query)) {
-      return {'sql': 'SELECT video_code AS code, title, quality FROM main.videos WHERE is_favorite = 1 ORDER BY release_date DESC, video_code ASC LIMIT 20'};
+      return {'sql': 'SELECT video_code AS code, title, quality FROM temp.videos WHERE is_favorite = 1 ORDER BY release_date DESC, video_code ASC LIMIT 20'};
     }
     if (activeR18Path != null && const ['compare my collection with the r18 catalog', 'bandingin koleksi gue sama katalog r18'].contains(query)) {
-      return {'sql': 'SELECT (SELECT COUNT(*) FROM main.videos) AS library_files, '
-        "(SELECT COUNT(DISTINCT NULLIF(TRIM(video_code), '')) FROM main.videos) AS unique_owned_videos, "
+      return {'sql': 'SELECT (SELECT COUNT(*) FROM temp.videos) AS library_files, '
+        "(SELECT COUNT(DISTINCT NULLIF(TRIM(video_code), '')) FROM temp.videos) AS unique_owned_videos, "
         "(SELECT COUNT(DISTINCT NULLIF(TRIM(dvd_id), '')) FROM r18.derived_video) AS unique_catalog_videos, "
-        '(SELECT COUNT(DISTINCT video_code) FROM main.videos v WHERE EXISTS (SELECT 1 FROM r18.derived_video r WHERE r.dvd_id = v.video_code)) AS owned_in_catalog'};
+        '(SELECT COUNT(DISTINCT video_code) FROM temp.videos v WHERE EXISTS (SELECT 1 FROM r18.derived_video r WHERE r.dvd_id = v.video_code)) AS owned_in_catalog'};
     }
     final match = RegExp(r'^(?:(?:coba |tolong |please )?(?:cek|cari|lookup|check)(?: (?:kode|video))?\s+)?([a-z]{2,12}-\d{2,7})$').firstMatch(query);
     if (match == null) return null;
     final code = match[1]!.toUpperCase();
     return {
-      'sql': "SELECT 'Owned' AS source, video_code AS code, title, release_date FROM main.videos WHERE video_code = ?"
+      'sql': "SELECT 'Owned' AS source, video_code AS code, title, release_date FROM temp.videos WHERE video_code = ?"
           "${activeR18Path == null ? '' : " UNION ALL SELECT 'R18 catalog', dvd_id, COALESCE(MIN(NULLIF(TRIM(title_en), '')), MIN(NULLIF(TRIM(title_ja), ''))), MAX(release_date) FROM r18.derived_video WHERE dvd_id = ? GROUP BY dvd_id"} ORDER BY release_date DESC, code ASC LIMIT 20",
       'args': [code, if (activeR18Path != null) code],
     };

@@ -69,6 +69,18 @@ void main() {
     expect(HomePanelAppLog.appLogRuntime, isEmpty);
   });
 
+  test('runtime log retains only the latest 1000 entries', () async {
+    for (var index = 0; index < 1100; index++) {
+      await HomePanelAppLog.add('INFO', 'Entry $index');
+    }
+    expect(HomePanelAppLog.appLogRuntime, hasLength(1000));
+    expect(HomePanelAppLog.appLogRuntime.first.content, 'Entry 1099');
+    expect(HomePanelAppLog.appLogRuntime.last.content, 'Entry 100');
+    HomePanelAppLog.clear();
+    await HomePanelAppLog.add('INFO', 'New session');
+    expect(HomePanelAppLog.appLogRuntime.single.content, 'New session');
+  });
+
   test('log entries serialise to the database column names and back', () {
     final entry = AppLogRuntime(id: 'log-1', type: 'ERROR', content: 'boom', createdAt: '2026-03-04 10:00:00');
     expect(entry.toJson(), {'id': 'log-1', 'type': 'ERROR', 'content': 'boom', 'created_at': '2026-03-04 10:00:00'});

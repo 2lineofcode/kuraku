@@ -58,7 +58,7 @@ def title_search(request, schema):
     missing_english = request.get('missing_english', False)
     if type(missing_english) is not bool:
         raise ValueError('missing_english must be a boolean.')
-    table, code, english = ('r18.derived_video', 'dvd_id', 'title_en') if source == 'r18' else ('main.videos', 'video_code', 'title')
+    table, code, english = ('r18.derived_video', 'dvd_id', 'title_en') if source == 'r18' else ('temp.videos', 'video_code', 'title')
     columns = schema.get(table, [])
     if code not in columns or not any(field in columns for field in ['title_ja', english]):
         raise ValueError('This source has no searchable title metadata.')
@@ -74,7 +74,7 @@ def title_search(request, schema):
     base = f"v.{code} IS NOT NULL AND TRIM(v.{code}) != ''"
     if similar:
         base += f" AND v.{code} != ?"
-    if unowned and 'video_code' not in schema.get('main.videos', []):
+    if unowned and 'video_code' not in schema.get('temp.videos', []):
         raise ValueError('Owned library metadata is unavailable.')
     if missing_english:
         if 'title_ja' not in columns:
@@ -113,7 +113,7 @@ def title_search(request, schema):
         return f"EXISTS (SELECT 1 FROM {table} x WHERE x.{code} = hits.code AND (" + ' OR '.join(tests) + '))'
     filters += [concept(group) for group in required]
     if excluded: filters.append('NOT ' + concept(excluded))
-    if unowned: filters.append('NOT EXISTS (SELECT 1 FROM main.videos owned WHERE owned.video_code = hits.code)')
+    if unowned: filters.append('NOT EXISTS (SELECT 1 FROM temp.videos owned WHERE owned.video_code = hits.code)')
     where = ' WHERE ' + ' AND '.join(filters) if filters else ''
     grouped = "SELECT code, COALESCE(MIN(CASE WHEN matched_in = 'Saved translation' THEN title END), MIN(CASE WHEN matched_in = 'Local translation' THEN title END), MIN(title)) AS title, MIN(title_ja) AS title_ja, GROUP_CONCAT(DISTINCT matched_in) AS matched_in, MAX(release_date) AS release_date FROM (" + ' UNION ALL '.join(branches) + ') GROUP BY code'
     sql = 'SELECT * FROM (' + grouped + ') hits' + where + ' ORDER BY release_date DESC, code ASC LIMIT ? OFFSET ?'
@@ -126,7 +126,7 @@ def video_reference(db, schema, code):
         raise ValueError('Invalid reference code.')
     for table, key, fields in [
         ('r18.derived_video', 'dvd_id', ['title_en', 'title_ja', 'comment_en', 'comment_ja']),
-        ('main.videos', 'video_code', ['title', 'title_ja', 'description']),
+        ('temp.videos', 'video_code', ['title', 'title_ja', 'description']),
     ]:
         available = schema.get(table, [])
         selected = [field for field in fields if field in available]
@@ -147,7 +147,6 @@ def run(request):
     try:
         if 'r18' in paths:
             db.execute('ATTACH DATABASE ? AS r18', (Path(paths['r18']).resolve().as_uri() + '?mode=ro',))
-        db.execute('PRAGMA query_only = ON')
         db.execute('PRAGMA temp_store = MEMORY')
         schema = {}
         for source in paths:
@@ -155,6 +154,15 @@ def run(request):
                 columns = [row[1] for row in db.execute(f'PRAGMA {source}.table_info("{table}")') if row[1] in allowed.split()]
                 if columns:
                     schema[f'{source}.{table}'] = columns
+        video_columns = schema.pop('main.videos', [])
+        stored_columns = []
+        if video_columns:
+            stored_columns = [row[1] for row in db.execute('PRAGMA main.table_info(videos)')]
+            selected = ','.join('"' + column + '"' for column in video_columns)
+            where = ' WHERE is_deleted = 0' if 'is_deleted' in stored_columns else ''
+            db.execute(f'CREATE TEMP VIEW videos AS SELECT {selected} FROM main.videos{where}')
+            schema['temp.videos'] = video_columns
+        db.execute('PRAGMA query_only = ON')
         if request.get('schema'):
             return {'schema': schema, 'sources': {key: Path(value).name for key, value in paths.items()}}
         search_terms = None
@@ -173,12 +181,17 @@ def run(request):
             if action == sqlite3.SQLITE_SELECT:
                 return sqlite3.SQLITE_OK
             if action == sqlite3.SQLITE_READ:
+                if source == 'main' and table == 'videos':
+                    if (trigger != 'videos' and not (column == '' and 'is_deleted' not in stored_columns)) or column not in [*video_columns, 'is_deleted', '']:
+                        return sqlite3.SQLITE_DENY
+                    sources.add('main')
+                    return sqlite3.SQLITE_OK
                 if source is None and not column:
                     matches = [key.split('.')[0] for key in schema if key.endswith('.' + table)]
                     source = matches[0] if len(matches) == 1 else None
                 allowed = schema.get(f'{source}.{table}')
                 if allowed is not None and (not column or column in allowed):
-                    sources.add(source)
+                    sources.add('main' if source == 'temp' else source)
                     return sqlite3.SQLITE_OK
             if action == sqlite3.SQLITE_FUNCTION and column.lower() in FUNCTIONS:
                 return sqlite3.SQLITE_OK
@@ -225,7 +238,7 @@ def run(request):
             placeholders = ','.join('?' for _ in codes)
             # Fetch covers in batches; missing metadata must not discard query results.
             for table, code, fields in [
-                ('main.videos', 'video_code', ['fan_art', 'poster']),
+                ('temp.videos', 'video_code', ['fan_art', 'poster']),
                 ('r18.derived_video', 'dvd_id', ['jacket_full_url', 'jacket_thumb_url']),
             ]:
                 available = schema.get(table, [])

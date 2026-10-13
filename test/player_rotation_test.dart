@@ -44,6 +44,26 @@ final class _SubtitleFile extends PlatformFile {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _FullscreenState extends VideoState {
+  final entering = Completer<void>();
+  bool fullscreen = false;
+  int enters = 0;
+  int exits = 0;
+
+  @override
+  bool isFullscreen() => fullscreen;
+
+  @override
+  Future<void> enterFullscreen() async {
+    enters++;
+    await entering.future;
+    fullscreen = true;
+  }
+
+  @override
+  Future<void> exitFullscreen() async { exits++; fullscreen = false; }
+}
+
 class _Preferences implements GetSecureStorage {
   final values = <String, dynamic>{};
 
@@ -62,6 +82,7 @@ class _NativePlayer implements NativePlayer {
   final properties = <String, String>{};
   bool failRotation = false;
   bool failZoom = false;
+  bool failPan = false;
 
   @override
   Future<void> command(List<String> command, {bool waitForInitialization = true}) async {
@@ -71,6 +92,7 @@ class _NativePlayer implements NativePlayer {
 
   @override
   Future<void> setProperty(String property, String value, {bool waitForInitialization = true}) async {
+    if (property == 'video-pan-y' && failPan) throw StateError('Pan failed');
     if (property == 'video-zoom' && failZoom) throw StateError('Zoom failed');
     properties[property] = value;
   }
@@ -82,6 +104,9 @@ class _NativePlayer implements NativePlayer {
 class _Player implements Player {
   @override
   final NativePlayer platform;
+
+  @override
+  final state = const PlayerState(width: 1920, height: 1080);
 
   _Player(this.platform);
 
@@ -194,10 +219,28 @@ void main() {
     expect(controller.videoZoom.value, 2);
     expect(double.parse(native.properties['video-zoom']!), closeTo(1, 0.0001));
     expect(controller.isPlaying.value, isFalse);
+    await tester.dragFrom(const Offset(400, 250), const Offset(80, 40));
+    await tester.pumpAndSettle();
+    expect(controller.videoPan.value.dx, greaterThan(0));
+    expect(controller.videoPan.value.dy, greaterThan(0));
+    expect(double.parse(native.properties['video-pan-x']!), controller.videoPan.value.dx);
+    expect(controller.isPlaying.value, isFalse);
+    final beforeTrackpadPan = controller.videoPan.value;
+    final panning = TestPointer(2, PointerDeviceKind.trackpad);
+    await tester.sendEventToBinding(panning.panZoomStart(center));
+    await tester.sendEventToBinding(panning.panZoomUpdate(center, pan: const Offset(-20, -10)));
+    await tester.sendEventToBinding(panning.panZoomEnd());
+    await tester.pumpAndSettle();
+    expect(controller.videoZoom.value, 2);
+    expect(controller.videoPan.value.dx, lessThan(beforeTrackpadPan.dx));
+    expect(controller.videoPan.value.dy, lessThan(beforeTrackpadPan.dy));
     await tester.tap(find.text('Zoom 200% · Reset'));
     await tester.pumpAndSettle();
     expect(controller.videoZoom.value, 1);
     expect(native.properties['video-zoom'], '0.0');
+    expect(controller.videoPan.value, Offset.zero);
+    expect(native.properties['video-pan-x'], '0.0');
+    expect(native.properties['video-pan-y'], '0.0');
 
     await controller.setVideoZoom(20);
     expect(controller.videoZoom.value, 4);
@@ -212,6 +255,59 @@ void main() {
     expect(native.properties['video-zoom'], '0.0');
     await tester.pumpWidget(const SizedBox.shrink());
     controller.infoAnimationController.dispose();
+    expect(tester.takeException(), isNull);
+  });
+
+  test('video pan is bounded, rejects invalid input and restores state after a native failure', () async {
+    final native = _NativePlayer();
+    final controller = PlayerController()..player = _Player(native);
+    await controller.panVideo(const Offset(100, 100), const Size(800, 600));
+    expect(controller.videoPan.value, Offset.zero);
+    await controller.setVideoZoom(2);
+    await controller.panVideo(const Offset(10000, -10000), const Size(800, 600));
+    expect(controller.videoPan.value.dx, .25);
+    expect(controller.videoPan.value.dy, closeTo(-1.0 / 6, .0001));
+    await controller.setVideoZoom(1.2);
+    expect(controller.videoPan.value.dy, 0, reason: 'letterboxed video stays centered when it fits vertically');
+    controller.videoFit.value = BoxFit.fitHeight;
+    await controller.setVideoZoom(2);
+    await controller.panVideo(const Offset(10000, 10000), const Size(800, 600));
+    expect(controller.videoPan.value.dx, closeTo(.3125, .0001));
+    expect(controller.videoPan.value.dy, .25);
+    final saved = controller.videoPan.value;
+    await controller.panVideo(const Offset(double.nan, 0), const Size(800, 600));
+    await controller.panVideo(const Offset(10, 10), Size.zero);
+    expect(controller.videoPan.value, saved);
+    native.failPan = true;
+    await controller.setVideoPan(const Offset(.1, .1));
+    expect(controller.videoPan.value, saved);
+    expect(double.parse(native.properties['video-pan-x']!), saved.dx);
+    native.failPan = false;
+    await controller.setVideoZoom(1);
+    expect(controller.videoPan.value, Offset.zero);
+    expect(native.properties['video-pan-x'], '0.0');
+    expect(native.properties['video-pan-y'], '0.0');
+  });
+
+  testWidgets('fullscreen transitions ignore repeat clicks and recover focus after layout', (tester) async {
+    final controller = PlayerController();
+    final state = _FullscreenState();
+    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: Text('Player'))));
+    final entering = controller.toggleFullscreen(state);
+    await tester.pump();
+    expect(state.enters, 1);
+    await controller.toggleFullscreen(state);
+    expect(state.enters, 1);
+    state.entering.complete();
+    await tester.pumpAndSettle();
+    await entering;
+    expect(controller.isFullScreen.value, isTrue);
+    final exiting = controller.toggleFullscreen(state);
+    await tester.pumpAndSettle();
+    await exiting;
+    expect(state.exits, 1);
+    expect(controller.isFullScreen.value, isFalse);
+    expect(controller.focusSignal.value, 2);
     expect(tester.takeException(), isNull);
   });
 

@@ -238,6 +238,7 @@ class HomeView extends GetView<HomeController> {
           const Spacer(),
           sqlEditorMenu(),
           chatMenu(),
+          settingsMenu(),
         ],
       ).expand();
     }
@@ -270,6 +271,7 @@ class HomeView extends GetView<HomeController> {
         const Spacer(),
         sqlEditorMenu(),
         chatMenu(),
+        settingsMenu(),
       ],
     ).expand();
   }
@@ -289,7 +291,24 @@ class HomeView extends GetView<HomeController> {
       icon: HugeIcon(icon: HugeIcons.strokeRoundedBubbleChat, size: AppStyle.iconSize, color: AppColor.text),
       tooltip: kMenuChat,
       onPressed: () => controller.onMenuChange(kMenuChat),
-    )).pSymmetric(h: 10).w(double.infinity).pOnly(bottom: 24);
+    )).pSymmetric(h: 10).w(double.infinity).pOnly(bottom: 12);
+  }
+
+  Widget settingsMenu() {
+    final isMini = controller.sideMenuWidth.value != 180;
+    return Obx(() => InkWell(
+      onTap: () => controller.onMenuChange(kMenuSetting),
+      child: Container(
+        decoration: ExDecorator.box(
+          fillColor: controller.currentMenuSelected.value == kMenuSetting ? AppColor.selected : Colors.transparent,
+          borderColor: Colors.transparent,
+        ),
+        child: HStack([
+          HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: AppStyle.iconSize).pSymmetric(h: isMini ? 0 : 8),
+          if (!isMini) kMenuSetting.tr.text.size(11).make().pOnly(left: 4),
+        ], alignment: isMini ? MainAxisAlignment.center : MainAxisAlignment.start).p(isMini ? 10 : 8),
+      ),
+    ).tooltip(kMenuSetting)).pSymmetric(h: 10).w(double.infinity).pOnly(bottom: 24);
   }
 
   Widget bodyContent() {

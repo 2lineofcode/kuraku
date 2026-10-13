@@ -40,6 +40,12 @@ void main() {
           await tester.pumpAndSettle();
           expect(home.currentMenuSelected.value, home.menus[index]['name']);
         }
+        final settings = find.byType(HugeIcon).last;
+        expect(tester.widget<HugeIcon>(settings).icon, HugeIcons.strokeRoundedSettings01);
+        expect(tester.getTopLeft(settings).dy, greaterThan(tester.getBottomLeft(find.byType(HugeIcon).at(6)).dy));
+        await tester.tap(settings);
+        await tester.pumpAndSettle();
+        expect(home.currentMenuSelected.value, kMenuSetting);
         expect(tester.takeException(), isNull);
       }
     }

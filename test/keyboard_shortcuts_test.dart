@@ -1,7 +1,10 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
+import 'package:javit/app/core/app_setting.dart';
 import 'package:javit/app/core/app_translations.dart';
 import 'package:javit/app/modules/widgets/widget_keyboard_shortcuts.dart';
 import 'package:javit/app/modules/widgets/widget_style.dart';
@@ -27,8 +30,20 @@ void main() {
           expect(find.text('Keyboard Shortcuts'.tr), findsOneWidget);
           expect(find.text('Go to Home'.tr), findsOneWidget);
           expect(find.text('Open relapse panel'.tr), findsOneWidget);
-          expect(find.text('⌘'), findsNWidgets(14));
+          expect(find.text('Open Keyboard Shortcuts'.tr), findsOneWidget);
           expect(tester.getSize(find.byType(KeyboardShortcutsPanel)).height, lessThanOrEqualTo(size.height * .85));
+          for (final entry in [('Player', 'Enable/disable bottom controls'), ('Pages', 'Run query'), ('Chat', 'Stop response')]) {
+            await tester.tap(find.descendant(of: find.byType(CupertinoSlidingSegmentedControl<String>), matching: find.text(entry.$1.tr)));
+            await tester.pumpAndSettle();
+            expect(find.text(entry.$2.tr), findsOneWidget);
+            expect(find.text('= × 2'), findsNothing);
+            expect(find.text('Go to Home'.tr), findsNothing);
+            await tester.ensureVisible(find.text(entry.$2.tr));
+            expect(find.text(entry.$2.tr).hitTestable(), findsOneWidget);
+            expect(tester.takeException(), isNull);
+          }
+          await tester.tap(find.descendant(of: find.byType(CupertinoSlidingSegmentedControl<String>), matching: find.text('App'.tr)));
+          await tester.pumpAndSettle();
           await tester.ensureVisible(find.text('Close dialog/panel'.tr));
           expect(find.text('Close dialog/panel'.tr).hitTestable(), findsOneWidget);
           expect(find.byTooltip('Close'.tr).hitTestable(), findsOneWidget);
@@ -42,6 +57,41 @@ void main() {
         }
       }
     }
+  });
+
+  testWidgets('Cmd slash opens from an input, prevents duplicates and works again after closing', (tester) async {
+    final settings = AppSettingService();
+    final focus = FocusNode();
+    addTearDown(() async {
+      settings.onClose();
+      for (final hotKey in hotKeyManager.registeredHotKeyList.toList()) {
+        await hotKeyManager.unregister(hotKey);
+      }
+      focus.dispose();
+      Get.reset();
+    });
+    await settings.setupHotkey();
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: TextField(focusNode: focus))));
+    focus.requestFocus();
+    await tester.pump();
+    Future<void> open() async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.slash);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pumpAndSettle();
+    }
+    await open();
+    expect(find.byType(KeyboardShortcutsPanel), findsOneWidget);
+    await open();
+    expect(find.byType(KeyboardShortcutsPanel), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(KeyboardShortcutsPanel), findsNothing);
+    await open();
+    expect(find.byType(KeyboardShortcutsPanel), findsOneWidget);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('settings opener shows a centered panel that Escape dismisses', (tester) async {

@@ -736,14 +736,21 @@ mixin HelperOpener {
     }
   }
 
+  static bool _isOpeningKeyboardShortcuts = false;
+
   static Future<void> openKeyboardShortcuts() async {
-    if (Get.context == null) return;
-    await showDialog<void>(
-      context: Get.context!,
-      builder: (context) => AppDialog(
-        child: SizedBox(width: 480, child: KeyboardShortcutsPanel(onClose: () => Navigator.of(context).pop())),
-      ),
-    );
+    if (Get.context == null || _isOpeningKeyboardShortcuts) return;
+    _isOpeningKeyboardShortcuts = true;
+    try {
+      await showDialog<void>(
+        context: Get.context!,
+        builder: (context) => AppDialog(
+          child: SizedBox(width: 520, child: KeyboardShortcutsPanel(onClose: () => Navigator.of(context).pop())),
+        ),
+      );
+    } finally {
+      _isOpeningKeyboardShortcuts = false;
+    }
   }
 
   // ────────────────────────────────────────────────────────────────

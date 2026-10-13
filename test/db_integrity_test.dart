@@ -117,6 +117,38 @@ void main() {
     expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
   });
 
+  test('permanent delete removes only deleted records and cascades related data', () async {
+    final db = await _database();
+    Get.put<DBService>(_Service()..dbMain = db);
+    final file = File('${Directory.systemTemp.path}/javit-permanent-delete-${DateTime.now().microsecondsSinceEpoch}.mp4');
+    await file.writeAsString('keep');
+    addTearDown(() => file.delete());
+    await db.insert('videos', {'id': 'v1', 'root_path': file.parent.path, 'video_path': file.path, 'is_deleted': 1});
+    await db.insert('videos', {'id': 'v2', 'root_path': '/', 'video_path': '/active.mp4', 'is_deleted': 0});
+    await db.execute("INSERT INTO playlist(id,name) VALUES ('p1','Keep')");
+    await db.execute("INSERT INTO playlist_item VALUES ('p1','v1','created')");
+    await db.execute("INSERT INTO video_embeddings VALUES ('v1','source',?,'clip','created','updated')", [Float32List.fromList([1]).buffer.asUint8List()]);
+    await db.execute("INSERT INTO watch_session VALUES ('w1','v1','TEST-001',42,'2020-01-01')");
+    final revision = DBVideos.revision.value;
+    await db.execute("CREATE TRIGGER fail_delete BEFORE DELETE ON videos BEGIN SELECT RAISE(ABORT,'Write failed'); END");
+    await expectLater(DBVideos.deletePermanently(Videos(id: 'v1')), throwsA(isA<SqliteTestException>()));
+    expect(await db.query('playlist_item'), hasLength(1));
+    expect(await db.query('video_embeddings'), hasLength(1));
+    expect(DBVideos.revision.value, revision);
+    await db.execute('DROP TRIGGER fail_delete');
+    expect(await DBVideos.deletePermanently(Videos(id: 'v2')), 0);
+    expect(await DBVideos.deletePermanently(Videos(id: 'gone')), 0);
+    expect(await DBVideos.deletePermanently(Videos(id: 'v1')), 1);
+    expect(await DBVideos.deletePermanently(Videos(id: 'v1')), 0);
+    expect(DBVideos.revision.value, revision + 1);
+    expect((await db.query('videos')).single['id'], 'v2');
+    expect(await db.query('playlist_item'), isEmpty);
+    expect(await db.query('video_embeddings'), isEmpty);
+    expect(await db.query('watch_session'), hasLength(1));
+    expect(await file.readAsString(), 'keep');
+    expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
+  });
+
   test('v15 preserves core data and relationships, cleans only rebuildable caches', () async {
     final db = await _database(version: 14);
     await db.execute("INSERT INTO library(id,root_folder,total_video,videos) VALUES ('l1','/videos',1,'[\"/videos/a.mp4\"]')");
@@ -250,6 +282,60 @@ void main() {
     video.duration = -1;
     await expectLater(DBVideos.update(video), throwsA(isA<SqliteTestException>()));
     expect((await DBVideos.getAll()).single.duration, 90);
+  });
+
+  test('stale metadata saves preserve moves, counters, favorites and file properties', () async {
+    final db = await _database();
+    Get.put<DBService>(_Service()..dbMain = db);
+    await DBVideos.addBulk([Videos(rootPath: '/videos', videoPath: '/videos/a.mp4', viewCount: 1, filesize: 123, quality: 'old')]);
+    final stale = (await DBVideos.getAll()).single;
+    await DBVideos.moveVideoPaths([{'id': stale.id!, 'oldPath': stale.videoPath!, 'newPath': '/new/a.mp4', 'newRoot': '/new'}]);
+    final current = (await DBVideos.getAll()).single;
+    await DBVideos.updateViewCount(current);
+    await DBVideos.addToFavorite(current);
+    await db.update('videos', {'filesize': 456, 'quality': 'new'}, where: 'id = ?', whereArgs: [current.id]);
+    stale.title = 'Edited title';
+    await DBVideos.update(stale);
+    final saved = (await DBVideos.getAll()).single;
+    expect(saved.title, 'Edited title');
+    expect([saved.rootPath, saved.videoPath, saved.viewCount, saved.isFavorite, saved.filesize, saved.quality],
+      ['/new', '/new/a.mp4', 2, 1, 456, 'new']);
+  });
+
+  test('directory queries match direct children only and treat wildcards literally', () async {
+    final db = await _database();
+    Get.put<DBService>(_Service()..dbMain = db);
+    for (final path in ['/videos/A/one.mp4', '/videos/AB/two.mp4', '/videos/A/sub/three.mp4',
+        '/videos/A_%/four.mp4', '/videos/A_X/five.mp4']) {
+      await DBVideos.addBulk([Videos(rootPath: '/videos', videoPath: path)]);
+    }
+    for (final root in ['/videos/A', '/videos/A/']) {
+      expect((await DBVideos.getAllVideoPath('video_path', root)).map((video) => video.videoPath), ['/videos/A/one.mp4']);
+    }
+    expect((await DBVideos.getAllVideoPath('video_path', '/videos/A_%')).single.videoPath, '/videos/A_%/four.mp4');
+  });
+
+  test('library deletion rolls back registration and related records together', () async {
+    final db = await _database();
+    Get.put<DBService>(_Service()..dbMain = db);
+    final library = Library(rootFolder: '/videos');
+    await DBLibrary.add(library);
+    await DBVideos.addBulk([Videos(rootPath: '/videos', videoPath: '/videos/a.mp4')]);
+    final video = (await DBVideos.getAll()).single;
+    await db.execute("INSERT INTO playlist(id,name) VALUES ('p','Keep')");
+    await db.insert('playlist_item', {'playlist_id': 'p', 'video_id': video.id});
+    await db.execute("CREATE TRIGGER fail_library_delete BEFORE DELETE ON library BEGIN SELECT RAISE(ABORT,'Simulated write failure'); END");
+    await expectLater(DBLibrary.deleteWithVideos(library), throwsA(isA<SqliteTestException>()));
+    expect(await DBLibrary.getAll(), hasLength(1));
+    expect(await DBVideos.getAll(), hasLength(1));
+    expect(await db.query('playlist_item'), hasLength(1));
+    await db.execute('DROP TRIGGER fail_library_delete');
+    await db.update('library', {'root_folder': '/relocated'}, where: 'id = ?', whereArgs: [library.id]);
+    await db.update('videos', {'root_path': '/relocated'});
+    await DBLibrary.deleteWithVideos(library);
+    expect(await DBLibrary.getAll(), isEmpty);
+    expect(await DBVideos.getAll(), isEmpty);
+    expect(await db.query('playlist_item'), isEmpty);
   });
 
   test('scan commits roll back moves, additions and snapshots together and retain missing records', () async {

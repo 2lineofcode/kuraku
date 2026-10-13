@@ -428,8 +428,7 @@ mixin HomePanelPlaylist {
                         icon: HugeIcon(icon: HugeIcons.strokeRoundedRemoveCircle, size: AppStyle.iconSize),
                         onPressed: () async {
                           if (_isFavoriteMode.isTrue) {
-                            video.isFavorite = 0;
-                            await DBVideos.update(video);
+                            await DBVideos.removeFromFavorite(video);
                             _listFavoriteVideo.removeWhere((v) => v.id == video.id);
                             _listVideos.removeWhere((v) => v.id == video.id);
                             _detailFuture = _buildFavoriteFuture();

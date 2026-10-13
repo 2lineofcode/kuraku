@@ -38,6 +38,8 @@ class PlayerControls extends StatefulWidget {
 class _PlayerControlsState extends State<PlayerControls> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final FocusNode _focusNode = FocusNode();
   bool _focusRestorePending = false;
+  bool _active = true;
+  bool _closingPlayer = false;
   final Duration _autoHideDuration = 2.seconds;
 
   Timer? _hideTimer;
@@ -51,7 +53,6 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   double? _scrubValue;
   double _pinchStartZoom = 1;
   double? _preMuteVolume;
-  DateTime? _lastEqualPress;
   bool _isVolumePointerInside = false;
   bool _isVolumeDragging = false;
   bool _isSeekPreviewVisible = false;
@@ -122,11 +123,11 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   }
 
   void _restoreFocus({bool onlyIfScope = false}) {
-    if (!mounted || _focusRestorePending) return;
+    if (!mounted || !_active || _focusRestorePending) return;
     _focusRestorePending = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusRestorePending = false;
-      if (!mounted || _isMenuOpen || Overlayment.count > 0 || ModalRoute.of(context)?.isCurrent == false) return;
+      if (!mounted || !_active || _isMenuOpen || Overlayment.count > 0 || ModalRoute.of(context)?.isCurrent == false) return;
       if (onlyIfScope && FocusManager.instance.primaryFocus is! FocusScopeNode) return;
       if (!_focusNode.hasFocus) _focusNode.requestFocus();
     });
@@ -141,6 +142,20 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) _onFocusChanged();
+  }
+
+  @override
+  void deactivate() {
+    _active = false;
+    _cancelHideTimer();
+    super.deactivate();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _active = true;
+    _restoreFocus();
   }
 
   @override
@@ -188,7 +203,6 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
       // Other
       LogicalKeySet(LogicalKeyboardKey.keyM): MuteIntent(),
-      LogicalKeySet(LogicalKeyboardKey.equal): EqualTapIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyA): ToggleVideoFitIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyP): MiniPlayerIntent(),
       LogicalKeySet(LogicalKeyboardKey.comma): ToggleVideoAdjustmentsIntent(),
@@ -201,11 +215,13 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowUp): OpenScreenshotIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyI): OpenInfoIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyC): AddToCartIntent(),
+      LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.alt, LogicalKeyboardKey.keyC): TogglePlaybackControlsIntent(),
       LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.greater): NextVideoIntent(),
       LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.less): PrevVideoIntent(),
     };
 
     final actions = <Type, Action<Intent>>{
+      TogglePlaybackControlsIntent: CallbackAction<TogglePlaybackControlsIntent>(onInvoke: (_) { _togglePlaybackControls(); return null; }),
       PlayPauseIntent: CallbackAction<PlayPauseIntent>( onInvoke: (intent) { _togglePlayPause(); return null; }, ),
       SeekForward5sIntent: CallbackAction<SeekForward5sIntent>( onInvoke: (intent) { _seekRelative(Duration(seconds: AppPref.getPlayerSeekShort())); return null; }, ),
       SeekForward30sIntent: CallbackAction<SeekForward30sIntent>( onInvoke: (intent) { _seekRelative(Duration(seconds: AppPref.getPlayerSeekMid())); return null; }, ),
@@ -218,14 +234,13 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       SpeedUpIntent: CallbackAction<SpeedUpIntent>( onInvoke: (intent) { _changeSpeed(0.1); return null; }, ),
       SpeedDownIntent: CallbackAction<SpeedDownIntent>( onInvoke: (intent) { _changeSpeed(-0.1); return null; }, ),
       MuteIntent: CallbackAction<MuteIntent>( onInvoke: (intent) { _toggleMute(); return null; }, ),
-      EqualTapIntent: CallbackAction<EqualTapIntent>( onInvoke: (intent) { _handleEqualPress(); return null; }, ),
       ToggleVideoFitIntent: CallbackAction<ToggleVideoFitIntent>( onInvoke: (intent) => widget.controller.toggleVideoFit() ),
       ToggleVideoAdjustmentsIntent: CallbackAction<ToggleVideoAdjustmentsIntent>( onInvoke: (intent) { _toggleVideoAdjustments(); return null; }, ),
       RotateLeftIntent: CallbackAction<RotateLeftIntent>( onInvoke: (intent) { _rotateVideo(clockwise: false); return null; }, ),
       RotateRightIntent: CallbackAction<RotateRightIntent>( onInvoke: (intent) { _rotateVideo(clockwise: true); return null; }, ),
       OpenListIntent: CallbackAction<OpenListIntent>( onInvoke: (intent) { widget.controller.openList(); return null; }, ),
-      MiniPlayerIntent: CallbackAction<MiniPlayerIntent>( onInvoke: (intent) { widget.controller.enterMiniMode(); Get.back(); return null; }, ),
-      BackIntent: CallbackAction<BackIntent>(onInvoke: (intent) { widget.controller.stopPlayback(); Get.back(); return null; }),
+      MiniPlayerIntent: CallbackAction<MiniPlayerIntent>( onInvoke: (intent) { unawaited(_leavePlayer(mini: true)); return null; }, ),
+      BackIntent: CallbackAction<BackIntent>(onInvoke: (intent) { unawaited(_leavePlayer()); return null; }),
       OpenScreenshotIntent: CallbackAction<OpenScreenshotIntent>( onInvoke: (intent) { widget.controller.openSS(); return null; } ),
       OpenInfoIntent: CallbackAction<OpenInfoIntent>( onInvoke: (intent) { widget.controller.openInfo(); return null; }, ),
       AddToCartIntent: CallbackAction<AddToCartIntent>( onInvoke: (intent) { widget.controller.addToCart(); return null; }, ),
@@ -250,8 +265,12 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                 onTap: _onUserInteraction,
                 onScaleStart: (_) => _pinchStartZoom = widget.controller.videoZoom.value,
                 onScaleUpdate: (details) {
-                  if (details.pointerCount < 2) return;
-                  unawaited(widget.controller.setVideoZoom(_pinchStartZoom * details.scale));
+                  if (details.pointerCount >= 2) {
+                    unawaited(widget.controller.setVideoZoom(_pinchStartZoom * details.scale));
+                  }
+                  if (widget.controller.videoZoom.value > 1 && details.focalPointDelta != Offset.zero) {
+                    unawaited(widget.controller.panVideo(details.focalPointDelta, context.size ?? Size.zero));
+                  }
                 },
                 child: Stack(
                   children: [
@@ -329,17 +348,17 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   }
 
 
-  Widget _glassPanel(Widget child, {EdgeInsets padding = const EdgeInsets.all(12)}) {
+  Widget _glassPanel(Widget child, {EdgeInsets padding = const EdgeInsets.all(12), double opacity = .58, double blur = 18}) {
     return CupertinoTheme(
       data: const CupertinoThemeData(brightness: Brightness.dark, primaryColor: Colors.white),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
           child: Container(
             padding: padding,
             decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E).withValues(alpha: .58),
+              color: const Color(0xFF1C1C1E).withValues(alpha: opacity),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.white.withValues(alpha: .12)),
             ),
@@ -392,14 +411,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
             }
           },
         ),
-        _buildControlIcon(icon: CupertinoIcons.rectangle_on_rectangle, size: 16, tooltip: 'Mini Player (P)'.tr, onTap: () {
-          widget.controller.enterMiniMode();
-          Get.back();
-        }),
-        _buildControlIcon(icon: CupertinoIcons.xmark, size: 16, tooltip: 'Back (Q)'.tr, onTap: () async {
-          await widget.controller.stopPlayback();
-          Get.back();
-        }),
+        _buildControlIcon(icon: CupertinoIcons.rectangle_on_rectangle, size: 16, tooltip: 'Mini Player (P)'.tr, onTap: () => unawaited(_leavePlayer(mini: true))),
+        _buildControlIcon(icon: CupertinoIcons.xmark, size: 16, tooltip: 'Back (Q)'.tr, onTap: _leavePlayer),
       ]), padding: const EdgeInsets.all(4));
       return Positioned(
         top: 36, left: 16, right: 16,
@@ -423,6 +436,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
   Widget _buildBottomBar() {
     return Obx(() {
+      final visible = _controlsVisible && widget.controller.showPlaybackControls.value;
       final pos = widget.controller.position.value;
       final dur = widget.controller.duration.value;
       final remaining = dur > pos ? dur - pos : Duration.zero;
@@ -446,9 +460,9 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       ]);
       const timeStyle = TextStyle(color: Colors.white70, fontSize: 10, fontFeatures: [FontFeature.tabularFigures()]);
       return IgnorePointer(
-        ignoring: !_controlsVisible,
+        ignoring: !visible,
         child: AnimatedOpacity(
-          opacity: _controlsVisible ? 1 : 0,
+          opacity: visible ? 1 : 0,
           duration: const Duration(milliseconds: 180),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -475,7 +489,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                     transport,
                     Expanded(child: Align(alignment: Alignment.centerRight, child: options)),
                   ]),
-                ]))),
+                ])), opacity: .25, blur: 8),
               ),
             ),
           ),
@@ -1289,6 +1303,38 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     },
   );
 
+  Future<void> _leavePlayer({bool mini = false}) async {
+    if (_closingPlayer) return;
+    _closingPlayer = true;
+    final controller = widget.controller;
+    final state = widget.videoState;
+    try {
+      if (state.isFullscreen()) {
+        await controller.toggleFullscreen(state);
+        if (controller.isFullScreen.value) return;
+      }
+      if (mini) {
+        controller.enterMiniMode();
+      } else {
+        await controller.stopPlayback();
+      }
+      Get.back();
+    } finally {
+      _closingPlayer = false;
+    }
+  }
+
+  void _togglePlaybackControls() {
+    widget.controller.showPlaybackControls.toggle();
+    _seekPreview.clear();
+    setState(() {
+      _isSeekPreviewVisible = false;
+      _isVolumePointerInside = false;
+      _isVolumeDragging = false;
+    });
+    _showControls();
+  }
+
   void _onUserInteraction() {
     if (_controlsVisible) {
       _hideControls();
@@ -1323,7 +1369,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   }
 
   void _showControls({bool permanent = false}) {
-    if (!mounted) return;
+    if (!mounted || !_active) return;
     if (!_controlsVisible) {
       setState(() => _controlsVisible = true);
     }
@@ -1378,25 +1424,6 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     _showControls();
   }
 
-  void _handleEqualPress() {
-    final now = DateTime.now();
-    if (_lastEqualPress != null && now.difference(_lastEqualPress!) <= 400.milliseconds) {
-      _lastEqualPress = null;
-      _toggleFullscreen();
-    } else {
-      _lastEqualPress = now;
-    }
-  }
-
-  Future<void> _toggleFullscreen() async {
-    try {
-      _cancelHideTimer();
-      final willBeFullscreen = !widget.controller.isFullScreen.value;
-      await widget.controller.toggleFullscreen(widget.videoState);
-      _showInfo(willBeFullscreen ? 'Fullscreen'.tr : 'Windowed'.tr);
-    } catch (_) {}
-  }
-
   void _showInfo(String text) {
     if (!mounted) return;
     _infoTimer?.cancel();
@@ -1420,6 +1447,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   }
 }
 
+class TogglePlaybackControlsIntent extends Intent { const TogglePlaybackControlsIntent(); }
 class PlayPauseIntent extends Intent { const PlayPauseIntent(); }
 class SeekForward5sIntent extends Intent { const SeekForward5sIntent(); }
 class SeekForward30sIntent extends Intent { const SeekForward30sIntent(); }
@@ -1432,7 +1460,6 @@ class VolumeDownIntent extends Intent { const VolumeDownIntent(); }
 class SpeedUpIntent extends Intent { const SpeedUpIntent(); }
 class SpeedDownIntent extends Intent { const SpeedDownIntent(); }
 class MuteIntent extends Intent { const MuteIntent(); }
-class EqualTapIntent extends Intent { const EqualTapIntent(); }
 class ToggleVideoFitIntent extends Intent { const ToggleVideoFitIntent(); }
 class ToggleVideoAdjustmentsIntent extends Intent { const ToggleVideoAdjustmentsIntent(); }
 class RotateLeftIntent extends Intent { const RotateLeftIntent(); }

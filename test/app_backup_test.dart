@@ -94,6 +94,12 @@ Future<void> _seed(Database db) async {
   await db.execute("INSERT INTO playlist_item VALUES ('p1','v1','2026-01-01')");
   await db.execute("INSERT INTO watch_session VALUES ('s1','v1','TEST-001',42,'2026-01-01')");
   await db.execute("INSERT INTO watch_session VALUES ('s2','missing','OLD-001',10,'2026-01-02')");
+  await db.execute("INSERT INTO todo(id,title) VALUES ('t1','Saved todo')");
+  await db.insert('download_log', {'id': 'd1', 'payload': jsonEncode({'filename': 'a.mp4', 'url': 'https://example.test/a', 'dir': '/offline', 'ev': 'completed', 'output_path': '/offline/a.mp4'})});
+  await db.insert('video_file_identity', {'video_id': 'v1', 'filesize': 42, 'modified_at': 1, 'fingerprint': 'a' * 64});
+  await db.execute("INSERT INTO chat_conversation(id,title,draft,created_at,updated_at,last_activity_at,is_pinned) VALUES ('c1','Saved chat','Draft','2026-01-01','2026-01-01','2026-01-01',1)");
+  await db.execute("INSERT INTO chat_message(id,conversation_id,position,role,content,status,created_at,updated_at) VALUES ('m1','c1',1,'user','Saved message','completed','2026-01-01','2026-01-01')");
+  await db.execute("INSERT INTO chat_translation VALUES ('Title','id','Judul','2026-01-01')");
   await db.execute("UPDATE profile SET name='Saved profile',total_watch_duration=52");
   await db.execute("INSERT INTO relapse_event(id,occurred_on) VALUES ('r1','2026-01-01')");
   await db.execute("INSERT INTO historical(type,query,updated_at) VALUES ('search','Keep',1)");
@@ -113,7 +119,11 @@ void main() {
       '_kAppLanguage': 'id', '_kAppTheme': 'light', '_kPlayerVolume': 0.5,
       '_kExplorePins': ['actress'], '_kAppPin': {'hash': 'secret'},
       '_kDownloadOptions': {'mode': 'extract', 'concurrency': '8', 'headless': true},
-      '_kSearchTabs': {'keep': true},
+      '_kSearchTabs': {'tabs': [{'query': 'Saved search', 'pinned': true}], 'activeTab': 0},
+      '_kExploreTabs': {'tabs': [{'leftQuery': 'Actress'}]}, '_kDownloadTabs': {'tabs': [{'query': '/search TEST-001'}]},
+      'sql_tabs': {'tabs': [{'drafts': {'javit.db': 'SELECT * FROM todo'}}]},
+      'sql_snippets': {'javit.db': {'Saved': 'SELECT * FROM todo'}}, 'chat_active_id': 'c1',
+      '_kAppCart': [{'id': 'cart1', 'video_code': 'TEST-001'}],
     });
     directory = await Directory.systemTemp.createTemp('backup-test-');
   });
@@ -127,15 +137,20 @@ void main() {
     final backup = await AppBackup.capture(db, pref);
     expect(backup.favorites, 1);
     expect(backup.count('watch_session'), 2);
+    final storedTables = await db.rawQuery("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != 'video_embeddings'");
+    expect(AppBackup.tables.toSet(), storedTables.map((row) => row['name']).toSet());
+    expect((jsonDecode(backup.encode()) as Map)['tables']['download_log'].single.keys,
+      unorderedEquals(['id', 'payload', 'created_at', 'updated_at']));
     expect(backup.encode(), isNot(contains('secret')));
     final file = File(p.join(directory.path, 'backup.json'));
     await backup.write(file);
     final restored = await AppBackup.read(file);
     final scratch = await _database();
     try { await restored.validate(database: scratch); } finally { await scratch.close(); }
-    await db.execute("INSERT INTO todo(id,title) VALUES ('t1','Keep unrelated todo')");
-    await db.execute("INSERT INTO download_log(id,payload) VALUES ('d1','{}')");
     final before = {for (final table in AppBackup.tables) table: await db.query(table, orderBy: '1')};
+    final savedSettings = {for (final key in AppBackup.settingKeys) key: pref.read(key)};
+    for (final table in ['todo', 'download_log', 'chat_conversation', 'chat_translation', 'video_file_identity']) { await db.delete(table); }
+    for (final key in AppBackup.settingKeys) { pref.values[key] = null; }
     await db.execute("UPDATE videos SET title='Changed',is_favorite=0");
     await db.delete('playlist');
     await db.delete('watch_session');
@@ -146,11 +161,38 @@ void main() {
     expect(pref.values['_kAppLanguage'], 'id');
     expect(pref.values['_kDownloadOptions'], {'mode': 'extract', 'concurrency': '8', 'headless': true});
     expect(pref.values['_kAppPin'], 'current PIN');
-    expect(pref.values['_kSearchTabs'], {'keep': true});
+    for (final key in AppBackup.settingKeys) { expect(pref.values[key], savedSettings[key], reason: key); }
     expect(await File('/offline/a.mp4').exists(), isFalse);
     expect(await db.query('todo'), hasLength(1));
     expect(await db.query('download_log'), hasLength(1));
     expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
+  });
+
+  test('v1 backups preserve omitted domains and preferences', () async {
+    final data = jsonDecode((await AppBackup.capture(db, pref)).encode()) as Map<String, dynamic>;
+    data['version'] = 1;
+    for (final table in ['todo', 'download_log', 'video_file_identity', 'chat_conversation', 'chat_message', 'chat_translation']) { data['tables'].remove(table); }
+    for (final key in ['_kSearchTabs', '_kExploreTabs', '_kDownloadTabs', 'sql_tabs', 'sql_snippets', 'chat_active_id', '_kAppCart']) { data['settings'].remove(key); }
+    final legacy = AppBackup.decode(jsonEncode(data));
+    await _seed(db);
+    await legacy.validate();
+    await legacy.apply(db, pref);
+    expect(await db.query('videos'), isEmpty);
+    for (final table in ['todo', 'download_log', 'chat_conversation', 'chat_message', 'chat_translation']) {
+      expect(await db.query(table), hasLength(1), reason: table);
+    }
+    expect(pref.values['sql_snippets'], {'javit.db': {'Saved': 'SELECT * FROM todo'}});
+    expect(pref.values['_kAppCart'], [{'id': 'cart1', 'video_code': 'TEST-001'}]);
+    expect(legacy.includes('todo'), isFalse);
+  });
+
+  test('restore marks in-flight chat responses interrupted', () async {
+    await _seed(db);
+    await db.update('chat_message', {'role': 'assistant', 'status': 'streaming'});
+    final backup = await AppBackup.capture(db, pref);
+    await backup.validate();
+    await backup.apply(db, pref);
+    expect((await db.query('chat_message')).single['status'], 'failed');
   });
 
   test('legacy Home sections survive backup and restore with their original order', () async {
@@ -169,6 +211,7 @@ void main() {
   test('v17 backups restore with empty albums and current backups preserve images', () async {
     await _seed(db);
     final data = jsonDecode((await AppBackup.capture(db, pref)).encode()) as Map<String, dynamic>;
+    data['version'] = 1;
     data['database_version'] = 17;
     data['settings'].remove('_kHomeSecImageAlbums');
     for (final row in data['tables']['library']) { row.remove('images'); }
@@ -203,6 +246,11 @@ void main() {
       (data) => data['settings']['_kPlayerSeekShort'] = -1,
       (data) => data['settings']['_kHomeOrderList'] = [10],
       (data) => data['settings']['_kDownloadOptions'] = {'headless': 'yes'},
+      (data) => data['tables'].remove('todo'),
+      (data) => data['settings'].remove('sql_snippets'),
+      (data) => data['settings']['_kAppCart'] = [1],
+      (data) => data['settings']['_kSearchTabs'] = {'tabs': [1]},
+      (data) => data['settings']['sql_snippets'] = {'javit.db': {'Bad': 1}},
     ]) {
       final data = jsonDecode(original) as Map<String, dynamic>;
       mutate(data);
@@ -225,6 +273,11 @@ void main() {
       (data) => data['tables']['playlist_item'][0]['video_id'] = 'unknown',
       (data) => data['tables']['watch_session'][0]['created_at'] = 'invalid date',
       (data) => data['tables']['videos'].add(data['tables']['videos'][0]),
+      (data) => data['tables']['todo'][0]['title'] = '',
+      (data) => data['tables']['download_log'][0]['payload'] = '[]',
+      (data) => data['tables']['download_log'][0]['filename'] = 'generated',
+      (data) => data['tables']['chat_message'][0]['conversation_id'] = 'missing',
+      (data) => data['tables']['video_file_identity'][0]['video_id'] = 'missing',
     ]) {
       final data = jsonDecode(original) as Map<String, dynamic>;
       mutate(data);
@@ -267,11 +320,19 @@ void main() {
     await AppBackup.applyPending(directory.path, db, pref);
     expect(await db.query('videos'), isEmpty);
     expect(await db.query('playlist_item'), isEmpty);
+    for (final table in ['todo', 'download_log', 'chat_conversation', 'chat_message', 'chat_translation', 'video_file_identity']) {
+      expect(await db.query(table), isEmpty, reason: table);
+    }
     expect(pref.values['_kAppLanguage'], 'id');
     final recovery = directory.listSync().whereType<File>().single;
     expect(p.basename(recovery.path), startsWith('recovery-'));
     expect((await AppBackup.read(recovery)).count('videos'), 2);
     expect((await AppBackup.read(recovery)).count('watch_session'), 2);
+    final recovered = await AppBackup.read(recovery);
+    await recovered.apply(db, pref);
+    for (final table in ['todo', 'download_log', 'chat_conversation', 'chat_message', 'chat_translation', 'video_file_identity']) {
+      expect(await db.query(table), hasLength(1), reason: table);
+    }
   });
 
   test('startup recovers an interrupted restore before continuing', () async {

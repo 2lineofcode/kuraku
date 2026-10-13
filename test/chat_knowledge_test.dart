@@ -19,14 +19,14 @@ class _Knowledge extends ChatKnowledge {
     queries.add(query);
     if (fail) throw StateError('Local query unavailable');
     if (query['operation'] == 'video_reference') return {'reference': {'code': query['code'], 'title_ja': '雨の散歩', 'comment_en': 'Walking outside in the rain'}};
-    if (query['schema'] == true) return {'schema': {'main.videos': ['video_code', 'title']}};
+    if (query['schema'] == true) return {'schema': {'temp.videos': ['video_code', 'title']}};
     return result ?? {'columns': ['total'], 'rows': [[42]], 'sources': ['javit.db'], 'elapsed_ms': 1, 'truncated': false};
   }
 }
 
 class _Adapter implements HttpClientAdapter {
   final requests = <RequestOptions>[];
-  final answers = <String>['{"sql":"SELECT COUNT(*) AS total FROM main.videos"}', 'You have **42** records.'];
+  final answers = <String>['{"sql":"SELECT COUNT(*) AS total FROM temp.videos"}', 'You have **42** records.'];
   @override
   Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
     requests.add(options);
@@ -63,12 +63,12 @@ void main() {
       'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("CREATE TABLE videos (video_code TEXT)"); c.executemany("INSERT INTO videos VALUES (?)", [("TEST-001",)]*100); c.commit(); c.close()', path]);
     expect(setup.exitCode, 0);
     final knowledge = ChatKnowledge(mainPath: path, loadScript: () => rootBundle.loadString('assets/chat_database_worker.py'));
-    final result = await knowledge.request({'sql': 'SELECT COUNT(*) AS total FROM main.videos'}, CancelToken());
+    final result = await knowledge.request({'sql': 'SELECT COUNT(*) AS total FROM temp.videos'}, CancelToken());
     expect(result['rows'], [[100]]);
     final token = CancelToken();
     final timer = Timer(const Duration(milliseconds: 150), () => token.cancel());
     addTearDown(timer.cancel);
-    await expectLater(knowledge.request({'sql': 'SELECT count(*) FROM main.videos a, main.videos b, main.videos c, main.videos d, main.videos e'}, token), throwsA(isA<DioException>()));
+    await expectLater(knowledge.request({'sql': 'SELECT count(*) FROM temp.videos a, temp.videos b, temp.videos c, temp.videos d, temp.videos e'}, token), throwsA(isA<DioException>()));
   });
   test('Code headers normalize aliases and old Markdown without rewriting values or code blocks', () {
     for (final header in ['dvd_id', 'DVD ID', r'dvd\_id', '`dvd_id`', '**DVD ID**', 'video code']) {
@@ -113,13 +113,13 @@ void main() {
 
   test('Complex questions use a bounded query, then stream a grounded answer', () async {
     final knowledge = _Knowledge();
-    final adapter = _Adapter()..answers[0] = '{"sql":"SELECT COUNT(*) AS total FROM main.videos WHERE title = ?","args":["Rain"]}';
+    final adapter = _Adapter()..answers[0] = '{"sql":"SELECT COUNT(*) AS total FROM temp.videos WHERE title = ?","args":["Rain"]}';
     final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
     addTearDown(api.close);
     final messages = [{'role': 'user', 'content': 'Count my 4K favorites'}];
     final result = await api.reply(messages, CancelToken()).join();
     expect(adapter.requests.length, 2);
-    expect(knowledge.queries.last['sql'], 'SELECT COUNT(*) AS total FROM main.videos WHERE title = ?');
+    expect(knowledge.queries.last['sql'], 'SELECT COUNT(*) AS total FROM temp.videos WHERE title = ?');
     expect(knowledge.queries.last['args'], ['Rain']);
     expect(result, contains('**42**'));
     expect(result, contains('javit.db'));
@@ -225,7 +225,7 @@ void main() {
 
   test('Textual tool markup is hidden and retried using the local tool', () async {
     final knowledge = _Knowledge();
-    final adapter = _Adapter()..answers.insert(0, '<tool_call>\n<function=web_search>\n<parameter=query>SELECT * FROM main.videos</parameter>\n</function>\n</tool_call>');
+    final adapter = _Adapter()..answers.insert(0, '<tool_call>\n<function=web_search>\n<parameter=query>SELECT * FROM temp.videos</parameter>\n</function>\n</tool_call>');
     final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
     addTearDown(api.close);
     final activities = <String>[];

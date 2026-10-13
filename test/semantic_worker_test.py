@@ -1,12 +1,14 @@
 """Run with the semantic runtime's Python: python -B test/semantic_worker_test.py."""
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
@@ -62,6 +64,17 @@ class SemanticWorkerTest(unittest.TestCase):
             self.assertEqual(worker_module.lexical_score('id', {'id'}, prepared, ''), 0)
             self.assertEqual(worker_module.lexical_score('blue car', {'blue', 'car'}, prepared, ''), 0)
             self.assertIn('日本語', worker_module.tokens('日本語'))
+            video = root / 'one.mp4'
+            for content in (b'other fixture', b'a larger replacement video'):
+                modified = video.stat().st_mtime_ns
+                video.write_bytes(content)
+                os.utime(video, ns=(modified + 1000000, modified + 1000000))
+                self.assertEqual(set(worker.plan()['ids']), {'one', 'two'})
+                self.assertEqual(worker.summary()['pending'], 2)
+                with patch.object(worker, 'ensure_thumbnail', side_effect=lambda row, force=False: worker.thumbnail(row)):
+                    self.assertTrue(worker.index('one')['indexed'])
+                self.assertEqual(worker.plan()['ids'], ['two'])
+                self.assertEqual(worker.summary()['indexed'], 1)
             # Index only pending items; rebuilding explicitly includes completed frames.
             (root / 'vid_thumbnail/one.jpg').write_bytes(b'changed thumbnail')
             self.assertEqual(worker.plan()['ids'], ['two'])

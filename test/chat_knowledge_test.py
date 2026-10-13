@@ -23,15 +23,15 @@ def test_queries():
         with sqlite3.connect(main) as db:
             db.executescript("CREATE TABLE playlist (id TEXT, name TEXT); CREATE TABLE playlist_item (playlist_id TEXT, video_id TEXT, created_at TEXT); INSERT INTO playlist VALUES ('p1','My list'); INSERT INTO playlist_item VALUES ('p1','0','2026');")
         assert run('SELECT p.name, v.video_code FROM playlist p JOIN playlist_item i ON i.playlist_id=p.id JOIN videos v ON v.id=i.video_id')['rows'] == [['My list', 'TEST-001']]
-        assert run('SELECT count(*) AS total FROM main.videos')['rows'] == [[30]]
-        assert run('SELECT count(*) AS total FROM main.videos WHERE title = ?', args=['Title'])['rows'] == [[30]]
-        assert run('SELECT title FROM main.videos WHERE video_code = ?', args=["' OR 1=1 --"])['rows'] == []
-        joined = run('SELECT DISTINCT v.video_code, r.title_en FROM main.videos v JOIN r18.derived_video r ON r.dvd_id = v.video_code')
+        assert run('SELECT count(*) AS total FROM temp.videos')['rows'] == [[30]]
+        assert run('SELECT count(*) AS total FROM temp.videos WHERE title = ?', args=['Title'])['rows'] == [[30]]
+        assert run('SELECT title FROM temp.videos WHERE video_code = ?', args=["' OR 1=1 --"])['rows'] == []
+        joined = run('SELECT DISTINCT v.video_code, r.title_en FROM temp.videos v JOIN r18.derived_video r ON r.dvd_id = v.video_code')
         assert joined['rows'] == [['TEST-001', 'Catalog title']]
         assert joined['sources'] == ['javit.db', 'r18_test.db']
         limited = run('SELECT title FROM videos')
         assert not limited['truncated'] and len(limited['rows']) == 30
-        assert knowledge.run({'main': str(main), 'schema': True})['schema']['main.videos'] == ['id', 'video_code', 'title', 'is_favorite']
+        assert knowledge.run({'main': str(main), 'schema': True})['schema']['temp.videos'] == ['id', 'video_code', 'title', 'is_favorite']
         for sql in [
             'DELETE FROM videos', "UPDATE videos SET title = 'changed'", 'DROP TABLE videos',
             "ATTACH DATABASE ':memory:' AS other", 'PRAGMA query_only = OFF',
@@ -213,8 +213,39 @@ def test_saved_translations_and_duplicate_metadata():
     print('Metadata checks passed: saved Indonesian translations, filters, duplicate English titles, empty Japanese titles, English-only library, richest reference.')
 
 
+def test_deleted_videos():
+    with tempfile.TemporaryDirectory() as folder:
+        main, r18 = Path(folder) / 'javit.db', Path(folder) / 'r18.db'
+        with sqlite3.connect(main) as db:
+            db.executescript("CREATE TABLE videos(id TEXT, video_code TEXT, title TEXT, title_ja TEXT, is_favorite INTEGER, is_deleted INTEGER, poster TEXT); INSERT INTO videos VALUES ('live','LIVE-001','Rain live','雨',1,0,'live.jpg'),('gone','GONE-001','Rain deleted','雨',1,1,'gone.jpg');")
+        with sqlite3.connect(r18) as db:
+            db.executescript("CREATE TABLE derived_video(dvd_id TEXT, title_en TEXT); INSERT INTO derived_video VALUES ('LIVE-001','Rain live'),('GONE-001','Rain deleted');")
+        base = {'main': str(main), 'r18': str(r18)}
+        assert knowledge.run({**base, 'sql': 'SELECT COUNT(*) FROM temp.videos'})['rows'] == [[1]]
+        assert knowledge.run({**base, 'sql': 'SELECT video_code AS code FROM videos WHERE is_favorite=1'})['rows'] == [['LIVE-001']]
+        titles = {'operation': 'search_titles', 'terms': ['Rain'], 'source': 'library', 'limit': 25}
+        assert [row[0] for row in knowledge.run({**base, **titles})['rows']] == ['LIVE-001']
+        assert [row[0] for row in knowledge.run({**base, **titles, 'source': 'r18', 'unowned': True})['rows']] == ['GONE-001']
+        assert knowledge.run({**base, 'sql': "SELECT dvd_id AS code FROM r18.derived_video WHERE dvd_id='GONE-001'"})['covers'] == {}
+        for sql in ['SELECT COUNT(*) FROM main.videos', 'SELECT title FROM main.videos', 'SELECT is_deleted FROM temp.videos']:
+            try:
+                knowledge.run({**base, 'sql': sql})
+            except sqlite3.Error:
+                pass
+            else:
+                raise AssertionError('Deleted records exposed: ' + sql)
+        try:
+            knowledge.run({**base, 'operation': 'video_reference', 'code': 'GONE-001', 'r18': None})
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('Deleted reference exposed')
+    print('Soft deletion checks passed: counts, favorites, title search, ownership, covers and bypass denial.')
+
+
 if __name__ == '__main__':
     test_queries()
     test_title_search()
     test_filters_and_similarity()
     test_saved_translations_and_duplicate_metadata()
+    test_deleted_videos()

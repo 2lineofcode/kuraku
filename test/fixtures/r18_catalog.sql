@@ -1,13 +1,13 @@
 CREATE TABLE derived_video(content_id TEXT, dvd_id TEXT, series_id INTEGER, release_date TEXT, title_en TEXT, title_ja TEXT, runtime_mins INTEGER, sample_url TEXT, jacket_full_url TEXT, jacket_thumb_url TEXT, service_code TEXT DEFAULT 'digital', maker_id INTEGER DEFAULT 1, label_id INTEGER DEFAULT 1, site_id INTEGER DEFAULT 1, gallery_full_first TEXT, gallery_full_last TEXT);
 CREATE TABLE derived_maker(id INTEGER, name_en TEXT, name_ja TEXT);
-CREATE TABLE derived_label(id INTEGER, name_en TEXT);
+CREATE TABLE derived_label(id INTEGER, name_en TEXT, name_ja TEXT);
 CREATE TABLE derived_site(id INTEGER, name TEXT);
-CREATE TABLE derived_director(id INTEGER, name_romaji TEXT, name_kana TEXT);
+CREATE TABLE derived_director(id INTEGER, name_romaji TEXT, name_kana TEXT, name_kanji TEXT);
 CREATE TABLE derived_video_director(content_id TEXT, director_id INTEGER);
 INSERT INTO derived_maker VALUES (1,'Studio',NULL);
-INSERT INTO derived_label VALUES (1,'Label');
+INSERT INTO derived_label VALUES (1,'Label',NULL);
 INSERT INTO derived_site VALUES (1,'FANZA');
-INSERT INTO derived_director VALUES (1,'Director',NULL);
+INSERT INTO derived_director VALUES (1,'Director',NULL,NULL);
 CREATE TABLE derived_series(id INTEGER, name_en TEXT, name_ja TEXT);
 CREATE TABLE derived_category(id INTEGER, name_en TEXT, name_ja TEXT);
 CREATE TABLE derived_actress(id INTEGER, name_romaji TEXT, name_kanji TEXT, name_kana TEXT);

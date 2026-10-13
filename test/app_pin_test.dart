@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,12 +20,21 @@ class _Preferences implements GetSecureStorage {
   @override
   final queue = GetQueue();
   bool failWrite = false;
+  bool failQueuedSave = false;
   @override
   T? read<T>(String key) => values[key] as T?;
   @override
   Future<void> write(String key, dynamic value) async {
     values[key] = value;
     if (failWrite) throw StateError('Storage unavailable');
+  }
+  @override
+  Future<void> save() async {
+    if (failWrite) throw StateError('Storage unavailable');
+    if (failQueuedSave) {
+      failQueuedSave = false;
+      scheduleMicrotask(() { unawaited(queue.add<void>(() async { throw const FileSystemException('Disk full'); })); });
+    }
   }
   @override
   void writeInMemory(String key, dynamic value) { values[key] = value; }
@@ -49,6 +61,10 @@ void main() {
       await tester.pump();
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(onPressed(), isNull);
+      expect(tester.widget<AppDialogAction>(find.widgetWithText(AppDialogAction, 'Cancel')).onPressed, isNull);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(action, findsOneWidget);
       await pending;
     });
     await tester.pumpAndSettle();
@@ -57,9 +73,19 @@ void main() {
     Get.testMode = true;
     pref.values.clear();
     pref.failWrite = false;
+    pref.failQueuedSave = false;
     Get.put<AppSettingService>(AppSettingService()..pref = pref);
   });
   tearDown(() { Get.reset(); Get.clearTranslations(); Get.locale = null; Get.fallbackLocale = null; });
+
+  Future<void> revealPin(WidgetTester tester, {bool meta = true, bool alt = true}) async {
+    if (meta) await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    if (alt) await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyX);
+    if (alt) await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+    if (meta) await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pumpAndSettle();
+  }
 
   test('PIN defaults off, hashes with salt, requires current PIN and rolls back failed saves', () async {
     expect(AppPref.getAppPinEnabled(), isFalse);
@@ -91,6 +117,9 @@ void main() {
     await expectLater(AppPref.setAppPin(null, currentPin: '1234'), throwsStateError);
     expect(pref.values['_kAppPin'], beforeFailure);
     pref.failWrite = false;
+    pref.failQueuedSave = true;
+    await expectLater(AppPref.setAppPin(null, currentPin: '1234'), throwsA(isA<FileSystemException>()));
+    expect(pref.values['_kAppPin'], beforeFailure);
     expect(await AppPref.setAppPin('5678', currentPin: '1234'), isTrue);
     expect(await AppPref.verifyAppPin('1234'), isFalse);
     expect(await AppPref.verifyAppPin('5678'), isTrue);
@@ -145,7 +174,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('Gate opens content directly after unlock and locks again for a new session', (tester) async {
+  testWidgets('Gate hides PIN behind the exact shortcut, unlocks content and locks again for a new session', (tester) async {
     var builds = 0;
     Widget gate() => AppPinGate(child: Builder(builder: (_) {
         builds++;
@@ -162,10 +191,39 @@ void main() {
     await tester.pumpAndSettle();
     expect(builds, 0);
     expect(find.text('Private content'), findsNothing);
-    expect(await Navigator.of(tester.element(find.byType(AppTextField))).maybePop(), isFalse);
+    expect(find.text('Flutter Demo Home Page'), findsOneWidget);
+    expect(find.text('You have pushed the button this many times:'), findsOneWidget);
+    expect(find.text('0'), findsOneWidget);
+    expect(Theme.of(tester.element(find.byType(Scaffold))).brightness, Brightness.light);
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    expect(find.text('2'), findsOneWidget);
+    expect(builds, 0);
+    expect(find.byType(AppTextField), findsNothing);
+    expect(find.textContaining('PIN'), findsNothing);
+    expect(find.textContaining('JavIt'), findsNothing);
+    await revealPin(tester, meta: false, alt: false);
+    await revealPin(tester, alt: false);
+    await revealPin(tester, meta: false);
+    expect(find.byType(AppTextField), findsNothing);
+    await revealPin(tester);
+    expect(find.byType(AppConfirmDialog), findsOneWidget);
+    expect(tester.widget<AppTextField>(find.byType(AppTextField)).obscureText, isTrue);
+    await revealPin(tester);
+    expect(find.byType(AppConfirmDialog), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppTextField), findsNothing);
+    expect(builds, 0);
+    expect(find.text('2'), findsOneWidget);
+    await revealPin(tester);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(builds, 0);
+    expect(find.byType(AppTextField), findsNothing);
+    await revealPin(tester);
     await tester.enterText(find.byType(AppTextField), '9999');
     await submit(tester, 'Unlock');
     expect(find.text('Incorrect PIN.'), findsOneWidget);
@@ -178,7 +236,9 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpWidget(gate());
     await tester.pumpAndSettle();
-    expect(find.text('Unlock JavIt'), findsOneWidget);
+    expect(find.text('Flutter Demo Home Page'), findsOneWidget);
+    expect(find.text('0'), findsOneWidget);
+    expect(find.byType(AppTextField), findsNothing);
     expect(find.text('Private content'), findsNothing);
     expect(builds, 1);
     expect(tester.takeException(), isNull);

@@ -88,6 +88,15 @@ mixin DBLibrary {
     await _db.delete(_tableName, where: 'id = ?', whereArgs: [library.id]);
   }
 
+  static Future<void> deleteWithVideos(Library library) async {
+    await _db.transaction((txn) async {
+      final current = await txn.query(_tableName, where: 'id = ?', whereArgs: [library.id]);
+      if (current.isEmpty) return;
+      await txn.delete('videos', where: 'root_path = ?', whereArgs: [current.single['root_folder']]);
+      await txn.delete(_tableName, where: 'id = ?', whereArgs: [library.id]);
+    });
+  }
+
   static Future<List<Library>> getAll() async {
     final List<Map<String, dynamic>> maps = await _db.query(_tableName);
     return _toLibraries(maps);

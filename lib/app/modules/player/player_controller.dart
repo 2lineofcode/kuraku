@@ -44,9 +44,13 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
   final isInitialized = false.obs;
   final isFullScreen = false.obs;
+  final showPlaybackControls = true.obs;
   final infoOverlayText = ''.obs;
   final videoFit = BoxFit.contain.obs;
   final videoZoom = 1.0.obs;
+  final videoPan = Offset.zero.obs;
+  Offset _appliedVideoPan = Offset.zero;
+  Size _panViewport = Size.zero;
   Future<void> _zoomUpdate = Future<void>.value();
   double _appliedVideoZoom = 1;
   final isMiniMode = false.obs;
@@ -564,6 +568,52 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
         AppLog.logW('Video zoom failed: $e');
       }
     });
+    if (target == 1) {
+      _panViewport = Size.zero;
+      return setVideoPan(Offset.zero);
+    }
+    if (!_panViewport.isEmpty) return panVideo(Offset.zero, _panViewport);
+    return _zoomUpdate;
+  }
+
+  Future<void> panVideo(Offset delta, Size viewport) {
+    if (videoZoom.value <= 1 || viewport.isEmpty || !viewport.width.isFinite || !viewport.height.isFinite || !delta.dx.isFinite || !delta.dy.isFinite) return Future<void>.value();
+    _panViewport = viewport;
+    final width = (player.state.width ?? 0) > 0 ? player.state.width!.toDouble() : viewport.width;
+    final height = (player.state.height ?? 0) > 0 ? player.state.height!.toDouble() : viewport.height;
+    final fitScale = videoFit.value == BoxFit.fitHeight ? viewport.height / height : math.min(viewport.width / width, viewport.height / height);
+    final scaled = Size(width * fitScale * videoZoom.value, height * fitScale * videoZoom.value);
+    if (scaled.isEmpty) return Future<void>.value();
+    final maxX = math.max(0.0, (scaled.width - viewport.width) / (2 * scaled.width));
+    final maxY = math.max(0.0, (scaled.height - viewport.height) / (2 * scaled.height));
+    return setVideoPan(Offset(
+      (videoPan.value.dx + delta.dx / scaled.width).clamp(-maxX, maxX),
+      (videoPan.value.dy + delta.dy / scaled.height).clamp(-maxY, maxY),
+    ));
+  }
+
+  Future<void> setVideoPan(Offset offset) {
+    if (!offset.dx.isFinite || !offset.dy.isFinite) return Future<void>.value();
+    final platform = player.platform;
+    if (platform is! NativePlayer) return Future<void>.value();
+    final limit = videoZoom.value > 1 ? .5 : 0.0;
+    final target = Offset(offset.dx.clamp(-limit, limit), offset.dy.clamp(-limit, limit));
+    videoPan.value = target;
+    _zoomUpdate = _zoomUpdate.then((_) async {
+      if (videoPan.value != target) return;
+      try {
+        await platform.setProperty('video-pan-x', target.dx.toString());
+        await platform.setProperty('video-pan-y', target.dy.toString());
+        _appliedVideoPan = target;
+      } catch (e) {
+        if (videoPan.value == target) videoPan.value = _appliedVideoPan;
+        try {
+          await platform.setProperty('video-pan-x', _appliedVideoPan.dx.toString());
+          await platform.setProperty('video-pan-y', _appliedVideoPan.dy.toString());
+        } catch (rollback) { AppLog.logW('Video pan rollback failed: $rollback'); }
+        AppLog.logW('Video pan failed: $e');
+      }
+    });
     return _zoomUpdate;
   }
 
@@ -690,7 +740,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     if (initialPlaylist != null && initialPlaylist.isNotEmpty) {
       playlist.addAll(initialPlaylist);
     } else if ((currentVideo.value.videoPath ?? '').isNotEmpty) {
-      final directoryVideos = await DBVideos.getAllVideoPath('video_path', '${dirname(currentVideo.value.videoPath!)}%');
+      final directoryVideos = await DBVideos.getAllVideoPath('video_path', dirname(currentVideo.value.videoPath!));
       playlist.addAll(directoryVideos);
     }
     currentIndexPlaying.value = playlist.indexWhere((element) => element.id == currentVideo.value.id);
@@ -966,11 +1016,16 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     await changeVideo(playlist[currentIndexPlaying.value]);
   }
 
-  Future<void> toggleFullscreen(VideoState state) async {
-    final isCurrentlyFullScreen = state.isFullscreen();
-    AppLog.logD('toggleFullscreen: currently fullscreen = $isCurrentlyFullScreen');
+  bool _fullscreenTransition = false;
 
+  Future<void> toggleFullscreen(VideoState state) async {
+    if (_fullscreenTransition) return;
+    _fullscreenTransition = true;
     try {
+      Tooltip.dismissAllToolTips();
+      await WidgetsBinding.instance.endOfFrame;
+      final isCurrentlyFullScreen = state.isFullscreen();
+      AppLog.logD('toggleFullscreen: currently fullscreen = $isCurrentlyFullScreen');
       if (isCurrentlyFullScreen) {
         await state.exitFullscreen();
         isFullScreen.value = false;
@@ -981,11 +1036,12 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
         AppLog.logD('toggleFullscreen: entered fullscreen');
       }
 
-      // Force app update for fullscreen transition per GetX requirements
+      await WidgetsBinding.instance.endOfFrame;
       await Get.forceAppUpdate();
     } catch (e) {
       AppLog.logD('toggleFullscreen error: $e');
     } finally {
+      _fullscreenTransition = false;
       requestFocusOnPlayer();
     }
   }

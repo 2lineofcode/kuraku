@@ -1,7 +1,7 @@
 name: javit
 description: "A new Flutter project."
 publish_to: "none"
-version: 1.0.0+20261009.65
+version: 1.0.0+20261010.67
 
 environment:
   sdk: ^3.13.0
@@ -20,7 +20,6 @@ dependencies:
   sql_formatter: ^0.1.0
 
   # ** player
-  cached_video_player_plus: ^4.1.0
   video_player: ^2.14.1
   chewie: ^1.17.2
   audioplayers: ^6.8.1
@@ -30,7 +29,6 @@ dependencies:
   media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.7
   media_kit_libs_macos_video: ^1.1.4
-  video_player_media_kit: ^2.0.0
 
   # dio
   dio: ^5.11.1
@@ -51,7 +49,6 @@ dependencies:
   zoom_hover_pinch_image: ^1.1.0
   flutter_typeahead: ^6.0.0
   flutter_list_view: ^1.1.29
-  timelines_plus: ^2.0.1
   dotted_border: ^3.1.0
   markdown_widget: ^2.3.2+8
 

@@ -9,6 +9,7 @@ import '../../../core/app_logging.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_surfaces.dart';
 
 class PageDeletedItemsView extends StatefulWidget {
   const PageDeletedItemsView({super.key});
@@ -23,6 +24,8 @@ class _PageDeletedItemsViewState extends State<PageDeletedItemsView> {
   List<Videos> _videos = [];
   bool _loading = true;
   String? _restoring;
+  String? _deleting;
+  bool get _busy => _restoring != null || _deleting != null;
   String _error = '';
   int _request = 0;
 
@@ -69,6 +72,32 @@ class _PageDeletedItemsViewState extends State<PageDeletedItemsView> {
     }
   }
 
+  Future<void> _deletePermanently(Videos video) async {
+    setState(() { _deleting = video.id; _error = ''; });
+    try {
+      final confirmed = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (context) => AppConfirmDialog(
+          title: Text('Delete permanently?'.tr),
+          content: Text('${video.videoCode ?? video.title ?? video.videoPath ?? ''}\n\n${'This removes the record, playlist entries and visual index permanently. The file on disk and watch history are kept. Files still on disk can be imported again by a rescan.'.tr}'),
+          actions: [
+            AppDialogAction(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
+            AppDialogAction(isDestructiveAction: true,
+              onPressed: () => Navigator.pop(context, true), child: Text('Delete permanently'.tr)),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      final changed = await DBVideos.deletePermanently(video);
+      if (mounted && changed == 0) await _load();
+    } catch (e) {
+      AppLog.logE('Permanently deleting item failed: $e');
+      if (mounted) setState(() => _error = 'Could not delete the record permanently. Try again.'.tr);
+    } finally {
+      if (mounted) setState(() => _deleting = null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     AppColor.dependOn(context);
@@ -82,7 +111,7 @@ class _PageDeletedItemsViewState extends State<PageDeletedItemsView> {
           Expanded(child: Text('Deleted Items'.tr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
           Text('${videos.length} / ${_videos.length}', style: TextStyle(fontSize: 11, color: AppColor.muted)),
           const SizedBox(width: 8),
-          AppButton(onPressed: _loading || _restoring != null ? null : _load, label: 'Refresh'.tr),
+          AppButton(onPressed: _loading || _busy ? null : _load, label: 'Refresh'.tr),
         ]),
         const SizedBox(height: 8),
         Text('Restoring only returns the record to your library. It does not recover a file deleted from disk. Missing or offline files remain unavailable.'.tr,
@@ -122,8 +151,15 @@ class _PageDeletedItemsViewState extends State<PageDeletedItemsView> {
                       ])),
                       const SizedBox(width: 12),
                       AppButton(
-                        onPressed: _restoring != null || _loading ? null : () => _restore(video),
+                        onPressed: _busy || _loading ? null : () => _restore(video),
                         label: _restoring == video.id ? 'Restoring…'.tr : 'Restore record'.tr,
+                        variant: AppButtonVariant.outlined,
+                      ),
+                      const SizedBox(width: 8),
+                      AppButton(
+                        onPressed: _busy || _loading ? null : () => _deletePermanently(video),
+                        label: _deleting == video.id ? 'Deleting…'.tr : 'Delete permanently'.tr,
+                        labelColor: Theme.of(context).colorScheme.error,
                         variant: AppButtonVariant.outlined,
                       ),
                     ]),

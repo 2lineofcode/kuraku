@@ -103,6 +103,7 @@ mixin HomePanelAppLog {
         createdAt: DateTime.now().toStringEx(),
       ),
     );
+    if (_appLogRuntime.length > 1000) _appLogRuntime.removeRange(1000, _appLogRuntime.length);
   }
 
   static void clear() {
