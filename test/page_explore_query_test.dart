@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/database/db_r18.dart';
-import 'package:javit/app/modules/home/page_explore/page_explore_controller.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/db_r18.dart';
+import 'package:kuraku/app/modules/home/page_explore/page_explore_controller.dart';
 import 'package:sqflite/sqflite.dart';
 
 class _Service extends DBService {

@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
-import 'package:javit/app/modules/home/page_tools/page_tools_controller.dart';
-import 'package:javit/app/modules/home/page_tools/page_tools_view.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
+import 'package:kuraku/app/modules/home/page_tools/page_tools_view.dart';
 
 class _Tools extends PageToolsController {
   final pending = <Videos>[Videos(id: 'one', videoPath: '/one.mp4'), Videos(id: 'two', videoPath: '/two.mp4')];

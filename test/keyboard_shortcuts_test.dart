@@ -4,11 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/core/app_translations.dart';
-import 'package:javit/app/modules/widgets/widget_keyboard_shortcuts.dart';
-import 'package:javit/app/modules/widgets/widget_style.dart';
-import 'package:javit/app/utils/helper_opener.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/core/app_translations.dart';
+import 'package:kuraku/app/modules/widgets/widget_keyboard_shortcuts.dart';
+import 'package:kuraku/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/utils/helper_opener.dart';
 
 void main() {
   testWidgets('shortcut panel keeps all entries, scrolls and closes in both themes and languages', (tester) async {

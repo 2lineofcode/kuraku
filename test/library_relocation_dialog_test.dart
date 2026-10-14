@@ -6,15 +6,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/core/app_translations.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/database/_update_db.dart';
-import 'package:javit/app/data/database/db_library.dart';
-import 'package:javit/app/data/database/library_relocation.dart';
-import 'package:javit/app/data/models/library_entity.dart';
-import 'package:javit/app/modules/home/home_panel/home_panel_library_relocation.dart';
-import 'package:javit/app/modules/widgets/widget_controls.dart';
-import 'package:javit/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/core/app_translations.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/_update_db.dart';
+import 'package:kuraku/app/data/database/db_library.dart';
+import 'package:kuraku/app/data/database/library_relocation.dart';
+import 'package:kuraku/app/data/models/library_entity.dart';
+import 'package:kuraku/app/modules/home/home_panel/home_panel_library_relocation.dart';
+import 'package:kuraku/app/modules/widgets/widget_controls.dart';
+import 'package:kuraku/app/modules/widgets/widget_style.dart';
 // ignore: depend_on_referenced_packages
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
@@ -46,7 +46,7 @@ void main() {
     db = await SqliteTestDatabase.open();
     await DBService.onCreate(db, DBUpdate.version);
     Get.put<DBService>(_Service()..dbMain = db);
-    folder = await Directory.systemTemp.createTemp('javit-relocation-dialog-');
+    folder = await Directory.systemTemp.createTemp('kuraku-relocation-dialog-');
     source = Directory('${folder.path}/original root')..createSync();
     target = Directory('${folder.path}/new 日本語 root')..createSync();
     final file = File('${target.path}/a movie.mp4');

@@ -4,13 +4,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/core/app_translations.dart';
-import 'package:javit/app/modules/home/home_panel/home_panel_log.dart';
-import 'package:javit/app/modules/home/page_settings/page_settings_controller.dart';
-import 'package:javit/app/modules/home/page_settings/page_settings_view.dart';
-import 'package:javit/app/modules/widgets/widget_controls.dart';
-import 'package:javit/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/core/app_translations.dart';
+import 'package:kuraku/app/modules/home/home_panel/home_panel_log.dart';
+import 'package:kuraku/app/modules/home/page_settings/page_settings_controller.dart';
+import 'package:kuraku/app/modules/home/page_settings/page_settings_view.dart';
+import 'package:kuraku/app/modules/widgets/widget_controls.dart';
+import 'package:kuraku/app/modules/widgets/widget_style.dart';
 import 'package:toastification/toastification.dart';
 
 class _Preferences implements GetSecureStorage {

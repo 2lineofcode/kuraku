@@ -3,15 +3,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
-import 'package:javit/app/modules/home/home_panel/home_panel_log.dart';
-import 'package:javit/app/modules/home/page_explore/page_explore_controller.dart';
-import 'package:javit/app/modules/home/page_explore/page_explore_view.dart';
-import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
-import 'package:javit/app/modules/player/player_controller.dart';
-import 'package:javit/app/modules/widgets/widget_controls.dart';
-import 'package:javit/app/utils/helper_opener.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/home/home_panel/home_panel_log.dart';
+import 'package:kuraku/app/modules/home/page_explore/page_explore_controller.dart';
+import 'package:kuraku/app/modules/home/page_explore/page_explore_view.dart';
+import 'package:kuraku/app/modules/home/page_search/page_search_tab.dart';
+import 'package:kuraku/app/modules/player/player_controller.dart';
+import 'package:kuraku/app/modules/widgets/widget_controls.dart';
+import 'package:kuraku/app/utils/helper_opener.dart';
 import 'package:toastification/toastification.dart';
 
 import 'chat_test_database.dart';
@@ -44,7 +44,7 @@ class _ExploreView extends PageExploreTabView {
 
 void main() {
   testWidgets('playlist playback filters missing files, preserves selection and warns for empty Search results', (tester) async {
-    final directory = Directory.systemTemp.createTempSync('javit-search-play-');
+    final directory = Directory.systemTemp.createTempSync('kuraku-search-play-');
     Get.put(AppSettingService()..pref = ChatTestPreferences());
     final player = Get.put<PlayerController>(_Player()) as _Player;
     final tab = PageSearchTab(1);

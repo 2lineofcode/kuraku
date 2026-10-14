@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/modules/home/page_chat/page_chat_controller.dart';
-import 'package:javit/app/utils/chat_service.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/modules/home/page_chat/page_chat_controller.dart';
+import 'package:kuraku/app/utils/chat_service.dart';
 
 import 'chat_test_database.dart';
 

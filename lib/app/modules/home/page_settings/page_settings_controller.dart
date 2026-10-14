@@ -400,7 +400,7 @@ class PageSettingsController extends GetxController {
         bytes: Uint8List.fromList(utf8.encode(backup.encode())),
         mimeType: 'application/json',
         dialogTitle: 'Export Backup'.tr,
-        fileName: 'javit-${DateTime.now().toIso8601String().split('T').first}.javit-backup.json',
+        fileName: 'kuraku-${DateTime.now().toIso8601String().split('T').first}.kuraku-backup.json',
         type: FileType.custom, allowedExtensions: ['json'],
       );
       if (path == null) return;

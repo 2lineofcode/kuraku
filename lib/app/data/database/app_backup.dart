@@ -5,6 +5,7 @@ import 'package:get_secure_storage/get_secure_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import '../../core/app_identity.dart';
 import '../../core/app_pref.dart';
 import '../models/library_entity.dart';
 import '../models/videos_entity.dart';
@@ -47,7 +48,7 @@ class AppBackup {
       for (final table in tables) table: await txn.query(table, columns: table == 'download_log' ? ['id', 'payload', 'created_at', 'updated_at'] : null, orderBy: '1'),
     });
     return decode(jsonEncode({
-      'format': 'javit-backup', 'version': 2, 'database_version': (await db.rawQuery('PRAGMA user_version')).single['user_version'],
+      'format': 'kuraku-backup', 'version': 2, 'database_version': (await db.rawQuery('PRAGMA user_version')).single['user_version'],
       'created_at': DateTime.now().toUtc().toIso8601String(), 'tables': rows,
       'settings': {for (final key in settingKeys) key: pref.read(key)},
     }));
@@ -57,13 +58,14 @@ class AppBackup {
     if (utf8.encode(content).length > 128 * 1024 * 1024) throw const FormatException('Backup exceeds the 128 MB limit.');
     final data = jsonDecode(content);
     // v1 backups omit newer domains; leave those untouched when restoring.
-    if (data is! Map<String, dynamic> || data['format'] != 'javit-backup' || ![1, 2].contains(data['version'])
+    if (data is! Map<String, dynamic> || !['kuraku-backup', 'javit-backup'].contains(data['format']) || ![1, 2].contains(data['version'])
         || (data['database_version'] != DBUpdate.version && data['database_version'] != 17) || data['created_at'] is! String
         || DateTime.tryParse(data['created_at']) == null) {
       throw const FormatException('Invalid backup or incompatible app/database version.');
     }
     final rows = data['tables'];
     final settings = data['settings'];
+    if (settings is Map<String, dynamic>) AppIdentity.migrateSqlSettings(settings);
     if (data['version'] == 1 && settings is Map<String, dynamic>) settings.putIfAbsent('_kHomeSecImageAlbums', () => true);
     final requiredTables = data['version'] == 1 ? _legacyTables : tables;
     final requiredSettings = data['version'] == 1 ? _legacySettingKeys : settingKeys;
@@ -146,7 +148,7 @@ class AppBackup {
       await _validate(database);
       return;
     }
-    final directory = await Directory.systemTemp.createTemp('javit-backup-');
+    final directory = await Directory.systemTemp.createTemp('kuraku-backup-');
     Database? scratch;
     try {
       scratch = await openDatabase(p.join(directory.path, 'validation.db'), version: DBUpdate.version,
@@ -228,7 +230,7 @@ class AppBackup {
     final backup = await read(pending);
     await backup.validate();
     final previous = await capture(db, pref);
-    final recovery = File(p.join(appPath, 'recovery-${DateTime.now().microsecondsSinceEpoch}.javit-backup.json'));
+    final recovery = File(p.join(appPath, 'recovery-${DateTime.now().microsecondsSinceEpoch}.kuraku-backup.json'));
     await previous.write(recovery);
     await previous.write(journal);
     await backup.apply(db, pref);

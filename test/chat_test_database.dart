@@ -1,5 +1,5 @@
 import 'package:get_secure_storage/get_secure_storage.dart';
-import 'package:javit/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
 import 'package:sqflite/sqflite.dart';
 
 class ChatTestPreferences implements GetSecureStorage {

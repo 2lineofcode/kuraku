@@ -49,11 +49,16 @@ if __name__ == '__main__':
         conn.execute('CREATE TABLE machine_translation(source_ja TEXT, target_en TEXT)')
         importer['create_catalog_indexes'](conn)
         importer['create_catalog_indexes'](conn)
-        summaries = conn.execute('SELECT * FROM javit_catalog_groups_v2 ORDER BY kind, id').fetchall()
+        summaries = conn.execute('SELECT * FROM kuraku_catalog_groups_v2 ORDER BY kind, id').fetchall()
         assert summaries
-        conn.execute('ALTER TABLE javit_catalog_groups_v2 RENAME TO javit_catalog_groups_v1')
+        conn.execute('ALTER TABLE kuraku_catalog_groups_v2 RENAME TO javit_catalog_groups_v2')
         conn.commit()
-        conn.set_authorizer(lambda action, name, *args: sqlite3.SQLITE_DENY if action == sqlite3.SQLITE_INSERT and name == 'javit_catalog_groups_v2' else sqlite3.SQLITE_OK)
+        importer['create_catalog_indexes'](conn)
+        assert conn.execute('SELECT * FROM kuraku_catalog_groups_v2 ORDER BY kind, id').fetchall() == summaries
+        assert not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'javit_catalog_groups_v2'").fetchone()
+        conn.execute('ALTER TABLE kuraku_catalog_groups_v2 RENAME TO kuraku_catalog_groups_v1')
+        conn.commit()
+        conn.set_authorizer(lambda action, name, *args: sqlite3.SQLITE_DENY if action == sqlite3.SQLITE_INSERT and name == 'kuraku_catalog_groups_v2' else sqlite3.SQLITE_OK)
         try:
             importer['create_catalog_indexes'](conn)
         except sqlite3.DatabaseError:
@@ -61,11 +66,11 @@ if __name__ == '__main__':
         else:
             raise AssertionError('Catalog preparation must fail')
         conn.set_authorizer(None)
-        assert not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'javit_catalog_groups_v2'").fetchone()
-        assert conn.execute('SELECT * FROM javit_catalog_groups_v1 ORDER BY kind, id').fetchall() == summaries
+        assert not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'kuraku_catalog_groups_v2'").fetchone()
+        assert conn.execute('SELECT * FROM kuraku_catalog_groups_v1 ORDER BY kind, id').fetchall() == summaries
         importer['create_catalog_indexes'](conn)
-        assert conn.execute('SELECT * FROM javit_catalog_groups_v2 ORDER BY kind, id').fetchall() == summaries
-        assert not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'javit_catalog_groups_v1'").fetchone()
+        assert conn.execute('SELECT * FROM kuraku_catalog_groups_v2 ORDER BY kind, id').fetchall() == summaries
+        assert not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'kuraku_catalog_groups_v1'").fetchone()
         plan = conn.execute("EXPLAIN QUERY PLAN SELECT video_code, release_date FROM derived_video WHERE content_id = ? AND video_code IS NOT NULL", ['118abp00001']).fetchall()
         assert any('COVERING INDEX idx_dv_content_code_date' in row[3] for row in plan), plan
         assert conn.execute('SELECT content_id, dvd_id FROM derived_video').fetchall() == before

@@ -126,7 +126,7 @@ class PlayerSeekPreview extends ChangeNotifier {
     }
     if (job.cancelled) return null;
 
-    final temp = await Directory.systemTemp.createTemp('javit_seek_');
+    final temp = await Directory.systemTemp.createTemp('kuraku_seek_');
     Timer? timeout;
     try {
       if (job.cancelled) return null;

@@ -8,7 +8,7 @@ import 'package:overlayment/overlayment.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
 import '../../../core/app_translations.dart';
-import '../../../data/api/api_javit.dart';
+import '../../../data/api/api_kuraku.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_loading.dart';
@@ -124,7 +124,7 @@ class PageSearchController extends GetxController {
 
     final vidCode = HelperMisc.resolveVideoCode(videoCode: videos.videoCode, videoPath: videos.videoPath, title: videos.title);
 
-    await ApiJavit.getMetadata(code: vidCode).then((resp) async {
+    await ApiKuraku.getMetadata(code: vidCode).then((resp) async {
       HelperLoading.dismiss();
       final newVideos = videos;
       newVideos.videoCode = HelperMisc.resolveVideoCode(videoCode: resp.videoCode, title: vidCode);

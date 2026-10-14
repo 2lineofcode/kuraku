@@ -20,11 +20,11 @@ import '../core/app_logging.dart';
 import '../core/app_pref.dart';
 import '../core/app_translations.dart';
 import '../core/const.dart';
-import '../data/api/api_javit.dart';
 import '../data/api/api_javtrailers.dart';
+import '../data/api/api_kuraku.dart';
 import '../data/database/db_r18.dart';
 import '../data/database/db_videos.dart';
-import '../data/models/__javit_search_entity.dart';
+import '../data/models/__kuraku_search_entity.dart';
 import '../data/models/videos_entity.dart';
 import '../modules/home/home_controller.dart';
 import '../modules/home/home_panel/home_panel_video_info.dart';
@@ -160,7 +160,7 @@ mixin HelperOpener {
     }
 
     String _getRawCode(dynamic source) {
-      if (source is JavitSearchResult) return source.videoCode ?? '';
+      if (source is KurakuSearchResult) return source.videoCode ?? '';
       if (source is Videos) return HelperMisc.resolveVideoCode(videoCode: source.videoCode, videoPath: source.videoPath, title: source.title);
       if (source is Map<String, dynamic>) return source['video_code']?.toString() ?? '';
       return '';
@@ -178,7 +178,7 @@ mixin HelperOpener {
     }
 
     // ** -> from download page
-    if (dataVideo == null && item is JavitSearchResult) {
+    if (dataVideo == null && item is KurakuSearchResult) {
       dataVideo = {
         'video_code': item.videoCode ?? rawCode,
         'title': item.title ?? '',
@@ -200,7 +200,7 @@ mixin HelperOpener {
     try {
       if (resolvedCode.isEmpty) throw Exception('empty video code'.tr);
       final x = await DBVideos.getByCode(resolvedCode);
-      if (x.videoCode.isNotEmptyAndNotNull && (item is! JavitSearchResult || item.sourceUrl.isEmptyOrNull)) {
+      if (x.videoCode.isNotEmptyAndNotNull && (item is! KurakuSearchResult || item.sourceUrl.isEmptyOrNull)) {
         HelperLoading.dismiss();
         await HomePanelVideoInfo.open(x, items: source, itemIndex: itemIndex);
         return;
@@ -314,7 +314,7 @@ mixin HelperOpener {
                               ),
                               child: DownloadMethodDialog(
                                 defaultEngine: AppPref.getDefaultSearchEngine(),
-                                hasSourceUrl: item is JavitSearchResult && item.sourceUrl.isNotEmptyAndNotNull,
+                                hasSourceUrl: item is KurakuSearchResult && item.sourceUrl.isNotEmptyAndNotNull,
                                 onSelected: (selection) => Overlayment.dismissName('download-method', result: selection),
                               ),
                             ),
@@ -323,7 +323,7 @@ mixin HelperOpener {
                           final method = selection.method;
                           await Overlayment.dismissLast();
 
-                          final url = downloadUrlForVideo(video.videoCode ?? '', sourceUrl: item is JavitSearchResult ? item.sourceUrl : null, searchEngine: selection.engine);
+                          final url = downloadUrlForVideo(video.videoCode ?? '', sourceUrl: item is KurakuSearchResult ? item.sourceUrl : null, searchEngine: selection.engine);
 
                           if (method == 'native') {
                             Get.find<PageDownloadController>().downloadWebsite(url);
@@ -517,7 +517,7 @@ mixin HelperOpener {
     if (index >= 0) return index;
     String code(dynamic value) {
       if (value is Videos) return HelperMisc.resolveVideoCode(videoCode: value.videoCode, videoPath: value.videoPath, title: value.title);
-      if (value is JavitSearchResult) return value.videoCode?.getVideoCode() ?? '';
+      if (value is KurakuSearchResult) return value.videoCode?.getVideoCode() ?? '';
       return value is Map ? '${value['video_code'] ?? ''}' : '';
     }
     if (item is Videos && (item.videoPath ?? '').isNotEmpty) {
@@ -531,7 +531,7 @@ mixin HelperOpener {
   static Future<Videos> resolveScreenshotVideo(dynamic item, {bool localFrames = false}) async {
     if (localFrames && item is Videos) return item;
     final String code;
-    if (item is JavitSearchResult) {
+    if (item is KurakuSearchResult) {
       code = item.videoCode?.getVideoCode() ?? '';
     } else if (item is Videos) {
       code = HelperMisc.resolveVideoCode(videoCode: item.videoCode, videoPath: item.videoPath, title: item.title);
@@ -542,7 +542,7 @@ mixin HelperOpener {
     final video = Videos.fromJson(data ?? {});
     if ((video.videoCode ?? '').trim().isEmpty) video.videoCode = code;
     if ((video.fanArt ?? '').trim().isEmpty) {
-      final cover = item is Videos ? item.fanArt : item is JavitSearchResult ? item.fanArt : item['fan_art'];
+      final cover = item is Videos ? item.fanArt : item is KurakuSearchResult ? item.fanArt : item['fan_art'];
       video.fanArt = [data?['jacket_full_url'], cover, if (item is Map) item['jacket_full_url']]
           .map((value) => '${value ?? ''}'.trim()).firstWhere((value) => value.isNotEmpty, orElse: () => '');
     }
@@ -598,7 +598,7 @@ mixin HelperOpener {
     final Videos video;
     if (item is Videos) {
       video = Videos(videoCode: HelperMisc.resolveVideoCode(videoCode: item.videoCode, videoPath: item.videoPath, title: item.title), title: item.title, trailer: item.trailer);
-    } else if (item is JavitSearchResult) {
+    } else if (item is KurakuSearchResult) {
       video = Videos(videoCode: item.videoCode, title: item.title, trailer: item.trailer);
     } else if (item is Map) {
       video = Videos(videoCode: item['video_code']?.toString(), title: item['title']?.toString(), trailer: item['trailer']?.toString());
@@ -636,7 +636,7 @@ mixin HelperOpener {
       });
       final video = await resolveTrailerVideo(item);
       if (cancelled) return;
-      video.trailer = await ApiJavit.resolveTrailerUrl(video.trailer ?? '', code: video.videoCode ?? '');
+      video.trailer = await ApiKuraku.resolveTrailerUrl(video.trailer ?? '', code: video.videoCode ?? '');
       if (cancelled) return;
       final urls = trailerUrls(video.trailer ?? '');
       if (urls.isEmpty) {

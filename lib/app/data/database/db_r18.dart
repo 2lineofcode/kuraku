@@ -492,7 +492,7 @@ mixin DBR18 {
     return _rawQuery('''
       SELECT summary.id, $name AS name_en, ${isYear ? "''" : group.jp} AS name_ja,
         ${isYear ? 'summary.id' : group.search} AS search_text, summary.video_count, summary.max_release_date
-      FROM javit_catalog_groups_v2 summary ${isYear ? '' : 'JOIN $table g ON g.id = summary.id'}
+      FROM kuraku_catalog_groups_v2 summary ${isYear ? '' : 'JOIN $table g ON g.id = summary.id'}
       WHERE summary.kind = ? AND $name IS NOT NULL
       ORDER BY max_release_date DESC, name_en COLLATE NOCASE, summary.id
     ''', [kind]);

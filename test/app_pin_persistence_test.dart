@@ -4,13 +4,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
-import 'package:javit/app/core/app_pref.dart';
-import 'package:javit/app/core/app_setting.dart';
+import 'package:kuraku/app/core/app_pref.dart';
+import 'package:kuraku/app/core/app_setting.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test('PIN record survives disk reload and disabling preserves other preferences', () async {
-    final directory = await Directory.systemTemp.createTemp('javit-pin-test-');
+    final directory = await Directory.systemTemp.createTemp('kuraku-pin-test-');
     const channel = MethodChannel('plugins.flutter.io/path_provider');
     final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     messenger.setMockMethodCallHandler(channel, (_) async => directory.path);

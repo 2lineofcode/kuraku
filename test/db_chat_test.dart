@@ -3,10 +3,10 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/database/_update_db.dart';
-import 'package:javit/app/data/database/db_chat.dart';
-import 'package:javit/app/data/models/chat_entity.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/_update_db.dart';
+import 'package:kuraku/app/data/database/db_chat.dart';
+import 'package:kuraku/app/data/models/chat_entity.dart';
 
 import 'chat_test_database.dart';
 

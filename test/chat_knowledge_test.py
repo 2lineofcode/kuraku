@@ -11,7 +11,7 @@ spec.loader.exec_module(knowledge)
 
 def test_queries():
     with tempfile.TemporaryDirectory() as folder:
-        main = Path(folder) / 'javit.db'
+        main = Path(folder) / 'kuraku.db'
         r18 = Path(folder) / 'r18_test.db'
         with sqlite3.connect(main) as db:
             db.executescript('CREATE TABLE videos (id TEXT, video_code TEXT, title TEXT, video_path TEXT, is_favorite INTEGER); CREATE TABLE chat_message (content TEXT);')
@@ -28,7 +28,7 @@ def test_queries():
         assert run('SELECT title FROM temp.videos WHERE video_code = ?', args=["' OR 1=1 --"])['rows'] == []
         joined = run('SELECT DISTINCT v.video_code, r.title_en FROM temp.videos v JOIN r18.derived_video r ON r.dvd_id = v.video_code')
         assert joined['rows'] == [['TEST-001', 'Catalog title']]
-        assert joined['sources'] == ['javit.db', 'r18_test.db']
+        assert joined['sources'] == ['kuraku.db', 'r18_test.db']
         limited = run('SELECT title FROM videos')
         assert not limited['truncated'] and len(limited['rows']) == 30
         assert knowledge.run({'main': str(main), 'schema': True})['schema']['temp.videos'] == ['id', 'video_code', 'title', 'is_favorite']
@@ -85,7 +85,7 @@ def test_queries():
 
 def test_title_search():
     with tempfile.TemporaryDirectory() as folder:
-        main, r18 = Path(folder) / 'javit.db', Path(folder) / 'r18.db'
+        main, r18 = Path(folder) / 'kuraku.db', Path(folder) / 'r18.db'
         with sqlite3.connect(main) as db:
             db.execute('CREATE TABLE videos (video_code TEXT, title TEXT, title_ja TEXT)')
             db.execute("INSERT INTO videos VALUES ('LOCAL-001', NULL, '雨の散歩')")
@@ -140,7 +140,7 @@ def test_title_search():
 
 def test_filters_and_similarity():
     with tempfile.TemporaryDirectory() as folder:
-        main, r18 = Path(folder) / 'javit.db', Path(folder) / 'r18.db'
+        main, r18 = Path(folder) / 'kuraku.db', Path(folder) / 'r18.db'
         with sqlite3.connect(main) as db:
             db.execute('CREATE TABLE videos (video_code TEXT, title TEXT, title_ja TEXT)')
             db.execute("INSERT INTO videos VALUES ('TEST-002', 'Owned', '')")
@@ -180,7 +180,7 @@ def test_filters_and_similarity():
 
 def test_saved_translations_and_duplicate_metadata():
     with tempfile.TemporaryDirectory() as folder:
-        main, r18 = Path(folder) / 'javit.db', Path(folder) / 'r18.db'
+        main, r18 = Path(folder) / 'kuraku.db', Path(folder) / 'r18.db'
         with sqlite3.connect(main) as db:
             db.executescript('CREATE TABLE videos (video_code TEXT, title TEXT); CREATE TABLE chat_translation (source_text TEXT, target_language TEXT, translated_text TEXT);')
             db.execute("INSERT INTO videos VALUES ('LOCAL-001', 'Rain in the park')")
@@ -215,7 +215,7 @@ def test_saved_translations_and_duplicate_metadata():
 
 def test_deleted_videos():
     with tempfile.TemporaryDirectory() as folder:
-        main, r18 = Path(folder) / 'javit.db', Path(folder) / 'r18.db'
+        main, r18 = Path(folder) / 'kuraku.db', Path(folder) / 'r18.db'
         with sqlite3.connect(main) as db:
             db.executescript("CREATE TABLE videos(id TEXT, video_code TEXT, title TEXT, title_ja TEXT, is_favorite INTEGER, is_deleted INTEGER, poster TEXT); INSERT INTO videos VALUES ('live','LIVE-001','Rain live','雨',1,0,'live.jpg'),('gone','GONE-001','Rain deleted','雨',1,1,'gone.jpg');")
         with sqlite3.connect(r18) as db:

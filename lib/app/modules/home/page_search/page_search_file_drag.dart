@@ -19,7 +19,7 @@ class SearchFileDrag extends StatelessWidget {
   final LocalVideoSelection controller;
   final Videos video;
   final Widget child;
-  static const channel = MethodChannel('javit/file_drag');
+  static const channel = MethodChannel('kuraku/file_drag');
 
   bool get canDrag => !controller.isClosed && controller.isSelected(video);
 

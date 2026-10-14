@@ -3,8 +3,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart' hide LogInterceptor;
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart' show extraFromNetworkKey;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/core/app_network.dart';
-import 'package:javit/app/modules/home/home_panel/home_panel_log.dart';
+import 'package:kuraku/app/core/app_network.dart';
+import 'package:kuraku/app/modules/home/home_panel/home_panel_log.dart';
 
 class _Adapter implements HttpClientAdapter {
   int statusCode = 200;

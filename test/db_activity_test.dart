@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/database/db_activity.dart';
-import 'package:javit/app/data/models/activity_entity.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/db_activity.dart';
+import 'package:kuraku/app/data/models/activity_entity.dart';
 import 'package:sqflite/sqflite.dart';
 
 class _Service extends DBService {

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/modules/home/page_download/page_download_job.dart';
+import 'package:kuraku/app/modules/home/page_download/page_download_job.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
@@ -10,10 +10,10 @@ void main() {
   late HttpServer server;
   late String url;
   var segment = <int>[];
-  final binary = p.absolute('assets/javit_downloader');
+  final binary = p.absolute('assets/kuraku');
 
   setUp(() async {
-    directory = await Directory.systemTemp.createTemp('javit download test ');
+    directory = await Directory.systemTemp.createTemp('kuraku download test ');
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     url = 'http://127.0.0.1:${server.port}/video';
     server.listen((request) async {

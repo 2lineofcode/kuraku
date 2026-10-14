@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:javit/app/modules/home/home_controller.dart';
-import 'package:javit/app/modules/home/home_view.dart';
-import 'package:javit/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/modules/home/home_controller.dart';
+import 'package:kuraku/app/modules/home/home_view.dart';
+import 'package:kuraku/app/modules/widgets/widget_style.dart';
 
 class _Home extends HomeController {
   @override

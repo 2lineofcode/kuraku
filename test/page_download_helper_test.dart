@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/modules/home/page_download/page_download_helper.dart';
+import 'package:kuraku/app/modules/home/page_download/page_download_helper.dart';
 
 void main() {
   group('command catalogue', () {

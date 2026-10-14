@@ -10,14 +10,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/database/db_chat.dart';
-import 'package:javit/app/data/models/chat_entity.dart';
-import 'package:javit/app/modules/home/page_chat/page_chat_controller.dart';
-import 'package:javit/app/modules/home/page_chat/page_chat_view.dart';
-import 'package:javit/app/utils/chat_knowledge.dart';
-import 'package:javit/app/utils/chat_service.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/db_chat.dart';
+import 'package:kuraku/app/data/models/chat_entity.dart';
+import 'package:kuraku/app/modules/home/page_chat/page_chat_controller.dart';
+import 'package:kuraku/app/modules/home/page_chat/page_chat_view.dart';
+import 'package:kuraku/app/utils/chat_knowledge.dart';
+import 'package:kuraku/app/utils/chat_service.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 
 import 'chat_test_database.dart';
@@ -50,7 +50,7 @@ class _ChatApi extends ChatService {
 }
 
 class _PagedKnowledge extends ChatKnowledge {
-  _PagedKnowledge() : super(mainPath: '/fixture/javit.db');
+  _PagedKnowledge() : super(mainPath: '/fixture/kuraku.db');
   final offsets = <int>[];
   @override
   Future<Map<String, dynamic>> request(Map<String, dynamic> query, CancelToken token) async {
@@ -184,7 +184,7 @@ void main() {
       await tester.pump();
       expect(opened.last, {'video_code': 'TEST-001'});
       expect(controller.input.text, 'Keep this draft');
-      expect(answer.content.split('javit-video:').length - 1, 1);
+      expect(answer.content.split('kuraku-video:').length - 1, 1);
     }
     answer.content = '| dvd_id | Title |\n| --- | --- |\n| OLD-001 | Legacy title |';
     controller.activeChat.refresh();
@@ -249,7 +249,7 @@ void main() {
   testWidgets('Image preview supports arrow navigation, bounds and close without changing the draft', (tester) async {
     addTearDown(Get.reset);
     Get.put<DBService>(ChatTestService()..dbMain = ChatTestDatabase());
-    final folder = Directory.systemTemp.createTempSync('javit-preview-test-');
+    final folder = Directory.systemTemp.createTempSync('kuraku-preview-test-');
     addTearDown(() => folder.deleteSync(recursive: true));
     Get.put(AppSettingService()..pref = ChatTestPreferences()..appPath = folder.path);
     final controller = Get.put(PageChatController(api: _ChatApi()));
@@ -590,7 +590,7 @@ void main() {
     expect(copied, response.content);
     await controller.reload();
     await tester.pumpAndSettle();
-    expect(controller.messages.last.content, contains('| [TEST-200](javit-video:TEST-200) |'));
+    expect(controller.messages.last.content, contains('| [TEST-200](kuraku-video:TEST-200) |'));
     expect(tester.takeException(), isNull);
   });
 

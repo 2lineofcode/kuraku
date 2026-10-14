@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/core/app_startup.dart';
-import 'package:javit/app/data/database/_init_db.dart';
+import 'package:kuraku/app/core/app_startup.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
 
 void main() {
   testWidgets('Startup paints while initialization is pending and opens the app once', (tester) async {
@@ -18,7 +18,7 @@ void main() {
         return const MaterialApp(home: Text('Home ready'));
       }),
     ));
-    expect(find.text('Opening JavIt, Please wait...'), findsOneWidget);
+    expect(find.text('Opening kuraku, Please wait...'), findsOneWidget);
     expect(appBuilt, isFalse);
     await tester.pump();
     expect(calls, 1);
@@ -34,7 +34,7 @@ void main() {
       child: const MaterialApp(home: Text('Home ready')),
     ));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Could not start JavIt'), findsOneWidget);
+    expect(find.textContaining('Could not start kuraku'), findsOneWidget);
     expect(find.text('Home ready'), findsNothing);
     expect(tester.takeException(), isNull);
   });

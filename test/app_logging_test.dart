@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/core/app_logging.dart';
-import 'package:javit/app/modules/home/home_panel/home_panel_log.dart';
+import 'package:kuraku/app/core/app_logging.dart';
+import 'package:kuraku/app/modules/home/home_panel/home_panel_log.dart';
 
 void main() {
   setUp(HomePanelAppLog.clear);

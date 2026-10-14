@@ -1,11 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/utils/helper_file_picker.dart';
+import 'package:kuraku/app/utils/helper_file_picker.dart';
 
 void main() {
   test('existingImages preserves order across batches, skips missing files and deduplicates', () async {
-    final root = await Directory.systemTemp.createTemp('javit_existing_images_');
+    final root = await Directory.systemTemp.createTemp('kuraku_existing_images_');
     addTearDown(() => root.delete(recursive: true));
     final paths = <String>[];
     for (var index = 0; index < 35; index++) {
@@ -17,7 +17,7 @@ void main() {
   });
 
   test('scanFolderAndSubFolder only includes supported videos over 10 MB', () async {
-    final root = await Directory.systemTemp.createTemp('javit_scan_');
+    final root = await Directory.systemTemp.createTemp('kuraku_scan_');
     addTearDown(() => root.delete(recursive: true));
 
     final nested = await Directory('${root.path}/nested').create();
@@ -39,7 +39,7 @@ void main() {
   });
 
   test('scans small images recursively, sorts the album and ignores hidden files', () async {
-    final root = await Directory.systemTemp.createTemp('javit_album_');
+    final root = await Directory.systemTemp.createTemp('kuraku_album_');
     addTearDown(() => root.delete(recursive: true));
     final nested = await Directory('${root.path}/nested').create();
     final hidden = await Directory('${root.path}/.hidden').create();

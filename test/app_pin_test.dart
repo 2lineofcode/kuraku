@@ -7,13 +7,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
-import 'package:javit/app/core/app_color.dart';
-import 'package:javit/app/core/app_pin.dart';
-import 'package:javit/app/core/app_pref.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/modules/home/page_settings/page_settings_controller.dart';
-import 'package:javit/app/modules/home/page_settings/page_settings_view.dart';
-import 'package:javit/app/modules/widgets/widgets.dart';
+import 'package:kuraku/app/core/app_color.dart';
+import 'package:kuraku/app/core/app_pin.dart';
+import 'package:kuraku/app/core/app_pref.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/modules/home/page_settings/page_settings_controller.dart';
+import 'package:kuraku/app/modules/home/page_settings/page_settings_view.dart';
+import 'package:kuraku/app/modules/widgets/widgets.dart';
 
 class _Preferences implements GetSecureStorage {
   final values = <String, dynamic>{};
@@ -203,7 +203,7 @@ void main() {
     expect(builds, 0);
     expect(find.byType(AppTextField), findsNothing);
     expect(find.textContaining('PIN'), findsNothing);
-    expect(find.textContaining('JavIt'), findsNothing);
+    expect(find.textContaining('kuraku'), findsNothing);
     await revealPin(tester, meta: false, alt: false);
     await revealPin(tester, alt: false);
     await revealPin(tester, meta: false);
@@ -232,7 +232,7 @@ void main() {
     await submit(tester, 'Unlock');
     expect(builds, 1);
     expect(find.text('Private content'), findsOneWidget);
-    expect(find.text('Opening JavIt, Please wait...'), findsNothing);
+    expect(find.text('Opening kuraku, Please wait...'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpWidget(gate());
     await tester.pumpAndSettle();

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:javit/app/modules/home/home_panel/home_panel_log.dart';
-import 'package:javit/app/utils/helper_toast.dart';
+import 'package:kuraku/app/modules/home/home_panel/home_panel_log.dart';
+import 'package:kuraku/app/utils/helper_toast.dart';
 import 'package:toastification/toastification.dart';
 
 void main() {

@@ -5,14 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:javit/app/core/app_color.dart';
-import 'package:javit/app/data/database/db_r18.dart';
-import 'package:javit/app/modules/home/page_download/page_download_search_tab.dart';
-import 'package:javit/app/modules/home/page_explore/page_explore_tab.dart';
-import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
-import 'package:javit/app/modules/widgets/widget_controls.dart';
-import 'package:javit/app/modules/widgets/widget_style.dart';
-import 'package:javit/app/utils/helper_opener.dart';
+import 'package:kuraku/app/core/app_color.dart';
+import 'package:kuraku/app/data/database/db_r18.dart';
+import 'package:kuraku/app/modules/home/page_download/page_download_search_tab.dart';
+import 'package:kuraku/app/modules/home/page_explore/page_explore_tab.dart';
+import 'package:kuraku/app/modules/home/page_search/page_search_tab.dart';
+import 'package:kuraku/app/modules/widgets/widget_controls.dart';
+import 'package:kuraku/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/utils/helper_opener.dart';
 
 import 'icon_finder.dart';
 

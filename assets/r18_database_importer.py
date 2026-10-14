@@ -28,7 +28,11 @@ def create_video_codes(conn):
 
 def create_catalog_indexes(conn):
     create_video_codes(conn)
+    if conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'kuraku_catalog_groups_v2'").fetchone():
+        return
     if conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'javit_catalog_groups_v2'").fetchone():
+        with conn:
+            conn.execute('ALTER TABLE javit_catalog_groups_v2 RENAME TO kuraku_catalog_groups_v2')
         return
     script = Path(__file__).with_name('r18_catalog_queries.sql').read_text()
     with conn:

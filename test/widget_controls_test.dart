@@ -8,10 +8,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:javit/app/core/app_color.dart';
-import 'package:javit/app/modules/widgets/widget_controls.dart';
-import 'package:javit/app/modules/widgets/widget_style.dart';
-import 'package:javit/app/modules/widgets/widget_surfaces.dart';
+import 'package:kuraku/app/core/app_color.dart';
+import 'package:kuraku/app/modules/widgets/widget_controls.dart';
+import 'package:kuraku/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/modules/widgets/widget_surfaces.dart';
 
 import '../tool/ui_catalog_flutter.dart';
 import 'icon_finder.dart';

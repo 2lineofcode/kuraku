@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/modules/player/player_seek_preview.dart';
+import 'package:kuraku/app/modules/player/player_seek_preview.dart';
 
 void main() {
   testWidgets('debounces movement and keeps only the latest pending frame', (tester) async {

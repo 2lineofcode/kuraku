@@ -17,7 +17,7 @@ import 'db_profile.dart';
 
 class DBService extends GetxService {
   // Database name
-  final dbName = 'javit.db';
+  final dbName = 'kuraku.db';
 
   // MAIN DB
   late Database dbMain;
@@ -99,8 +99,13 @@ class DBService extends GetxService {
       });
       AppLog.logD('R18 video codes ready');
     }
-    final prepared = await db.rawQuery("SELECT 1 FROM sqlite_master WHERE name = 'javit_catalog_groups_v2'");
+    final prepared = await db.rawQuery("SELECT 1 FROM sqlite_master WHERE name = 'kuraku_catalog_groups_v2'");
     if (prepared.isNotEmpty) return;
+    final legacy = await db.rawQuery("SELECT 1 FROM sqlite_master WHERE name = 'javit_catalog_groups_v2'");
+    if (legacy.isNotEmpty) {
+      await db.execute('ALTER TABLE javit_catalog_groups_v2 RENAME TO kuraku_catalog_groups_v2');
+      return;
+    }
     final catalog = await rootBundle.loadString('assets/r18_catalog_queries.sql');
     AppLog.logD('Preparing R18 catalog queries');
     await db.transaction((txn) async {

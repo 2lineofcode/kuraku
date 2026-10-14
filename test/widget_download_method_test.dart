@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/core/app_pref.dart';
-import 'package:javit/app/modules/widgets/widget_download_method.dart';
+import 'package:kuraku/app/core/app_pref.dart';
+import 'package:kuraku/app/modules/widgets/widget_download_method.dart';
 
 void main() {
   testWidgets('only arrow opens engines while the row uses the default', (tester) async {

@@ -6,17 +6,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
-import 'package:javit/app/core/app_pref.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/database/_update_db.dart';
-import 'package:javit/app/data/database/db_library.dart';
-import 'package:javit/app/data/models/library_entity.dart';
-import 'package:javit/app/modules/home/page_home/page_home_controller.dart';
-import 'package:javit/app/modules/home/page_home/page_home_view.dart';
-import 'package:javit/app/modules/home/page_settings/page_settings_controller.dart';
-import 'package:javit/app/modules/img_viewer/img_viewer_view.dart';
-import 'package:javit/app/routes/app_pages.dart';
+import 'package:kuraku/app/core/app_pref.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/_update_db.dart';
+import 'package:kuraku/app/data/database/db_library.dart';
+import 'package:kuraku/app/data/models/library_entity.dart';
+import 'package:kuraku/app/modules/home/page_home/page_home_controller.dart';
+import 'package:kuraku/app/modules/home/page_home/page_home_view.dart';
+import 'package:kuraku/app/modules/home/page_settings/page_settings_controller.dart';
+import 'package:kuraku/app/modules/img_viewer/img_viewer_view.dart';
+import 'package:kuraku/app/routes/app_pages.dart';
 
 import 'sqlite_test_database.dart';
 

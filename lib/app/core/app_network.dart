@@ -12,7 +12,7 @@ mixin Api {
   // https://pub.dev/packages/dio_cache_interceptor
   // cache strategy, hit once keep 5 year 
   static CacheOptions _cacheOption(String appPath) => CacheOptions(
-        store: SembastCacheStore(storePath: appPath, cacheStore: 'javit.dio'),
+        store: SembastCacheStore(storePath: appPath, cacheStore: 'kuraku.dio'),
         policy: CachePolicy.forceCache,
         priority: CachePriority.high,
         maxStale: 1825.days, // 5 years

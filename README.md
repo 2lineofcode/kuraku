@@ -1,10 +1,10 @@
-# JavIt Desktop 🇯🇵
+# kuraku 🇯🇵
 
 > **NSFW** — A macOS desktop app for organizing and playing a local Japanese Adult Video (JAV) collection.
 
-JavIt turns video folders on your Mac or external drives into a searchable personal library. Add a folder, let the app scan its videos, enrich recognized video codes with metadata, then browse, search, play, and manage the collection from one place.
+kuraku turns video folders on your Mac or external drives into a searchable personal library. Add a folder, let the app scan its videos, enrich recognized video codes with metadata, then browse, search, play, and manage the collection from one place.
 
-![JavIt demo](.screenshot/demo.gif)
+![kuraku demo](.screenshot/demo.gif)
 
 ## What It Does
 
@@ -42,20 +42,22 @@ Scan files and detect video codes
         +--> R18 database lookup for metadata
         |
         v
-javit.db personal library
+kuraku.db personal library
         |
         v
 Home, Search, Explore, Chat, Tools, Profile, and Player
 ```
 
-JavIt uses two SQLite databases:
+kuraku uses two SQLite databases:
 
-- **`javit.db`** stores your libraries, local video records, favorites, collections, watch sessions, achievements, activities, search indexes, chat conversations/drafts, and cached title translations.
+- **`kuraku.db`** stores your libraries, local video records, favorites, collections, watch sessions, achievements, activities, search indexes, chat conversations/drafts, and cached title translations.
 - **`r18_YYYYMMDD.db`** is the external metadata catalog used to enrich recognized JAV files with titles, actresses, categories, studios, artwork, trailers, and more.
 
 Files without a recognized code are still added to the library as local videos using their filename as the title.
 
-App data lives in the system Documents directory under `APP_NAME` (normally `~/Documents/JavIt` on macOS). This includes both databases and the optional `semantic_runtime` folder. Main-database schema migrations run automatically during startup.
+App data lives in the system Documents directory under `APP_NAME` (normally `~/Documents/kuraku` on macOS). This includes both databases and the optional `semantic_runtime` folder. Main-database schema migrations run automatically during startup.
+
+On the first launch after upgrading from JavIt, kuraku moves `~/Documents/JavIt` to `~/Documents/kuraku`, renames the main database and its SQLite sidecars, and re-encrypts preferences under the new name. Libraries, PIN, chat history, SQL drafts/snippets, caches, and the optional Visual Search runtime are preserved. macOS Application Support, Caches, HTTPStorages, and native preferences migrate from `com.example.javit` to `com.example.kuraku`. Close the old app before upgrading. If both data folders contain files, startup stops rather than merging or overwriting them. Legacy `javit-backup` archives and saved chat action links remain supported; new exports use `kuraku-backup`.
 
 ## Search Modes
 
@@ -105,7 +107,7 @@ Model source: [Xenova's CLIP ONNX conversion](https://huggingface.co/Xenova/clip
 
 ## Requirements
 
-JavIt is currently developed and tested on macOS. Install the following first:
+kuraku is currently developed and tested on macOS. Install the following first:
 
 - macOS with Xcode and Command Line Tools
 - Flutter SDK `>=3.47.0` with Dart SDK `>=3.13.0 <4.0.0`
@@ -128,6 +130,8 @@ flutter doctor
 ```
 
 ## Local Setup
+
+Repository: [2lineofcode/kuraku](https://github.com/2lineofcode/kuraku). Clone it into a folder named `kuraku`.
 
 Create the local environment file, fetch packages, and generate `lib/env.g.dart`:
 
@@ -153,7 +157,7 @@ After completing local setup:
 flutter build macos --release --no-tree-shake-icons
 ```
 
-The app is written to `build/macos/Build/Products/Release/javit.app`. Alternatively, `./publish.sh macos` regenerates the environment, refreshes dependencies, builds the release, saves its version in `pubspec.yaml`, and copies the app to `/Applications/javit.app` (using `sudo` if needed).
+The app is written to `build/macos/Build/Products/Release/kuraku.app`. Alternatively, `./publish.sh macos` regenerates the environment, refreshes dependencies, builds the release, saves its version in `pubspec.yaml`, and copies the app to `/Applications/kuraku.app` (using `sudo` if needed).
 
 The version in `pubspec.yaml` is the single source of truth: edit `major.minor.patch` there when needed. The script generates a `YYYYMMDD.sequence` build number from the commit count and increments it for repeated builds on the same day. Build or install failures leave the version unchanged.
 
@@ -165,7 +169,7 @@ Flutter currently uses Swift Package Manager with CocoaPods fallback for `hotkey
 
 ## Keyboard Shortcuts
 
-These shortcuts work while JavIt is active:
+These shortcuts work while kuraku is active:
 
 | Shortcut | Action |
 |---|---|
@@ -205,17 +209,17 @@ To verify authentication and streaming with a short test prompt:
 dart run tool/chat_smoke_test.dart
 ```
 
-Chat uses hybrid local knowledge from the active `javit.db` and R18 snapshot. Exact lookups such as `Berapa jumlah video saya?`, `Tampilkan favorit saya`, or `cek kode TEST-123` run locally without an API key. Other questions go to the configured AI provider; when needed, it selects a read-only SQL query and summarizes the result. Complex questions still incur API latency. Replies stream with Stop and Retry controls and are saved locally. Library access uses the `query_local` tool, separate from `web_search`; SQL is never sent to the search provider. The collapsible Thinking panel shows actual activity summaries (not private model reasoning), expands while working, and collapses automatically when the response finishes. Activity summaries and duration are saved with each reply.
+Chat uses hybrid local knowledge from the active `kuraku.db` and R18 snapshot. Exact lookups such as `Berapa jumlah video saya?`, `Tampilkan favorit saya`, or `cek kode TEST-123` run locally without an API key. Other questions go to the configured AI provider; when needed, it selects a read-only SQL query and summarizes the result. Complex questions still incur API latency. Replies stream with Stop and Retry controls and are saved locally. Library access uses the `query_local` tool, separate from `web_search`; SQL is never sent to the search provider. The collapsible Thinking panel shows actual activity summaries (not private model reasoning), expands while working, and collapses automatically when the response finishes. Activity summaries and duration are saved with each reply.
 
 The chat composer supports `/status`, `/help`, `/new`, `/stop`, `/r18`, `/filter`, `/similar`, `/translate`, and `/clear` commands without calling the model. `/clear` deletes messages and the draft only in the active conversation. Type `/` to filter commands; use arrow keys to select, Tab to complete, Enter to run, or Escape to dismiss. `/status` reports configuration, not a live connectivity check. `/r18`, `/filter`, `/similar`, and `/translate` fill editable prompts with the first placeholder selected; the same templates appear on the welcome screen. `/translate` prepares a normal chat translation request; the per-row Translate action uses the persistent title cache.
 
 For title/topic discovery, the model expands the search phrase into Japanese and English equivalents and calls `search_local_titles`. It searches original Japanese titles, English titles, and cached `machine_translation` entries, including records without English titles. Results retain the Japanese title and show which field matched. This is translated keyword search, not a semantic similarity index or an automatic translation of the entire catalog. Missing cached translations do not prevent Japanese-title matching. Use `/r18` or the Japanese-title template on the welcome screen; its topic placeholder is selected for replacement. Title searches load 25 records per database page with no total result cap, ordered by newest release date and then Code; unknown dates come last. Next/Previous read the database directly without another model call; the search and current page survive chat reload. Copy includes the current page. Tables share the chat vertical scroll and only scroll horizontally themselves. Legacy DVD ID headers display as Code. The chat header provides New and Delete actions, with confirmation before deletion.
 
-Search supports multiple required concepts (AND, with translated synonyms inside each concept), excluded terms, and “not in my library.” Similar reads the reference code's real title/description first, then matches translated themes across titles and descriptions; match fields and search terms explain the results. It keeps newest-first ordering rather than claiming a semantic similarity score. The Similar row action prepares an editable prompt. Translate opens an Indonesian translation dialog for Japanese titles, with retry on failure. Successful translations are cached in `javit.db` by source title and language and reused across chats; migration 10 creates this cache on restart without changing R18 data.
+Search supports multiple required concepts (AND, with translated synonyms inside each concept), excluded terms, and “not in my library.” Similar reads the reference code's real title/description first, then matches translated themes across titles and descriptions; match fields and search terms explain the results. It keeps newest-first ordering rather than claiming a semantic similarity score. The Similar row action prepares an editable prompt. Translate opens an Indonesian translation dialog for Japanese titles, with retry on failure. Successful translations are cached in `kuraku.db` by source title and language and reused across chats; migration 10 creates this cache on restart without changing R18 data.
 
 Local knowledge uses Python's standard SQLite library, without model downloads or indexing. Only selected library/catalog metadata is exposed; filesystem paths, other chats, and embeddings are excluded. Library queries use the read-only `temp.videos` view, which excludes soft-deleted videos from counts, searches, and ownership checks. Complex requests send conversation history, the allowed schema, and bounded query results to the configured AI provider. Local lookup results also become part of that conversation history. Queries cannot write data, attach arbitrary databases, or read arbitrary files; they stop after ten seconds and return at most 500 rows with bounded text. Video lists are rendered directly as Image, Code, Title (followed by any additional fields), paginated at 25 rows per page. Covers are fetched in batches from library/R18 metadata and use the shared cached thumbnail widget; missing covers show a placeholder. Only the current page mounts image widgets; copying a reply includes every loaded row. Large result tables are abbreviated in subsequent model context, while the full result stays saved in chat. Missing databases or rejected queries are reported rather than treated as empty results.
 
-Web search uses [Tavily Search](https://docs.tavily.com/documentation/api-reference/endpoint/search). Set `TAVILY_API_KEY` in `.env`, run `dart run enven`, and restart. The model can request `web_search`; JavIt executes the search and sends up to five result excerpts back for a sourced answer. Only the search query goes to Tavily. This is search, not a full browser or arbitrary URL reader. Search failures and missing keys are reported without fabricated results. Each model turn has at most two search rounds and three queries; Stop cancels both provider and model requests. Local lookups still work without a search key. Verify after setup with `dart run tool/chat_smoke_test.dart --web`.
+Web search uses [Tavily Search](https://docs.tavily.com/documentation/api-reference/endpoint/search). Set `TAVILY_API_KEY` in `.env`, run `dart run enven`, and restart. The model can request `web_search`; kuraku executes the search and sends up to five result excerpts back for a sourced answer. Only the search query goes to Tavily. This is search, not a full browser or arbitrary URL reader. Search failures and missing keys are reported without fabricated results. Each model turn has at most two search rounds and three queries; Stop cancels both provider and model requests. Local lookups still work without a search key. Verify after setup with `dart run tool/chat_smoke_test.dart --web`.
 
 Checks: `python3 -B test/chat_knowledge_test.py` and `flutter test test/chat_knowledge_test.dart test/page_chat_response_test.dart`.
 
@@ -225,7 +229,7 @@ Example provider reference: https://agnes-ai.com/en/docs/agnes-25-flash
 
 ## First Run and R18 Database Setup
 
-On launch, JavIt looks for an `r18*.db` file in its app data directory. If one is missing, the app shows a **Download & Install** prompt.
+On launch, kuraku looks for an `r18*.db` file in its app data directory. If one is missing, the app shows a **Download & Install** prompt.
 
 The app first displays a loading screen while settings and databases initialize. Initialization failures appear on that screen with an instruction to restart.
 
@@ -252,4 +256,4 @@ flutter run -d macos
 
 ## Contributing
 
-JavIt started as a hobby project and currently targets macOS. Contributions and pull requests, including work toward other desktop platforms, are welcome.
+kuraku started as a hobby project and currently targets macOS. Contributions and pull requests, including work toward other desktop platforms, are welcome.

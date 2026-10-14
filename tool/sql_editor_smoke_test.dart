@@ -2,12 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:javit/app/utils/chat_knowledge.dart';
-import 'package:javit/app/utils/chat_service.dart';
+import 'package:kuraku/app/utils/chat_knowledge.dart';
+import 'package:kuraku/app/utils/chat_service.dart';
 
 Future<void> main(List<String> args) async {
   if (args.length != 1) {
-    stderr.writeln('Usage: dart run tool/sql_editor_smoke_test.dart /path/to/javit.db');
+    stderr.writeln('Usage: dart run tool/sql_editor_smoke_test.dart /path/to/kuraku.db');
     exitCode = 1;
     return;
   }

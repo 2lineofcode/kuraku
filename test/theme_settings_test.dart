@@ -5,13 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
-import 'package:javit/app/core/app_color.dart';
-import 'package:javit/app/core/app_pref.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/modules/home/page_settings/page_settings_controller.dart';
-import 'package:javit/app/modules/home/page_settings/page_settings_view.dart';
-import 'package:javit/app/modules/widgets/widget_controls.dart';
-import 'package:javit/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/core/app_color.dart';
+import 'package:kuraku/app/core/app_pref.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/modules/home/page_settings/page_settings_controller.dart';
+import 'package:kuraku/app/modules/home/page_settings/page_settings_view.dart';
+import 'package:kuraku/app/modules/widgets/widget_controls.dart';
+import 'package:kuraku/app/modules/widgets/widget_style.dart';
 
 class _Preferences implements GetSecureStorage {
   final values = <String, dynamic>{};

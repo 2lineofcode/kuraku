@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/modules/home/home_controller.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/modules/home/home_controller.dart';
 
 class _HomeController extends GetxController implements HomeController {
   int searchRequests = 0;

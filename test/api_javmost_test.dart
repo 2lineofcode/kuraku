@@ -1,8 +1,8 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/data/api/api_javit.dart';
-import 'package:javit/app/data/api/api_javmost.dart';
-import 'package:javit/app/data/models/__javmost_new_release.dart';
+import 'package:kuraku/app/data/api/api_javmost.dart';
+import 'package:kuraku/app/data/api/api_kuraku.dart';
+import 'package:kuraku/app/data/models/__javmost_new_release.dart';
 
 void main() {
   group('JavMost catalogue requests', () {
@@ -25,10 +25,10 @@ void main() {
       }
     });
 
-    test('the Javit search endpoint wraps its failures the same way', () async {
-      await expectLater(ApiJavit.search(s: 'abp'), throwsA(isA<ApiException>()));
-      await expectLater(ApiJavit.search(s: 'abp', provider: kProviderR18, lang: '', page: 0), throwsA(isA<ApiException>()));
-      await expectLater(ApiJavit.getMetadata(code: 'abp-001'), throwsA(isA<ApiException>()));
+    test('the Kuraku search endpoint wraps its failures the same way', () async {
+      await expectLater(ApiKuraku.search(s: 'abp'), throwsA(isA<ApiException>()));
+      await expectLater(ApiKuraku.search(s: 'abp', provider: kProviderR18, lang: '', page: 0), throwsA(isA<ApiException>()));
+      await expectLater(ApiKuraku.getMetadata(code: 'abp-001'), throwsA(isA<ApiException>()));
     });
   });
 

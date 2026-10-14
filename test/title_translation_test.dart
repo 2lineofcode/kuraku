@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:javit/app/modules/widgets/widget_title_translation.dart';
+import 'package:kuraku/app/modules/widgets/widget_title_translation.dart';
 import 'package:overlayment/overlayment.dart';
 
 void main() {

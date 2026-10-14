@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 
-import 'package:javit/app/utils/chat_service.dart';
+import 'package:kuraku/app/utils/chat_service.dart';
 
 Future<void> main(List<String> args) async {
   final api = ChatService();

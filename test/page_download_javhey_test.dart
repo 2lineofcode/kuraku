@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/data/database/db_r18.dart';
-import 'package:javit/app/data/models/__javit_search_entity.dart';
-import 'package:javit/app/data/models/__javmost_new_release.dart';
-import 'package:javit/app/modules/home/page_download/page_download_controller.dart';
-import 'package:javit/app/modules/home/page_download/page_download_search_tab.dart';
-import 'package:javit/app/modules/home/page_download/page_download_view.dart';
-import 'package:javit/app/modules/widgets/widget_thumbnail.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/data/database/db_r18.dart';
+import 'package:kuraku/app/data/models/__javmost_new_release.dart';
+import 'package:kuraku/app/data/models/__kuraku_search_entity.dart';
+import 'package:kuraku/app/modules/home/page_download/page_download_controller.dart';
+import 'package:kuraku/app/modules/home/page_download/page_download_search_tab.dart';
+import 'package:kuraku/app/modules/home/page_download/page_download_view.dart';
+import 'package:kuraku/app/modules/widgets/widget_thumbnail.dart';
 import 'package:super_context_menu/super_context_menu.dart' as scm;
 
 import 'chat_test_database.dart';
@@ -20,12 +20,12 @@ import 'icon_finder.dart';
 class _Tab extends PageDownloadSearchTab {
   _Tab(super.id);
   final requests = <({String query, int page})>[];
-  final pending = <Completer<JavitSearch>>[];
+  final pending = <Completer<KurakuSearch>>[];
   int javMostRequests = 0;
   @override
-  Future<JavitSearch> fetchJavHey(String query, int page) {
+  Future<KurakuSearch> fetchJavHey(String query, int page) {
     requests.add((query: query, page: page));
-    final response = Completer<JavitSearch>();
+    final response = Completer<KurakuSearch>();
     pending.add(response);
     return response.future;
   }
@@ -48,9 +48,9 @@ class _Controller extends PageDownloadController {
   void downloadWebsite(String url) { requestedUrl = url; }
 }
 
-JavitSearch result(String code, {bool hasNext = false, int? total = 100}) => JavitSearch(
+KurakuSearch result(String code, {bool hasNext = false, int? total = 100}) => KurakuSearch(
   total: total, hasNextPage: hasNext,
-  result: [JavitSearchResult(videoId: code, videoCode: code, title: 'Sub Indo $code', fanArt: '',
+  result: [KurakuSearchResult(videoId: code, videoCode: code, title: 'Sub Indo $code', fanArt: '',
     sourceUrl: 'https://javhey.com/video/100/${code.toLowerCase()}/',
     releaseDate: '2024-01-02', duration: 120, categories: ['Drama', 'Solowork'], actresses: ['Actor A'])],
 );

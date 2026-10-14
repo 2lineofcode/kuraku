@@ -76,7 +76,7 @@ class PageSqleditorTabView extends StatelessWidget {
                   prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedPackage, size: AppStyle.iconSize, color: AppColor.muted),
                   prefixIconConstraints: const BoxConstraints(minWidth: 30, minHeight: 28),
                 ),
-                items: controller.sources.keys.map((source) => DropdownMenuItem(value: source, child: Text(source))).toList(),
+                items: controller.sources.keys.map((source) => DropdownMenuItem(value: source, child: Text(source, maxLines: 1, overflow: TextOverflow.ellipsis))).toList(),
                 onChanged: controller.running.value || controller.generating.value ? null : (value) { if (value != null) controller.selectSource(value); },
               ),
             ))),

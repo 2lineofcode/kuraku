@@ -21,7 +21,7 @@ class SemanticWorkerTest(unittest.TestCase):
     def test_index_resume_binary_freshness_and_search(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            db_path = root / 'javit.db'
+            db_path = root / 'kuraku.db'
             db = sqlite3.connect(db_path)
             db.execute('CREATE TABLE videos (id TEXT PRIMARY KEY, video_path TEXT, title TEXT, video_code TEXT, actress TEXT, updated_at TEXT, is_deleted INTEGER NOT NULL DEFAULT 0)')
             db.execute("CREATE TABLE video_embeddings (video_id TEXT PRIMARY KEY REFERENCES videos(id) ON DELETE CASCADE, source_text TEXT NOT NULL, embedding BLOB NOT NULL CHECK(typeof(embedding)='blob' AND length(embedding)>0 AND length(embedding)%4=0), model TEXT NOT NULL, created_at TEXT, updated_at TEXT)")
@@ -128,10 +128,10 @@ class SemanticWorkerTest(unittest.TestCase):
             video = root / 'short.mp4'
             subprocess.run([shutil.which('ffmpeg'), '-hide_banner', '-loglevel', 'error', '-f', 'lavfi',
                 '-i', 'color=c=blue:s=320x240:d=1', '-threads', '1', str(video)], check=True)
-            db = sqlite3.connect(root / 'javit.db')
+            db = sqlite3.connect(root / 'kuraku.db')
             db.execute('CREATE TABLE videos(video_path TEXT, is_deleted INTEGER NOT NULL DEFAULT 0)')
             db.close()
-            worker = worker_module.Worker(root / 'javit.db', root / 'runtime')
+            worker = worker_module.Worker(root / 'kuraku.db', root / 'runtime')
             row = {'video_path': str(video)}
             frame = worker.ensure_thumbnail(row)
             self.assertTrue(frame.exists())
@@ -155,7 +155,7 @@ class SemanticWorkerTest(unittest.TestCase):
 
     def test_legacy_or_corrupt_vectors_are_not_used(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / 'javit.db'
+            path = Path(tmp) / 'kuraku.db'
             db = sqlite3.connect(path)
             db.execute('CREATE TABLE videos (id TEXT PRIMARY KEY, video_path TEXT, title TEXT, updated_at TEXT, is_deleted INTEGER NOT NULL DEFAULT 0)')
             db.execute('CREATE TABLE video_embeddings (video_id TEXT PRIMARY KEY, source_text TEXT, embedding TEXT, model TEXT)')

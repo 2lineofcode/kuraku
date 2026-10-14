@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/modules/home/page_download/page_download_command_dropdown.dart';
-import 'package:javit/app/modules/home/page_download/page_download_helper.dart';
+import 'package:kuraku/app/modules/home/page_download/page_download_command_dropdown.dart';
+import 'package:kuraku/app/modules/home/page_download/page_download_helper.dart';
 
 void main() {
   tearDown(Get.reset);

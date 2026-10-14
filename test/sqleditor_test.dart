@@ -11,11 +11,11 @@ import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_tab.dart';
-import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_view.dart';
-import 'package:javit/app/modules/widgets/widgets.dart';
-import 'package:javit/app/utils/chat_service.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/modules/home/page_sqleditor/page_sqleditor_tab.dart';
+import 'package:kuraku/app/modules/home/page_sqleditor/page_sqleditor_view.dart';
+import 'package:kuraku/app/modules/widgets/widgets.dart';
+import 'package:kuraku/app/utils/chat_service.dart';
 
 import 'icon_finder.dart';
 
@@ -29,7 +29,7 @@ class _SqlApi extends ChatService {
 void main() {
   testWidgets('SQL editor completes at cursor, keeps source drafts, and has no execution', (tester) async {
     final controller = Get.put(PageSqleditorTab(sources: {
-      'javit.db': '/documents/JavIt/javit.db',
+      'kuraku.db': '/documents/kuraku/kuraku.db',
       'r18*.db': null,
     }));
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageSqleditorTabView(controller: controller))));
@@ -63,7 +63,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
     expect(controller.suggestions, isEmpty);
-    controller.selectSource('javit.db');
+    controller.selectSource('kuraku.db');
     await tester.pump();
     expect(controller.input.text, 'SELECT');
     controller.selectSource('r18*.db');
@@ -85,7 +85,7 @@ void main() {
   testWidgets('SQL autocomplete refreshes cursor and schema context and supports keyboard dismissal', (tester) async {
     addTearDown(Get.reset);
     var schema = {'videos': ['id', 'title', 'video_code']};
-    final controller = Get.put(PageSqleditorTab(sources: {'javit.db': '/javit.db'}, loadSchema: (_) async => schema));
+    final controller = Get.put(PageSqleditorTab(sources: {'kuraku.db': '/kuraku.db'}, loadSchema: (_) async => schema));
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageSqleditorTabView(controller: controller))));
     await tester.pumpAndSettle();
     final source = tester.getRect(find.byType(AppDropdownFormField<String>));
@@ -146,7 +146,7 @@ void main() {
 
   testWidgets('SQL popup follows multiline caret and scroll and stays inside a narrow editor', (tester) async {
     addTearDown(Get.reset);
-    final controller = Get.put(PageSqleditorTab(sources: {'javit.db': '/javit.db'},
+    final controller = Get.put(PageSqleditorTab(sources: {'kuraku.db': '/kuraku.db'},
       loadSchema: (_) async => {'videos': ['id', 'title'], 'derived_video': ['dvd_id']}));
     await tester.binding.setSurfaceSize(const Size(420, 520));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -181,7 +181,7 @@ void main() {
 
   testWidgets('CRUD snippets append and AI prompt stays in the frontend session', (tester) async {
     final controller = Get.put(PageSqleditorTab(
-      sources: {'javit.db': '/javit.db', 'r18*.db': null},
+      sources: {'kuraku.db': '/kuraku.db', 'r18*.db': null},
       loadSchema: (_) async => {'videos': ['id', 'title', 'video_code']},
     ));
     await tester.binding.setSurfaceSize(const Size(420, 520));
@@ -241,7 +241,7 @@ void main() {
     final api = _SqlApi();
     final requests = <Map<String, dynamic>>[];
     final controller = Get.put(PageSqleditorTab(
-      sources: {'javit.db': '/javit.db'}, api: api,
+      sources: {'kuraku.db': '/kuraku.db'}, api: api,
       loadSchema: (_) async => {'videos': ['id', 'title']},
       query: (source, request, token) async {
         requests.add(Map.of(request));
@@ -315,7 +315,7 @@ void main() {
   test('Stopped queries and stale AI generations cannot overwrite another source', () async {
     final queryResponse = Completer<Map<String, dynamic>>();
     final api = _SqlApi()..pending = Completer<String>();
-    final controller = PageSqleditorTab(sources: {'javit.db': '/javit.db', 'r18*.db': '/r18.db'}, api: api,
+    final controller = PageSqleditorTab(sources: {'kuraku.db': '/kuraku.db', 'r18*.db': '/r18.db'}, api: api,
       loadSchema: (_) async => {'videos': ['id']}, query: (_, request, token) => queryResponse.future);
     controller.onInit();
     await controller.refreshSchema();
@@ -342,7 +342,7 @@ void main() {
   testWidgets('Cmd+Enter runs selection or full query without newline or duplicate requests', (tester) async {
     final requests = <String>[];
     final pending = Completer<Map<String, dynamic>>();
-    final controller = Get.put(PageSqleditorTab(sources: {'javit.db': '/javit.db'}, query: (_, request, token) {
+    final controller = Get.put(PageSqleditorTab(sources: {'kuraku.db': '/kuraku.db'}, query: (_, request, token) {
       requests.add(request['sql'] as String);
       return pending.future;
     }));
@@ -378,7 +378,7 @@ void main() {
 
   testWidgets('Format action and dvd_id and video_code links keep the compact result layout', (tester) async {
     final opened = <dynamic>[];
-    final controller = Get.put(PageSqleditorTab(sources: {'javit.db': '/javit.db'}));
+    final controller = Get.put(PageSqleditorTab(sources: {'kuraku.db': '/kuraku.db'}));
     await tester.binding.setSurfaceSize(const Size(420, 520));
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageSqleditorTabView(controller: controller, openVideoInfo: (item) async { opened.add(item); }))));
     await tester.enterText(find.byType(AppTextField), 'select dvd_id from derived_video');
@@ -415,7 +415,7 @@ void main() {
 
   testWidgets('Results use one horizontal scroll even over long selectable cell values', (tester) async {
     addTearDown(Get.reset);
-    final controller = Get.put(PageSqleditorTab(sources: {'javit.db': '/javit.db'}));
+    final controller = Get.put(PageSqleditorTab(sources: {'kuraku.db': '/kuraku.db'}));
     const longValue = '4d06-8f52-7a5b0b2f1a76-very-long-value';
     controller.result.value = {
       'columns': ['id', 'video_id', 'video_code', 'watch_count'],
@@ -453,7 +453,7 @@ void main() {
     addTearDown(Get.reset);
     await tester.binding.setSurfaceSize(const Size(800, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    final controller = Get.put(PageSqleditorTab(sources: {'javit.db': '/javit.db'}));
+    final controller = Get.put(PageSqleditorTab(sources: {'kuraku.db': '/kuraku.db'}));
     controller.result.value = {
       'columns': ['dvd_id', 'jacket_thumb_url'],
       'rows': [['CODE-1', null], ['CODE-2', ''], ['CODE-3', 'not-a-url']],
@@ -468,7 +468,7 @@ void main() {
     expect(find.widgetWithText(TextButton, 'CODE-1'), findsOneWidget);
     final table = find.byKey(const ValueKey('sql-results-table'));
     expect(tester.widget<ListView>(find.descendant(of: table, matching: find.byType(ListView))).itemExtent, 64);
-    final folder = Directory.systemTemp.createTempSync('javit-sql-thumbnail-');
+    final folder = Directory.systemTemp.createTempSync('kuraku-sql-thumbnail-');
     addTearDown(() => folder.deleteSync(recursive: true));
     Get.put(AppSettingService()..appPath = folder.path);
     controller.result.value = {
@@ -493,7 +493,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(420, 520));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     var stored = <String, dynamic>{};
-    final controller = Get.put(PageSqleditorTab(sources: {'javit.db': '/javit.db'},
+    final controller = Get.put(PageSqleditorTab(sources: {'kuraku.db': '/kuraku.db'},
       persistSnippets: (value) async { stored = value; }));
     addTearDown(() => Get.reset());
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageSqleditorTabView(controller: controller))));
@@ -503,13 +503,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Saved queries'));
     await tester.pumpAndSettle();
-    expect(find.text('No saved queries in javit.db'), findsOneWidget);
+    expect(find.text('No saved queries in kuraku.db'), findsOneWidget);
     await tester.tap(find.text('Save current query'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(AppTextFormField), 'Second query');
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
-    expect(stored['javit.db'], {'Second query': 'SELECT 2;'});
+    expect(stored['kuraku.db'], {'Second query': 'SELECT 2;'});
     expect(find.byType(AppTextFormField), findsNothing);
     expect(find.widgetWithText(ListTile, 'Second query'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -523,24 +523,24 @@ void main() {
     expect(find.text('Editing: Second query'), findsOneWidget);
     await tester.tap(find.text('Update snippet'));
     await tester.pumpAndSettle();
-    expect(stored['javit.db'], {'Second query': 'SELECT 3;'});
+    expect(stored['kuraku.db'], {'Second query': 'SELECT 3;'});
     expect(controller.input.text, 'SELECT 1; SELECT 2;\n\nSELECT 3;');
     await tester.tap(find.text('Save as new'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(AppTextFormField), 'Copy');
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
-    expect(stored['javit.db'], {'Second query': 'SELECT 3;', 'Copy': 'SELECT 3;'});
+    expect(stored['kuraku.db'], {'Second query': 'SELECT 3;', 'Copy': 'SELECT 3;'});
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     final reloaded = PageSqleditorTab(sources: controller.sources, savedSnippets: stored,
       persistSnippets: (value) async { stored = value; });
-    expect(reloaded.snippetsFor('javit.db'), {'Second query': 'SELECT 3;', 'Copy': 'SELECT 3;'});
+    expect(reloaded.snippetsFor('kuraku.db'), {'Second query': 'SELECT 3;', 'Copy': 'SELECT 3;'});
     expect(reloaded.snippetsFor('r18*.db'), isEmpty);
-    await expectLater(reloaded.saveSnippet('javit.db', 'Second query', 'SELECT 3;'), throwsStateError);
-    await reloaded.saveSnippet('javit.db', 'Second query', null);
-    expect(stored['javit.db'], {'Copy': 'SELECT 3;'});
+    await expectLater(reloaded.saveSnippet('kuraku.db', 'Second query', 'SELECT 3;'), throwsStateError);
+    await reloaded.saveSnippet('kuraku.db', 'Second query', null);
+    expect(stored['kuraku.db'], {'Copy': 'SELECT 3;'});
     controller.input.text = 'Changed unrelated query; SELECT 3;';
     expect(controller.loadedSnippetName, isNull);
     reloaded.onClose();
@@ -548,22 +548,22 @@ void main() {
   });
 
   test('Failed snippet persistence keeps previous queries and rejects empty input', () async {
-    final controller = PageSqleditorTab(sources: {'javit.db': '/javit.db'},
-      savedSnippets: {'javit.db': {'Existing': 'SELECT 1;'}},
+    final controller = PageSqleditorTab(sources: {'kuraku.db': '/kuraku.db'},
+      savedSnippets: {'kuraku.db': {'Existing': 'SELECT 1;'}},
       persistSnippets: (_) async => throw StateError('Disk unavailable'));
-    await expectLater(controller.saveSnippet('javit.db', '', 'SELECT 2;'), throwsStateError);
-    await expectLater(controller.saveSnippet('javit.db', 'Empty', '  '), throwsStateError);
-    await expectLater(controller.saveSnippet('javit.db', 'New', 'SELECT 2;'), throwsStateError);
-    await expectLater(controller.saveSnippet('javit.db', 'Existing', null), throwsStateError);
-    await expectLater(controller.saveSnippet('javit.db', 'Existing', 'SELECT 2;', update: true), throwsStateError);
-    await expectLater(controller.saveSnippet('javit.db', 'Missing', 'SELECT 2;', update: true), throwsStateError);
-    expect(controller.snippetsFor('javit.db'), {'Existing': 'SELECT 1;'});
+    await expectLater(controller.saveSnippet('kuraku.db', '', 'SELECT 2;'), throwsStateError);
+    await expectLater(controller.saveSnippet('kuraku.db', 'Empty', '  '), throwsStateError);
+    await expectLater(controller.saveSnippet('kuraku.db', 'New', 'SELECT 2;'), throwsStateError);
+    await expectLater(controller.saveSnippet('kuraku.db', 'Existing', null), throwsStateError);
+    await expectLater(controller.saveSnippet('kuraku.db', 'Existing', 'SELECT 2;', update: true), throwsStateError);
+    await expectLater(controller.saveSnippet('kuraku.db', 'Missing', 'SELECT 2;', update: true), throwsStateError);
+    expect(controller.snippetsFor('kuraku.db'), {'Existing': 'SELECT 1;'});
     controller.onClose();
   });
 
   testWidgets('First open shows saved queries in another source without losing the draft', (tester) async {
     final controller = Get.put(PageSqleditorTab(
-      sources: {'javit.db': '/javit.db', 'r18*.db': '/r18.db'},
+      sources: {'kuraku.db': '/kuraku.db', 'r18*.db': '/r18.db'},
       savedSnippets: {'r18*.db': {'First': 'SELECT 1;', 'Second': 'SELECT 2;'}}));
     addTearDown(() => Get.reset());
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageSqleditorTabView(controller: controller))));
@@ -582,7 +582,7 @@ void main() {
     await tester.tap(find.text('Load snippet'));
     await tester.pumpAndSettle();
     expect(controller.input.text, 'SELECT 2;');
-    controller.selectSource('javit.db');
+    controller.selectSource('kuraku.db');
     expect(controller.input.text, 'SELECT 3;');
     await tester.pumpWidget(const SizedBox.shrink());
   });

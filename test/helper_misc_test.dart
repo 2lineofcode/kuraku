@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/utils/helper_misc.dart';
-import 'package:javit/env.g.dart';
+import 'package:kuraku/app/utils/helper_misc.dart';
+import 'package:kuraku/env.g.dart';
 
 void main() {
   test('quality labels handle malformed metadata and keep high resolutions out of HD tiers', () {

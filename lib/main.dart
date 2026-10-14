@@ -43,7 +43,7 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(AppStartup(
     initialize: _initializeApp,
-    child: const AppPinGate(child: JavIt()),
+    child: const AppPinGate(child: Kuraku()),
   ));
 }
 
@@ -70,14 +70,14 @@ Future<void> _initializeHotkeys() async {
   }
 }
 
-class JavIt extends StatefulWidget {
-  const JavIt({super.key});
+class Kuraku extends StatefulWidget {
+  const Kuraku({super.key});
 
   @override
-  State<JavIt> createState() => _JavItState();
+  State<Kuraku> createState() => _KurakuState();
 }
 
-class _JavItState extends State<JavIt> with WindowListener {
+class _KurakuState extends State<Kuraku> with WindowListener {
   AppLifecycleListener? _lifecycle;
   bool _closing = false;
 

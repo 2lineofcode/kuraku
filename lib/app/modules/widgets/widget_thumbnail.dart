@@ -23,7 +23,7 @@ import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
 import '../../core/app_setting.dart';
 import '../../core/app_translations.dart';
-import '../../data/api/api_javit.dart';
+import '../../data/api/api_kuraku.dart';
 import '../../data/database/db_videos.dart';
 import '../../data/models/videos_entity.dart';
 import '../../modules/home/home_controller.dart';
@@ -378,7 +378,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
 
     HelperLoading.show();
     try {
-      final resp = await ApiJavit.getMetadata(code: code);
+      final resp = await ApiKuraku.getMetadata(code: code);
       final newVideo = video;
       newVideo.videoCode = HelperMisc.resolveVideoCode(videoCode: resp.videoCode, title: code);
 

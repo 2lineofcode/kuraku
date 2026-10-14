@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:javit/app/modules/widgets/widget_style.dart';
-import 'package:javit/app/utils/helper_badge.dart';
+import 'package:kuraku/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/utils/helper_badge.dart';
 
 void main() {
   const hour = 3600;

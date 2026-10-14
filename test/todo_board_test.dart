@@ -6,11 +6,11 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/core/app_color.dart';
-import 'package:javit/app/core/app_translations.dart';
-import 'package:javit/app/data/models/activity_entity.dart';
-import 'package:javit/app/modules/home/page_tools/page_tools_controller.dart';
-import 'package:javit/app/modules/home/page_tools/page_tools_view.dart';
+import 'package:kuraku/app/core/app_color.dart';
+import 'package:kuraku/app/core/app_translations.dart';
+import 'package:kuraku/app/data/models/activity_entity.dart';
+import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
+import 'package:kuraku/app/modules/home/page_tools/page_tools_view.dart';
 
 class _Tools extends PageToolsController {
   int additions = 0;

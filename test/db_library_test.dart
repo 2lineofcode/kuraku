@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/database/_update_db.dart';
-import 'package:javit/app/data/database/db_library.dart';
-import 'package:javit/app/data/models/library_entity.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/_update_db.dart';
+import 'package:kuraku/app/data/database/db_library.dart';
+import 'package:kuraku/app/data/models/library_entity.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'sqlite_test_database.dart';

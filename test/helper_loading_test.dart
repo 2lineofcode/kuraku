@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/modules/widgets/widget_surfaces.dart';
-import 'package:javit/app/utils/helper_loading.dart';
+import 'package:kuraku/app/modules/widgets/widget_surfaces.dart';
+import 'package:kuraku/app/utils/helper_loading.dart';
 import 'package:overlayment/overlayment.dart';
 
 void main() {

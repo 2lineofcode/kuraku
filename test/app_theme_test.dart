@@ -2,11 +2,11 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/core/app_color.dart';
-import 'package:javit/app/modules/widgets/widget_base_layout.dart';
-import 'package:javit/app/modules/widgets/widget_media_stack.dart';
-import 'package:javit/app/modules/widgets/widget_style.dart';
-import 'package:javit/app/modules/widgets/widget_surfaces.dart';
+import 'package:kuraku/app/core/app_color.dart';
+import 'package:kuraku/app/modules/widgets/widget_base_layout.dart';
+import 'package:kuraku/app/modules/widgets/widget_media_stack.dart';
+import 'package:kuraku/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/modules/widgets/widget_surfaces.dart';
 
 void main() {
   testWidgets('Cupertino filled buttons keep white labels across themes', (tester) async {

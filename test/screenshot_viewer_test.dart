@@ -6,12 +6,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
-import 'package:javit/app/modules/widgets/widget_screenshot_viewer.dart';
-import 'package:javit/app/modules/widgets/widget_thumbnail.dart';
-import 'package:javit/app/utils/helper_opener.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/widgets/widget_screenshot_viewer.dart';
+import 'package:kuraku/app/modules/widgets/widget_thumbnail.dart';
+import 'package:kuraku/app/utils/helper_opener.dart';
 import 'package:overlayment/overlayment.dart';
 
 import 'icon_finder.dart';
@@ -266,7 +266,7 @@ void main() {
   });
 
   test('local frame fallback requires an existing file', () {
-    final file = File('${Directory.systemTemp.path}/javit-screenshot-test-${DateTime.now().microsecondsSinceEpoch}.mp4')..writeAsBytesSync([]);
+    final file = File('${Directory.systemTemp.path}/kuraku-screenshot-test-${DateTime.now().microsecondsSinceEpoch}.mp4')..writeAsBytesSync([]);
     try {
       final local = Videos(videoPath: file.path);
       expect(ScreenshotViewer.hasImages(local), isFalse);

@@ -5,17 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/core/app_pref.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
-import 'package:javit/app/modules/home/local_video_selection.dart';
-import 'package:javit/app/modules/home/local_video_selection_item.dart';
-import 'package:javit/app/modules/home/page_explore/page_explore_controller.dart';
-import 'package:javit/app/modules/home/page_explore/page_explore_view.dart';
-import 'package:javit/app/modules/home/page_home/page_home_controller.dart';
-import 'package:javit/app/modules/home/page_home/page_home_view.dart';
-import 'package:javit/app/modules/home/page_search/page_search_file_drag.dart';
-import 'package:javit/app/modules/widgets/widget_double_tap.dart';
+import 'package:kuraku/app/core/app_pref.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/home/local_video_selection.dart';
+import 'package:kuraku/app/modules/home/local_video_selection_item.dart';
+import 'package:kuraku/app/modules/home/page_explore/page_explore_controller.dart';
+import 'package:kuraku/app/modules/home/page_explore/page_explore_view.dart';
+import 'package:kuraku/app/modules/home/page_home/page_home_controller.dart';
+import 'package:kuraku/app/modules/home/page_home/page_home_view.dart';
+import 'package:kuraku/app/modules/home/page_search/page_search_file_drag.dart';
+import 'package:kuraku/app/modules/widgets/widget_double_tap.dart';
 import 'package:super_context_menu/super_context_menu.dart' as scm;
 
 import 'chat_test_database.dart';
@@ -205,7 +205,7 @@ void main() {
   for (final page in ['Home', 'Explore']) {
     for (final operation in ['move', 'copy', 'cancel']) {
       testWidgets('$page file drag exports the entire selection and handles $operation', (tester) async {
-        final folder = Directory.systemTemp.createTempSync('javit-selection-');
+        final folder = Directory.systemTemp.createTempSync('kuraku-selection-');
         addTearDown(() => folder.deleteSync(recursive: true));
         final files = [File('${folder.path}/one.mp4')..writeAsStringSync('one'), File('${folder.path}/two.mp4')..writeAsStringSync('two')];
         final videos = List.generate(files.length, (i) => Videos(id: '$i', videoPath: files[i].path));

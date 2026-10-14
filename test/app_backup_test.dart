@@ -7,12 +7,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/core/app_translations.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/database/_update_db.dart';
-import 'package:javit/app/data/database/app_backup.dart';
-import 'package:javit/app/modules/home/page_settings/page_settings_controller.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/core/app_translations.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/_update_db.dart';
+import 'package:kuraku/app/data/database/app_backup.dart';
+import 'package:kuraku/app/modules/home/page_settings/page_settings_controller.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 // ignore: depend_on_referenced_packages, implementation_imports
@@ -121,8 +121,8 @@ void main() {
       '_kDownloadOptions': {'mode': 'extract', 'concurrency': '8', 'headless': true},
       '_kSearchTabs': {'tabs': [{'query': 'Saved search', 'pinned': true}], 'activeTab': 0},
       '_kExploreTabs': {'tabs': [{'leftQuery': 'Actress'}]}, '_kDownloadTabs': {'tabs': [{'query': '/search TEST-001'}]},
-      'sql_tabs': {'tabs': [{'drafts': {'javit.db': 'SELECT * FROM todo'}}]},
-      'sql_snippets': {'javit.db': {'Saved': 'SELECT * FROM todo'}}, 'chat_active_id': 'c1',
+      'sql_tabs': {'tabs': [{'drafts': {'kuraku.db': 'SELECT * FROM todo'}}]},
+      'sql_snippets': {'kuraku.db': {'Saved': 'SELECT * FROM todo'}}, 'chat_active_id': 'c1',
       '_kAppCart': [{'id': 'cart1', 'video_code': 'TEST-001'}],
     });
     directory = await Directory.systemTemp.createTemp('backup-test-');
@@ -168,9 +168,21 @@ void main() {
     expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
   });
 
+  test('legacy v2 backup migrates SQL source keys and preserves query text', () async {
+    final data = jsonDecode((await AppBackup.capture(db, pref)).encode()) as Map<String, dynamic>;
+    data['format'] = 'javit-backup';
+    data['settings']['sql_tabs'] = {'tabs': [{'source': 'javit.db', 'drafts': {'javit.db': "SELECT 'javit.db'"}}]};
+    data['settings']['sql_snippets'] = {'javit.db': {'Saved': "SELECT 'javit.db'"}};
+    final legacy = AppBackup.decode(jsonEncode(data));
+    await legacy.apply(db, pref);
+    expect(pref.values['sql_snippets'], {'kuraku.db': {'Saved': "SELECT 'javit.db'"}});
+    expect((pref.values['sql_tabs']['tabs'] as List).single['source'], 'kuraku.db');
+  });
+
   test('v1 backups preserve omitted domains and preferences', () async {
     final data = jsonDecode((await AppBackup.capture(db, pref)).encode()) as Map<String, dynamic>;
     data['version'] = 1;
+    data['format'] = 'javit-backup';
     for (final table in ['todo', 'download_log', 'video_file_identity', 'chat_conversation', 'chat_message', 'chat_translation']) { data['tables'].remove(table); }
     for (final key in ['_kSearchTabs', '_kExploreTabs', '_kDownloadTabs', 'sql_tabs', 'sql_snippets', 'chat_active_id', '_kAppCart']) { data['settings'].remove(key); }
     final legacy = AppBackup.decode(jsonEncode(data));
@@ -181,7 +193,7 @@ void main() {
     for (final table in ['todo', 'download_log', 'chat_conversation', 'chat_message', 'chat_translation']) {
       expect(await db.query(table), hasLength(1), reason: table);
     }
-    expect(pref.values['sql_snippets'], {'javit.db': {'Saved': 'SELECT * FROM todo'}});
+    expect(pref.values['sql_snippets'], {'kuraku.db': {'Saved': 'SELECT * FROM todo'}});
     expect(pref.values['_kAppCart'], [{'id': 'cart1', 'video_code': 'TEST-001'}]);
     expect(legacy.includes('todo'), isFalse);
   });
@@ -250,7 +262,7 @@ void main() {
       (data) => data['settings'].remove('sql_snippets'),
       (data) => data['settings']['_kAppCart'] = [1],
       (data) => data['settings']['_kSearchTabs'] = {'tabs': [1]},
-      (data) => data['settings']['sql_snippets'] = {'javit.db': {'Bad': 1}},
+      (data) => data['settings']['sql_snippets'] = {'kuraku.db': {'Bad': 1}},
     ]) {
       final data = jsonDecode(original) as Map<String, dynamic>;
       mutate(data);

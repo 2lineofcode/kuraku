@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_tab.dart';
+import 'package:kuraku/app/modules/home/page_sqleditor/page_sqleditor_tab.dart';
 import 'package:sqflite/sqflite.dart';
 
 // Exercise the actual metadata SQL against SQLite without a native Flutter plugin.
@@ -35,7 +35,7 @@ void main() {
     expect(schema['videos'], ['id', 'title', 'video_code']);
     expect(schema['titles'], ['title']);
     expect(schema, contains('sqlite_sequence'));
-    final controller = PageSqleditorTab(sources: {'javit.db': '/javit.db'}, loadSchema: (_) async => schema);
+    final controller = PageSqleditorTab(sources: {'kuraku.db': '/kuraku.db'}, loadSchema: (_) async => schema);
     controller.onInit();
     await controller.refreshSchema();
     void type(String sql, [int? cursor]) {
@@ -80,7 +80,7 @@ void main() {
   });
 
   test('Autocomplete ranks prefix, substring and abbreviated identifier matches', () async {
-    final controller = PageSqleditorTab(sources: {'javit.db': '/javit.db'}, loadSchema: (_) async => {
+    final controller = PageSqleditorTab(sources: {'kuraku.db': '/kuraku.db'}, loadSchema: (_) async => {
       'derived_video': ['id', 'video_code'], 'videos': ['id'], 'derived_actor': ['id'],
     });
     controller.onInit();
@@ -108,7 +108,7 @@ void main() {
 
   test('Source switches discard stale schema; failed metadata loads can retry', () async {
     final pending = <Completer<Map<String, List<String>>>>[];
-    final controller = PageSqleditorTab(sources: {'javit.db': '/javit.db', 'r18*.db': '/r18.db'}, loadSchema: (_) {
+    final controller = PageSqleditorTab(sources: {'kuraku.db': '/kuraku.db', 'r18*.db': '/r18.db'}, loadSchema: (_) {
       final completer = Completer<Map<String, List<String>>>();
       pending.add(completer);
       return completer.future;

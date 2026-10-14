@@ -7,14 +7,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
-import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_controller.dart';
-import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_view.dart';
-import 'package:javit/app/modules/widgets/widgets.dart';
+import 'package:kuraku/app/modules/home/page_sqleditor/page_sqleditor_controller.dart';
+import 'package:kuraku/app/modules/home/page_sqleditor/page_sqleditor_view.dart';
+import 'package:kuraku/app/modules/widgets/widgets.dart';
 
 void main() {
   testWidgets('SQL tab shortcuts work in the editor and expanded results and preserve pinned tabs', (tester) async {
     addTearDown(Get.reset);
-    final controller = Get.put(PageSqleditorController(sources: {'javit.db': '/javit.db'}));
+    final controller = Get.put(PageSqleditorController(sources: {'kuraku.db': '/kuraku.db'}));
     final first = controller.activeTab;
     first.input.text = 'SELECT 1;';
     await tester.pumpWidget(const GetMaterialApp(home: Scaffold(body: PageSqleditorView())));
@@ -53,7 +53,7 @@ void main() {
 
   testWidgets('SQL tabs reorder and pin without changing the active tab', (tester) async {
     var stored = <String, dynamic>{};
-    final controller = Get.put<PageSqleditorController>(PageSqleditorController(sources: {'javit.db': '/javit.db'},
+    final controller = Get.put<PageSqleditorController>(PageSqleditorController(sources: {'kuraku.db': '/kuraku.db'},
       persistTabs: (value) async { stored = value; }));
     addTearDown(Get.reset);
     final first = controller.activeTab;
@@ -95,7 +95,7 @@ void main() {
 
   testWidgets('Results expand to fill the page and restore the query and tabs', (tester) async {
     addTearDown(Get.reset);
-    final controller = Get.put(PageSqleditorController(sources: {'javit.db': '/javit.db'}));
+    final controller = Get.put(PageSqleditorController(sources: {'kuraku.db': '/kuraku.db'}));
     final tab = controller.activeTab;
     tab.input.text = 'SELECT 1;';
     tab.result.value = {'columns': ['value'], 'rows': [[1]], 'elapsed_ms': 1};
@@ -124,8 +124,8 @@ void main() {
     var requests = 0;
     final pending = Completer<Map<String, dynamic>>();
     final controller = Get.put(PageSqleditorController(
-      sources: {'javit.db': '/javit.db', 'r18*.db': '/r18.db'},
-      savedSnippets: {'javit.db': {'Example': 'SELECT :value;'}},
+      sources: {'kuraku.db': '/kuraku.db', 'r18*.db': '/r18.db'},
+      savedSnippets: {'kuraku.db': {'Example': 'SELECT :value;'}},
       query: (_, request, token) { requests++; return pending.future; },
       persistTabs: (value) async { stored = jsonDecode(jsonEncode(value)) as Map<String, dynamic>; },
     ));
@@ -159,7 +159,7 @@ void main() {
     controller.selectTab(1);
     await controller.saveTabs();
     final restored = PageSqleditorController(sources: controller.sources, savedTabs: stored,
-      savedSnippets: {'javit.db': {'Example': 'SELECT :value;'}},
+      savedSnippets: {'kuraku.db': {'Example': 'SELECT :value;'}},
       query: (_, request, token) async { requests++; return {}; });
     restored.onStart();
     expect(restored.tabs.length, 2);
@@ -186,7 +186,7 @@ void main() {
   testWidgets('Shared snippets serialize saves and tab persistence can retry', (tester) async {
     var fail = true;
     var stored = <String, dynamic>{};
-    final controller = Get.put(PageSqleditorController(sources: {'javit.db': '/javit.db'},
+    final controller = Get.put(PageSqleditorController(sources: {'kuraku.db': '/kuraku.db'},
       persistSnippets: (value) async { stored = jsonDecode(jsonEncode(value)) as Map<String, dynamic>; },
       persistTabs: (_) async { if (fail) throw StateError('Disk unavailable'); }));
     addTearDown(() => Get.reset());
@@ -195,11 +195,11 @@ void main() {
     controller.addTab();
     final second = controller.activeTab;
     await Future.wait([
-      first.saveSnippet('javit.db', 'First', 'SELECT 1;'),
-      second.saveSnippet('javit.db', 'Second', 'SELECT 2;'),
+      first.saveSnippet('kuraku.db', 'First', 'SELECT 1;'),
+      second.saveSnippet('kuraku.db', 'Second', 'SELECT 2;'),
     ]);
-    expect(stored['javit.db'], {'First': 'SELECT 1;', 'Second': 'SELECT 2;'});
-    expect(first.snippetsFor('javit.db'), second.snippetsFor('javit.db'));
+    expect(stored['kuraku.db'], {'First': 'SELECT 1;', 'Second': 'SELECT 2;'});
+    expect(first.snippetsFor('kuraku.db'), second.snippetsFor('kuraku.db'));
     await controller.saveTabs();
     expect(controller.saveError.value, isNotEmpty);
     fail = false;
@@ -211,7 +211,7 @@ void main() {
 
   testWidgets('A tab cannot close while a write is committing', (tester) async {
     final pending = Completer<Map<String, dynamic>>();
-    final controller = Get.put(PageSqleditorController(sources: {'javit.db': '/javit.db'},
+    final controller = Get.put(PageSqleditorController(sources: {'kuraku.db': '/kuraku.db'},
       query: (_, request, token) {
         if (request['confirm_write'] == true) return pending.future;
         return Future.value({'requires_confirmation': true});
@@ -238,7 +238,7 @@ void main() {
   testWidgets('Closing a running tab cancels its request and ignores late completion', (tester) async {
     final pending = Completer<Map<String, dynamic>>();
     CancelToken? requestToken;
-    final controller = Get.put(PageSqleditorController(sources: {'javit.db': '/javit.db'},
+    final controller = Get.put(PageSqleditorController(sources: {'kuraku.db': '/kuraku.db'},
       query: (_, request, token) { requestToken = token; return pending.future; }));
     addTearDown(() => Get.reset());
     await tester.pumpWidget(const GetMaterialApp(home: Scaffold(body: PageSqleditorView())));

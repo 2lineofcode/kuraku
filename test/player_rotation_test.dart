@@ -9,11 +9,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
-import 'package:javit/app/modules/player/player_controller.dart';
-import 'package:javit/app/modules/player/player_controls.dart';
-import 'package:javit/app/utils/semantic_search_service.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/player/player_controller.dart';
+import 'package:kuraku/app/modules/player/player_controls.dart';
+import 'package:kuraku/app/utils/semantic_search_service.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:overlayment/overlayment.dart';
@@ -127,7 +127,7 @@ void main() {
     final picker = _SubtitlePicker();
     FilePickerPlatform.instance = picker;
     addTearDown(() => FilePickerPlatform.instance = previousPicker);
-    final directory = Directory.systemTemp.createTempSync('javit-subtitle-picker-');
+    final directory = Directory.systemTemp.createTempSync('kuraku-subtitle-picker-');
     addTearDown(() => directory.deleteSync(recursive: true));
     final file = File('${directory.path}/subtitle.srt')..writeAsStringSync('');
     final player = _Player(_NativePlayer());
@@ -154,7 +154,7 @@ void main() {
   test('external subtitles load as file URIs and can be disabled without opening another video', () async {
     Get.put(AppSettingService()..pref = _Preferences());
     addTearDown(Get.reset);
-    final directory = Directory.systemTemp.createTempSync('javit-subtitle-');
+    final directory = Directory.systemTemp.createTempSync('kuraku-subtitle-');
     addTearDown(() => directory.deleteSync(recursive: true));
     final file = File('${directory.path}/English subtitle #1.SRT')..writeAsStringSync('1\n00:00:00,000 --> 00:00:01,000\nHello\n');
     final player = _Player(_NativePlayer());

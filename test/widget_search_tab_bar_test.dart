@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:javit/app/modules/home/page_sqleditor/page_sqleditor_controller.dart';
-import 'package:javit/app/modules/widgets/widget_search_tab_bar.dart';
+import 'package:kuraku/app/modules/home/page_sqleditor/page_sqleditor_controller.dart';
+import 'package:kuraku/app/modules/widgets/widget_search_tab_bar.dart';
 import 'package:super_context_menu/super_context_menu.dart' as scm;
 
 import 'icon_finder.dart';
@@ -117,7 +117,7 @@ void main() {
     final notifier = ValueNotifier<scm.MenuResult?>(null);
     addTearDown(notifier.dispose);
     final request = scm.MenuRequest(onShowMenu: notifier, onHideMenu: notifier, onPreviewAction: notifier, location: Offset.zero);
-    final controller = Get.put(PageSqleditorController(sources: {'javit.db': '/javit.db'}));
+    final controller = Get.put(PageSqleditorController(sources: {'kuraku.db': '/kuraku.db'}));
     final first = controller.activeTab;
     controller.addTab();
     final second = controller.activeTab;

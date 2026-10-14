@@ -3,19 +3,19 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/database/_update_db.dart';
-import 'package:javit/app/data/database/db_library.dart';
-import 'package:javit/app/data/database/db_videos.dart';
-import 'package:javit/app/data/database/library_reconciler.dart';
-import 'package:javit/app/data/database/library_relocation.dart';
-import 'package:javit/app/data/models/library_entity.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
-import 'package:javit/app/modules/home/home_controller.dart';
-import 'package:javit/app/modules/home/home_panel/home_panel_library.dart';
-import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
-import 'package:javit/app/utils/helper_file_picker.dart';
-import 'package:javit/app/utils/video_file_identity.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/_update_db.dart';
+import 'package:kuraku/app/data/database/db_library.dart';
+import 'package:kuraku/app/data/database/db_videos.dart';
+import 'package:kuraku/app/data/database/library_reconciler.dart';
+import 'package:kuraku/app/data/database/library_relocation.dart';
+import 'package:kuraku/app/data/models/library_entity.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/home/home_controller.dart';
+import 'package:kuraku/app/modules/home/home_panel/home_panel_library.dart';
+import 'package:kuraku/app/modules/home/page_search/page_search_tab.dart';
+import 'package:kuraku/app/utils/helper_file_picker.dart';
+import 'package:kuraku/app/utils/video_file_identity.dart';
 
 import 'sqlite_test_database.dart';
 
@@ -48,7 +48,7 @@ void main() {
     db = await SqliteTestDatabase.open();
     await DBService.onCreate(db, DBUpdate.version);
     Get.put<DBService>(_Service()..dbMain = db);
-    folder = await Directory.systemTemp.createTemp('javit-relocate-');
+    folder = await Directory.systemTemp.createTemp('kuraku-relocate-');
     internal = Directory('${folder.path}/internal')..createSync();
     external = Directory('${folder.path}/external')..createSync();
   });

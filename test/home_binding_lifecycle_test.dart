@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/modules/home/home_binding.dart';
-import 'package:javit/app/modules/home/page_download/page_download_controller.dart';
-import 'package:javit/app/modules/home/page_explore/page_explore_controller.dart';
-import 'package:javit/app/modules/home/page_home/page_home_controller.dart';
-import 'package:javit/app/modules/home/page_search/page_search_controller.dart';
-import 'package:javit/app/modules/home/page_settings/page_settings_controller.dart';
-import 'package:javit/app/modules/home/page_tools/page_tools_controller.dart';
-import 'package:javit/app/modules/player/player_controller.dart';
+import 'package:kuraku/app/modules/home/home_binding.dart';
+import 'package:kuraku/app/modules/home/page_download/page_download_controller.dart';
+import 'package:kuraku/app/modules/home/page_explore/page_explore_controller.dart';
+import 'package:kuraku/app/modules/home/page_home/page_home_controller.dart';
+import 'package:kuraku/app/modules/home/page_search/page_search_controller.dart';
+import 'package:kuraku/app/modules/home/page_settings/page_settings_controller.dart';
+import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
+import 'package:kuraku/app/modules/player/player_controller.dart';
 
 class _Controller extends GetxController {
   final draft = 'Saved draft'.obs;

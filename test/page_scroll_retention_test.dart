@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
-import 'package:javit/app/modules/home/page_explore/page_explore_controller.dart';
-import 'package:javit/app/modules/home/page_explore/page_explore_view.dart';
-import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
-import 'package:javit/app/modules/home/page_search/page_search_view.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/home/page_explore/page_explore_controller.dart';
+import 'package:kuraku/app/modules/home/page_explore/page_explore_view.dart';
+import 'package:kuraku/app/modules/home/page_search/page_search_tab.dart';
+import 'package:kuraku/app/modules/home/page_search/page_search_view.dart';
 
 class _Preferences implements GetSecureStorage {
   @override

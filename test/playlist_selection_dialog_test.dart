@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/core/app_translations.dart';
-import 'package:javit/app/data/models/playlist_entity.dart';
-import 'package:javit/app/modules/home/home_panel/home_panel_playlist.dart';
-import 'package:javit/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/core/app_translations.dart';
+import 'package:kuraku/app/data/models/playlist_entity.dart';
+import 'package:kuraku/app/modules/home/home_panel/home_panel_playlist.dart';
+import 'package:kuraku/app/modules/widgets/widget_style.dart';
 
 void main() {
   testWidgets('playlist picker fits content, scrolls long lists and keeps selection and close actions', (tester) async {

@@ -4,17 +4,17 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/database/_update_db.dart';
-import 'package:javit/app/data/database/db_achievement.dart';
-import 'package:javit/app/data/database/db_activity.dart';
-import 'package:javit/app/data/database/db_library.dart';
-import 'package:javit/app/data/database/db_playlist.dart';
-import 'package:javit/app/data/database/db_video_embedding.dart';
-import 'package:javit/app/data/database/db_videos.dart';
-import 'package:javit/app/data/models/activity_entity.dart';
-import 'package:javit/app/data/models/library_entity.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/_update_db.dart';
+import 'package:kuraku/app/data/database/db_achievement.dart';
+import 'package:kuraku/app/data/database/db_activity.dart';
+import 'package:kuraku/app/data/database/db_library.dart';
+import 'package:kuraku/app/data/database/db_playlist.dart';
+import 'package:kuraku/app/data/database/db_video_embedding.dart';
+import 'package:kuraku/app/data/database/db_videos.dart';
+import 'package:kuraku/app/data/models/activity_entity.dart';
+import 'package:kuraku/app/data/models/library_entity.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
 
 import 'sqlite_test_database.dart';
 
@@ -120,7 +120,7 @@ void main() {
   test('permanent delete removes only deleted records and cascades related data', () async {
     final db = await _database();
     Get.put<DBService>(_Service()..dbMain = db);
-    final file = File('${Directory.systemTemp.path}/javit-permanent-delete-${DateTime.now().microsecondsSinceEpoch}.mp4');
+    final file = File('${Directory.systemTemp.path}/kuraku-permanent-delete-${DateTime.now().microsecondsSinceEpoch}.mp4');
     await file.writeAsString('keep');
     addTearDown(() => file.delete());
     await db.insert('videos', {'id': 'v1', 'root_path': file.parent.path, 'video_path': file.path, 'is_deleted': 1});
@@ -402,7 +402,7 @@ void main() {
   });
 
   test('local database backup migrates without changing original core records', () async {
-    final path = Platform.environment['JAVIT_ACTIVITY_DB'];
+    final path = Platform.environment['KURAKU_ACTIVITY_DB'];
     final db = await _database(sourcePath: path);
     final before = <String, List<Map<String, Object?>>>{};
     for (final table in ['library', 'playlist', 'playlist_item', 'watch_session', 'profile', 'achievement_unlock', 'historical', 'chat_conversation', 'chat_message', 'chat_translation', 'activity']) {
@@ -422,5 +422,5 @@ void main() {
     expect((await db.rawQuery('PRAGMA quick_check')).single.values.single, 'ok');
     expect((await db.rawQuery('SELECT COUNT(*) AS count FROM video_embeddings e WHERE NOT EXISTS (SELECT 1 FROM videos v WHERE v.id=e.video_id)')).single['count'], 0);
     print('Local backup v${DBUpdate.version} verified: $videoCount videos, ${(await db.query('video_embeddings')).length} embeddings retained');
-  }, skip: Platform.environment['JAVIT_ACTIVITY_DB'] == null ? 'Set JAVIT_ACTIVITY_DB to verify a read-only local backup' : false);
+  }, skip: Platform.environment['KURAKU_ACTIVITY_DB'] == null ? 'Set KURAKU_ACTIVITY_DB to verify a read-only local backup' : false);
 }

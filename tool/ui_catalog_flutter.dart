@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:hugeicons/hugeicons.dart';
-import 'package:javit/app/core/app_color.dart';
-import 'package:javit/app/modules/widgets/widget_controls.dart';
-import 'package:javit/app/modules/widgets/widget_style.dart';
-import 'package:javit/app/modules/widgets/widget_surfaces.dart';
+import 'package:kuraku/app/core/app_color.dart';
+import 'package:kuraku/app/modules/widgets/widget_controls.dart';
+import 'package:kuraku/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/modules/widgets/widget_surfaces.dart';
 
 void main() => runApp(const UiCatalogApp());
 
@@ -70,7 +70,7 @@ class _UiCatalogState extends State<UiCatalog> {
                     spacing: 12,
                     runSpacing: 8,
                     children: [
-                      const Text('JavIt / Shared components', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+                      const Text('kuraku / Shared components', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
                       AppButton(
                         icon: const HugeIcon(icon: HugeIcons.strokeRoundedDarkMode, size: AppStyle.iconSize),
                         label: 'Toggle theme',

@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/data/models/__javit_metadata_entity.dart';
-import 'package:javit/app/data/models/activity_entity.dart';
-import 'package:javit/app/data/models/library_entity.dart';
+import 'package:kuraku/app/data/models/__kuraku_metadata_entity.dart';
+import 'package:kuraku/app/data/models/activity_entity.dart';
+import 'package:kuraku/app/data/models/library_entity.dart';
 
 void main() {
   final dateLike = RegExp(r'^\d{4}-\d{2}-\d{2}');
@@ -96,7 +96,7 @@ void main() {
     });
   });
 
-  group('JavitMetadata', () {
+  group('KurakuMetadata', () {
     final source = {
       'video_id': 'eyan00181',
       'video_code_id': 'eyan00181',
@@ -126,7 +126,7 @@ void main() {
     };
 
     test('maps the API payload, including the actors alias and nested cast defaults', () {
-      final metadata = JavitMetadata.fromJson(Map<String, dynamic>.from(source));
+      final metadata = KurakuMetadata.fromJson(Map<String, dynamic>.from(source));
       expect(metadata.videoCode, 'EYAN-181');
       expect(metadata.titleJa, '姉はヤンママ授乳中in実家');
       expect(metadata.duration, 121);
@@ -140,10 +140,10 @@ void main() {
     });
 
     test('replaces null scalars with empty values so the UI never sees a null', () {
-      final metadata = JavitMetadata.fromJson(Map<String, dynamic>.from(source));
+      final metadata = KurakuMetadata.fromJson(Map<String, dynamic>.from(source));
       expect([metadata.description, metadata.series, metadata.viewCount, metadata.score], ['', '', '', '']);
 
-      final blank = JavitMetadata.fromJson({});
+      final blank = KurakuMetadata.fromJson({});
       expect([blank.videoId, blank.videoCode, blank.title, blank.titleJa, blank.studio, blank.label, blank.director], ['', '', '', '', '', '', '']);
       expect(blank.duration, 0);
       expect(blank.actress, isNull);
@@ -152,13 +152,13 @@ void main() {
     });
 
     test('only writes the optional list keys when they are present', () {
-      final full = JavitMetadata.fromJson(Map<String, dynamic>.from(source)).toJson();
+      final full = KurakuMetadata.fromJson(Map<String, dynamic>.from(source)).toJson();
       expect(full['actors'], hasLength(2));
       expect((full['actors'] as List).first, {'cast_id': 1068671, 'cast_names': 'Mina Kitano', 'cast_image': 'https://pics.dmm.co.jp/mono/actjpgs/kitano_mina.jpg'});
       expect(full['genre'], ['Married Woman', 'Big Tits']);
       expect(full['screenshot'], hasLength(1));
 
-      final blank = JavitMetadata.fromJson({}).toJson();
+      final blank = KurakuMetadata.fromJson({}).toJson();
       expect(blank.containsKey('actors'), isFalse);
       expect(blank.containsKey('genre'), isFalse);
       expect(blank.containsKey('screenshot'), isFalse);
@@ -166,10 +166,10 @@ void main() {
     });
 
     test('serialises to JSON text that can be parsed back into the same payload', () {
-      final metadata = JavitMetadata.fromJson(Map<String, dynamic>.from(source));
+      final metadata = KurakuMetadata.fromJson(Map<String, dynamic>.from(source));
       final decoded = Map<String, dynamic>.from(jsonDecode(metadata.toString()));
-      expect(JavitMetadata.fromJson(decoded).toJson(), metadata.toJson());
-      expect('${JavitMetadataActors(castId: 1, castNames: 'A', castImage: 'i')}', jsonEncode({'cast_id': 1, 'cast_names': 'A', 'cast_image': 'i'}));
+      expect(KurakuMetadata.fromJson(decoded).toJson(), metadata.toJson());
+      expect('${KurakuMetadataActors(castId: 1, castNames: 'A', castImage: 'i')}', jsonEncode({'cast_id': 1, 'cast_names': 'A', 'cast_image': 'i'}));
     });
   });
 }

@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>JavIt · Shared UI catalog</title>
+        <title>kuraku · Shared UI catalog</title>
         <style>
             :root {
                 color-scheme: light;
@@ -1170,7 +1170,7 @@
     <body>
         <header class="catalog-top">
             <div class="brand">
-                <span class="brand-mark">J</span> JavIt <span class="muted small">/ UI inventory</span>
+                <span class="brand-mark">K</span> kuraku <span class="muted small">/ UI inventory</span>
             </div>
             <div class="row">
                 <span class="chip">Shared components</span
@@ -1429,14 +1429,14 @@
                         "group": "Layout",
                         "file": "lib/app/core/app_pin.dart",
                         "line": 132,
-                        "snippet": "    canPop: !_busy,\n    child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [\n      Text(widget.unlock ? 'Unlock JavIt'.tr : widget.disable ? 'Disable PIN lock'.tr\n          : _needsCurrent ? 'Change PIN'.tr : 'Set PIN'.tr, style: Theme.of(context).textTheme.titleMedium),\n      if (widget.unlock) Padding("
+                        "snippet": "    canPop: !_busy,\n    child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [\n      Text(widget.unlock ? 'Unlock kuraku'.tr : widget.disable ? 'Disable PIN lock'.tr\n          : _needsCurrent ? 'Change PIN'.tr : 'Set PIN'.tr, style: Theme.of(context).textTheme.titleMedium),\n      if (widget.unlock) Padding("
                     },
                     {
                         "type": "Text",
                         "group": "Media & content",
                         "file": "lib/app/core/app_pin.dart",
                         "line": 133,
-                        "snippet": "    child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [\n      Text(widget.unlock ? 'Unlock JavIt'.tr : widget.disable ? 'Disable PIN lock'.tr\n          : _needsCurrent ? 'Change PIN'.tr : 'Set PIN'.tr, style: Theme.of(context).textTheme.titleMedium),\n      if (widget.unlock) Padding(\n        padding: const EdgeInsets.only(top: 8),"
+                        "snippet": "    child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [\n      Text(widget.unlock ? 'Unlock kuraku'.tr : widget.disable ? 'Disable PIN lock'.tr\n          : _needsCurrent ? 'Change PIN'.tr : 'Set PIN'.tr, style: Theme.of(context).textTheme.titleMedium),\n      if (widget.unlock) Padding(\n        padding: const EdgeInsets.only(top: 8),"
                     },
                     {
                         "type": "Padding",
@@ -1576,35 +1576,35 @@
                         "group": "Layout",
                         "file": "lib/app/core/app_startup.dart",
                         "line": 48,
-                        "snippet": "            child: _error == null\n                ? Column(mainAxisSize: MainAxisSize.min, children: [\n                    CircularProgressIndicator(),\n                    SizedBox(height: 16),\n                    Text('Opening JavIt, Please wait...'.tr),"
+                        "snippet": "            child: _error == null\n                ? Column(mainAxisSize: MainAxisSize.min, children: [\n                    CircularProgressIndicator(),\n                    SizedBox(height: 16),\n                    Text('Opening kuraku, Please wait...'.tr),"
                     },
                     {
                         "type": "CircularProgressIndicator",
                         "group": "Feedback",
                         "file": "lib/app/core/app_startup.dart",
                         "line": 49,
-                        "snippet": "                ? Column(mainAxisSize: MainAxisSize.min, children: [\n                    CircularProgressIndicator(),\n                    SizedBox(height: 16),\n                    Text('Opening JavIt, Please wait...'.tr),\n                  ])"
+                        "snippet": "                ? Column(mainAxisSize: MainAxisSize.min, children: [\n                    CircularProgressIndicator(),\n                    SizedBox(height: 16),\n                    Text('Opening kuraku, Please wait...'.tr),\n                  ])"
                     },
                     {
                         "type": "SizedBox",
                         "group": "Layout",
                         "file": "lib/app/core/app_startup.dart",
                         "line": 50,
-                        "snippet": "                    CircularProgressIndicator(),\n                    SizedBox(height: 16),\n                    Text('Opening JavIt, Please wait...'.tr),\n                  ])\n                : SelectableText('Could not start JavIt. Please restart the app.\\n\\n@{error}'.trNamed({'error': '$_error'})),"
+                        "snippet": "                    CircularProgressIndicator(),\n                    SizedBox(height: 16),\n                    Text('Opening kuraku, Please wait...'.tr),\n                  ])\n                : SelectableText('Could not start kuraku. Please restart the app.\\n\\n@{error}'.trNamed({'error': '$_error'})),"
                     },
                     {
                         "type": "Text",
                         "group": "Media & content",
                         "file": "lib/app/core/app_startup.dart",
                         "line": 51,
-                        "snippet": "                    SizedBox(height: 16),\n                    Text('Opening JavIt, Please wait...'.tr),\n                  ])\n                : SelectableText('Could not start JavIt. Please restart the app.\\n\\n@{error}'.trNamed({'error': '$_error'})),\n          ),"
+                        "snippet": "                    SizedBox(height: 16),\n                    Text('Opening kuraku, Please wait...'.tr),\n                  ])\n                : SelectableText('Could not start kuraku. Please restart the app.\\n\\n@{error}'.trNamed({'error': '$_error'})),\n          ),"
                     },
                     {
                         "type": "SelectableText",
                         "group": "Media & content",
                         "file": "lib/app/core/app_startup.dart",
                         "line": 53,
-                        "snippet": "                  ])\n                : SelectableText('Could not start JavIt. Please restart the app.\\n\\n@{error}'.trNamed({'error': '$_error'})),\n          ),\n        ),\n      ),"
+                        "snippet": "                  ])\n                : SelectableText('Could not start kuraku. Please restart the app.\\n\\n@{error}'.trNamed({'error': '$_error'})),\n          ),\n        ),\n      ),"
                     },
                     {
                         "type": "AppConfirmDialog.show",
@@ -7162,42 +7162,42 @@
                         "group": "Layout",
                         "file": "lib/app/modules/home/page_chat/page_chat_view.dart",
                         "line": 191,
-                        "snippet": "      padding: const EdgeInsets.all(12),\n      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [\n        Padding(padding: const EdgeInsets.fromLTRB(4, 0, 8, 8), child: Row(children: [\n          const Expanded(child: Text('JavIt AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),\n          AppIconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),"
+                        "snippet": "      padding: const EdgeInsets.all(12),\n      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [\n        Padding(padding: const EdgeInsets.fromLTRB(4, 0, 8, 8), child: Row(children: [\n          const Expanded(child: Text('kuraku AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),\n          AppIconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),"
                     },
                     {
                         "type": "Padding",
                         "group": "Layout",
                         "file": "lib/app/modules/home/page_chat/page_chat_view.dart",
                         "line": 192,
-                        "snippet": "      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [\n        Padding(padding: const EdgeInsets.fromLTRB(4, 0, 8, 8), child: Row(children: [\n          const Expanded(child: Text('JavIt AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),\n          AppIconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),\n            visualDensity: VisualDensity.compact,"
+                        "snippet": "      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [\n        Padding(padding: const EdgeInsets.fromLTRB(4, 0, 8, 8), child: Row(children: [\n          const Expanded(child: Text('kuraku AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),\n          AppIconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),\n            visualDensity: VisualDensity.compact,"
                     },
                     {
                         "type": "Row",
                         "group": "Layout",
                         "file": "lib/app/modules/home/page_chat/page_chat_view.dart",
                         "line": 192,
-                        "snippet": "      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [\n        Padding(padding: const EdgeInsets.fromLTRB(4, 0, 8, 8), child: Row(children: [\n          const Expanded(child: Text('JavIt AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),\n          AppIconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),\n            visualDensity: VisualDensity.compact,"
+                        "snippet": "      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [\n        Padding(padding: const EdgeInsets.fromLTRB(4, 0, 8, 8), child: Row(children: [\n          const Expanded(child: Text('kuraku AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),\n          AppIconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),\n            visualDensity: VisualDensity.compact,"
                     },
                     {
                         "type": "Expanded",
                         "group": "Layout",
                         "file": "lib/app/modules/home/page_chat/page_chat_view.dart",
                         "line": 193,
-                        "snippet": "        Padding(padding: const EdgeInsets.fromLTRB(4, 0, 8, 8), child: Row(children: [\n          const Expanded(child: Text('JavIt AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),\n          AppIconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),\n            visualDensity: VisualDensity.compact,\n            constraints: const BoxConstraints.tightFor(width: 32, height: 32),"
+                        "snippet": "        Padding(padding: const EdgeInsets.fromLTRB(4, 0, 8, 8), child: Row(children: [\n          const Expanded(child: Text('kuraku AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),\n          AppIconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),\n            visualDensity: VisualDensity.compact,\n            constraints: const BoxConstraints.tightFor(width: 32, height: 32),"
                     },
                     {
                         "type": "Text",
                         "group": "Media & content",
                         "file": "lib/app/modules/home/page_chat/page_chat_view.dart",
                         "line": 193,
-                        "snippet": "        Padding(padding: const EdgeInsets.fromLTRB(4, 0, 8, 8), child: Row(children: [\n          const Expanded(child: Text('JavIt AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),\n          AppIconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),\n            visualDensity: VisualDensity.compact,\n            constraints: const BoxConstraints.tightFor(width: 32, height: 32),"
+                        "snippet": "        Padding(padding: const EdgeInsets.fromLTRB(4, 0, 8, 8), child: Row(children: [\n          const Expanded(child: Text('kuraku AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),\n          AppIconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),\n            visualDensity: VisualDensity.compact,\n            constraints: const BoxConstraints.tightFor(width: 32, height: 32),"
                     },
                     {
                         "type": "AppIconButton",
                         "group": "Buttons",
                         "file": "lib/app/modules/home/page_chat/page_chat_view.dart",
                         "line": 194,
-                        "snippet": "          const Expanded(child: Text('JavIt AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),\n          AppIconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),\n            visualDensity: VisualDensity.compact,\n            constraints: const BoxConstraints.tightFor(width: 32, height: 32),\n            padding: EdgeInsets.zero,"
+                        "snippet": "          const Expanded(child: Text('kuraku AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),\n          AppIconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),\n            visualDensity: VisualDensity.compact,\n            constraints: const BoxConstraints.tightFor(width: 32, height: 32),\n            padding: EdgeInsets.zero,"
                     },
                     {
                         "type": "Icon",
@@ -23605,14 +23605,14 @@
                         "group": "Media & content",
                         "file": "lib/app/modules/widgets/widget_download_method.dart",
                         "line": 24,
-                        "snippet": "            const SizedBox(height: 4),\n            Text('Choose how to open this video'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),\n            const SizedBox(height: 20),\n            for (final option in [\n              ('native', 'Native'.tr, 'Download in JavIt'.tr, Icons.download_rounded),"
+                        "snippet": "            const SizedBox(height: 4),\n            Text('Choose how to open this video'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),\n            const SizedBox(height: 20),\n            for (final option in [\n              ('native', 'Native'.tr, 'Download in kuraku'.tr, Icons.download_rounded),"
                     },
                     {
                         "type": "SizedBox",
                         "group": "Layout",
                         "file": "lib/app/modules/widgets/widget_download_method.dart",
                         "line": 25,
-                        "snippet": "            Text('Choose how to open this video'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),\n            const SizedBox(height: 20),\n            for (final option in [\n              ('native', 'Native'.tr, 'Download in JavIt'.tr, Icons.download_rounded),\n              ('downie', 'Downie'.tr, 'Send to Downie'.tr, Icons.open_in_new_rounded),"
+                        "snippet": "            Text('Choose how to open this video'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),\n            const SizedBox(height: 20),\n            for (final option in [\n              ('native', 'Native'.tr, 'Download in kuraku'.tr, Icons.download_rounded),\n              ('downie', 'Downie'.tr, 'Send to Downie'.tr, Icons.open_in_new_rounded),"
                     },
                     {
                         "type": "Padding",
@@ -26468,28 +26468,28 @@
                         "group": "Project widgets",
                         "file": "lib/main.dart",
                         "line": 42,
-                        "snippet": "  WidgetsFlutterBinding.ensureInitialized();\n  runApp(AppStartup(\n    initialize: _initializeApp,\n    child: const AppPinGate(child: JavIt()),\n  ));"
+                        "snippet": "  WidgetsFlutterBinding.ensureInitialized();\n  runApp(AppStartup(\n    initialize: _initializeApp,\n    child: const AppPinGate(child: Kuraku()),\n  ));"
                     },
                     {
                         "type": "AppPinGate",
                         "group": "Project widgets",
                         "file": "lib/main.dart",
                         "line": 44,
-                        "snippet": "    initialize: _initializeApp,\n    child: const AppPinGate(child: JavIt()),\n  ));\n}\n"
+                        "snippet": "    initialize: _initializeApp,\n    child: const AppPinGate(child: Kuraku()),\n  ));\n}\n"
                     },
                     {
-                        "type": "JavIt",
+                        "type": "Kuraku",
                         "group": "Project widgets",
                         "file": "lib/main.dart",
                         "line": 44,
-                        "snippet": "    initialize: _initializeApp,\n    child: const AppPinGate(child: JavIt()),\n  ));\n}\n"
+                        "snippet": "    initialize: _initializeApp,\n    child: const AppPinGate(child: Kuraku()),\n  ));\n}\n"
                     },
                     {
-                        "type": "JavIt",
+                        "type": "Kuraku",
                         "group": "Project widgets",
                         "file": "lib/main.dart",
                         "line": 71,
-                        "snippet": "class JavIt extends StatefulWidget {\n  const JavIt({super.key});\n\n  @override\n  State\u003cJavIt> createState() => _JavItState();"
+                        "snippet": "class Kuraku extends StatefulWidget {\n  const Kuraku({super.key});\n\n  @override\n  State\u003ckuraku> createState() => _KurakuState();"
                     },
                     {
                         "type": "HelperToast.info",
@@ -27815,7 +27815,7 @@
                             "AppStartup",
                             "HelperToast.error",
                             "HelperToast.info",
-                            "JavIt",
+                            "kuraku",
                             "Text",
                             "ToastificationWrapper"
                         ]
@@ -28124,7 +28124,7 @@
                         "file": "lib/app/utils/helper_opener.dart",
                         "line": 1090
                     },
-                    { "name": "JavIt", "base": "StatefulWidget", "file": "lib/main.dart", "line": 70 }
+                    { "name": "kuraku", "base": "StatefulWidget", "file": "lib/main.dart", "line": 70 }
                 ],
                 "tokens": {
                     "fontSize": {
@@ -31033,7 +31033,7 @@
                 "Custom + Material AppBar",
                 ["MyLayout", "AppBar", "GlassContainer"],
                 "Left app menu, main toolbar and footer. Side menu defaults to 200; Home can use 180 or 65 mini mode. GlassContainer blur 50.",
-                `<div style="width:100%;border:1px solid var(--border);display:grid;grid-template-columns:58px 1fr"><div style="background:var(--appbar);padding:8px;border-right:1px solid var(--border)"><div class="stack">${icon("grid")}${icon("search")}${icon("chat")}</div></div><div><div class="row between" style="padding:8px;background:var(--appbar)"><b>JavIt</b>${icon("gear")}</div><div class="empty">Main content</div><div class="small" style="padding:4px 8px;background:var(--footer)">👋 PA · Ready</div></div></div>`
+                `<div style="width:100%;border:1px solid var(--border);display:grid;grid-template-columns:58px 1fr"><div style="background:var(--appbar);padding:8px;border-right:1px solid var(--border)"><div class="stack">${icon("grid")}${icon("search")}${icon("chat")}</div></div><div><div class="row between" style="padding:8px;background:var(--appbar)"><b>kuraku</b>${icon("gear")}</div><div class="empty">Main content</div><div class="small" style="padding:4px 8px;background:var(--footer)">👋 PA · Ready</div></div></div>`
             );
             specimen(
                 "NAV-02",
@@ -31061,7 +31061,7 @@
                 "Custom + Material",
                 ["Drawer", "ListTile", "MenuAnchor"],
                 "224px desktop sidebar, 240px drawer below 760px. 12px outer padding, 40px chat rows and 32px action targets.",
-                `<div class="chat-sidebar"><div class="row between"><b>JavIt AI</b><button class="icon-btn" title="Delete all chats">${icon("trash")}</button></div><div style="margin:8px 0 12px">${btn("New chat", "outline", "plus")}</div><div class="input-wrap">${icon("search")}${field("Search chats")}</div><div class="small muted" style="padding:16px 4px 8px">Your chats</div><div class="list-row">${icon("chat")} New chat <button class="icon-btn" title="Chat options">${icon("more")}</button></div></div>`,
+                `<div class="chat-sidebar"><div class="row between"><b>kuraku AI</b><button class="icon-btn" title="Delete all chats">${icon("trash")}</button></div><div style="margin:8px 0 12px">${btn("New chat", "outline", "plus")}</div><div class="input-wrap">${icon("search")}${field("Search chats")}</div><div class="small muted" style="padding:16px 4px 8px">Your chats</div><div class="list-row">${icon("chat")} New chat <button class="icon-btn" title="Chat options">${icon("more")}</button></div></div>`,
                 "page_chat"
             );
             specimen(
@@ -31439,7 +31439,7 @@
                 "Material 3",
                 ["AppPinGate", "AppPinForm"],
                 "Standalone 320px PIN form: masked outlined fields, validation message and filled action. Settings opens the same form in a dialog.",
-                `<div class="stack"><h3>Unlock JavIt</h3><div class="small muted">Enter your PIN to continue.</div><div class="material-field"><label>PIN</label><input type="password" value="1234" aria-label="Unlock PIN sample"></div>${btn("Unlock", "filled")}</div>`,
+                `<div class="stack"><h3>Unlock kuraku</h3><div class="small muted">Enter your PIN to continue.</div><div class="material-field"><label>PIN</label><input type="password" value="1234" aria-label="Unlock PIN sample"></div>${btn("Unlock", "filled")}</div>`,
                 "app_pin"
             );
             specimen(
@@ -31449,7 +31449,7 @@
                 "Material + native",
                 ["SnackBar", "AppNotification.show"],
                 "Player feedback includes SnackBar. AppNotification delegates download notifications to macOS; the native sample is structural only.",
-                `<div class="stack"><div style="background:#333;color:#fff;padding:12px;border-radius:4px;font-size:12px">Playback setting updated</div><div class="todo-card"><span class="brand-mark">J</span><div><b>JavIt</b><div class="small muted">Download completed</div></div></div></div>`
+                `<div class="stack"><div style="background:#333;color:#fff;padding:12px;border-radius:4px;font-size:12px">Playback setting updated</div><div class="todo-card"><span class="brand-mark">J</span><div><b>kuraku</b><div class="small muted">Download completed</div></div></div></div>`
             );
             const sections = [
                 ["buttons", "03 · Buttons & actions"],
@@ -31469,13 +31469,13 @@
             let picks = new Set(),
                 notes = "";
             try {
-                const saved = JSON.parse(localStorage.getItem("javit-ui-review") || "{}");
+                const saved = JSON.parse(localStorage.getItem("kuraku-ui-review") || "{}");
                 picks = new Set(saved.selected || []);
                 notes = saved.notes || "";
             } catch {}
             function persist() {
                 try {
-                    localStorage.setItem("javit-ui-review", JSON.stringify({ selected: [...picks], notes }));
+                    localStorage.setItem("kuraku-ui-review", JSON.stringify({ selected: [...picks], notes }));
                 } catch {
                     $("review-status").textContent = "Storage unavailable; export your review.";
                 }
@@ -31678,7 +31678,7 @@
             };
             $("export-review").onclick = () => {
                 const review = {
-                    catalog: "JavIt current UI inventory",
+                    catalog: "kuraku current UI inventory",
                     phase: "review candidates",
                     selected: [...picks].sort().map((id) => ({ id, title: labels.get(id) || id })),
                     notes,
@@ -31688,7 +31688,7 @@
                 );
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = "javit-ui-review.json";
+                a.download = "kuraku-ui-review.json";
                 a.click();
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
                 $("review-status").textContent = "Review exported.";

@@ -1,9 +1,9 @@
 import 'package:ex_kit/ex.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/data/api/api_javhey.dart';
-import 'package:javit/app/data/models/__javit_search_entity.dart';
-import 'package:javit/app/utils/helper_opener.dart';
-import 'package:javit/env.g.dart';
+import 'package:kuraku/app/data/api/api_javhey.dart';
+import 'package:kuraku/app/data/models/__kuraku_search_entity.dart';
+import 'package:kuraku/app/utils/helper_opener.dart';
+import 'package:kuraku/env.g.dart';
 
 String card({String title = 'JAV Subtitle Indonesia - ABC-001 A &amp; B', String url = '/video/100/abc-001-title', String image = '//cdn.example.com/cover.webp'}) =>
     '<article class="item"><div class="item_header"><img src="$image"></div><div class="item_content"><h3><a href="$url">$title</a></h3></div></article>';
@@ -18,7 +18,7 @@ void main() {
     expect(video.fanArt, 'https://cdn.example.com/cover.webp');
     expect(video.poster, video.fanArt);
     expect(video.sourceUrl, 'https://javhey.com/video/100/abc-001-title');
-    final restored = JavitSearchResult.fromJson(video.toJson());
+    final restored = KurakuSearchResult.fromJson(video.toJson());
     expect(HelperOpener.downloadUrlForVideo(video.videoCode!, sourceUrl: restored.sourceUrl), video.sourceUrl);
     expect(video.releaseDate, isNull);
     expect(video.duration, isNull);

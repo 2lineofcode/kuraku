@@ -6,11 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
-import 'package:javit/app/modules/home/home_controller.dart';
-import 'package:javit/app/modules/player/player_multi_view.dart';
-import 'package:javit/app/modules/widgets/widget_search_history.dart';
-import 'package:javit/app/modules/widgets/widget_search_suggestions_overlay.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/home/home_controller.dart';
+import 'package:kuraku/app/modules/player/player_multi_view.dart';
+import 'package:kuraku/app/modules/widgets/widget_search_history.dart';
+import 'package:kuraku/app/modules/widgets/widget_search_suggestions_overlay.dart';
 
 void main() {
   testWidgets('Covered search overlay survives resize, Settings action and Multi Player exit', (tester) async {

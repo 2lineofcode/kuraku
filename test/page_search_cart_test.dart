@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
-import 'package:javit/app/modules/home/home_controller.dart';
-import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
-import 'package:javit/app/modules/home/page_search/page_search_view.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/home/home_controller.dart';
+import 'package:kuraku/app/modules/home/page_search/page_search_tab.dart';
+import 'package:kuraku/app/modules/home/page_search/page_search_view.dart';
 
 import 'icon_finder.dart';
 

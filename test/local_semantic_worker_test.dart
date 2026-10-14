@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/utils/local_semantic_worker.dart';
-import 'package:javit/app/utils/semantic_search_service.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/utils/local_semantic_worker.dart';
+import 'package:kuraku/app/utils/semantic_search_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -27,7 +27,7 @@ void main() {
 
   test('Worker handles concurrent requests, startup cancellation and recovery', () async {
     Get.testMode = true;
-    final directory = await Directory.systemTemp.createTemp('javit-worker-test-');
+    final directory = await Directory.systemTemp.createTemp('kuraku-worker-test-');
     final runtime = '${directory.path}/semantic_runtime';
     final python = await Process.run('python3', ['-c', 'import sys; print(sys.executable)']);
     expect(python.exitCode, 0);
@@ -43,7 +43,7 @@ void main() {
       await file.close();
     }
     await File('$runtime/ready').writeAsString(LocalSemanticWorker.readyMarker);
-    final dbPath = '${directory.path}/javit.db';
+    final dbPath = '${directory.path}/kuraku.db';
     final created = await Process.run('python3', ['-c',
       'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("CREATE TABLE videos(id TEXT, video_path TEXT, updated_at TEXT, is_deleted INTEGER NOT NULL DEFAULT 0)"); c.execute("CREATE TABLE video_embeddings(video_id TEXT, source_text TEXT, model TEXT, embedding BLOB)"); c.close()', dbPath,
     ]);

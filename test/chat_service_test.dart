@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/utils/chat_service.dart';
+import 'package:kuraku/app/utils/chat_service.dart';
 
 class _Adapter implements HttpClientAdapter {
   int status = 200;

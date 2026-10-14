@@ -4,23 +4,23 @@ import 'dart:convert';
 /// * JSON Source: {"code":200,"server_time":1753357535595,"page":1,"total":12,"has_next_page":true,"result":[{"video_id":"hawa-360","video_code":"HAWA-360","title":"Sakura-san (28 years old) who started a men&#039;s beauty salon at home because he was struggling financially. Creampie sex with a single mother from...","fan_art":"https://fourhoi.com/hawa-360/cover-t.jpg","poster":"https://fourhoi.com/hawa-360/cover-t.jpg","trailer":"https://fourhoi.com/hawa-360/preview.mp4"}]}
 /// * Code generated: https://2lineofcode.github.io/json_to_dart2023
 /// *
-class JavitSearch {
+class KurakuSearch {
   num? code;
   num? serverTime;
   int? page;
   num? total;
   bool? hasNextPage;
-  List<JavitSearchResult>? result;
+  List<KurakuSearchResult>? result;
 
-  JavitSearch({this.code, this.serverTime, this.page, this.total, this.hasNextPage, this.result});
+  KurakuSearch({this.code, this.serverTime, this.page, this.total, this.hasNextPage, this.result});
 
-  JavitSearch.fromJson(Map<String, dynamic> json) {
+  KurakuSearch.fromJson(Map<String, dynamic> json) {
     code = json['code'] ?? 0;
     serverTime = json['server_time'] ?? 0;
     page = json['page'] ?? 0;
     total = json['total'] ?? 0;
     hasNextPage = json['has_next_page'] ?? false;
-    result = json['result'] == null ? null : (json['result'] as List).map((e) => JavitSearchResult.fromJson(e)).toList();
+    result = json['result'] == null ? null : (json['result'] as List).map((e) => KurakuSearchResult.fromJson(e)).toList();
   }
 
   Map<String, dynamic> toJson() {
@@ -42,7 +42,7 @@ class JavitSearch {
   }
 }
 
-class JavitSearchResult {
+class KurakuSearchResult {
   String? videoId;
   String? videoCode;
   String? title;
@@ -62,7 +62,7 @@ class JavitSearchResult {
   String? series;
   int? actressCount;
 
-  JavitSearchResult({
+  KurakuSearchResult({
     this.videoId,
     this.videoCode,
     this.title,
@@ -83,7 +83,7 @@ class JavitSearchResult {
     this.actressCount,
   });
 
-  JavitSearchResult.fromJson(Map<String, dynamic> json) {
+  KurakuSearchResult.fromJson(Map<String, dynamic> json) {
     videoId = json['video_id'] ?? '';
     videoCode = json['video_code'] ?? '';
     title = json['title'] ?? '';

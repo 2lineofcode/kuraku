@@ -25,7 +25,7 @@ fixtures = {
     'moraine-lake.png': 'a mountain lake', 'sam-car.png': 'a car',
 }
 with tempfile.TemporaryDirectory() as tmp:
-    dbpath = Path(tmp) / 'javit.db'
+    dbpath = Path(tmp) / 'kuraku.db'
     db = sqlite3.connect(dbpath)
     db.execute('CREATE TABLE videos(id TEXT PRIMARY KEY, video_path TEXT, title TEXT, video_code TEXT, updated_at TEXT, is_deleted INTEGER NOT NULL DEFAULT 0)')
     db.execute('CREATE TABLE video_embeddings(video_id TEXT PRIMARY KEY, source_text TEXT, embedding BLOB, model TEXT)')

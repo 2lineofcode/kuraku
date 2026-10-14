@@ -108,7 +108,7 @@ class PageSqleditorTab extends GetxController {
   final schemaError = ''.obs;
   Map<String, List<String>> _schema = {};
   int _schemaRequest = 0;
-  final source = 'javit.db'.obs;
+  final source = 'kuraku.db'.obs;
   final input = TextEditingController();
   final aiPrompt = TextEditingController();
   final focusNode = FocusNode();
@@ -162,7 +162,7 @@ class PageSqleditorTab extends GetxController {
     if (sql.length > 32000) { queryError.value = 'Format up to 32000 characters at a time.'.tr; return; }
     try {
       // sql_formatter 0.1.0 splits SQLite BLOB literals and JSON arrow operators.
-      var prefix = ':__javit_format_';
+      var prefix = ':__kuraku_format_';
       while (sql.contains(prefix)) { prefix += '_'; }
       final preserved = <String, String>{};
       final tokens = RegExp(r"""--[^\n]*|/\*[\s\S]*?(?:\*/|$)|"(?:""|[^"])*"|`(?:``|[^`])*`|\[[^\]]*\]|[xX]'[0-9a-fA-F]*'|'(?:''|[^'])*'|->>?""");

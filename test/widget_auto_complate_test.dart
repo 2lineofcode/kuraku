@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/modules/widgets/widget_auto_complate.dart';
+import 'package:kuraku/app/modules/widgets/widget_auto_complate.dart';
 
 void main() {
   late TextEditingController controller;

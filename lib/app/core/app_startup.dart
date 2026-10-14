@@ -50,9 +50,9 @@ class _AppStartupState extends State<AppStartup> {
                 ? Column(mainAxisSize: MainAxisSize.min, children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text('Opening JavIt, Please wait...'.tr),
+                    Text('Opening kuraku, Please wait...'.tr),
                   ])
-                : SelectableText('Could not start JavIt. Please restart the app.\n\n@{error}'.trNamed({'error': '$_error'})),
+                : SelectableText('Could not start kuraku. Please restart the app.\n\n@{error}'.trNamed({'error': '$_error'})),
           ),
         ),
       ),

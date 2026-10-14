@@ -8,6 +8,7 @@ import 'package:markdown_widget/markdown_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/app_identity.dart';
 import '../../../core/app_translations.dart';
 import '../../../data/models/chat_entity.dart';
 import '../../../utils/chat_knowledge.dart';
@@ -191,7 +192,7 @@ class PageChatView extends GetView<PageChatController> {
       padding: const EdgeInsets.all(12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(padding: const EdgeInsets.fromLTRB(4, 0, 8, 8), child: Row(children: [
-          const Expanded(child: Text('JavIt AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+          const Expanded(child: Text('kuraku AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
           AppIconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 32, height: 32),
@@ -470,6 +471,7 @@ class PageChatView extends GetView<PageChatController> {
   }
 
   Widget _markdown(BuildContext context, String content, {bool databasePaged = false}) {
+    content = AppIdentity.migrateChatLinks(content);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final images = RegExp(r'!\[([^\]]*)\]\(([^\s)]*)\)').allMatches(content)
         .map((match) => (url: _imageUrl(match[2]!), code: match[1]!)).where((image) => image.url.isNotEmpty).toList();
@@ -516,9 +518,9 @@ class PageChatView extends GetView<PageChatController> {
           ]),
         ),
         LinkConfig(style: TextStyle(color: AppColor.text, decoration: TextDecoration.underline), onTap: (value) async {
-          if (value.startsWith('javit-video:')) {
+          if (value.startsWith('kuraku-video:')) {
             try {
-              final code = Uri.decodeComponent(value.substring('javit-video:'.length)).trim();
+              final code = Uri.decodeComponent(value.substring('kuraku-video:'.length)).trim();
               if (code.isNotEmpty) await openVideoInfo(<String, dynamic>{'video_code': code});
             } on FormatException { /* Ignore malformed action links. */ }
             catch (_) {
@@ -527,13 +529,13 @@ class PageChatView extends GetView<PageChatController> {
             }
             return;
           }
-          if (value.startsWith('javit-translate:')) {
-            try { await _translateTitle(context, Uri.decodeComponent(value.substring('javit-translate:'.length))); } on FormatException { /* Ignore malformed action links. */ }
+          if (value.startsWith('kuraku-translate:')) {
+            try { await _translateTitle(context, Uri.decodeComponent(value.substring('kuraku-translate:'.length))); } on FormatException { /* Ignore malformed action links. */ }
             return;
           }
-          if (value.startsWith('javit-similar:')) {
+          if (value.startsWith('kuraku-similar:')) {
             try {
-              final code = Uri.decodeComponent(value.substring('javit-similar:'.length));
+              final code = Uri.decodeComponent(value.substring('kuraku-similar:'.length));
               controller.useSimilarPrompt(code);
             } on FormatException { /* Ignore malformed action links. */ }
             return;
@@ -572,9 +574,9 @@ class PageChatView extends GetView<PageChatController> {
   }
 
   String _imageUrl(String url) {
-    final localCover = url.startsWith('javit-cover:');
+    final localCover = url.startsWith('kuraku-cover:');
     try {
-      final value = localCover ? Uri.decodeComponent(url.substring('javit-cover:'.length)) : url;
+      final value = localCover ? Uri.decodeComponent(url.substring('kuraku-cover:'.length)) : url;
       final uri = Uri.tryParse(value);
       return value.isNotEmpty && (localCover && !value.startsWith('/') && uri?.hasScheme == false
           || ['http', 'https'].contains(uri?.scheme) && uri!.host.isNotEmpty) ? value : '';

@@ -5,11 +5,11 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/utils/chat_knowledge.dart';
-import 'package:javit/app/utils/chat_service.dart';
+import 'package:kuraku/app/utils/chat_knowledge.dart';
+import 'package:kuraku/app/utils/chat_service.dart';
 
 class _Knowledge extends ChatKnowledge {
-  _Knowledge() : super(mainPath: '/local/javit.db', r18Path: '/local/r18_test.db');
+  _Knowledge() : super(mainPath: '/local/kuraku.db', r18Path: '/local/r18_test.db');
   final queries = <Map<String, dynamic>>[];
   bool fail = false;
   Map<String, dynamic>? result;
@@ -20,7 +20,7 @@ class _Knowledge extends ChatKnowledge {
     if (fail) throw StateError('Local query unavailable');
     if (query['operation'] == 'video_reference') return {'reference': {'code': query['code'], 'title_ja': '雨の散歩', 'comment_en': 'Walking outside in the rain'}};
     if (query['schema'] == true) return {'schema': {'temp.videos': ['video_code', 'title']}};
-    return result ?? {'columns': ['total'], 'rows': [[42]], 'sources': ['javit.db'], 'elapsed_ms': 1, 'truncated': false};
+    return result ?? {'columns': ['total'], 'rows': [[42]], 'sources': ['kuraku.db'], 'elapsed_ms': 1, 'truncated': false};
   }
 }
 
@@ -56,9 +56,9 @@ void main() {
     }
   });
   test('Bundled worker reads a real database and cancels a running query', () async {
-    final folder = await Directory.systemTemp.createTemp('javit-knowledge-test-');
+    final folder = await Directory.systemTemp.createTemp('kuraku-knowledge-test-');
     addTearDown(() => folder.delete(recursive: true));
-    final path = '${folder.path}/javit.db';
+    final path = '${folder.path}/kuraku.db';
     final setup = await Process.run('python3', ['-B', '-c',
       'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("CREATE TABLE videos (video_code TEXT)"); c.executemany("INSERT INTO videos VALUES (?)", [("TEST-001",)]*100); c.commit(); c.close()', path]);
     expect(setup.exitCode, 0);
@@ -86,7 +86,7 @@ void main() {
     addTearDown(api.close);
     final result = await api.reply([{'role': 'user', 'content': 'Berapa jumlah video saya?'}], CancelToken()).join();
     expect(result, contains('| 42 |'));
-    expect(result, contains('javit.db'));
+    expect(result, contains('kuraku.db'));
     expect(knowledge.queries.single['sql'], contains('COUNT(*)'));
     expect(knowledge.directQuery('berapa video saya dengan kualitas 4K'), isNull);
     expect(knowledge.directQuery('Koleksi gue ada berapa video?')!['sql'], contains('COUNT(*)'));
@@ -104,7 +104,7 @@ void main() {
       'sources': ['db'], 'elapsed_ms': 1, 'truncated': false,
     });
     expect(cover, contains('| Image | Code | Title | source |'));
-    expect(cover, contains('![TEST-001](javit-cover:https%3A%2F%2Fexample.com'));
+    expect(cover, contains('![TEST-001](kuraku-cover:https%3A%2F%2Fexample.com'));
     final rendered = ChatKnowledge.render({'columns': ['title'], 'rows': [['[link](https://example.com)|**text**']], 'sources': ['db'], 'elapsed_ms': 1, 'truncated': true});
     expect(rendered, contains(r'\[link]'));
     expect(rendered, contains(r'\|'));
@@ -122,7 +122,7 @@ void main() {
     expect(knowledge.queries.last['sql'], 'SELECT COUNT(*) AS total FROM temp.videos WHERE title = ?');
     expect(knowledge.queries.last['args'], ['Rain']);
     expect(result, contains('**42**'));
-    expect(result, contains('javit.db'));
+    expect(result, contains('kuraku.db'));
     expect(adapter.requests.last.data['messages'].last['content'], contains('"rows":[[42]]'));
     expect(adapter.requests.first.data['messages'].last, messages.last);
     expect(jsonEncode(adapter.requests.first.data), isNot(contains('/local/')));
@@ -140,7 +140,7 @@ void main() {
     final result = await api.reply([{'role': 'user', 'content': 'Show 200 matching videos'}], CancelToken()).join();
     expect(adapter.requests, hasLength(1));
     expect(result, contains('| Image | Code | Title |'));
-    expect(result, contains('| [TEST-200](javit-video:TEST-200) | Sample title 200 |'));
+    expect(result, contains('| [TEST-200](kuraku-video:TEST-200) | Sample title 200 |'));
     expect(result, contains('200 records'));
     expect(result, isNot(contains('dvd_id')));
     expect(result, isNot(contains('limited result')));
@@ -202,8 +202,8 @@ void main() {
     expect(jsonEncode(adapter.requests.last.data['messages']), contains('Walking outside in the rain'));
     expect(result, contains('Similar themes to TEST-001'));
     expect(result, contains('Description'));
-    expect(result, contains('javit-translate:'));
-    expect(result, contains('javit-similar:TEST-002'));
+    expect(result, contains('kuraku-translate:'));
+    expect(result, contains('kuraku-similar:TEST-002'));
     expect(saved?['required_terms'], [['outdoor', '屋外']]);
     expect(saved?['unowned'], true);
     expect(saved?['has_more'], true);

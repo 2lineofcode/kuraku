@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/utils/helper_decensor.dart';
+import 'package:kuraku/app/utils/helper_decensor.dart';
 
 void main() {
   test('Decensor decodes title entities while preserving literal text', () {

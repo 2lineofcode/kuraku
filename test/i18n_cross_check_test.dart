@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/core/app_translations.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
-import 'package:javit/app/modules/home/home_controller.dart';
-import 'package:javit/app/modules/home/home_view.dart';
-import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
-import 'package:javit/app/modules/home/page_settings/page_settings_controller.dart';
-import 'package:javit/app/modules/home/page_settings/page_settings_view.dart';
-import 'package:javit/app/modules/home/page_tools/page_tools_controller.dart';
-import 'package:javit/app/modules/home/page_tools/page_tools_view.dart';
-import 'package:javit/app/utils/chat_knowledge.dart';
-import 'package:javit/app/utils/helper_misc.dart';
-import 'package:javit/app/utils/local_semantic_worker.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/core/app_translations.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/home/home_controller.dart';
+import 'package:kuraku/app/modules/home/home_view.dart';
+import 'package:kuraku/app/modules/home/page_search/page_search_tab.dart';
+import 'package:kuraku/app/modules/home/page_settings/page_settings_controller.dart';
+import 'package:kuraku/app/modules/home/page_settings/page_settings_view.dart';
+import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
+import 'package:kuraku/app/modules/home/page_tools/page_tools_view.dart';
+import 'package:kuraku/app/utils/chat_knowledge.dart';
+import 'package:kuraku/app/utils/helper_misc.dart';
+import 'package:kuraku/app/utils/local_semantic_worker.dart';
 
 const _translated = {
   'FHD (1080p)': 'Localized full resolution',
@@ -89,8 +89,8 @@ void main() {
       'sources': ['library'], 'elapsed_ms': 1,
     });
     expect(table, contains('| Picture | Identifier | Caption | Options |'));
-    expect(table, contains('| [ABP-001](javit-video:ABP-001) | Title |'));
-    expect(table, contains('javit-similar:ABP-001'));
+    expect(table, contains('| [ABP-001](kuraku-video:ABP-001) | Title |'));
+    expect(table, contains('kuraku-similar:ABP-001'));
     expect(LocalSemanticWorker.translateSetupProgress('Preparing local runtime...'), 'Preparing translated runtime');
     expect(LocalSemanticWorker.translateSetupProgress('Downloading image search model: 20%'), '20% · downloading translated image model');
     expect(LocalSemanticWorker.translateSetupProgress('Downloading text search model: 7 MB'), '7 MB · downloading text search model');

@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "javit",
+            "name": "kuraku",
             "request": "launch",
             "type": "dart",
             "program": "lib/main.dart"

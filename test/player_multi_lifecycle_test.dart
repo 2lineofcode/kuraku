@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
-import 'package:javit/app/modules/player/player_multi_view.dart';
-import 'package:javit/app/utils/semantic_search_service.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/player/player_multi_view.dart';
+import 'package:kuraku/app/utils/semantic_search_service.dart';
 
 void main() {
   testWidgets('Multi Player unmounts tiles before cleanup and only pops once', (tester) async {

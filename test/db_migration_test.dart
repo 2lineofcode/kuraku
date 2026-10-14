@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/database/_update_db.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/_update_db.dart';
 import 'package:sqflite/sqflite.dart';
 
 class _Database implements Database {
@@ -161,7 +161,7 @@ assert db.execute('SELECT count(*) FROM relapse_event').fetchone()[0] == 1
 assert db.execute('PRAGMA quick_check').fetchall() == [('ok',)]
 db.close()
 # Optional verification uses an in-memory backup; the user's database stays read-only.
-source_path = os.environ.get('JAVIT_ACTIVITY_DB')
+source_path = os.environ.get('KURAKU_ACTIVITY_DB')
 if source_path:
     source = sqlite3.connect('file:' + source_path + '?mode=ro', uri=True)
     copy = sqlite3.connect(':memory:')

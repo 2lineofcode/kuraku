@@ -24,6 +24,7 @@ import '../modules/home/page_tools/page_tools_controller.dart';
 import '../routes/app_pages.dart';
 import '../utils/helper_opener.dart';
 import '../utils/local_semantic_worker.dart';
+import 'app_identity.dart';
 import 'app_logging.dart';
 import 'app_pref.dart';
 
@@ -48,8 +49,14 @@ class AppSettingService extends GetxService {
   }
 
   Future<AppSettingService> init() async {
+    if (Platform.isMacOS) {
+      final support = await getApplicationSupportDirectory();
+      await AppIdentity.migrateMacOSDirectory(support);
+      await AppIdentity.migrateMacOSDirectory(await getApplicationCacheDirectory());
+      await AppIdentity.migrateMacOSDirectory(Directory(join(dirname(dirname(support.path)), 'HTTPStorages', basename(support.path))));
+    }
     final directory = await getApplicationDocumentsDirectory();
-    appPath = join(directory.path, Env.appName);
+    appPath = await AppIdentity.migrate(directory, Env.appName);
     pref = GetSecureStorage(container: Env.appName.toLowerCase(), password: Env.appName, path: appPath);
     await pref.initStorage;
 

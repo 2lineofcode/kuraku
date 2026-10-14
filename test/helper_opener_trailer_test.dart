@@ -7,14 +7,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/data/api/api_javit.dart';
-import 'package:javit/app/data/api/api_javtrailers.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/models/__javit_search_entity.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
-import 'package:javit/app/modules/home/home_panel/home_panel_log.dart';
-import 'package:javit/app/utils/helper_opener.dart';
-import 'package:javit/env.g.dart';
+import 'package:kuraku/app/data/api/api_javtrailers.dart';
+import 'package:kuraku/app/data/api/api_kuraku.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/models/__kuraku_search_entity.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/home/home_panel/home_panel_log.dart';
+import 'package:kuraku/app/utils/helper_opener.dart';
+import 'package:kuraku/env.g.dart';
 import 'package:toastification/toastification.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
@@ -102,13 +102,13 @@ void main() {
 
   test('keeps non-DMM previews without querying another provider', () async {
     const url = 'https://fourhoi.com/hawa-360/preview.mp4';
-    expect(await ApiJavit.resolveTrailerUrl(url, code: 'HAWA-360'), url);
+    expect(await ApiKuraku.resolveTrailerUrl(url, code: 'HAWA-360'), url);
   });
 
   test('uses search, library and map trailers without requiring R18', () async {
     const url = 'https://fourhoi.com/hawa-360/preview.mp4';
     final items = [
-      JavitSearchResult(videoCode: 'hawa-360', title: 'Search', trailer: ' $url '),
+      KurakuSearchResult(videoCode: 'hawa-360', title: 'Search', trailer: ' $url '),
       Videos(videoPath: '/movies/HAWA-360.mp4', title: 'Library', trailer: url),
       {'video_code': 'hawa-360', 'title': 'Explore', 'trailer': url, 'actress': []},
     ];

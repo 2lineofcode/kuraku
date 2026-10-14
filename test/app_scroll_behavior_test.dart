@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/core/app_scroll_behavior.dart';
+import 'package:kuraku/app/core/app_scroll_behavior.dart';
 
 void main() {
   for (final axis in Axis.values) {

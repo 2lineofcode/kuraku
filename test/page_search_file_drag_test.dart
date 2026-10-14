@@ -4,11 +4,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
-import 'package:javit/app/modules/home/home_panel/home_panel_library.dart';
-import 'package:javit/app/modules/home/page_search/page_search_file_drag.dart';
-import 'package:javit/app/modules/home/page_search/page_search_tab.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/home/home_panel/home_panel_library.dart';
+import 'package:kuraku/app/modules/home/page_search/page_search_file_drag.dart';
+import 'package:kuraku/app/modules/home/page_search/page_search_tab.dart';
 import 'package:sqflite/sqflite.dart';
 
 class _Tab extends PageSearchTab {
@@ -59,7 +59,7 @@ void main() {
 
   for (final operation in ['move', 'copy', 'cancel']) {
     testWidgets('file drag exports the entire selection and handles $operation', (tester) async {
-      final folder = Directory.systemTemp.createTempSync('javit-drag-');
+      final folder = Directory.systemTemp.createTempSync('kuraku-drag-');
       addTearDown(() => folder.deleteSync(recursive: true));
       final files = [File('${folder.path}/one #1.mp4')..writeAsStringSync('one'), File('${folder.path}/日本語.mp4')..writeAsStringSync('two')];
       final tab = _Tab();

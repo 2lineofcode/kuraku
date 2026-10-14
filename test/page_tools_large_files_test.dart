@@ -11,15 +11,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
-import 'package:javit/app/core/app_color.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/core/app_translations.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
-import 'package:javit/app/modules/home/page_tools/page_tools_controller.dart';
-import 'package:javit/app/modules/home/page_tools/page_tools_view.dart';
-import 'package:javit/app/modules/widgets/widget_controls.dart';
-import 'package:javit/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/core/app_color.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/core/app_translations.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
+import 'package:kuraku/app/modules/home/page_tools/page_tools_view.dart';
+import 'package:kuraku/app/modules/widgets/widget_controls.dart';
+import 'package:kuraku/app/modules/widgets/widget_style.dart';
 import 'package:sqflite/sqflite.dart';
 
 class _Preferences implements GetSecureStorage {
@@ -97,7 +97,7 @@ void main() {
     final controller = Get.put<PageToolsController>(_Tools());
     final db = _Database();
     Get.put<DBService>(_Service()..dbMain = db);
-    final directory = Directory.systemTemp.createTempSync('javit-large-files-test-');
+    final directory = Directory.systemTemp.createTempSync('kuraku-large-files-test-');
     addTearDown(() => directory.deleteSync(recursive: true));
     Get.put(AppSettingService()..appPath = directory.path..pref = _Preferences());
     Directory('${directory.path}/vid_thumbnail').createSync();

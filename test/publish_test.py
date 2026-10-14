@@ -25,7 +25,7 @@ if [ "$1" = build ]; then
   echo "$*" >> "$CALL_LOG"
   [ "$SCENARIO" != build_failure ] || exit 1
   if [ "$SCENARIO" != missing_bundle ]; then
-    mkdir -p build/macos/Build/Products/Release/javit.app
+    mkdir -p build/macos/Build/Products/Release/kuraku.app
   fi
 fi
 ''',
@@ -48,9 +48,9 @@ mkdir -p "$2"
                 'invalid_version': 'invalid',
                 'future_date': '1.2.3+20261009.1',
             }.get(scenario, '1.0.0+1')
-            original = f'name: javit\nversion: {version}\n# keep this comment\n'
+            original = f'name: kuraku\nversion: {version}\n# keep this comment\n'
             (root / 'pubspec.yaml').write_text(original)
-            env_content = "APP_NAME='JavIt'\n"
+            env_content = "APP_NAME='kuraku'\n"
             (root / '.env').write_text(env_content)
             log = root / 'calls'
             log.write_text('')

@@ -7,10 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/modules/widgets/widget_style.dart';
-import 'package:javit/app/modules/widgets/widget_thumbnail.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/modules/widgets/widget_thumbnail.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:super_context_menu/super_context_menu.dart' as scm;
 
@@ -37,7 +37,7 @@ class _Database implements Database {
 
 void main() {
   testWidgets('network error icon stays centered in the actual thumbnail frame', (tester) async {
-    final directory = Directory.systemTemp.createTempSync('javit-thumbnail-test-');
+    final directory = Directory.systemTemp.createTempSync('kuraku-thumbnail-test-');
     final previousFactory = databaseFactoryOrNull;
     databaseFactory = databaseFactorySqflitePlugin;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('com.tekartik.sqflite'), (call) async {

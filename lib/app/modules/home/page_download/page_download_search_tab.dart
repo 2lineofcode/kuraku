@@ -9,8 +9,8 @@ import '../../../data/api/api_javmost.dart';
 import '../../../data/database/db_historical.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
-import '../../../data/models/__javit_search_entity.dart';
 import '../../../data/models/__javmost_new_release.dart';
+import '../../../data/models/__kuraku_search_entity.dart';
 import '../../../utils/helper_decensor.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
@@ -57,11 +57,11 @@ class PageDownloadSearchTab {
   final selectedHistoryIndex = (-1).obs;
   int _historyRequest = 0;
 
-  final response = JavitSearch().obs;
+  final response = KurakuSearch().obs;
   final hasNextPage = false.obs;
   final currentPage = 0.obs;
-  final videos = <JavitSearchResult>[].obs;
-  final allVideos = <JavitSearchResult>[].obs;
+  final videos = <KurakuSearchResult>[].obs;
+  final allVideos = <KurakuSearchResult>[].obs;
   final havingVideos = 0.obs;
   final havingOnly = false.obs;
   final totalResults = 0.obs;
@@ -255,7 +255,7 @@ class PageDownloadSearchTab {
     _query = null;
     title.value = 'New search';
     error.value = '';
-    response.value = JavitSearch();
+    response.value = KurakuSearch();
     currentPage.value = 0;
     hasNextPage.value = false;
     videos.value = [];
@@ -447,7 +447,7 @@ class PageDownloadSearchTab {
   }
 
   // ~ Filters ────────────────────────────────────────────────────────────────
-  final _filterAdapter = VideoFilterAdapter<JavitSearchResult>(
+  final _filterAdapter = VideoFilterAdapter<KurakuSearchResult>(
     videoCode: (video) => video.videoCode ?? '',
     title: (video) => video.title,
     actresses: (video) => video.actresses ?? <String>[],
@@ -569,7 +569,7 @@ class PageDownloadSearchTab {
       final currentLoaded = isLoadMore ? allVideos.length : 0;
       final hasMore = isOnlineApi ? apiHasNextPage ?? (apiTotal ?? 0) > currentLoaded + pageItems.length : r18videos.length > _perPage;
 
-      final output = <JavitSearchResult>[];
+      final output = <KurakuSearchResult>[];
       for (var i = 0; i < pageItems.length; i++) {
         final videoCode = pageItems[i]['video_code'].toString();
         if (videoCode.isValidVideoCode() == false) continue;
@@ -579,7 +579,7 @@ class PageDownloadSearchTab {
         final categories = pageItems[i]['categories'].toString().split(',').map((e) => e.trim()).toList();
 
         output.add(
-          JavitSearchResult(
+          KurakuSearchResult(
             videoId: pageItems[i]['id'],
             videoCode: pageItems[i]['video_code'],
             duration: pageItems[i]['duration'],
@@ -631,7 +631,7 @@ class PageDownloadSearchTab {
     return value == '/javhey' || value.startsWith('/javhey ');
   }
 
-  Future<JavitSearch> fetchJavHey(String query, int page) => ApiJavHey.search(s: query.trim().substring('/javhey'.length).trim(), page: page);
+  Future<KurakuSearch> fetchJavHey(String query, int page) => ApiJavHey.search(s: query.trim().substring('/javhey'.length).trim(), page: page);
 
   bool _isOnlineSearchQuery(String query) {
     return query.startsWith('/search ');
@@ -777,7 +777,7 @@ class PageDownloadSearchTab {
   }
 
   Future<void> openDialogFilter({bool Function()? isAvailable}) async {
-    await HelperOpener.openFilterDialog<JavitSearchResult>(
+    await HelperOpener.openFilterDialog<KurakuSearchResult>(
       state: filter,
       allVideos: allVideos.toList(),
       videos: videos,

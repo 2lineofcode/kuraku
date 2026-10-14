@@ -4,8 +4,8 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:javit/app/utils/chat_service.dart';
-import 'package:javit/app/utils/chat_web_search.dart';
+import 'package:kuraku/app/utils/chat_service.dart';
+import 'package:kuraku/app/utils/chat_web_search.dart';
 
 class _Adapter implements HttpClientAdapter {
   _Adapter(this.respond);

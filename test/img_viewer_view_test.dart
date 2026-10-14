@@ -7,9 +7,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/modules/img_viewer/img_viewer_controller.dart';
-import 'package:javit/app/modules/img_viewer/img_viewer_view.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/modules/img_viewer/img_viewer_controller.dart';
+import 'package:kuraku/app/modules/img_viewer/img_viewer_view.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'icon_finder.dart';

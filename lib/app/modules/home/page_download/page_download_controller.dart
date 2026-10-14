@@ -288,8 +288,8 @@ class PageDownloadController extends GetxController {
     job.running = true;
     jobRevision.value++;
     try {
-      final binary = p.join(appSetting.bundledAssetsPath, 'javit_downloader');
-      if (!await File(binary).exists()) throw StateError('Downloader binary is missing. Restart JavIt to restore it.'.tr);
+      final binary = p.join(appSetting.bundledAssetsPath, 'kuraku');
+      if (!await File(binary).exists()) throw StateError('Downloader binary is missing. Restart kuraku to restore it.'.tr);
       if (job.cancelled || isClosed) {
         job.status = 'Cancelled';
         return;

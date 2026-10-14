@@ -8,16 +8,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
-import 'package:javit/app/core/app_color.dart';
-import 'package:javit/app/core/app_pref.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/core/app_translations.dart';
-import 'package:javit/app/modules/home/home_controller.dart';
-import 'package:javit/app/modules/home/page_settings/page_settings_controller.dart';
-import 'package:javit/app/modules/home/page_settings/page_settings_view.dart';
-import 'package:javit/app/modules/widgets/widget_controls.dart';
-import 'package:javit/app/modules/widgets/widget_surfaces.dart';
-import 'package:javit/app/utils/r18_updater.dart';
+import 'package:kuraku/app/core/app_color.dart';
+import 'package:kuraku/app/core/app_pref.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/core/app_translations.dart';
+import 'package:kuraku/app/modules/home/home_controller.dart';
+import 'package:kuraku/app/modules/home/page_settings/page_settings_controller.dart';
+import 'package:kuraku/app/modules/home/page_settings/page_settings_view.dart';
+import 'package:kuraku/app/modules/widgets/widget_controls.dart';
+import 'package:kuraku/app/modules/widgets/widget_surfaces.dart';
+import 'package:kuraku/app/utils/r18_updater.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class _Preferences implements GetSecureStorage {
@@ -53,7 +53,7 @@ class _Home extends HomeController {
 
 void main() {
   testWidgets('Settings adapts to window sizes and keeps controls connected', (tester) async {
-    PackageInfo.setMockInitialValues(appName: 'JavIt', packageName: 'javit', version: '1.2.3', buildNumber: '', buildSignature: '');
+    PackageInfo.setMockInitialValues(appName: 'kuraku', packageName: 'kuraku', version: '1.2.3', buildNumber: '', buildSignature: '');
     Get.testMode = true;
     final service = Get.put<AppSettingService>(AppSettingService()..pref = _Preferences());
     final home = Get.put<HomeController>(_Home());
@@ -61,7 +61,7 @@ void main() {
     Get.put<PageSettingsController>(controller);
     await controller.refreshAppVersion();
     expect(controller.appVersion.value, '1.2.3');
-    PackageInfo.setMockInitialValues(appName: 'JavIt', packageName: 'javit', version: '1.2.3', buildNumber: '20261008.60', buildSignature: '');
+    PackageInfo.setMockInitialValues(appName: 'kuraku', packageName: 'kuraku', version: '1.2.3', buildNumber: '20261008.60', buildSignature: '');
     await controller.refreshAppVersion();
     expect(controller.appVersion.value, '1.2.3+20261008.60');
     controller.totalLibrary.value = 2;

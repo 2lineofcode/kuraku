@@ -152,7 +152,7 @@ class ChatKnowledge {
         if (codeIndex >= cells.length) break;
         final code = cells[codeIndex].trim();
         if (!RegExp(r'^(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)+$').hasMatch(code)) continue;
-        cells[codeIndex] = ' [$code](javit-video:${Uri.encodeComponent(code)}) ';
+        cells[codeIndex] = ' [$code](kuraku-video:${Uri.encodeComponent(code)}) ';
         lines[row] = cells.join('|');
       }
     }
@@ -193,16 +193,16 @@ class ChatKnowledge {
       final values = order.map((i) {
         final value = row[i];
         return i == codeIndex && value is String && value.trim().isNotEmpty
-            ? '[${cell(value.trim()).replaceAll(']', r'\]')}](javit-video:${Uri.encodeComponent(value.trim())})' : cell(value);
+            ? '[${cell(value.trim()).replaceAll(']', r'\]')}](kuraku-video:${Uri.encodeComponent(value.trim())})' : cell(value);
       }).toList();
       if (videoList) {
         final code = row[codeIndex]?.toString() ?? '';
         final cover = (covers[code] ?? (imageIndex >= 0 ? row[imageIndex] : null))?.toString() ?? '';
-        values.insert(0, '![${cell(code)}](javit-cover:${Uri.encodeComponent(cover)})');
+        values.insert(0, '![${cell(code)}](kuraku-cover:${Uri.encodeComponent(cover)})');
         final japaneseIndex = rawColumns.indexOf('title_ja');
         final title = (japaneseIndex >= 0 ? row[japaneseIndex] : row[titleIndex])?.toString() ?? '';
-        values.add('${RegExp(r'[\u3040-\u30ff\u3400-\u9fff]').hasMatch(title) ? '[${'Translate'.tr}](javit-translate:${Uri.encodeComponent(title)}) · ' : ''}'
-            '[${'Similar'.tr}](javit-similar:${Uri.encodeComponent(code)})');
+        values.add('${RegExp(r'[\u3040-\u30ff\u3400-\u9fff]').hasMatch(title) ? '[${'Translate'.tr}](kuraku-translate:${Uri.encodeComponent(title)}) · ' : ''}'
+            '[${'Similar'.tr}](kuraku-similar:${Uri.encodeComponent(code)})');
       }
       return '| ${values.join(' | ')} |';
     }

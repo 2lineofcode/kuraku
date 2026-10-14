@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:javit/app/core/const.dart';
-import 'package:javit/app/modules/home/home_binding.dart';
-import 'package:javit/app/modules/home/home_view.dart';
-import 'package:javit/app/modules/img_viewer/img_viewer_binding.dart';
-import 'package:javit/app/modules/img_viewer/img_viewer_controller.dart';
-import 'package:javit/app/modules/img_viewer/img_viewer_view.dart';
-import 'package:javit/app/modules/player/player_binding.dart';
-import 'package:javit/app/modules/player/player_view.dart';
-import 'package:javit/app/routes/app_pages.dart';
+import 'package:kuraku/app/core/const.dart';
+import 'package:kuraku/app/modules/home/home_binding.dart';
+import 'package:kuraku/app/modules/home/home_view.dart';
+import 'package:kuraku/app/modules/img_viewer/img_viewer_binding.dart';
+import 'package:kuraku/app/modules/img_viewer/img_viewer_controller.dart';
+import 'package:kuraku/app/modules/img_viewer/img_viewer_view.dart';
+import 'package:kuraku/app/modules/player/player_binding.dart';
+import 'package:kuraku/app/modules/player/player_view.dart';
+import 'package:kuraku/app/routes/app_pages.dart';
 
 void main() {
   test('route names are unique constants and the app starts on home', () {

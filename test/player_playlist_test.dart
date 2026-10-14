@@ -5,10 +5,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/models/videos_entity.dart';
-import 'package:javit/app/modules/player/player_controller.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/player/player_controller.dart';
 import 'package:overlayment/overlayment.dart';
 
 import 'chat_test_database.dart';
@@ -27,7 +27,7 @@ class _Controller extends PlayerController {
 
 void main() {
   testWidgets('player playlist searches, clears, highlights and plays without overflow', (tester) async {
-    final directory = Directory.systemTemp.createTempSync('javit-playlist-test-');
+    final directory = Directory.systemTemp.createTempSync('kuraku-playlist-test-');
     addTearDown(() => directory.deleteSync(recursive: true));
     addTearDown(Get.reset);
     addTearDown(tester.view.reset);

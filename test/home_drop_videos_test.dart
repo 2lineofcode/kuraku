@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/modules/home/home_controller.dart';
+import 'package:kuraku/app/modules/home/home_controller.dart';
 // DropItem.dataReader exposes this type from super_drag_and_drop's dependency.
 // ignore: depend_on_referenced_packages
 import 'package:super_clipboard/super_clipboard.dart';
@@ -41,7 +41,7 @@ class _Session extends Fake with Diagnosticable implements DropSession {
 
 void main() {
   testWidgets('multiple dropped videos ask for player mode and can cancel', (tester) async {
-    final directory = Directory.systemTemp.createTempSync('javit_drop_test_');
+    final directory = Directory.systemTemp.createTempSync('kuraku_drop_test_');
     final home = HomeController();
     addTearDown(() {
       home.tecTopNavSearch.dispose();

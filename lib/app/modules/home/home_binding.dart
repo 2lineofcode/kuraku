@@ -24,7 +24,7 @@ class HomeBinding extends Bindings {
     GetInstance().lazyPut<PageSqleditorController>(
         () => PageSqleditorController(
                 sources: {
-                  'javit.db': Get.find<DBService>().dbMain.path,
+                  'kuraku.db': Get.find<DBService>().dbMain.path,
                   'r18*.db': Get.find<DBService>().dbR18?.path,
                 },
                 savedSnippets: AppPref.getSqlSnippets(),
@@ -32,12 +32,12 @@ class HomeBinding extends Bindings {
                 savedTabs: AppPref.getSqlTabs(),
                 persistTabs: AppPref.setSqlTabs,
                 loadSchema: (source) => PageSqleditorTab.readSchema(
-                      source == 'javit.db' ? Get.find<DBService>().dbMain : Get.find<DBService>().dbR18,
+                      source == 'kuraku.db' ? Get.find<DBService>().dbMain : Get.find<DBService>().dbR18,
                     ),
                 createApi: () => ChatService(),
                 query: (source, request, token) {
                   final db = Get.find<DBService>();
-                  final path = source == 'javit.db' ? db.dbMain.path : db.dbR18?.path;
+                  final path = source == 'kuraku.db' ? db.dbMain.path : db.dbR18?.path;
                   if (path == null) throw StateError('The selected database is unavailable.'.tr);
                   return ChatKnowledge(mainPath: path, loadScript: () => rootBundle.loadString('assets/sql_editor_worker.py')).request(request, token);
                 }),

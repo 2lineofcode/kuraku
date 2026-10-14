@@ -227,7 +227,7 @@ mixin HelperMisc {
 // ────────────────────────────────────────────────────────────────
 // ⵌ private class
 // ────────────────────────────────────────────────────────────────
-mixin _JavitExtension {
+mixin _KurakuExtension {
   static const _videoCodePattern = r'([A-Za-z]{2,})-([A-Za-z]*[0-9]{2,5})(?![0-9])';
   static final _videoCodeExpression = RegExp(_videoCodePattern);
   static final _validVideoCodeExpression = RegExp('^$_videoCodePattern' r'(?:-[A-Za-z0-9]+)?$');
@@ -276,13 +276,13 @@ mixin _JavitExtension {
 }
 
 
-extension JavitExtString on String {
-  String getVideoCode() => _JavitExtension.__getVideoCode(this);
-  bool isValidVideoCode() => _JavitExtension.__isValidVideoCode(this);
+extension KurakuExtString on String {
+  String getVideoCode() => _KurakuExtension.__getVideoCode(this);
+  bool isValidVideoCode() => _KurakuExtension.__isValidVideoCode(this);
   String noExt() => replaceAll('.mp4', '').replaceAll('mp4', '');
   String getFileName() => split('/').last.split('\\').last;
   String getLastPath() => split('/').last.split('\\').last;
-  String getLastSegments({int segment = 4}) => _JavitExtension.__getLastSegments(this, n: segment);
+  String getLastSegments({int segment = 4}) => _KurakuExtension.__getLastSegments(this, n: segment);
 
   // ---
   String genImageUrl() {
@@ -304,18 +304,18 @@ extension JavitExtString on String {
   String genTrailerUrl() => '${Env.vidUrl}${Uri.encodeComponent(this)}';
 
   // ---
-  bool isHasEnSub() => _JavitExtension.__isHasEnSub(this);
-  bool isHasIdSub() => _JavitExtension.__isHasIdSub(this);
-  bool isHasUncensored() => _JavitExtension.__isHasUncensored(this);
+  bool isHasEnSub() => _KurakuExtension.__isHasEnSub(this);
+  bool isHasIdSub() => _KurakuExtension.__isHasIdSub(this);
+  bool isHasUncensored() => _KurakuExtension.__isHasUncensored(this);
 }
 
-extension JavitExtDateTime on DateTime {
+extension KurakuExtDateTime on DateTime {
   bool isSameDay(DateTime other) {
     return year == other.year && month == other.month && day == other.day;
   }
 }
 
-extension JavitExtNumber on num {
+extension KurakuExtNumber on num {
   String numberFormat() => NumberFormat.currency(locale: 'id', symbol: '', decimalDigits: 0).format(this);
 
   String toFileSizeFormat({int decimals = 2}) {

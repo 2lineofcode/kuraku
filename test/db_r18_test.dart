@@ -1,9 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/database/db_r18.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/db_r18.dart';
 import 'package:sqflite/sqflite.dart';
 
+import 'sqlite_test_database.dart';
 class _Service extends DBService {
   @override
   Future<void> onReady() async {}
@@ -53,7 +54,7 @@ class _CatalogDatabase extends _Database {
   @override
   Future<List<Map<String, Object?>>> rawQuery(String sql, [List<Object?>? arguments]) async {
     if (sql.startsWith('PRAGMA table_info')) return [{'name': 'video_code'}];
-    if (sql.contains("name = 'javit_catalog_groups_v2'")) return indexed ? [{'1': 1}] : [];
+    if (sql.contains("name = 'kuraku_catalog_groups_v2'")) return indexed ? [{'1': 1}] : [];
     return super.rawQuery(sql, arguments);
   }
 
@@ -93,6 +94,19 @@ void main() {
   }
 
   tearDown(Get.reset);
+
+  test('legacy catalog summary is renamed without rebuilding or losing rows', () async {
+    final db = await SqliteTestDatabase.open();
+    addTearDown(db.close);
+    await db.execute('CREATE TABLE derived_video(video_code TEXT)');
+    await db.execute('CREATE TABLE javit_catalog_groups_v2(kind TEXT, id INTEGER, video_count INTEGER)');
+    await db.execute("INSERT INTO javit_catalog_groups_v2 VALUES ('series', 1, 42)");
+    await DBService.prepareR18VideoCodes(db);
+    expect(await db.query('kuraku_catalog_groups_v2'), [{'kind': 'series', 'id': 1, 'video_count': 42}]);
+    expect(await db.rawQuery("SELECT 1 FROM sqlite_master WHERE name = 'javit_catalog_groups_v2'"), isEmpty);
+    await DBService.prepareR18VideoCodes(db);
+    expect(await db.query('kuraku_catalog_groups_v2'), hasLength(1));
+  });
 
   test('existing catalogs receive the covering index once and retry failures', () async {
     final catalog = _CatalogDatabase()..failIndex = true;

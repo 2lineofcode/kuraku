@@ -8,18 +8,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:javit/app/core/app_pref.dart';
-import 'package:javit/app/core/app_setting.dart';
-import 'package:javit/app/data/models/__javit_search_entity.dart';
-import 'package:javit/app/data/models/__javmost_new_release.dart';
-import 'package:javit/app/data/models/activity_entity.dart';
-import 'package:javit/app/modules/home/page_download/page_download_controller.dart';
-import 'package:javit/app/modules/home/page_download/page_download_dialog.dart';
-import 'package:javit/app/modules/home/page_download/page_download_search_tab.dart';
-import 'package:javit/app/modules/home/page_download/page_download_view.dart';
-import 'package:javit/app/modules/widgets/widget_controls.dart';
-import 'package:javit/app/modules/widgets/widget_style.dart';
-import 'package:javit/app/utils/helper_opener.dart';
+import 'package:kuraku/app/core/app_pref.dart';
+import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/data/models/__javmost_new_release.dart';
+import 'package:kuraku/app/data/models/__kuraku_search_entity.dart';
+import 'package:kuraku/app/data/models/activity_entity.dart';
+import 'package:kuraku/app/modules/home/page_download/page_download_controller.dart';
+import 'package:kuraku/app/modules/home/page_download/page_download_dialog.dart';
+import 'package:kuraku/app/modules/home/page_download/page_download_search_tab.dart';
+import 'package:kuraku/app/modules/home/page_download/page_download_view.dart';
+import 'package:kuraku/app/modules/widgets/widget_controls.dart';
+import 'package:kuraku/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/utils/helper_opener.dart';
 
 import 'icon_finder.dart';
 
@@ -859,7 +859,7 @@ void main() {
     final active = ValueNotifier<PageDownloadSearchTab>(first);
     addTearDown(active.dispose);
     for (final tab in [first, second]) {
-      tab.videos.assignAll(List.generate(100, (i) => JavitSearchResult(videoCode: 'SSIS-$i')));
+      tab.videos.assignAll(List.generate(100, (i) => KurakuSearchResult(videoCode: 'SSIS-$i')));
     }
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: ValueListenableBuilder<PageDownloadSearchTab>(
       valueListenable: active,

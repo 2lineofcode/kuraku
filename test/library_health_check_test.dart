@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/database/library_health_check.dart';
-import 'package:javit/app/data/models/library_entity.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/library_health_check.dart';
+import 'package:kuraku/app/data/models/library_entity.dart';
 import 'package:sqflite/sqflite.dart';
 
 Map<String, Object?> _video(String path) => {
@@ -38,7 +38,7 @@ class _Database implements Database {
 
 void main() {
   late Directory folder;
-  setUp(() async => folder = await Directory.systemTemp.createTemp('javit_health_'));
+  setUp(() async => folder = await Directory.systemTemp.createTemp('kuraku_health_'));
   tearDown(() async {
     await folder.delete(recursive: true);
     Get.reset();
@@ -90,7 +90,7 @@ void main() {
   });
 
   test('unmounted drives are counted once and their files are never marked missing', () async {
-    final root = Platform.isWindows ? r'Z:\Movies' : Platform.isMacOS ? '/Volumes/JavitHealthOffline/Movies' : '/mnt/JavitHealthOffline/Movies';
+    final root = Platform.isWindows ? r'Z:\Movies' : Platform.isMacOS ? '/Volumes/KurakuHealthOffline/Movies' : '/mnt/KurakuHealthOffline/Movies';
     final issues = await LibraryHealthCheck.inspect([Library(rootFolder: root)], [
       _video('$root/one.mp4'), _video('$root/two.mp4')..['title'] = '',
     ], mountedRoots: {});
@@ -101,7 +101,7 @@ void main() {
 
   test('missing files on a mounted drive remain missing', () async {
     if (Platform.isWindows) return;
-    final drive = Platform.isMacOS ? '/Volumes/JavitHealthMounted' : '/mnt/JavitHealthMounted';
+    final drive = Platform.isMacOS ? '/Volumes/KurakuHealthMounted' : '/mnt/KurakuHealthMounted';
     final path = '$drive/Movies/missing.mp4';
     final issues = await LibraryHealthCheck.inspect([], [_video(path)], mountedRoots: {drive});
     expect(issues.single.status, LibraryHealthStatus.missingFile);

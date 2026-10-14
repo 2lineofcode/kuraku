@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:javit/app/data/database/_init_db.dart';
-import 'package:javit/app/data/database/db_videos.dart';
-import 'package:javit/app/modules/home/home_panel/home_panel_library.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/db_videos.dart';
+import 'package:kuraku/app/modules/home/home_panel/home_panel_library.dart';
 import 'package:sqflite/sqflite.dart';
 
 class _TestDBService extends DBService {
