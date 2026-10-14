@@ -5,7 +5,7 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
-APP_NAME="kuraku"
+APP_NAME="KuraKu"
 PUBSPEC="pubspec.yaml"
 ENV_FILE=".env"
 TARGET="${1:-auto}"
@@ -93,8 +93,8 @@ flutter build "$resolved_target" --release --no-tree-shake-icons --build-name="$
 case "$resolved_target" in
   macos)
     log "Output: build/macos/Build/Products/Release"
-    app_bundle="build/macos/Build/Products/Release/kuraku.app"
-    installed_app="/Applications/kuraku.app"
+    app_bundle="build/macos/Build/Products/Release/KuraKu.app"
+    installed_app="/Applications/KuraKu.app"
     [ -d "$app_bundle" ] || fail "App bundle not found: $app_bundle"
     require_command ditto
     log "Install $APP_NAME: $installed_app"

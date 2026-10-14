@@ -15,7 +15,7 @@ import 'package:path/path.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:uuid/v4.dart';
 
-import '../../../env.g.dart';
+import '../../core/app_identity.dart';
 import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
 import '../../core/app_translations.dart';
@@ -124,7 +124,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       configuration: PlayerConfiguration(
         vo: 'libmpv',
         logLevel: MPVLogLevel.debug,
-        title: Env.appName,
+        title: AppIdentity.displayName,
         ready: () => AppLog.logD('player is ready'),
       ),
     );

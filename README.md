@@ -1,10 +1,10 @@
-# kuraku 🇯🇵
+# KuraKu 🇯🇵
 
 > **NSFW** — A macOS desktop app for organizing and playing a local Japanese Adult Video (JAV) collection.
 
-kuraku turns video folders on your Mac or external drives into a searchable personal library. Add a folder, let the app scan its videos, enrich recognized video codes with metadata, then browse, search, play, and manage the collection from one place.
+KuraKu turns video folders on your Mac or external drives into a searchable personal library. Add a folder, let the app scan its videos, enrich recognized video codes with metadata, then browse, search, play, and manage the collection from one place.
 
-![kuraku demo](.screenshot/demo.gif)
+![KuraKu demo](.screenshot/demo.gif)
 
 ## What It Does
 
@@ -48,16 +48,16 @@ kuraku.db personal library
 Home, Search, Explore, Chat, Tools, Profile, and Player
 ```
 
-kuraku uses two SQLite databases:
+KuraKu uses two SQLite databases:
 
 - **`kuraku.db`** stores your libraries, local video records, favorites, collections, watch sessions, achievements, activities, search indexes, chat conversations/drafts, and cached title translations.
 - **`r18_YYYYMMDD.db`** is the external metadata catalog used to enrich recognized JAV files with titles, actresses, categories, studios, artwork, trailers, and more.
 
 Files without a recognized code are still added to the library as local videos using their filename as the title.
 
-App data lives in the system Documents directory under `APP_NAME` (normally `~/Documents/kuraku` on macOS). This includes both databases and the optional `semantic_runtime` folder. Main-database schema migrations run automatically during startup.
+App data lives in the system Documents directory under `APP_NAME` (normally `~/Documents/kuraku` on macOS). This includes both databases and the optional `semantic_runtime` folder. Main-database schema migrations run automatically during startup. The display name is `KuraKu`; keep `APP_NAME=kuraku` as the stable storage identity.
 
-On the first launch after upgrading from JavIt, kuraku moves `~/Documents/JavIt` to `~/Documents/kuraku`, renames the main database and its SQLite sidecars, and re-encrypts preferences under the new name. Libraries, PIN, chat history, SQL drafts/snippets, caches, and the optional Visual Search runtime are preserved. macOS Application Support, Caches, HTTPStorages, and native preferences migrate from `com.example.javit` to `com.example.kuraku`. Close the old app before upgrading. If both data folders contain files, startup stops rather than merging or overwriting them. Legacy `javit-backup` archives and saved chat action links remain supported; new exports use `kuraku-backup`.
+On the first launch after upgrading from JavIt, KuraKu moves `~/Documents/JavIt` to `~/Documents/kuraku`, renames the main database and its SQLite sidecars, and re-encrypts preferences under the new name. Libraries, PIN, chat history, SQL drafts/snippets, caches, and the optional Visual Search runtime are preserved. macOS Application Support, Caches, HTTPStorages, and native preferences migrate from `com.example.javit` to `com.example.kuraku`. Close the old app before upgrading. If both data folders contain files, startup stops rather than merging or overwriting them. Legacy `javit-backup` archives and saved chat action links remain supported; new exports use `kuraku-backup`.
 
 ## Search Modes
 
@@ -107,7 +107,7 @@ Model source: [Xenova's CLIP ONNX conversion](https://huggingface.co/Xenova/clip
 
 ## Requirements
 
-kuraku is currently developed and tested on macOS. Install the following first:
+KuraKu is currently developed and tested on macOS. Install the following first:
 
 - macOS with Xcode and Command Line Tools
 - Flutter SDK `>=3.47.0` with Dart SDK `>=3.13.0 <4.0.0`
@@ -157,7 +157,7 @@ After completing local setup:
 flutter build macos --release --no-tree-shake-icons
 ```
 
-The app is written to `build/macos/Build/Products/Release/kuraku.app`. Alternatively, `./publish.sh macos` regenerates the environment, refreshes dependencies, builds the release, saves its version in `pubspec.yaml`, and copies the app to `/Applications/kuraku.app` (using `sudo` if needed).
+The app is written to `build/macos/Build/Products/Release/KuraKu.app`. Alternatively, `./publish.sh macos` regenerates the environment, refreshes dependencies, builds the release, saves its version in `pubspec.yaml`, and copies the app to `/Applications/KuraKu.app` (using `sudo` if needed).
 
 The version in `pubspec.yaml` is the single source of truth: edit `major.minor.patch` there when needed. The script generates a `YYYYMMDD.sequence` build number from the commit count and increments it for repeated builds on the same day. Build or install failures leave the version unchanged.
 
@@ -169,7 +169,7 @@ Flutter currently uses Swift Package Manager with CocoaPods fallback for `hotkey
 
 ## Keyboard Shortcuts
 
-These shortcuts work while kuraku is active:
+These shortcuts work while KuraKu is active:
 
 | Shortcut | Action |
 |---|---|
@@ -219,7 +219,7 @@ Search supports multiple required concepts (AND, with translated synonyms inside
 
 Local knowledge uses Python's standard SQLite library, without model downloads or indexing. Only selected library/catalog metadata is exposed; filesystem paths, other chats, and embeddings are excluded. Library queries use the read-only `temp.videos` view, which excludes soft-deleted videos from counts, searches, and ownership checks. Complex requests send conversation history, the allowed schema, and bounded query results to the configured AI provider. Local lookup results also become part of that conversation history. Queries cannot write data, attach arbitrary databases, or read arbitrary files; they stop after ten seconds and return at most 500 rows with bounded text. Video lists are rendered directly as Image, Code, Title (followed by any additional fields), paginated at 25 rows per page. Covers are fetched in batches from library/R18 metadata and use the shared cached thumbnail widget; missing covers show a placeholder. Only the current page mounts image widgets; copying a reply includes every loaded row. Large result tables are abbreviated in subsequent model context, while the full result stays saved in chat. Missing databases or rejected queries are reported rather than treated as empty results.
 
-Web search uses [Tavily Search](https://docs.tavily.com/documentation/api-reference/endpoint/search). Set `TAVILY_API_KEY` in `.env`, run `dart run enven`, and restart. The model can request `web_search`; kuraku executes the search and sends up to five result excerpts back for a sourced answer. Only the search query goes to Tavily. This is search, not a full browser or arbitrary URL reader. Search failures and missing keys are reported without fabricated results. Each model turn has at most two search rounds and three queries; Stop cancels both provider and model requests. Local lookups still work without a search key. Verify after setup with `dart run tool/chat_smoke_test.dart --web`.
+Web search uses [Tavily Search](https://docs.tavily.com/documentation/api-reference/endpoint/search). Set `TAVILY_API_KEY` in `.env`, run `dart run enven`, and restart. The model can request `web_search`; KuraKu executes the search and sends up to five result excerpts back for a sourced answer. Only the search query goes to Tavily. This is search, not a full browser or arbitrary URL reader. Search failures and missing keys are reported without fabricated results. Each model turn has at most two search rounds and three queries; Stop cancels both provider and model requests. Local lookups still work without a search key. Verify after setup with `dart run tool/chat_smoke_test.dart --web`.
 
 Checks: `python3 -B test/chat_knowledge_test.py` and `flutter test test/chat_knowledge_test.dart test/page_chat_response_test.dart`.
 
@@ -229,7 +229,7 @@ Example provider reference: https://agnes-ai.com/en/docs/agnes-25-flash
 
 ## First Run and R18 Database Setup
 
-On launch, kuraku looks for an `r18*.db` file in its app data directory. If one is missing, the app shows a **Download & Install** prompt.
+On launch, KuraKu looks for an `r18*.db` file in its app data directory. If one is missing, the app shows a **Download & Install** prompt.
 
 The app first displays a loading screen while settings and databases initialize. Initialization failures appear on that screen with an instruction to restart.
 
@@ -256,4 +256,4 @@ flutter run -d macos
 
 ## Contributing
 
-kuraku started as a hobby project and currently targets macOS. Contributions and pull requests, including work toward other desktop platforms, are welcome.
+KuraKu started as a hobby project and currently targets macOS. Contributions and pull requests, including work toward other desktop platforms, are welcome.

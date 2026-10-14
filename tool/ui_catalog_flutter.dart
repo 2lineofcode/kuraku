@@ -70,7 +70,7 @@ class _UiCatalogState extends State<UiCatalog> {
                     spacing: 12,
                     runSpacing: 8,
                     children: [
-                      const Text('kuraku / Shared components', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+                      const Text('KuraKu / Shared components', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
                       AppButton(
                         icon: const HugeIcon(icon: HugeIcons.strokeRoundedDarkMode, size: AppStyle.iconSize),
                         label: 'Toggle theme',

@@ -30,7 +30,7 @@ class DownloadMethodDialog extends StatelessWidget {
             Text('Choose how to open this video'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),
             const SizedBox(height: 20),
             for (final option in [
-              ('native', 'Native'.tr, 'Download in kuraku'.tr, HugeIcons.strokeRoundedDownload01),
+              ('native', 'Native'.tr, 'Download in KuraKu'.tr, HugeIcons.strokeRoundedDownload01),
               ('downie', 'Downie'.tr, 'Send to Downie'.tr, HugeIcons.strokeRoundedLinkSquare02),
               ('url', 'Just Open URL'.tr, 'Open in your default browser'.tr, HugeIcons.strokeRoundedGlobe02),
             ])

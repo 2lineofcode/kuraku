@@ -123,7 +123,7 @@ class AppSettingService extends GetxService {
     await windowManager.ensureInitialized();
 
     final windowOptions = WindowOptions(
-      title: Env.appName,
+      title: AppIdentity.displayName,
       size: idealSize,
       minimumSize: idealSize,
       maximumSize: Platform.isWindows ? idealSize : null,

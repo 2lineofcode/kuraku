@@ -19,6 +19,7 @@ import 'package:media_kit/src/player/native/utils/native_reference_holder.dart';
 import 'package:toastification/toastification.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'app/core/app_identity.dart';
 import 'app/core/app_logging.dart';
 import 'app/core/app_notification.dart';
 import 'app/core/app_pin.dart';
@@ -129,7 +130,7 @@ class _KurakuState extends State<Kuraku> with WindowListener {
       child: GetMaterialApp(
         scrollBehavior: appScrollBehavior,
         enableLog: Env.logLvl == 'debug' ? true : false,
-        title: Env.appName,
+        title: AppIdentity.displayName,
         translations: AppTranslations(),
         locale: Locale(AppPref.getAppLanguage()),
         fallbackLocale: AppTranslations.fallbackLocale,

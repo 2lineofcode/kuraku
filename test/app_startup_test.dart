@@ -18,7 +18,7 @@ void main() {
         return const MaterialApp(home: Text('Home ready'));
       }),
     ));
-    expect(find.text('Opening kuraku, Please wait...'), findsOneWidget);
+    expect(find.text('Opening KuraKu, Please wait...'), findsOneWidget);
     expect(appBuilt, isFalse);
     await tester.pump();
     expect(calls, 1);
@@ -34,7 +34,7 @@ void main() {
       child: const MaterialApp(home: Text('Home ready')),
     ));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Could not start kuraku'), findsOneWidget);
+    expect(find.textContaining('Could not start KuraKu'), findsOneWidget);
     expect(find.text('Home ready'), findsNothing);
     expect(tester.takeException(), isNull);
   });

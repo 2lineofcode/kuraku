@@ -203,7 +203,7 @@ void main() {
     expect(builds, 0);
     expect(find.byType(AppTextField), findsNothing);
     expect(find.textContaining('PIN'), findsNothing);
-    expect(find.textContaining('kuraku'), findsNothing);
+    expect(find.textContaining('KuraKu'), findsNothing);
     await revealPin(tester, meta: false, alt: false);
     await revealPin(tester, alt: false);
     await revealPin(tester, meta: false);
@@ -232,7 +232,7 @@ void main() {
     await submit(tester, 'Unlock');
     expect(builds, 1);
     expect(find.text('Private content'), findsOneWidget);
-    expect(find.text('Opening kuraku, Please wait...'), findsNothing);
+    expect(find.text('Opening KuraKu, Please wait...'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpWidget(gate());
     await tester.pumpAndSettle();

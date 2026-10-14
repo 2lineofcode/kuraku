@@ -289,7 +289,7 @@ class PageDownloadController extends GetxController {
     jobRevision.value++;
     try {
       final binary = p.join(appSetting.bundledAssetsPath, 'kuraku');
-      if (!await File(binary).exists()) throw StateError('Downloader binary is missing. Restart kuraku to restore it.'.tr);
+      if (!await File(binary).exists()) throw StateError('Downloader binary is missing. Restart KuraKu to restore it.'.tr);
       if (job.cancelled || isClosed) {
         job.status = 'Cancelled';
         return;

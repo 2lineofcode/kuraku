@@ -5,6 +5,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:path/path.dart' as p;
 
 class AppIdentity {
+  static const displayName = 'KuraKu';
   static const legacyName = 'JavIt';
   static const legacyDatabase = 'javit.db';
 

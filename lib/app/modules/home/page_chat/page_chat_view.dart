@@ -192,7 +192,7 @@ class PageChatView extends GetView<PageChatController> {
       padding: const EdgeInsets.all(12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(padding: const EdgeInsets.fromLTRB(4, 0, 8, 8), child: Row(children: [
-          const Expanded(child: Text('kuraku AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+          const Expanded(child: Text('KuraKu AI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
           AppIconButton(tooltip: 'Delete all chats'.tr, onPressed: () => _deleteAllChats(context),
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 32, height: 32),
