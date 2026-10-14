@@ -8,7 +8,6 @@ import 'package:markdown_widget/markdown_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/app_color.dart';
-import '../../../core/app_identity.dart';
 import '../../../core/app_translations.dart';
 import '../../../data/models/chat_entity.dart';
 import '../../../utils/chat_knowledge.dart';
@@ -471,7 +470,6 @@ class PageChatView extends GetView<PageChatController> {
   }
 
   Widget _markdown(BuildContext context, String content, {bool databasePaged = false}) {
-    content = AppIdentity.migrateChatLinks(content);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final images = RegExp(r'!\[([^\]]*)\]\(([^\s)]*)\)').allMatches(content)
         .map((match) => (url: _imageUrl(match[2]!), code: match[1]!)).where((image) => image.url.isNotEmpty).toList();

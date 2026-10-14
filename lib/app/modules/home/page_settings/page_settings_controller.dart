@@ -437,7 +437,7 @@ class PageSettingsController extends GetxController {
             'Search history': 'historical', 'Todo': 'todo', 'Download history': 'download_log',
             'File identities': 'video_file_identity', 'Chats': 'chat_conversation', 'Chat messages': 'chat_message',
             'Title translations': 'chat_translation',
-          }.entries.where((entry) => backup.includes(entry.value)))
+          }.entries)
             Padding(padding: const EdgeInsets.only(top: 6),
               child: Text('@{label}: @{current} → @{backup}'.trNamed({
                 'label': entry.key.tr, 'current': '${current.count(entry.value)}', 'backup': '${backup.count(entry.value)}',
@@ -451,7 +451,6 @@ class PageSettingsController extends GetxController {
           })),
           const SizedBox(height: 12),
           Text('On next startup, included records and settings will be replaced, including empty lists. Video/image files, R18, embedding caches, and your app PIN are excluded. Saved paths stay as saved in the backup. Download history does not restart downloads.'.tr),
-          if (backup.isLegacy) Text('This older backup may omit todos, downloads, chats, cart, tabs, and SQL snippets. Omitted data and settings will be kept.'.tr),
           const SizedBox(height: 8),
           Text('A recovery backup will be saved in @{path} before overwriting. Close and reopen the app after confirming.'.trNamed({'path': appSetting.appPath})),
         ]),

@@ -51,11 +51,6 @@ if __name__ == '__main__':
         importer['create_catalog_indexes'](conn)
         summaries = conn.execute('SELECT * FROM kuraku_catalog_groups_v2 ORDER BY kind, id').fetchall()
         assert summaries
-        conn.execute('ALTER TABLE kuraku_catalog_groups_v2 RENAME TO javit_catalog_groups_v2')
-        conn.commit()
-        importer['create_catalog_indexes'](conn)
-        assert conn.execute('SELECT * FROM kuraku_catalog_groups_v2 ORDER BY kind, id').fetchall() == summaries
-        assert not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'javit_catalog_groups_v2'").fetchone()
         conn.execute('ALTER TABLE kuraku_catalog_groups_v2 RENAME TO kuraku_catalog_groups_v1')
         conn.commit()
         conn.set_authorizer(lambda action, name, *args: sqlite3.SQLITE_DENY if action == sqlite3.SQLITE_INSERT and name == 'kuraku_catalog_groups_v2' else sqlite3.SQLITE_OK)

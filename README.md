@@ -55,9 +55,9 @@ KuraKu uses two SQLite databases:
 
 Files without a recognized code are still added to the library as local videos using their filename as the title.
 
-App data lives in the system Documents directory under the display name (normally `~/Documents/KuraKu` on macOS). This includes both databases and the optional `semantic_runtime` folder. Main-database schema migrations run automatically during startup. The display name is `KuraKu`; keep `APP_NAME=kuraku` as the stable encrypted-storage identity. Existing lowercase `kuraku` data folders are renamed automatically, and Visual Search runtime paths are updated.
+App data lives in the system Documents directory under the display name (normally `~/Documents/KuraKu` on macOS). This includes both databases and the optional `semantic_runtime` folder. Main-database schema migrations run automatically during startup. The display name is `KuraKu`; keep `APP_NAME=kuraku` as the stable encrypted-storage identity.
 
-On the first launch after upgrading from JavIt, KuraKu moves `~/Documents/JavIt` to `~/Documents/KuraKu`, renames the main database and its SQLite sidecars, and re-encrypts preferences under the new name. Libraries, PIN, chat history, SQL drafts/snippets, caches, and the optional Visual Search runtime are preserved. macOS Application Support, Caches, HTTPStorages, and native preferences migrate from `com.example.javit` to `com.example.kuraku`. Close the old app before upgrading. If both data folders contain files, startup stops rather than merging or overwriting them. Legacy `javit-backup` archives and saved chat action links remain supported; new exports use `kuraku-backup`.
+Backups use `kuraku-backup` format version 2 and the current database schema. Other formats and schema versions are rejected. App startup reads `~/Documents/KuraKu` directly.
 
 ## Search Modes
 

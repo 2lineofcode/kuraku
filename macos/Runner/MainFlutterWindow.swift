@@ -15,19 +15,6 @@ class MainFlutterWindow: NSWindow, NSDraggingSource {
   }
 
   override func awakeFromNib() {
-    let defaults = UserDefaults.standard
-    let legacyDomain = "com.example.javit"
-    if let domain = Bundle.main.bundleIdentifier, domain != legacyDomain,
-       let previous = defaults.persistentDomain(forName: legacyDomain) {
-      var current = defaults.persistentDomain(forName: domain) ?? [:]
-      for (key, value) in previous where current[key] == nil { current[key] = value }
-      defaults.setPersistentDomain(current, forName: domain)
-      if defaults.synchronize() {
-        assert(previous.keys.allSatisfy { current[$0] != nil })
-        defaults.removePersistentDomain(forName: legacyDomain)
-        defaults.synchronize()
-      }
-    }
     let flutterViewController = FlutterViewController()
     let windowFrame = self.frame
     self.contentViewController = flutterViewController

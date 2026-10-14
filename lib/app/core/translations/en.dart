@@ -1506,5 +1506,4 @@ const englishTranslations = <String, String>{
   'Chats': 'Chats',
   'Chat messages': 'Chat messages',
   'Title translations': 'Title translations',
-  'This older backup may omit todos, downloads, chats, cart, tabs, and SQL snippets. Omitted data and settings will be kept.': 'This older backup may omit todos, downloads, chats, cart, tabs, and SQL snippets. Omitted data and settings will be kept.',
 };

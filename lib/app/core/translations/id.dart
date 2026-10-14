@@ -1506,5 +1506,4 @@ const indonesianTranslations = <String, String>{
   'Chats': 'Chat',
   'Chat messages': 'Pesan chat',
   'Title translations': 'Terjemahan judul',
-  'This older backup may omit todos, downloads, chats, cart, tabs, and SQL snippets. Omitted data and settings will be kept.': 'Backup lama ini mungkin belum mencakup todo, download, chat, cart, tab, dan SQL snippets. Data dan settings yang tidak tercakup akan dipertahankan.',
 };

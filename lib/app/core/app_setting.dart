@@ -49,14 +49,8 @@ class AppSettingService extends GetxService {
   }
 
   Future<AppSettingService> init() async {
-    if (Platform.isMacOS) {
-      final support = await getApplicationSupportDirectory();
-      await AppIdentity.migrateMacOSDirectory(support);
-      await AppIdentity.migrateMacOSDirectory(await getApplicationCacheDirectory());
-      await AppIdentity.migrateMacOSDirectory(Directory(join(dirname(dirname(support.path)), 'HTTPStorages', basename(support.path))));
-    }
     final directory = await getApplicationDocumentsDirectory();
-    appPath = await AppIdentity.migrate(directory, Env.appName);
+    appPath = join(directory.path, AppIdentity.displayName);
     pref = GetSecureStorage(container: Env.appName.toLowerCase(), password: Env.appName, path: appPath);
     await pref.initStorage;
 

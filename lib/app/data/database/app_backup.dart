@@ -5,7 +5,6 @@ import 'package:get_secure_storage/get_secure_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
-import '../../core/app_identity.dart';
 import '../../core/app_pref.dart';
 import '../models/library_entity.dart';
 import '../models/videos_entity.dart';
@@ -17,9 +16,8 @@ class AppBackup {
   AppBackup._(this._data);
   final Map<String, dynamic> _data;
 
-  static const _legacyTables = ['library', 'videos', 'playlist', 'playlist_item', 'watch_session', 'profile',
-    'achievement_unlock', 'relapse_event', 'historical'];
-  static const tables = [..._legacyTables, 'todo', 'download_log', 'video_file_identity',
+  static const tables = ['library', 'videos', 'playlist', 'playlist_item', 'watch_session', 'profile',
+    'achievement_unlock', 'relapse_event', 'historical', 'todo', 'download_log', 'video_file_identity',
     'chat_conversation', 'chat_message', 'chat_translation'];
   static const _boolKeys = ['_kAppHideSideMenu', '_kAppDarkMode', '_kAppIsDarkMode', '_kPlayerAudioNormalization',
     '_kHomeSecNewRelease', '_kHomeSecRecommendation', '_kHomeSecFavorite', '_kHomeSecNewAdd',
@@ -27,18 +25,16 @@ class AppBackup {
   static const _intKeys = ['_kAppMaxColi', '_kDownloadChunk', '_kPlayerSeekShort', '_kPlayerSeekMid', '_kPlayerSeekLong', '_kAppAccent'];
   static const _stringKeys = ['_kAppLanguage', '_kAppTheme', '_kFavoriteCoverURL', '_kDefaultSearchEngine',
     '_kDefaultPlayer', '_kDownloadPath', '_kDownloadLang', '_kSemanticSearchModel'];
-  static const _legacySettingKeys = [..._boolKeys, ..._intKeys, ..._stringKeys, '_kPlayerVolume', '_kPlayerSpeed',
-    '_kHomeOrderList', '_kExplorePins', '_kPlayerCustomAdjustment', '_kDownloadOptions'];
+  static const settingKeys = [..._boolKeys, ..._intKeys, ..._stringKeys, '_kPlayerVolume', '_kPlayerSpeed',
+    '_kHomeOrderList', '_kExplorePins', '_kPlayerCustomAdjustment', '_kDownloadOptions',
+    ..._tabKeys, '_kAppCart', 'sql_snippets', 'chat_active_id'];
   static const _tabKeys = ['_kSearchTabs', '_kExploreTabs', '_kDownloadTabs', 'sql_tabs'];
-  static const settingKeys = [..._legacySettingKeys, ..._tabKeys, '_kAppCart', 'sql_snippets', 'chat_active_id'];
 
   String get createdAt => _data['created_at'] as String;
   Map<String, dynamic> get _settings => _data['settings'] as Map<String, dynamic>;
-  bool includes(String table) => (_data['tables'] as Map).containsKey(table);
-  bool get isLegacy => _data['version'] == 1;
   List<Map<String, Object?>> _rows(String table) => (_data['tables'][table] as List)
       .map((row) => Map<String, Object?>.from(row as Map)).toList();
-  int count(String table) => includes(table) ? (_data['tables'][table] as List).length : 0;
+  int count(String table) => (_data['tables'][table] as List).length;
   int get favorites => _rows('videos').where((row) => row['is_favorite'] == 1).length;
   int get settingsCount => _settings.values.where((value) => value != null).length;
   String encode() => jsonEncode(_data);
@@ -57,30 +53,18 @@ class AppBackup {
   static AppBackup decode(String content) {
     if (utf8.encode(content).length > 128 * 1024 * 1024) throw const FormatException('Backup exceeds the 128 MB limit.');
     final data = jsonDecode(content);
-    // v1 backups omit newer domains; leave those untouched when restoring.
-    if (data is! Map<String, dynamic> || !['kuraku-backup', 'javit-backup'].contains(data['format']) || ![1, 2].contains(data['version'])
-        || (data['database_version'] != DBUpdate.version && data['database_version'] != 17) || data['created_at'] is! String
+    if (data is! Map<String, dynamic> || data['format'] != 'kuraku-backup' || data['version'] != 2
+        || data['database_version'] != DBUpdate.version || data['created_at'] is! String
         || DateTime.tryParse(data['created_at']) == null) {
       throw const FormatException('Invalid backup or incompatible app/database version.');
     }
     final rows = data['tables'];
     final settings = data['settings'];
-    if (settings is Map<String, dynamic>) AppIdentity.migrateSqlSettings(settings);
-    if (data['version'] == 1 && settings is Map<String, dynamic>) settings.putIfAbsent('_kHomeSecImageAlbums', () => true);
-    final requiredTables = data['version'] == 1 ? _legacyTables : tables;
-    final requiredSettings = data['version'] == 1 ? _legacySettingKeys : settingKeys;
     if (rows is! Map || rows.keys.any((table) => !tables.contains(table))
-        || !requiredTables.every((table) => rows[table] is List) || rows.values.any((value) => value is! List)
+        || !tables.every((table) => rows[table] is List) || rows.values.any((value) => value is! List)
         || settings is! Map<String, dynamic> || settings.keys.any((key) => !settingKeys.contains(key))
-        || !requiredSettings.every(settings.containsKey)) {
+        || !settingKeys.every(settings.containsKey)) {
       throw const FormatException('Backup tables or settings are missing or unsupported.');
-    }
-    if (data['database_version'] == 17) {
-      for (final row in rows['library']) {
-        if (row is! Map<String, dynamic> || row.containsKey('images')) throw const FormatException('Invalid v17 library row.');
-        row['images'] = '[]';
-      }
-      data['database_version'] = DBUpdate.version;
     }
     for (final table in rows.keys) {
       for (final row in rows[table]) {
@@ -163,7 +147,6 @@ class AppBackup {
   Future<void> _validate(Database db) async {
     await db.transaction<void>((txn) async {
       for (final table in tables) {
-        if (!includes(table)) continue;
         final columns = await txn.rawQuery('PRAGMA table_info($table)');
         for (final row in _rows(table)) {
           if (row.length != columns.length || !columns.every((column) => row.containsKey(column['name']))) {
@@ -194,10 +177,9 @@ class AppBackup {
 
   Future<void> _replace(DatabaseExecutor db) async {
     for (final table in tables.reversed) {
-      if (includes(table)) await db.delete(table);
+      await db.delete(table);
     }
     for (final table in tables) {
-      if (!includes(table)) continue;
       for (final row in _rows(table)) await db.insert(table, row);
     }
   }
@@ -207,7 +189,7 @@ class AppBackup {
     try {
       await db.transaction((txn) async {
         await _replace(txn);
-        if (includes('chat_message')) await DBChat.recoverInterrupted(txn);
+        await DBChat.recoverInterrupted(txn);
         await AppPref.savePreferences(pref, _settings);
       });
     } catch (_) {

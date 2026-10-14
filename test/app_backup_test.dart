@@ -168,36 +168,6 @@ void main() {
     expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
   });
 
-  test('legacy v2 backup migrates SQL source keys and preserves query text', () async {
-    final data = jsonDecode((await AppBackup.capture(db, pref)).encode()) as Map<String, dynamic>;
-    data['format'] = 'javit-backup';
-    data['settings']['sql_tabs'] = {'tabs': [{'source': 'javit.db', 'drafts': {'javit.db': "SELECT 'javit.db'"}}]};
-    data['settings']['sql_snippets'] = {'javit.db': {'Saved': "SELECT 'javit.db'"}};
-    final legacy = AppBackup.decode(jsonEncode(data));
-    await legacy.apply(db, pref);
-    expect(pref.values['sql_snippets'], {'kuraku.db': {'Saved': "SELECT 'javit.db'"}});
-    expect((pref.values['sql_tabs']['tabs'] as List).single['source'], 'kuraku.db');
-  });
-
-  test('v1 backups preserve omitted domains and preferences', () async {
-    final data = jsonDecode((await AppBackup.capture(db, pref)).encode()) as Map<String, dynamic>;
-    data['version'] = 1;
-    data['format'] = 'javit-backup';
-    for (final table in ['todo', 'download_log', 'video_file_identity', 'chat_conversation', 'chat_message', 'chat_translation']) { data['tables'].remove(table); }
-    for (final key in ['_kSearchTabs', '_kExploreTabs', '_kDownloadTabs', 'sql_tabs', 'sql_snippets', 'chat_active_id', '_kAppCart']) { data['settings'].remove(key); }
-    final legacy = AppBackup.decode(jsonEncode(data));
-    await _seed(db);
-    await legacy.validate();
-    await legacy.apply(db, pref);
-    expect(await db.query('videos'), isEmpty);
-    for (final table in ['todo', 'download_log', 'chat_conversation', 'chat_message', 'chat_translation']) {
-      expect(await db.query(table), hasLength(1), reason: table);
-    }
-    expect(pref.values['sql_snippets'], {'kuraku.db': {'Saved': 'SELECT * FROM todo'}});
-    expect(pref.values['_kAppCart'], [{'id': 'cart1', 'video_code': 'TEST-001'}]);
-    expect(legacy.includes('todo'), isFalse);
-  });
-
   test('restore marks in-flight chat responses interrupted', () async {
     await _seed(db);
     await db.update('chat_message', {'role': 'assistant', 'status': 'streaming'});
@@ -207,7 +177,7 @@ void main() {
     expect((await db.query('chat_message')).single['status'], 'failed');
   });
 
-  test('legacy Home sections survive backup and restore with their original order', () async {
+  test('Home section preferences survive backup and restore with their original order', () async {
     final order = ['_kHomeSecNewRelease', '_kHomeSecForYou', '_kHomeSecNewAdd', '_kHomeSecFavorite',
       '_kHomeSecRecommendation', '_kHomeSecRandom', '_kHomeSecMostWatch', '_kHomeSecNeverWatch', '_kHomeSecOldest'];
     pref.values['_kHomeOrderList'] = order;
@@ -220,18 +190,8 @@ void main() {
   });
 
 
-  test('v17 backups restore with empty albums and current backups preserve images', () async {
+  test('current backups preserve image albums', () async {
     await _seed(db);
-    final data = jsonDecode((await AppBackup.capture(db, pref)).encode()) as Map<String, dynamic>;
-    data['version'] = 1;
-    data['database_version'] = 17;
-    data['settings'].remove('_kHomeSecImageAlbums');
-    for (final row in data['tables']['library']) { row.remove('images'); }
-    final legacy = AppBackup.decode(jsonEncode(data));
-    await legacy.validate();
-    await legacy.apply(db, pref);
-    expect(pref.values['_kHomeSecImageAlbums'], isTrue);
-    expect((await db.query('library')).first['images'], '[]');
     await db.update('library', {'images': jsonEncode(['/offline/cover.jpg'])});
     final current = await AppBackup.capture(db, pref);
     await current.validate();
@@ -245,6 +205,8 @@ void main() {
     for (final mutate in <void Function(Map<String, dynamic>)>[
       (data) => data['format'] = 'other',
       (data) => data['version'] = 99,
+      (data) => data['version'] = 1,
+      (data) => data['database_version'] = 17,
       (data) => data['database_version'] = DBUpdate.version + 1,
       (data) => data['created_at'] = 'invalid',
       (data) => data['tables'].remove('videos'),
