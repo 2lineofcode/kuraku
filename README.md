@@ -1,10 +1,12 @@
+<img src="assets/app_icon.png" width="96" alt="KuraKu app icon">
+
 # KuraKu 🇯🇵
 
 > **NSFW** — A macOS desktop app for organizing and playing a local Japanese Adult Video (JAV) collection.
 
 KuraKu turns video folders on your Mac or external drives into a searchable personal library. Add a folder, let the app scan its videos, enrich recognized video codes with metadata, then browse, search, play, and manage the collection from one place.
 
-![KuraKu demo](.screenshot/demo.gif)
+![KuraKu macOS walkthrough: Home, Search, Explore, and Download](.screenshot/demo.gif)
 
 ## What It Does
 
@@ -88,6 +90,8 @@ On the development M1 8 GB, one run ranked all 10 expected images first, with 8 
 Model source: [Xenova's CLIP ONNX conversion](https://huggingface.co/Xenova/clip-vit-base-patch32) of [OpenAI CLIP](https://github.com/openai/CLIP), under the [MIT license](https://github.com/openai/CLIP/blob/main/LICENSE). The license is downloaded alongside checksum-verified weights. Python dependencies retain their respective licenses.
 
 ## Screenshots
+
+Captured directly from the running macOS app. The GIF above shows navigation between Home, Search, Explore, and Download; the screenshots below show the same live collection.
 
 | Home | Search |
 |---|---|
