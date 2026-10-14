@@ -18,6 +18,26 @@ void main() {
   });
   tearDown(() async => documents.delete(recursive: true));
 
+  test('Capitalizes an existing folder without rewriting settings or database files', () async {
+    final previous = await Directory(p.join(documents.path, 'kuraku')).create();
+    for (final name in ['kuraku.gs', 'kuraku.bak', 'kuraku.db', 'kuraku.db-wal', 'kuraku.db-shm']) {
+      await File(p.join(previous.path, name)).writeAsString('preserved $name');
+    }
+    final runtime = p.join(previous.path, 'semantic_runtime', 'venv');
+    await Directory(p.join(runtime, 'bin')).create(recursive: true);
+    await File(p.join(runtime, 'bin', 'pip')).writeAsString('#!$runtime/bin/python');
+    await File(p.join(runtime, 'pyvenv.cfg')).writeAsString('command = $runtime/bin/python');
+    final target = await AppIdentity.migrate(documents, 'kuraku');
+    expect(p.basename(target), 'KuraKu');
+    expect((await documents.list().toList()).map((entry) => p.basename(entry.path)), ['KuraKu']);
+    for (final name in ['kuraku.gs', 'kuraku.bak', 'kuraku.db', 'kuraku.db-wal', 'kuraku.db-shm']) {
+      expect(await File(p.join(target, name)).readAsString(), 'preserved $name');
+    }
+    expect(await File(p.join(target, 'semantic_runtime', 'venv', 'bin', 'pip')).readAsString(), '#!$target/semantic_runtime/venv/bin/python');
+    expect(await File(p.join(target, 'semantic_runtime', 'venv', 'pyvenv.cfg')).readAsString(), 'command = $target/semantic_runtime/venv/bin/python');
+    expect(await AppIdentity.migrate(documents, 'kuraku'), target);
+  });
+
   test('Moves legacy data and re-encrypts all settings, preserving PIN and SQL drafts', () async {
     final legacy = await Directory(p.join(documents.path, 'JavIt')).create();
     final pref = GetSecureStorage(container: 'javit', password: 'JavIt', path: legacy.path);
@@ -60,7 +80,7 @@ void main() {
 
   test('Refuses to overwrite populated data folders or conflicting database files', () async {
     final legacy = await Directory(p.join(documents.path, 'JavIt')).create();
-    final current = await Directory(p.join(documents.path, 'kuraku')).create();
+    final current = await Directory(p.join(documents.path, 'KuraKu')).create();
     await File(p.join(legacy.path, 'javit.db')).writeAsString('old');
     await File(p.join(current.path, 'kuraku.db')).writeAsString('new');
     await expectLater(AppIdentity.migrate(documents, 'kuraku'), throwsStateError);
@@ -76,7 +96,7 @@ void main() {
     final legacy = await Directory(p.join(documents.path, 'JavIt')).create();
     await File(p.join(legacy.path, 'javit.gs')).writeAsString('broken');
     await expectLater(AppIdentity.migrate(documents, 'kuraku'), throwsFormatException);
-    final current = Directory(p.join(documents.path, 'kuraku'));
+    final current = Directory(p.join(documents.path, 'KuraKu'));
     expect(await File(p.join(current.path, 'kuraku.gs')).exists(), isFalse);
     expect(await File(p.join(current.path, 'javit.gs')).readAsString(), 'broken');
     await File(p.join(current.path, 'javit.bak')).writeAsString('{"_kAppLanguage":"id"}');

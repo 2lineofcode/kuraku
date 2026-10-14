@@ -28,7 +28,19 @@ class AppIdentity {
   }
 
   static Future<String> migrate(Directory documents, String name) async {
-    final target = Directory(p.join(documents.path, name));
+    final target = Directory(p.join(documents.path, name == 'kuraku' ? displayName : name));
+    if (name == 'kuraku' && await documents.exists()) {
+      final previous = await documents.list(followLinks: false)
+          .where((entry) => entry is Directory && p.basename(entry.path) == name).toList();
+      if (previous.isNotEmpty) {
+        final folder = previous.single as Directory;
+        if (await target.exists() && !await FileSystemEntity.identical(folder.path, target.path)) {
+          if (!await target.list().isEmpty) throw StateError('Both lowercase and capitalized app folders exist. Move one aside before restarting.');
+          await target.delete();
+        }
+        await folder.rename(target.path);
+      }
+    }
     final legacy = Directory(p.join(documents.path, legacyName));
     if (name != legacyName && await legacy.exists()) {
       if (await target.exists()) {
@@ -84,7 +96,8 @@ class AppIdentity {
         if (entry is! File) continue;
         String text;
         try { text = await entry.readAsString(); } on FormatException { continue; }
-        if (text.contains(legacy.path)) await entry.writeAsString(text.replaceAll(legacy.path, target.path), flush: true);
+        final updated = text.replaceAll(legacy.path, target.path).replaceAll(p.join(documents.path, name), target.path);
+        if (updated != text) await entry.writeAsString(updated, flush: true);
       }
     }
     return target.path;
