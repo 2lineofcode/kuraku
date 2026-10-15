@@ -20,6 +20,7 @@ KuraKu turns video folders on your Mac or external drives into a searchable pers
 - Explore metadata by actress, series, category, and year.
 - Find large files and possible duplicates, scan video quality, and manage simple todos.
 - Search and download supported releases from the Download page.
+- Run SQL queries and open returned video-code results in a new Download tab.
 - Chat with a configured AI provider using local library/catalog lookups, Japanese-title discovery, cached title translations, and optional web search.
 - View your profile, watch time, streak, and achievement progress.
 
@@ -91,7 +92,7 @@ Model source: [Xenova's CLIP ONNX conversion](https://huggingface.co/Xenova/clip
 
 ## Screenshots
 
-Captured directly from the running macOS app. The GIF above shows navigation between Home, Search, Explore, and Download; the screenshots below show the same live collection.
+Captured directly from the running macOS app. Cover images, video codes, titles, and collection labels are redacted in both the GIF and screenshots. The GIF above shows navigation between Home, Search, Explore, and Download; the screenshots below show the same live collection.
 
 | Home | Search |
 |---|---|

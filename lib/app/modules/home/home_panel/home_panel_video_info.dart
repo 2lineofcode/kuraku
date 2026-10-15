@@ -76,7 +76,7 @@ mixin HomePanelVideoInfo {
               [
                 ZStack([
                   ExThumbnail(
-                    imageUrl: video.fanArt,
+                    imageUrl: (video.fanArt ?? '').trim().isNotEmpty ? video.fanArt : video.poster,
                     screenshotItems: source, screenshotItemIndex: index,
                     videoPath: video.videoPath,
                     width: 300,

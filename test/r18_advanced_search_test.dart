@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show PointerDeviceKind;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -11,6 +12,7 @@ import 'package:kuraku/app/data/database/db_r18.dart';
 import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
 import 'package:kuraku/app/modules/home/page_tools/page_tools_view.dart';
 import 'package:kuraku/app/modules/widgets/widget_controls.dart';
+import 'package:kuraku/app/modules/widgets/widget_title_translation.dart';
 import 'package:sqflite/sqflite.dart';
 
 class _Service extends DBService {
@@ -187,6 +189,51 @@ void main() {
       expect(video['studio'], studio);
       expect((await DBR18.getDirector(code))!['director'], director);
     }
+  });
+
+  test('Advanced Search enriches read-only SQLite rows without mutating them', () async {
+    final row = Map<String, Object?>.unmodifiable({'video_code': 'ABC-123', 'title': 'Selected video', 'duration': 120});
+    database.run = (sql, args) async => List<Map<String, Object?>>.unmodifiable(
+      sql.contains('cat.name_en AS category')
+        ? [Map<String, Object?>.unmodifiable({'video_code': 'ABC-123', 'category': 'Cast'})]
+        : [row]);
+    final videos = await DBR18.getAdvancedSearchVideos('Series', 1);
+    expect(videos.single['categories'], ['Cast']);
+    expect(row.containsKey('categories'), isFalse);
+    final controller = PageToolsController();
+    addTearDown(controller.onClose);
+    controller.currentFilterBy.value = 'Series';
+    controller.filter.categoriesSelected.assignAll(['Cast']);
+    await controller.onLeftListTap({'id': 1, 'name_en': 'Series'}, 0);
+    expect(controller.status.isSuccess, isTrue);
+    expect(controller.rightListFiltered.single['video_code'], 'ABC-123');
+    expect(controller.rightListFiltered.single['categories'], ['Cast']);
+  });
+
+  test('Advanced Search carries categories into local filters and resets them', () async {
+    final controller = PageToolsController();
+    addTearDown(controller.onClose);
+    final videos = [...await DBR18.getAdvancedSearchVideos('Series', 1), ...await DBR18.getAdvancedSearchVideos('Series', 2)];
+    expect(videos.firstWhere((video) => video['video_code'] == 'ABC-123')['categories'], ['Cast']);
+    expect(videos.firstWhere((video) => video['video_code'] == 'ABC-124')['categories'], ['Older']);
+    controller.rightList.assignAll(videos);
+    controller.filter.categoriesSelected.assignAll(['Older']);
+    await controller.applyAdvancedFilters();
+    expect(controller.rightListFiltered.map((video) => video['video_code']), ['ABC-124']);
+    controller.filter.categoriesSelected.assignAll(['Cast', 'Older']);
+    await controller.applyAdvancedFilters();
+    expect(controller.rightListFiltered, hasLength(3));
+    controller.filter.categoriesSelected.assignAll(['Unknown']);
+    await controller.applyAdvancedFilters();
+    expect(controller.rightListFiltered, isEmpty);
+    await controller.clearAdvancedFilters();
+    expect(controller.filter.categoriesSelected, isEmpty);
+    expect(controller.rightListFiltered, hasLength(3));
+    Get.find<DBService>().dbR18 = _Database(includeBrowseDuplicates: true);
+    final variants = await DBR18.getAdvancedSearchVideos('Series', 1);
+    expect(variants.firstWhere((video) => video['video_code'] == 'ABC-123')['categories'], ['Cast', 'Older']);
+    final uncategorized = await DBR18.getAdvancedSearchVideos('Series', 4);
+    expect(uncategorized.single['categories'], isEmpty);
   });
 
   test('Explore and Advanced Search count the same valid series videos', () async {
@@ -461,6 +508,7 @@ void main() {
     addTearDown(controller.onClose);
     final pending = <Completer<List<Map<String, Object?>>>>[];
     database.run = (sql, args) {
+      if (sql.contains('cat.name_en AS category')) return Future.value(<Map<String, Object?>>[]);
       final task = Completer<List<Map<String, Object?>>>();
       pending.add(task);
       return task.future;
@@ -560,9 +608,10 @@ void main() {
     controller.leftListSelected.value = 'A selected series with a long name';
     controller.leftListSelectedId.value = '1';
     controller.rightList.assignAll([
-      {'video_code': 'ABC-123', 'title': 'A long title that should wrap safely in a narrow card', 'fan_art': '', 'release_date': '2020-01-01', 'is_released': true, 'match': true, 'duration': 120},
-      {'video_code': 'ABC-124', 'title': 'Upcoming title', 'fan_art': '', 'release_date': '2099-01-01', 'is_released': false, 'match': false, 'duration': 90},
+      {'video_code': 'ABC-123', 'title': 'A long title that should wrap safely in a narrow card', 'fan_art': '', 'release_date': '2020-01-01', 'is_released': true, 'match': true, 'duration': 120, 'categories': ['Cast']},
+      {'video_code': 'ABC-124', 'title': 'Upcoming title', 'fan_art': '', 'release_date': '2099-01-01', 'is_released': false, 'match': false, 'duration': 90, 'categories': ['Older']},
     ]);
+    controller.filter.categories.assignAll(['Cast', 'Older']);
     await controller.applyAdvancedFilters();
     controller.change(200, status: RxStatus.success());
     tester.view.devicePixelRatio = 1;
@@ -578,6 +627,9 @@ void main() {
         Get.changeThemeMode(theme);
         await tester.pumpAndSettle();
         expect(find.text('2 of 2 videos'), findsOneWidget);
+        final translation = tester.widget<TitleTranslation>(find.byType(TitleTranslation));
+        expect(translation.title, controller.leftListSelected.value);
+        expect(find.descendant(of: find.byType(TitleTranslation), matching: find.text(controller.leftListSelected.value)), findsOneWidget);
         expect(find.byType(AppDropdown<String>), findsNWidgets(4));
         expect(find.byType(PopupMenuButton<String>), findsNothing);
         expect(find.text('In Library'), findsOneWidget);
@@ -599,17 +651,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.releaseFilter.value, 'upcoming');
     expect(find.text('1 of 2 videos'), findsOneWidget);
-    await tester.tap(find.byTooltip('More filters: video code, year and duration'));
+    await tester.tap(find.byTooltip('More filters: video code, categories, year and duration'));
+    await tester.pumpAndSettle();
+    expect(find.text('Categories'), findsOneWidget);
+    final categoryField = find.byWidgetPredicate((widget) => widget is CupertinoTextField && widget.placeholder == 'Search and add categories...');
+    await tester.enterText(categoryField, 'Older');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Older').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Cancel'));
+    await tester.pumpAndSettle();
+    expect(controller.filter.categoriesSelected, isEmpty);
+    await tester.tap(find.byTooltip('More filters: video code, categories, year and duration'));
+    await tester.pumpAndSettle();
+    await tester.enterText(categoryField, 'Older');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Older').last);
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('filter-duration-min')), '100');
     await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     expect(find.text('0 of 2 videos'), findsOneWidget);
-    await tester.tap(find.byTooltip('More filters: video code, year and duration'));
+    expect(controller.filter.categoriesSelected, ['Older']);
+    await tester.tap(find.byTooltip('More filters: video code, categories, year and duration'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Reset'));
     await tester.pumpAndSettle();
     expect(controller.releaseFilter.value, 'upcoming');
+    expect(controller.filter.categoriesSelected, isEmpty);
     expect(find.text('1 of 2 videos'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());

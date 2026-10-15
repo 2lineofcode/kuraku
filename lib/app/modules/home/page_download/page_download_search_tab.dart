@@ -72,11 +72,15 @@ class PageDownloadSearchTab {
 
   final _perPage = 200;
   String _lastQuery = '';
+  final _resultRows = Rxn<List<Map<String, dynamic>>>();
+  String _resultTitle = 'SQL results';
   Set<String> _existingVideoCodes = {};
   static const _defaultYearStart = 2000;
   Worker? _preferenceWorker;
 
   Map<String, dynamic> toPreferences() => {
+    if (_resultRows.value != null) 'resultRows': _resultRows.value,
+    if (_resultRows.value != null) 'resultTitle': _resultTitle,
     'pinned': isPinned.value,
     'query': tecSearch.text,
     'havingOnly': havingOnly.value,
@@ -95,6 +99,10 @@ class PageDownloadSearchTab {
   };
 
   void restorePreferences(Map<String, dynamic> value) {
+    if (value['resultRows'] is List) {
+      _resultRows.value = (value['resultRows'] as List).whereType<Map<String, dynamic>>().map((row) => Map<String, dynamic>.from(row)).toList();
+      _resultTitle = value['resultTitle'] is String ? value['resultTitle'] : 'SQL results';
+    }
     isPinned.value = value['pinned'] == true;
     tecSearch.text = value['query'] is String ? PageDownloadCommandEngine.normalizeQuery(value['query']) : '';
     havingOnly.value = value['havingOnly'] == true;
@@ -123,14 +131,14 @@ class PageDownloadSearchTab {
 
   Future<void> restoreSearch() async {
     _lastQuery = tecSearch.text.trim();
-    if (_lastQuery.isEmpty && !_hasAnyFilter()) return;
+    if (_resultRows.value == null && _lastQuery.isEmpty && !_hasAnyFilter()) return;
     await _refreshSearchWithFilters(preserveHaving: true);
   }
 
   Future<void> onRefresh() async {
     if (_closed) return;
     _existingVideoCodes = {};
-    if (_lastQuery.isEmpty && !_hasAnyFilter()) return;
+    if (_resultRows.value == null && _lastQuery.isEmpty && !_hasAnyFilter()) return;
     await _refreshSearchWithFilters(preserveHaving: true);
   }
 
@@ -139,7 +147,7 @@ class PageDownloadSearchTab {
       field.addListener(onChanged);
     }
     _preferenceWorker = everAll([
-      havingOnly, filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax, filter.blacklist, filter.actressMode, filter.onlySeries,
+      _resultRows, havingOnly, filter.isFiltered, filter.categoriesSelected, filter.currentRange, filter.durationMin, filter.durationMax, filter.blacklist, filter.actressMode, filter.onlySeries,
     ], (_) => onChanged());
   }
 
@@ -163,6 +171,7 @@ class PageDownloadSearchTab {
   Future<void> onSearch(String s) async {
     if (_closed) return;
     hideSuggestions();
+    _resultRows.value = null;
     _lastQuery = PageDownloadCommandEngine.normalizeQuery(s);
     if (_lastQuery != s.trim()) tecSearch.text = _lastQuery;
     if (_lastQuery.isNotEmpty && _lastQuery != '/search') unawaited(_recordHistory(_lastQuery));
@@ -253,6 +262,7 @@ class PageDownloadSearchTab {
     if (_closed) return;
     _searchRequest++;
     _query = null;
+    _resultRows.value = null;
     title.value = 'New search';
     error.value = '';
     response.value = KurakuSearch();
@@ -375,8 +385,53 @@ class PageDownloadSearchTab {
     return filter.currentRange.value.end.toInt();
   }
 
+  Future<void> showResultRows(String label, List<Map<String, dynamic>> rows) async {
+    if (_closed) return;
+    _resultTitle = label;
+    _resultRows.value = rows.map((row) => Map<String, dynamic>.from(row)).toList();
+    _lastQuery = '';
+    tecSearch.clear();
+    hideSuggestions();
+    await _refreshSearchWithFilters();
+  }
+
+  Future<void> _loadResultRows({required bool preserveHaving}) async {
+    final request = ++_searchRequest;
+    final rows = _resultRows.value!;
+    _query = null;
+    title.value = _resultTitle;
+    if (!preserveHaving) havingOnly.value = false;
+    hasNextPage.value = false;
+    isLoadingMore.value = false;
+    isLoading.value = true;
+    error.value = '';
+    try {
+      final codes = await loadExistingVideoCodes();
+      if (_closed || request != _searchRequest) return;
+      _existingVideoCodes = codes;
+      final filtered = _filterOnlineRows(rows,
+        videoCode: _filterVideoCode(), actressName: _filterActressName(), categories: _filterCategories(),
+        yearStart: _filterYearStart(), yearEnd: _filterYearEnd(), durationMin: filter.durationMin.value,
+        durationMax: filter.durationMax.value, actressMode: filter.actressMode.value, onlySeries: filter.onlySeries.value);
+      allVideos.assignAll(_toSearchResults(filtered));
+      totalResults.value = allVideos.length;
+      currentPage.value = 1;
+      _applyHavingFilter();
+    } catch (e) {
+      if (_closed || request != _searchRequest) return;
+      error.value = 'Search failed. Please try again.'.tr;
+      AppLog.logE('Loading SQL results failed: $e');
+    } finally {
+      if (!_closed && request == _searchRequest) isLoading.value = false;
+    }
+  }
+
   Future<void> _refreshSearchWithFilters({bool preserveHaving = false}) async {
     if (_closed) return;
+    if (_resultRows.value != null) {
+      await _loadResultRows(preserveHaving: preserveHaving);
+      return;
+    }
     final query = _lastQuery;
     final route = PageDownloadQueryPlanner.decide(
       query: query,
@@ -569,35 +624,7 @@ class PageDownloadSearchTab {
       final currentLoaded = isLoadMore ? allVideos.length : 0;
       final hasMore = isOnlineApi ? apiHasNextPage ?? (apiTotal ?? 0) > currentLoaded + pageItems.length : r18videos.length > _perPage;
 
-      final output = <KurakuSearchResult>[];
-      for (var i = 0; i < pageItems.length; i++) {
-        final videoCode = pageItems[i]['video_code'].toString();
-        if (videoCode.isValidVideoCode() == false) continue;
-        final hasMatch = _existingVideoCodes.contains(videoCode);
-
-        final actresses = (pageItems[i]['actresses'] ?? '').toString().split(RegExp(r',|/')).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-        final categories = pageItems[i]['categories'].toString().split(',').map((e) => e.trim()).toList();
-
-        output.add(
-          KurakuSearchResult(
-            videoId: pageItems[i]['id'],
-            videoCode: pageItems[i]['video_code'],
-            duration: pageItems[i]['duration'],
-            releaseDate: pageItems[i]['release_date'],
-            title: pageItems[i]['title'],
-            fanArt: pageItems[i]['fan_art'].toString().genImageUrl(),
-            poster: pageItems[i]['poster'],
-            trailer: pageItems[i]['trailer'],
-            sourceUrl: pageItems[i]['source_url'],
-            match: hasMatch,
-            isReleased: DateTime.tryParse(pageItems[i]['release_date'] ?? '')?.isBefore(DateTime.now()),
-            actresses: actresses,
-            categories: categories,
-            series: pageItems[i]['series'],
-            actressCount: pageItems[i]['actress_count'],
-          ),
-        );
-      }
+      final output = _toSearchResults(pageItems);
 
       currentPage.value = page;
       hasNextPage.value = hasMore;
@@ -619,6 +646,39 @@ class PageDownloadSearchTab {
     } finally {
       if (!_closed && request == _searchRequest && isLoadMore) isLoadingMore.value = false;
     }
+  }
+
+  List<KurakuSearchResult> _toSearchResults(List<Map<String, dynamic>> pageItems) {
+    final output = <KurakuSearchResult>[];
+    for (var i = 0; i < pageItems.length; i++) {
+      final videoCode = pageItems[i]['video_code'].toString();
+      if (videoCode.isValidVideoCode() == false) continue;
+      final hasMatch = _existingVideoCodes.contains(videoCode);
+
+      final actresses = (pageItems[i]['actresses'] ?? '').toString().split(RegExp(r',|/')).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      final categories = pageItems[i]['categories'].toString().split(',').map((e) => e.trim()).toList();
+
+      output.add(
+        KurakuSearchResult(
+          videoId: pageItems[i]['id'],
+          videoCode: pageItems[i]['video_code'],
+          duration: pageItems[i]['duration'],
+          releaseDate: pageItems[i]['release_date'],
+          title: pageItems[i]['title'],
+          fanArt: pageItems[i]['fan_art'].toString().genImageUrl(),
+          poster: pageItems[i]['poster'],
+          trailer: pageItems[i]['trailer'],
+          sourceUrl: pageItems[i]['source_url'],
+          match: hasMatch,
+          isReleased: DateTime.tryParse(pageItems[i]['release_date'] ?? '')?.isBefore(DateTime.now()),
+          actresses: actresses,
+          categories: categories,
+          series: pageItems[i]['series'],
+          actressCount: pageItems[i]['actress_count'],
+        ),
+      );
+    }
+    return output;
   }
 
   bool _isApiCommand(String query) {

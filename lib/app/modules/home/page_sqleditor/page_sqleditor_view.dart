@@ -244,6 +244,15 @@ class PageSqleditorTabView extends StatelessWidget {
               : '@{resultSource} · @{changed}@{length} rows · @{elapsed_ms} ms@{truncated}'.trNamed({'resultSource': '${controller.resultSource.value}', 'changed': '${result['write'] == true ? '${result['affected_rows']} changed · ' : ''}', 'length': '${rows.length}', 'elapsed_ms': '${result['elapsed_ms']}', 'truncated': '${result['truncated'] == true ? ' · truncated' : ''}'}),
             maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: AppColor.muted))),
           AppIconButton(
+            tooltip: 'Open results in Download'.tr,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+            padding: EdgeInsets.zero,
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedDownload01, size: AppStyle.iconSize),
+            onPressed: controller.downloadRows.isEmpty ? null : controller.openResultsInDownload,
+          ),
+          const SizedBox(width: 4),
+          AppIconButton(
             tooltip: controller.resultsExpanded.value ? 'Restore query editor'.tr : 'Expand results'.tr,
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints(minWidth: 24, minHeight: 24),

@@ -13,6 +13,7 @@ import 'package:kuraku/app/modules/home/home_panel/home_panel_log.dart';
 import 'package:kuraku/app/modules/home/home_panel/home_panel_video_info.dart';
 import 'package:kuraku/app/modules/home/page_home/page_home_controller.dart';
 import 'package:kuraku/app/modules/home/page_search/page_search_controller.dart';
+import 'package:kuraku/app/utils/helper_opener.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:toastification/toastification.dart';
@@ -169,6 +170,27 @@ void main() {
     expect(find.byTooltip('Add to Panel Cart'), findsOneWidget);
     expect(find.byTooltip('Add To Playlist'), findsOneWidget);
     expect(find.byTooltip('Edit Metadata'), findsOneWidget);
+    await cleanup(tester);
+  });
+
+  testWidgets('opener preserves the selected local record without an R18 lookup', (tester) async {
+    await pump(tester);
+    final first = _video()..title = 'First copy';
+    final selected = _video()..id = 'video-2'..title = 'Selected copy'..videoPath = '/missing/selected.mp4';
+    unawaited(HelperOpener.openVideoInfo(selected, items: [first, selected]));
+    await tester.pumpAndSettle();
+    expect(find.text('Selected copy'), findsOneWidget);
+    expect(find.text('First copy'), findsNothing);
+    expect(find.text('Yua Mikami'), findsOneWidget);
+    expect(find.byTooltip('/missing/selected.mp4'), findsWidgets);
+    await cleanup(tester);
+
+    final nonJav = _video()..videoCode = ''..title = 'Personal clip'..videoPath = '/missing/personal.mp4';
+    unawaited(HelperOpener.openVideoInfo(nonJav));
+    await tester.pumpAndSettle();
+    expect(find.text('Personal clip'), findsWidgets);
+    expect(find.text('Yua Mikami'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await cleanup(tester);
   });
 

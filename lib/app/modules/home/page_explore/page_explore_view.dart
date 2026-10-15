@@ -13,6 +13,7 @@ import '../../../data/database/db_r18.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_search_tab_bar.dart';
+import '../../widgets/widget_title_translation.dart';
 import '../../widgets/widgets.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_video_info.dart';
@@ -322,15 +323,19 @@ class PageExploreTabView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              '${controller.currentMenuSelected.value == kCustom ? item.name!.tr : KanaKit().isKana(HelperDecensor.decensor(item.name!.trim())) ? KanaKit().toRomaji(HelperDecensor.decensor(item.name!.trim())) : HelperDecensor.decensor(item.name!.trim())}'
-                  .text
-                  .bold
-                  .size(12)
-                  .ellipsis
-                  .make()
-                  .onInkTap(() {
-                HelperMisc.copyToClipboard(HelperDecensor.decensor(item.name!.trim()), showToast: true);
-              }).pOnly(top: 6, bottom: 6),
+              TitleTranslation(
+                key: ValueKey(item.name),
+                title: item.name ?? '',
+                child: '${controller.currentMenuSelected.value == kCustom ? item.name!.tr : KanaKit().isKana(HelperDecensor.decensor(item.name!.trim())) ? KanaKit().toRomaji(HelperDecensor.decensor(item.name!.trim())) : HelperDecensor.decensor(item.name!.trim())}'
+                    .text
+                    .bold
+                    .size(12)
+                    .ellipsis
+                    .make()
+                    .onInkTap(() {
+                  HelperMisc.copyToClipboard(HelperDecensor.decensor(item.name!.trim()), showToast: true);
+                }).pOnly(top: 6, bottom: 6),
+              ),
               Obx(
                 () => Wrap(spacing: 8, runSpacing: 4, children: [
                   '${kLocal.tr}: ${item.count} (${controller.rightListLocalTotalSize.toFileSizeFormat(decimals: 1).replaceAll(' ', '')})'

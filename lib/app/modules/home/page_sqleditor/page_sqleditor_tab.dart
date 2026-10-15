@@ -12,6 +12,9 @@ import 'package:sql_formatter/sql_formatter.dart' as sql_formatter;
 import '../../../core/app_logging.dart';
 import '../../../core/app_translations.dart';
 import '../../../utils/chat_service.dart';
+import '../../../utils/helper_misc.dart';
+import '../home_controller.dart';
+import '../page_download/page_download_controller.dart';
 
 class PageSqleditorTab extends GetxController {
   
@@ -25,6 +28,54 @@ class PageSqleditorTab extends GetxController {
     SqlSnippetStore? snippetStore,
     this.id = 0,
   }) : snippetStore = snippetStore ?? SqlSnippetStore(savedSnippets ?? {}, persistSnippets);
+
+  List<Map<String, dynamic>> get downloadRows {
+    final data = result.value;
+    if (running.value || data == null || data['write'] == true) return [];
+    final columns = (data['columns'] as List? ?? []).map((column) => '$column'.trim().toLowerCase()).toList();
+    if (!columns.contains('video_code') && !columns.contains('dvd_id')) return [];
+    final output = <Map<String, dynamic>>[];
+    final codes = <String>{};
+    for (final values in (data['rows'] as List? ?? []).whereType<List>()) {
+      final row = <String, dynamic>{for (var i = 0; i < columns.length && i < values.length; i++) columns[i]: values[i]};
+      final code = HelperMisc.resolveVideoCode(
+        videoCode: row['video_code'] is String ? row['video_code'] : null,
+        title: row['dvd_id'] is String ? row['dvd_id'] : null);
+      if (code.isEmpty || !codes.add(code)) continue;
+      final duration = num.tryParse('${row['duration'] ?? row['runtime_mins'] ?? ''}');
+      final sourceUrl = row['source_url'];
+      output.add({
+        'video_code': code,
+        'title': '${row['title'] ?? row['title_en'] ?? row['title_ja'] ?? code}',
+        'poster': '${row['poster'] ?? row['jacket_thumb_url'] ?? ''}',
+        'fan_art': '${row['fan_art'] ?? row['jacket_full_url'] ?? row['poster'] ?? row['jacket_thumb_url'] ?? ''}',
+        'release_date': '${row['release_date'] ?? ''}',
+        'duration': duration != null && duration.isFinite ? duration.toInt() : null,
+        if (sourceUrl is String && sourceUrl.trim().isNotEmpty) 'source_url': sourceUrl.trim(),
+        'trailer': '${row['trailer'] ?? row['sample_url'] ?? ''}',
+        'actresses': '${row['actresses'] ?? ''}',
+        'categories': '${row['categories'] ?? ''}',
+        'series': row['series'] is String ? row['series'] : null,
+        'actress_count': row['actress_count'] is int ? row['actress_count'] : null,
+      });
+    }
+    return output;
+  }
+
+  Future<void> openResultsInDownload() async {
+    final rows = downloadRows;
+    if (isClosed || rows.isEmpty) return;
+    final label = loadedSnippetName ?? 'SQL results'.tr;
+    try {
+      final home = Get.find<HomeController>();
+      await home.onMenuChange(kMenuDownload);
+      if (isClosed || home.currentMenuSelected.value != kMenuDownload) return;
+      await Get.find<PageDownloadController>().openResultRows(label, rows);
+    } catch (e) {
+      AppLog.logE('Opening SQL results in Download failed: $e');
+      if (!isClosed) queryError.value = 'Could not open results in Download. Please retry.'.tr;
+    }
+  }
 
   final int id;
   final isPinned = false.obs;

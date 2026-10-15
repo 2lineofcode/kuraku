@@ -16,6 +16,7 @@ import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_media_stack.dart';
 import '../../widgets/widget_style.dart';
 import '../../widgets/widget_thumbnail.dart';
+import '../../widgets/widget_title_translation.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_video_info.dart';
 import '../page_explore/page_explore_controller.dart';
@@ -191,39 +192,42 @@ class PageToolsView extends GetView<PageToolsController> {
     final code = (item.videoCode ?? '').trim();
     final filename = path.isEmpty ? 'NON-JAV' : p.basename(path);
     final quality = (item.quality ?? '').trim();
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        hoverColor: AppColor.hover,
-        onTap: () => HomePanelVideoInfo.open(item, items: controller.topLargeFileSizeList),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(children: [
-            SizedBox(width: 24, child: Text('${index + 1}', style: TextStyle(fontSize: 11, color: AppColor.muted))),
-            SizedBox(width: 48, height: 60, child: _buildMediaThumbnail(poster: item.poster ?? '', videoPath: path, width: 48, height: 60)),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Tooltip(message: code.isEmpty ? filename : code, child: Text(code.isEmpty ? filename : code, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-              if (code.isNotEmpty) Text(filename, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: AppColor.muted)),
-              const SizedBox(height: 4),
-              Wrap(spacing: 8, runSpacing: 4, children: [
-                Tooltip(message: quality, child: Text(quality.isEmpty ? 'Unknown resolution'.tr : HelperMisc.formatVideoQuality(quality), style: TextStyle(fontSize: 10, color: AppColor.muted))),
-                Text(HelperMisc.isExternalDrive(path) ? 'External drive'.tr : 'Local drive'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted)),
+    return ExVideoContextMenu(videoPath: path, videoCode: item.videoCode,
+      contextMenuIsAllowed: (_) => path.isNotEmpty,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          hoverColor: AppColor.hover,
+          onTap: () => HomePanelVideoInfo.open(item, items: controller.topLargeFileSizeList),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(children: [
+              SizedBox(width: 24, child: Text('${index + 1}', style: TextStyle(fontSize: 11, color: AppColor.muted))),
+              IgnorePointer(child: SizedBox(width: 48, height: 60, child: _buildMediaThumbnail(poster: item.poster ?? '', videoPath: path, width: 48, height: 60))),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Tooltip(message: code.isEmpty ? filename : code, child: Text(code.isEmpty ? filename : code, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                if (code.isNotEmpty) Text(filename, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: AppColor.muted)),
+                const SizedBox(height: 4),
+                Wrap(spacing: 8, runSpacing: 4, children: [
+                  Tooltip(message: quality, child: Text(quality.isEmpty ? 'Unknown resolution'.tr : HelperMisc.formatVideoQuality(quality), style: TextStyle(fontSize: 10, color: AppColor.muted))),
+                  Text(HelperMisc.isExternalDrive(path) ? 'External drive'.tr : 'Local drive'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted)),
+                ]),
+                const SizedBox(height: 4),
+                Tooltip(message: path, child: Text(path, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: AppColor.muted))),
+              ])),
+              const SizedBox(width: 8),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text((item.filesize ?? 0).toFileSizeFormat(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                AppIconButton(
+                  tooltip: 'Open File Path'.tr,
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedFolderOpen, size: AppStyle.iconSize, color: AppColor.muted),
+                  onPressed: path.isEmpty ? null : () => HelperOpener.openFilePath(path),
+                ),
               ]),
-              const SizedBox(height: 4),
-              Tooltip(message: path, child: Text(path, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: AppColor.muted))),
-            ])),
-            const SizedBox(width: 8),
-            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text((item.filesize ?? 0).toFileSizeFormat(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 4),
-              AppIconButton(
-                tooltip: 'Open File Path'.tr,
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedFolderOpen, size: AppStyle.iconSize, color: AppColor.muted),
-                onPressed: path.isEmpty ? null : () => HelperOpener.openFilePath(path),
-              ),
             ]),
-          ]),
+          ),
         ),
       ),
     );
@@ -310,48 +314,54 @@ class PageToolsView extends GetView<PageToolsController> {
     final path = video.videoPath ?? '';
     final available = controller.duplicateFileAvailable[path] == true;
     final poster = (video.poster ?? '').isNotEmpty ? video.poster! : video.fanArt ?? '';
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      ClipRRect(borderRadius: BorderRadius.circular(4), child: SizedBox(width: 56, height: 72,
-        child: poster.isEmpty ? HugeIcon(icon: HugeIcons.strokeRoundedFilm01, size: AppStyle.largeIconSize, color: AppColor.muted) : ExThumbnail(imageUrl: poster, width: 56, height: 72, prefix: 1.9),
+    return ExVideoContextMenu(videoPath: path, videoCode: video.videoCode,
+      child: Material(color: Colors.transparent, child: InkWell(
+        borderRadius: BorderRadius.circular(4),
+        onTap: () => HelperOpener.openVideoInfo(video, items: videos),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          IgnorePointer(child: ClipRRect(borderRadius: BorderRadius.circular(4), child: SizedBox(width: 56, height: 72,
+            child: poster.isEmpty ? HugeIcon(icon: HugeIcons.strokeRoundedFilm01, size: AppStyle.largeIconSize, color: AppColor.muted) : ExThumbnail(imageUrl: poster, width: 56, height: 72, prefix: 1.9),
+          ))),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(p.basename(path), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            Wrap(spacing: 10, runSpacing: 4, children: [
+              Text((video.quality ?? '').isEmpty ? 'Unknown resolution'.tr : HelperMisc.formatVideoQuality(video.quality!), style: TextStyle(fontSize: 11, color: AppColor.muted)),
+              Text((video.filesize ?? 0) > 0 ? video.filesize!.toFileSizeFormat() : 'Unknown size'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted)),
+              if ((video.duration ?? 0) > 0) Text(HelperMisc.durationFormatDB(video.duration!), style: TextStyle(fontSize: 11, color: AppColor.muted)),
+            ]),
+            const SizedBox(height: 6),
+            Text(path, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: AppColor.muted)),
+            const SizedBox(height: 4),
+            Wrap(spacing: 8, runSpacing: 4, children: [
+              Text(HelperMisc.isExternalDrive(path) ? 'External drive'.tr : 'Local drive'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted)),
+              Text(available ? 'Available'.tr : 'Unavailable'.tr, style: TextStyle(fontSize: 10, color: available ? AppColor.muted : Colors.orange)),
+            ]),
+          ])),
+          const SizedBox(width: 4),
+          Column(mainAxisSize: MainAxisSize.min, children: [
+            AppIconButton(tooltip: 'Open Info'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: AppStyle.iconSize),
+              style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+              onPressed: () => HomePanelVideoInfo.open(video, items: videos),
+            ),
+            AppIconButton(tooltip: 'Open File Path'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedFolderOpen, size: AppStyle.iconSize),
+              style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+              onPressed: available ? () => HelperOpener.openFilePath(path) : null,
+            ),
+            if (Get.isRegistered<HomeController>()) Obx(() {
+              final home = Get.find<HomeController>();
+              final added = home.isInCart(video);
+              return AppIconButton(tooltip: added ? 'Already in panel cart'.tr : 'Add to Panel Cart'.tr,
+                icon: HugeIcon(icon: added ? HugeIcons.strokeRoundedTick02 : HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
+                style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                onPressed: added ? null : () => home.addToCart(video),
+              );
+            }),
+          ]),
+        ]),
       )),
-      const SizedBox(width: 10),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(p.basename(path), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        Wrap(spacing: 10, runSpacing: 4, children: [
-          Text((video.quality ?? '').isEmpty ? 'Unknown resolution'.tr : HelperMisc.formatVideoQuality(video.quality!), style: TextStyle(fontSize: 11, color: AppColor.muted)),
-          Text((video.filesize ?? 0) > 0 ? video.filesize!.toFileSizeFormat() : 'Unknown size'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted)),
-          if ((video.duration ?? 0) > 0) Text(HelperMisc.durationFormatDB(video.duration!), style: TextStyle(fontSize: 11, color: AppColor.muted)),
-        ]),
-        const SizedBox(height: 6),
-        Text(path, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: AppColor.muted)),
-        const SizedBox(height: 4),
-        Wrap(spacing: 8, runSpacing: 4, children: [
-          Text(HelperMisc.isExternalDrive(path) ? 'External drive'.tr : 'Local drive'.tr, style: TextStyle(fontSize: 10, color: AppColor.muted)),
-          Text(available ? 'Available'.tr : 'Unavailable'.tr, style: TextStyle(fontSize: 10, color: available ? AppColor.muted : Colors.orange)),
-        ]),
-      ])),
-      const SizedBox(width: 4),
-      Column(mainAxisSize: MainAxisSize.min, children: [
-        AppIconButton(tooltip: 'Open Info'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: AppStyle.iconSize),
-          style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-          onPressed: () => HomePanelVideoInfo.open(video, items: videos),
-        ),
-        AppIconButton(tooltip: 'Open File Path'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedFolderOpen, size: AppStyle.iconSize),
-          style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-          onPressed: available ? () => HelperOpener.openFilePath(path) : null,
-        ),
-        if (Get.isRegistered<HomeController>()) Obx(() {
-          final home = Get.find<HomeController>();
-          final added = home.isInCart(video);
-          return AppIconButton(tooltip: added ? 'Already in panel cart'.tr : 'Add to Panel Cart'.tr,
-            icon: HugeIcon(icon: added ? HugeIcons.strokeRoundedTick02 : HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),
-            style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-            onPressed: added ? null : () => home.addToCart(video),
-          );
-        }),
-      ]),
-    ]);
+    );
   }
 
   Widget uiTODO() => Obx(() {
@@ -624,7 +634,11 @@ class PageToolsView extends GetView<PageToolsController> {
             // header
             HStack([
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(HelperDecensor.decensor(controller.leftListSelected.value), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                TitleTranslation(
+                  key: ValueKey(controller.leftListSelectedId.value),
+                  title: controller.leftListSelected.value,
+                  child: Text(HelperDecensor.decensor(controller.leftListSelected.value), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                ),
                 Text('@{length} of @{length2} videos'.trNamed({'length': '${controller.rightListFiltered.length}', 'length2': '${controller.rightList.length}'}), style: TextStyle(fontSize: 10, color: AppColor.muted)),
               ])),
               if (controller.hasAdvancedFilters) AppButton(
@@ -636,7 +650,7 @@ class PageToolsView extends GetView<PageToolsController> {
               Obx(
                 () => ZStack([
                   AppIconButton(
-                    tooltip: 'More filters: video code, year and duration'.tr,
+                    tooltip: 'More filters: video code, categories, year and duration'.tr,
                     icon: HugeIcon(
                       icon: HugeIcons.strokeRoundedFilter,
                       size: AppStyle.iconSize,

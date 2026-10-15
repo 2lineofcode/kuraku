@@ -614,7 +614,6 @@ class PageToolsController extends GetxController with StateMixin {
       allVideos: rightList.toList(),
       videos: rightListFiltered,
       adapter: _filterAdapter,
-      showCategories: false,
       showActressName: false,
       applyLocalFilter: false,
       onReset: applyAdvancedFilters,

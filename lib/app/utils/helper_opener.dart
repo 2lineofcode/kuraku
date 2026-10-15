@@ -144,6 +144,10 @@ mixin HelperOpener {
   }
 
   static Future<void> openVideoInfo(dynamic item, {List<dynamic>? items}) async {
+    if (item is Videos) {
+      await HomePanelVideoInfo.open(item, items: items);
+      return;
+    }
     final source = List<dynamic>.of(items ?? [item]);
     final itemIndex = screenshotItemIndex(item, source);
     Map<String, dynamic>? dataVideo;

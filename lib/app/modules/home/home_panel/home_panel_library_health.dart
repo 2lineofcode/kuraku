@@ -16,6 +16,7 @@ import '../../../utils/helper_opener.dart';
 import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_style.dart';
 import '../../widgets/widget_surfaces.dart';
+import '../../widgets/widget_thumbnail.dart';
 
 class LibraryHealthDialog extends StatefulWidget {
   const LibraryHealthDialog({super.key, required this.check, this.openVideoInfo = HelperOpener.openVideoInfo});
@@ -29,6 +30,7 @@ class LibraryHealthDialog extends StatefulWidget {
 
 class _LibraryHealthDialogState extends State<LibraryHealthDialog> {
   final _scroll = ScrollController();
+  final _videos = <String, Future<Videos?>>{};
   LibraryHealthStatus? _selected;
   String _query = '', _copiedPath = '';
   String? _openError;
@@ -63,7 +65,7 @@ class _LibraryHealthDialogState extends State<LibraryHealthDialog> {
     _ => AppColor.accentForeground,
   };
 
-  Future<void> _openMetadata(String path) async {
+  Future<void> _openVideoInfo(String path) async {
     if (_opening) return;
     setState(() { _opening = true; _openError = null; });
     Videos? video;
@@ -153,11 +155,31 @@ class _LibraryHealthDialogState extends State<LibraryHealthDialog> {
             separatorBuilder: (_, _) => Divider(height: 20, thickness: .5, color: AppColor.border),
             itemBuilder: (_, index) {
               final issue = visible[index];
-              return Material(color: Colors.transparent, child: InkWell(
+              final isVideo = issue.status != LibraryHealthStatus.offlineDrive && issue.path.isNotEmpty
+                && !issue.details.contains('Library folder');
+              final row = Material(color: Colors.transparent, child: InkWell(
                 borderRadius: BorderRadius.circular(AppStyle.radius),
-                onTap: issue.status == LibraryHealthStatus.incompleteMetadata && issue.path.isNotEmpty && !_opening
-                  ? () => _openMetadata(issue.path) : null,
+                onTap: isVideo && !_opening
+                  ? () => _openVideoInfo(issue.path) : null,
                 child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (isVideo)
+                  Padding(padding: const EdgeInsets.only(right: 10), child: IgnorePointer(child: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppStyle.radius),
+                    child: FutureBuilder<Videos?>(
+                      key: ValueKey(issue.path),
+                      future: _videos.putIfAbsent(issue.path, () => DBVideos.getByVideoPath(issue.path)),
+                      builder: (_, snapshot) {
+                        if (snapshot.connectionState != ConnectionState.done) {
+                          return const SizedBox(width: 64, height: 80, child: Center(child: CupertinoActivityIndicator()));
+                        }
+                        final video = snapshot.data;
+                        final poster = (video?.poster ?? '').trim();
+                        return ExThumbnail(imageUrl: poster.isNotEmpty ? poster : video?.fanArt ?? '',
+                          videoPath: issue.path, videoCode: video?.videoCode, width: 64, height: 80, prefix: 1.9);
+                      },
+                    ),
+                  )))
+                else
                 Padding(padding: const EdgeInsets.only(top: 2, right: 10),
                   child: HugeIcon(icon: issue.status == LibraryHealthStatus.offlineDrive
                     ? HugeIcons.strokeRoundedFolder01 : HugeIcons.strokeRoundedFile01,
@@ -188,6 +210,7 @@ class _LibraryHealthDialogState extends State<LibraryHealthDialog> {
                   },
                 ),
               ])));
+              return isVideo ? ExVideoContextMenu(videoPath: issue.path, child: row) : row;
             },
           ))),
     ]);

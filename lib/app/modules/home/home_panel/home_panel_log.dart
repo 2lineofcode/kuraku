@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
@@ -7,10 +8,10 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:overlayment/overlayment.dart';
 
 import '../../../core/app_color.dart';
-import '../../../core/const.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_style.dart';
+import '../home_controller.dart';
 
 mixin HomePanelAppLog {
 
@@ -27,7 +28,7 @@ mixin HomePanelAppLog {
       context: Get.context,
       OverWindow(
         canMove: true,
-        position: Offset(50, 50),
+        position: const Offset(16, 16),
         color: AppColor.panel,
         actions: OverlayActions(
           onOpen: () async {
@@ -38,59 +39,83 @@ mixin HomePanelAppLog {
             });
           },
         ),
-        child: VStack(
-          [
-            HStack([
-              'APP LOG'.tr.text.bold.make().expand(),
-              AppIconButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize),
-                tooltip: 'Close'.tr,
-                onPressed: () => Overlayment.dismissLast(),
-              )
-            ]).pOnly(bottom: 12),
-
-            Obx(
-              () => ListView.separated(
-                itemCount: _appLogRuntime.length,
-                separatorBuilder: (context, index) => Divider(color: AppColor.border),
-                itemBuilder: (context, index) {
-                  final item = _appLogRuntime[index];
-
-                  var tColor = AppColor.text;
-                  if (item.type?.toLowerCase() == 'error') tColor = Vx.red400;
-                  else if (item.type?.toLowerCase() == 'warning') tColor = Vx.yellow400;
-                  else if (item.type?.toLowerCase() == 'info') tColor = Vx.blue400;
-                  else if (item.type?.toLowerCase() == 'debug') tColor = Vx.gray400;
-                  else tColor = AppColor.success;
-
-                  return HStack(
-                    [
-                      // icon
-                      HugeIcon(icon: HugeIcons.strokeRoundedCircle, size: AppStyle.smallIconSize).pOnly(right: 12),
-                      VStack([
-                        HStack([
-                          '${item.createdAt?.reformatDate(to: kHms)}'.text.gray400.size(9).minFontSize(10).make().expand(),
-                          '${item.type}'.text.color(tColor).size(9).minFontSize(10).make(),
-                        ]),
-                        '${item.content}'.text.size(11).minFontSize(12).make().onTap((){
-                          HelperMisc.copyToClipboard(item.content);
-                        }),
-                      ]).expand(),
-                    ],
+        child: Builder(builder: (context) {
+          AppColor.dependOn(context);
+          final size = MediaQuery.sizeOf(context);
+          final dark = Theme.of(context).brightness == Brightness.dark;
+          return SizedBox(
+            width: math.min(400, size.width - 32),
+            height: math.min(400, size.height - 32),
+            child: Material(color: AppColor.panel, child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Row(children: [
+                  Text('APP LOG'.tr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Obx(() => Text('${_appLogRuntime.length}',
+                    style: TextStyle(fontSize: 11, color: AppColor.muted)))),
+                  AppIconButton(
+                    tooltip: 'Close'.tr,
+                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize),
+                    onPressed: () => Overlayment.dismissLast(),
+                  ),
+                ]),
+                Divider(height: 16, thickness: .5, color: AppColor.border),
+                Expanded(child: Obx(() {
+                  if (_appLogRuntime.isEmpty) return Center(child: Text('No app logs'.tr,
+                    style: TextStyle(fontSize: 12, color: AppColor.muted)));
+                  return ListView.separated(
+                    itemCount: _appLogRuntime.length,
+                    separatorBuilder: (_, _) => Divider(height: 1, thickness: .5, color: AppColor.border),
+                    itemBuilder: (_, index) {
+                      final item = _appLogRuntime[index];
+                      final level = item.type?.toUpperCase() == 'WARNING' ? 'WARN' : (item.type ?? '-').toUpperCase();
+                      final color = switch (level) {
+                        'DEBUG' => dark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
+                        'WARN' => dark ? const Color(0xFFFCD34D) : const Color(0xFF92400E),
+                        'ERROR' => Theme.of(context).colorScheme.error,
+                        'INFO' || 'OK' || 'SUCCESS' => AppColor.success,
+                        _ => AppColor.muted,
+                      };
+                      final date = DateTime.tryParse(item.createdAt ?? '');
+                      final time = date == null ? item.createdAt ?? '-' :
+                        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')}';
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(AppStyle.radius),
+                        onTap: () => HelperMisc.copyToClipboard(item.content ?? ''),
+                        child: Padding(padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Row(children: [
+                              Expanded(child: Text(time, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 10, color: AppColor.muted))),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: color.withValues(alpha: .1), borderRadius: BorderRadius.circular(4)),
+                                child: Text(level, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+                              ),
+                            ]),
+                            const SizedBox(height: 4),
+                            Tooltip(message: item.content ?? '', child: Text(item.content ?? '-',
+                              maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, height: 1.35, color: AppColor.text))),
+                          ])),
+                      );
+                    },
                   );
-                },
-              ).expand(),
-            ),
-
-            // Spacer(),
-            AppButton(
-              label: 'Clear'.tr,
-              height: 32,
-              width: double.infinity,
-              onPressed: () => clear(),
-            ),
-          ],
-        ).p12().wh(300, 300),
+                })),
+                Divider(height: 16, thickness: .5, color: AppColor.border),
+                Row(children: [
+                  Obx(() => AppButton(label: 'Clear'.tr, height: 30,
+                    onPressed: _appLogRuntime.isEmpty ? null : clear)),
+                  const Spacer(),
+                  AppButton(label: 'Open all'.tr, height: 30, variant: AppButtonVariant.tonal, onPressed: () async {
+                    await Overlayment.dismissLast();
+                    await Get.find<HomeController>().onOpenSettingsAppLog();
+                  }),
+                ]),
+              ]),
+            )),
+          );
+        }),
       ),
     );
   }

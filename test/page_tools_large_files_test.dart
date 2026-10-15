@@ -20,7 +20,9 @@ import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
 import 'package:kuraku/app/modules/home/page_tools/page_tools_view.dart';
 import 'package:kuraku/app/modules/widgets/widget_controls.dart';
 import 'package:kuraku/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/modules/widgets/widget_thumbnail.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:super_context_menu/super_context_menu.dart' as scm;
 
 class _Preferences implements GetSecureStorage {
   @override
@@ -44,6 +46,9 @@ class _Database implements Database {
   final filters = <String?>[];
   @override
   Future<List<Map<String, Object?>>> query(String table, {bool? distinct, List<String>? columns, String? where, List<Object?>? whereArgs, String? groupBy, String? having, String? orderBy, int? limit, int? offset}) {
+    if (where == 'video_path = ? AND is_deleted = 0') {
+      return Future.value([{'video_path': whereArgs!.single, 'is_favorite': 0}]);
+    }
     expect(orderBy, 'filesize DESC');
     expect(limit, 200);
     filters.add(where);
@@ -134,6 +139,10 @@ void main() {
           expect(find.text('ABC-001'), findsOneWidget);
           expect(find.text('ABC-001-long-filename.mp4'), findsOneWidget);
           expect(find.text('4K'), findsOneWidget);
+          final rowMenu = tester.widgetList<ExVideoContextMenu>(find.byType(ExVideoContextMenu))
+            .firstWhere((menu) => menu.child is Material);
+          expect(rowMenu.videoPath, controller.topLargeFileSizeList.first.videoPath);
+          expect(rowMenu.videoCode, 'ABC-001');
           expect(find.text('null'), findsNothing);
           final folders = tester.widgetList<IconButton>(find.byType(IconButton)).where((button) => button.tooltip == 'Open File Path'.tr).toList();
           expect(folders.first.onPressed, isNotNull);
@@ -148,6 +157,14 @@ void main() {
         }
       }
     }
+    final notifier = ValueNotifier<scm.MenuResult?>(null);
+    final menuWidget = tester.widget<scm.ContextMenuWidget>(find.byType(scm.ContextMenuWidget).first);
+    final menu = await menuWidget.menuProvider(scm.MenuRequest(
+      onShowMenu: notifier, onHideMenu: notifier, onPreviewAction: notifier, location: Offset.zero));
+    notifier.dispose();
+    expect(menu!.children.map((item) => item is scm.MenuSeparator ? '---' : item.title),
+      ['Play'.tr, 'Add to Panel Cart'.tr, '---', 'Add To Favorite'.tr, 'Add to Playlist'.tr,
+        '---', 'Edit Metadata'.tr, 'Refresh Metadata'.tr, 'Open File Path'.tr]);
     controller.topLargeFileSizeList.clear();
     await tester.pumpAndSettle();
     expect(find.text('No files with a recorded size in this location.'.tr), findsOneWidget);

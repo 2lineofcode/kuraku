@@ -349,6 +349,107 @@ class _ExThumbnailState extends State<ExThumbnail> {
         : Get.put(_ExThumbnailC(), permanent: true);
   }
 
+  @override
+  Widget build(BuildContext context) {
+    AppColor.dependOn(context);
+    final iconSize = (widget.iconSize ?? AppStyle.emptyIconSize).clamp(0.0, max(0.0, min(widget.width, widget.height))).toDouble();
+    final cacheWidth = (widget.width * MediaQuery.devicePixelRatioOf(context)).round();
+    Widget child;
+    if ((widget.imageUrl ?? '').trim().isEmpty) {
+      child = FutureBuilder<Uint8List?>(
+        future: controller.getThumbnail(widget.videoPath ?? '', position: widget.position),
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            if (snap.hasData && snap.data != null) {
+              return Image.memory(
+                snap.data!,
+                fit: widget.fitMemory,
+                width: widget.width,
+                height: widget.height,
+                cacheWidth: cacheWidth,
+              );
+            }
+            return HugeIcon(icon: HugeIcons.strokeRoundedLoading03, size: iconSize).centered().wh(widget.width, widget.height).color(AppColor.selected);
+          }
+          return (snap.hasData && snap.data != null)
+              ? Image.memory(
+                  snap.data!,
+                  fit: widget.fitMemory,
+                  width: widget.width,
+                  height: widget.height,
+                  cacheWidth: cacheWidth,
+                )
+              : HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: iconSize).centered().wh(widget.width, widget.height).color(AppColor.selected);
+        },
+      );
+    } else {
+      final fixImageUrl = widget.imageUrl!.trim();
+
+      final double fastImageRenderWidth = widget.width * (widget.prefix ?? 1);
+      child = CachedNetworkImage(
+          key: Key(widget.withProxy == true ? '${fixImageUrl.genImageUrl()}' : '$fixImageUrl'),
+          imageUrl: widget.withProxy == true ? '${fixImageUrl.genImageUrl()}' : '$fixImageUrl',
+          fit: widget.fitUrl,
+          width: widget.width,
+          height: widget.height,
+          imageBuilder: (context, imageProvider) => OverflowBox(
+            alignment: Alignment.centerRight,
+            maxWidth: fastImageRenderWidth,
+            maxHeight: widget.height,
+            child: Image(image: imageProvider, fit: widget.fitUrl, width: fastImageRenderWidth, height: widget.height),
+          ),
+          memCacheWidth: (fastImageRenderWidth * MediaQuery.devicePixelRatioOf(context)).round(),
+          fadeInDuration: 300.milliseconds,
+          cacheManager: CacheManager(
+            Config(
+              'net_thumbnail',
+              stalePeriod: 365.days,
+              maxNrOfCacheObjects: (pow(2, 63) - 1).toInt(),
+              repo: CacheObjectProvider(
+                databaseName: 'net_thumbnail',
+                path: p.join(Get.find<AppSettingService>().appPath, 'net_thumbnail'),
+              ),
+            ),
+          ),
+          progressIndicatorBuilder: (c, url, progress) => Stack(children: [
+            Container(width: widget.width, height: widget.height, color: AppColor.hover).shimmer(primaryColor: AppColor.hover, secondaryColor: AppColor.container),
+            if (progress.progress != null) ' ${(progress.progress! * 100).toDoubleStringAsFixed(digit: 0)}%'.text.xs.align(TextAlign.center).makeCentered(),
+          ]),
+          errorWidget: (c, e, s) => HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: iconSize).centered().wh(widget.width, widget.height).color(AppColor.selected),
+      ).wh(widget.width, widget.height).color(widget.backdropColor ?? AppColor.container);
+    }
+
+    return ExVideoContextMenu(
+      imageUrl: widget.imageUrl,
+      videoPath: widget.videoPath,
+      videoCode: widget.videoCode,
+      contextMenuIsAllowed: widget.contextMenuIsAllowed,
+      onDownload: widget.onDownload,
+      screenshotItems: widget.screenshotItems,
+      screenshotItemIndex: widget.screenshotItemIndex,
+      child: child,
+    );
+  }
+}
+
+class ExVideoContextMenu extends StatefulWidget {
+  const ExVideoContextMenu({super.key, required this.child, this.imageUrl, this.videoPath, this.videoCode,
+    this.contextMenuIsAllowed, this.onDownload, this.screenshotItems, this.screenshotItemIndex});
+
+  final Widget child;
+  final String? imageUrl;
+  final String? videoPath;
+  final String? videoCode;
+  final scm.ContextMenuIsAllowed? contextMenuIsAllowed;
+  final VoidCallback? onDownload;
+  final List<dynamic>? screenshotItems;
+  final int? screenshotItemIndex;
+
+  @override
+  State<ExVideoContextMenu> createState() => _ExVideoContextMenuState();
+}
+
+class _ExVideoContextMenuState extends State<ExVideoContextMenu> {
   String _deriveVideoCode() {
     final fromWidget = HelperMisc.resolveVideoCode(videoCode: widget.videoCode, videoPath: widget.videoPath);
     if (fromWidget.isNotEmpty) return fromWidget;
@@ -585,80 +686,10 @@ class _ExThumbnailState extends State<ExThumbnail> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    AppColor.dependOn(context);
-    final iconSize = (widget.iconSize ?? AppStyle.emptyIconSize).clamp(0.0, max(0.0, min(widget.width, widget.height))).toDouble();
-    final cacheWidth = (widget.width * MediaQuery.devicePixelRatioOf(context)).round();
-    Widget child;
-    if ((widget.imageUrl ?? '').trim().isEmpty) {
-      child = FutureBuilder<Uint8List?>(
-        future: controller.getThumbnail(widget.videoPath ?? '', position: widget.position),
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            if (snap.hasData && snap.data != null) {
-              return Image.memory(
-                snap.data!,
-                fit: widget.fitMemory,
-                width: widget.width,
-                height: widget.height,
-                cacheWidth: cacheWidth,
-              );
-            }
-            return HugeIcon(icon: HugeIcons.strokeRoundedLoading03, size: iconSize).centered().wh(widget.width, widget.height).color(AppColor.selected);
-          }
-          return (snap.hasData && snap.data != null)
-              ? Image.memory(
-                  snap.data!,
-                  fit: widget.fitMemory,
-                  width: widget.width,
-                  height: widget.height,
-                  cacheWidth: cacheWidth,
-                )
-              : HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: iconSize).centered().wh(widget.width, widget.height).color(AppColor.selected);
-        },
-      );
-    } else {
-      final fixImageUrl = widget.imageUrl!.trim();
-
-      final double fastImageRenderWidth = widget.width * (widget.prefix ?? 1);
-      child = CachedNetworkImage(
-          key: Key(widget.withProxy == true ? '${fixImageUrl.genImageUrl()}' : '$fixImageUrl'),
-          imageUrl: widget.withProxy == true ? '${fixImageUrl.genImageUrl()}' : '$fixImageUrl',
-          fit: widget.fitUrl,
-          width: widget.width,
-          height: widget.height,
-          imageBuilder: (context, imageProvider) => OverflowBox(
-            alignment: Alignment.centerRight,
-            maxWidth: fastImageRenderWidth,
-            maxHeight: widget.height,
-            child: Image(image: imageProvider, fit: widget.fitUrl, width: fastImageRenderWidth, height: widget.height),
-          ),
-          memCacheWidth: (fastImageRenderWidth * MediaQuery.devicePixelRatioOf(context)).round(),
-          fadeInDuration: 300.milliseconds,
-          cacheManager: CacheManager(
-            Config(
-              'net_thumbnail',
-              stalePeriod: 365.days,
-              maxNrOfCacheObjects: (pow(2, 63) - 1).toInt(),
-              repo: CacheObjectProvider(
-                databaseName: 'net_thumbnail',
-                path: p.join(Get.find<AppSettingService>().appPath, 'net_thumbnail'),
-              ),
-            ),
-          ),
-          progressIndicatorBuilder: (c, url, progress) => Stack(children: [
-            Container(width: widget.width, height: widget.height, color: AppColor.hover).shimmer(primaryColor: AppColor.hover, secondaryColor: AppColor.container),
-            if (progress.progress != null) ' ${(progress.progress! * 100).toDoubleStringAsFixed(digit: 0)}%'.text.xs.align(TextAlign.center).makeCentered(),
-          ]),
-          errorWidget: (c, e, s) => HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: iconSize).centered().wh(widget.width, widget.height).color(AppColor.selected),
-      ).wh(widget.width, widget.height).color(widget.backdropColor ?? AppColor.container);
-    }
-
-    return scm.ContextMenuWidget(
-      hitTestBehavior: HitTestBehavior.opaque,
-      menuProvider: (_) => _buildContextMenu(),
-      contextMenuIsAllowed: widget.contextMenuIsAllowed ?? (_) => true,
-      child: child,
-    );
-  }
+  Widget build(BuildContext context) => scm.ContextMenuWidget(
+    hitTestBehavior: HitTestBehavior.opaque,
+    menuProvider: (_) => _buildContextMenu(),
+    contextMenuIsAllowed: widget.contextMenuIsAllowed ?? (_) => true,
+    child: widget.child,
+  );
 }

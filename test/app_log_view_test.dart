@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,11 +8,13 @@ import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
 import 'package:kuraku/app/core/app_setting.dart';
 import 'package:kuraku/app/core/app_translations.dart';
+import 'package:kuraku/app/modules/home/home_controller.dart';
 import 'package:kuraku/app/modules/home/home_panel/home_panel_log.dart';
 import 'package:kuraku/app/modules/home/page_settings/page_settings_controller.dart';
 import 'package:kuraku/app/modules/home/page_settings/page_settings_view.dart';
 import 'package:kuraku/app/modules/widgets/widget_controls.dart';
 import 'package:kuraku/app/modules/widgets/widget_style.dart';
+import 'package:overlayment/overlayment.dart';
 import 'package:toastification/toastification.dart';
 
 class _Preferences implements GetSecureStorage {
@@ -29,7 +33,85 @@ class _Settings extends PageSettingsController {
   Future<void> onRefreshStorage() async {}
 }
 
+class _Home extends HomeController {
+  @override
+  // ignore: must_call_super
+  Future<void> onInit() async {}
+  @override
+  void onReady() {}
+  @override
+  void onClose() { tecTopNavSearch.dispose(); fnTopNavSearch.dispose(); }
+}
+
 void main() {
+  testWidgets('floating logs stay compact, copy full messages and open all logs in Settings', (tester) async {
+    Get.testMode = true;
+    final settings = Get.put(AppSettingService()..pref = _Preferences());
+    final controller = Get.put<PageSettingsController>(_Settings());
+    final home = Get.put<HomeController>(_Home());
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(() { controller.onClose(); settings.onClose(); HomePanelAppLog.clear(); Get.reset(); Get.clearTranslations(); });
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String;
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    final message = List.filled(20, 'A long warning about a missing file.').join(' ');
+    for (final language in ['en', 'id']) {
+      for (final brightness in Brightness.values) {
+        for (final width in [900.0, 320.0]) {
+          tester.view.physicalSize = Size(width, 600);
+          HomePanelAppLog.appLogRuntime.assignAll([
+            AppLogRuntime(type: 'WARNING', content: message, createdAt: '2026-10-15 12:00:00'),
+            ...List.generate(100, (i) => AppLogRuntime(type: 'DEBUG', content: 'Entry $i', createdAt: 'invalid-date')),
+          ]);
+          await tester.pumpWidget(GetMaterialApp(theme: AppStyle.theme(brightness),
+            translations: AppTranslations(), locale: Locale(language), home: const Scaffold(body: Text('Home'))));
+          await tester.pumpAndSettle();
+          unawaited(HomePanelAppLog.open());
+          await tester.pumpAndSettle();
+          expect(Overlayment.count, 1);
+          expect(find.text('WARN'), findsOneWidget);
+          expect(tester.widget<Text>(find.text(message)).maxLines, 3);
+          await tester.tap(find.text(message));
+          await tester.pumpAndSettle();
+          expect(copied, message);
+          await tester.scrollUntilVisible(find.text('Entry 99'), 200, scrollable: find.byType(Scrollable).last);
+          expect(find.text('Clear'.tr).hitTestable(), findsOneWidget);
+          expect(find.text('Open all'.tr).hitTestable(), findsOneWidget);
+          expect(tester.takeException(), isNull);
+          await tester.tap(find.text('Clear'.tr));
+          await tester.pumpAndSettle();
+          expect(find.text('No app logs'.tr), findsOneWidget);
+          expect(HomePanelAppLog.appLogRuntime, isEmpty);
+          await HomePanelAppLog.add('INFO', 'Live message');
+          await tester.pumpAndSettle();
+          expect(find.text('Live message'), findsOneWidget);
+          await tester.tap(find.byTooltip('Close'.tr));
+          await tester.pumpAndSettle();
+          expect(Overlayment.count, 0);
+        }
+      }
+    }
+    controller.appLogLevelSelected.value = 'ERROR';
+    controller.appLogKeyword.value = 'old filter';
+    unawaited(HomePanelAppLog.open());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open all'.tr));
+    await tester.pumpAndSettle();
+    expect(Overlayment.count, 0);
+    expect(home.currentMenuSelected.value, kMenuSetting);
+    expect(controller.appLogMode.value, isTrue);
+    expect(controller.appLogLevelSelected.value, 'ALL');
+    expect(controller.appLogKeyword.value, isEmpty);
+    expect(HomePanelAppLog.appLogRuntime.single.content, 'Live message');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('app logs adapt, filter, copy, update live and keep toolbar visible while scrolling', (tester) async {
     Get.testMode = true;
     final settings = Get.put(AppSettingService()..pref = _Preferences());

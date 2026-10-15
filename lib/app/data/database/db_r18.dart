@@ -504,12 +504,17 @@ mixin DBR18 {
     final index = switch (kind) {
       'Series' => 'idx_dv_advanced_codes', 'Year' => 'idx_dv_advanced_year', _ => 'idx_dv_advanced_content',
     };
-    return _browseQuery('''
+    final videos = await _browseQuery('''
       SELECT v.rowid AS video_rowid, MAX(date(v.release_date)) AS release_date
       FROM derived_video v INDEXED BY $index ${group.join}
       WHERE $_advancedVideos AND ${group.id} = ?
       GROUP BY v.video_code ORDER BY date(v.release_date) DESC, v.video_code
     ''', [id], ignoreEmptyTitle: true);
+    final categories = await getCategoriesByVideoCodes(videos.map((video) => '${video['video_code']}').toList());
+    return [for (final video in videos) {
+      ...video,
+      'categories': categories[video['video_code']] ?? <String>[],
+    }];
   }
 
   static Future<List<Map<String, dynamic>>> getAllActress({String? q}) async {

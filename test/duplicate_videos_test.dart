@@ -16,7 +16,9 @@ import 'package:kuraku/app/data/models/videos_entity.dart';
 import 'package:kuraku/app/modules/home/home_controller.dart';
 import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
 import 'package:kuraku/app/modules/home/page_tools/page_tools_view.dart';
+import 'package:kuraku/app/modules/widgets/widget_thumbnail.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:super_context_menu/super_context_menu.dart' as scm;
 
 class _Service extends DBService {
   @override
@@ -166,6 +168,12 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('ABC-001_1080p.mp4'), findsOneWidget);
           expect(find.text('ABC-001_720p.mp4'), findsOneWidget);
+          final menus = tester.widgetList<ExVideoContextMenu>(find.byType(ExVideoContextMenu)).toList();
+          expect(menus.map((menu) => menu.videoPath), controller.duplicateGroups.single.map((video) => video.videoPath));
+          for (final filename in ['ABC-001_1080p.mp4', 'ABC-001_720p.mp4']) {
+            final row = find.ancestor(of: find.text(filename), matching: find.byType(InkWell));
+            expect(tester.widget<InkWell>(row).onTap, isNotNull);
+          }
           expect(find.text(language == 'id' ? 'Video Sama' : 'Same Video'), findsOneWidget);
           final folders = tester.widgetList<IconButton>(find.byType(IconButton)).where((button) => button.tooltip == 'Open File Path'.tr).toList();
           expect(folders.first.onPressed, isNotNull);
@@ -180,6 +188,16 @@ void main() {
         }
       }
     }
+    final database = _Database()..rows = [controller.duplicateGroups.single.first.toJson()];
+    Get.put<DBService>(_Service()..dbMain = database);
+    final notifier = ValueNotifier<scm.MenuResult?>(null);
+    final menuWidget = tester.widget<scm.ContextMenuWidget>(find.byType(scm.ContextMenuWidget).first);
+    final menu = await menuWidget.menuProvider(scm.MenuRequest(
+      onShowMenu: notifier, onHideMenu: notifier, onPreviewAction: notifier, location: Offset.zero));
+    notifier.dispose();
+    expect(menu!.children.map((item) => item is scm.MenuSeparator ? '---' : item.title),
+      ['Play'.tr, 'Add to Panel Cart'.tr, '---', 'Add To Favorite'.tr, 'Add to Playlist'.tr,
+        '---', 'Edit Metadata'.tr, 'Refresh Metadata'.tr, 'Open File Path'.tr]);
     controller.duplicateQuery.value = '1080';
     await tester.pumpAndSettle();
     expect(find.text('ABC-001_720p.mp4'), findsOneWidget);

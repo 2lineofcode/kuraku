@@ -271,39 +271,41 @@ class PageSearchTabView extends StatelessWidget {
     return ListView.separated(
       key: PageStorageKey('search-list-${controller.id}-${controller.searchRevision}'),
       controller: controller.scrollGridController,
-      padding: EdgeInsets.all(8),
+      padding: const EdgeInsets.all(6),
       itemCount: controller.videos.length,
-      separatorBuilder: (context, index) => SizedBox(height: 8),
+      separatorBuilder: (context, index) => const SizedBox(height: 4),
       itemBuilder: (context, index) {
         final video = controller.videos[index];
         final actresses = (video.actress ?? []).map((item) => item.nameRomaji ?? '').where((name) => name.isNotEmpty).join(', ');
         final details = [
           if (video.quality.isNotEmptyAndNotNull) HelperMisc.formatVideoQuality(video.quality ?? ''),
           if (video.filesize != null) video.filesize!.toFileSizeFormat(),
+          if (video.releaseDate.isNotEmptyAndNotNull) video.releaseDate!.reformatDate(from: kYMd, to: kMdY),
           '@{viewCount} views'.trNamed({'viewCount': '${video.viewCount ?? 0}'}),
         ].join(' · ');
         return _buildSelectableItem(video, Container(
-            padding: EdgeInsets.all(8),
-            decoration: ExDecorator.box(fillColor: AppColor.container, borderColor: Colors.transparent, borderRadius: 8),
+            padding: const EdgeInsets.all(6),
+            decoration: ExDecorator.box(fillColor: AppColor.container, borderColor: Colors.transparent, borderRadius: AppStyle.radius),
             child: Row(
               children: [
-                SizedBox(width: 260, height: 170, child: buildLayoutPoster(video, 260, 170, isFanArt: true, interactive: false)),
-                SizedBox(width: 8),
+                SizedBox(width: 112, height: 76, child: buildLayoutPoster(video, 112, 76,
+                  isFanArt: true, interactive: false, showReleaseDate: false, showViewCount: false, showQuality: false, showTitle: false)),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (video.videoCode.isNotEmptyAndNotNull) ...[
-                        Text(video.videoCode!, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                        SizedBox(height: 6),
+                        Text(video.videoCode!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 3),
                       ],
-                      Text(video.title ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12)).tooltip(video.videoPath ?? ''),
+                      Text(video.title ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12)).tooltip(video.videoPath ?? ''),
                       if (actresses.isNotEmpty) ...[
-                        SizedBox(height: 8),
-                        Text(actresses, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: AppColor.muted)),
+                        const SizedBox(height: 3),
+                        Text(actresses, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: AppColor.muted)),
                       ],
-                      SizedBox(height: 8),
-                      Text(details, style: TextStyle(fontSize: 11, color: AppColor.muted)),
+                      const SizedBox(height: 3),
+                      Text(details, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: AppColor.muted)),
                     ],
                   ),
                 ),
@@ -350,6 +352,7 @@ class PageSearchTabView extends StatelessWidget {
     showReleaseDate = true,
     showViewCount = true,
     showQuality = true,
+    showTitle = true,
   }) {
     final child = Container(
         color: AppColor.container,
@@ -425,7 +428,7 @@ class PageSearchTabView extends StatelessWidget {
           ],
 
           // Quality
-          if (video.quality.isNotEmptyAndNotNull) ...[
+          if (showQuality && video.quality.isNotEmptyAndNotNull) ...[
             Container(
               color: AppColor.black120,
               child: HStack([
@@ -455,14 +458,14 @@ class PageSearchTabView extends StatelessWidget {
           ],
 
            // Video title
-          Container(
+          if (showTitle) Container(
             color: AppColor.black180,
             height: 20,
             width: width,
             child: '${video.videoCode == '' ? video.title?.maxChars(10) : video.videoCode}'.text.align(TextAlign.center).bold.ellipsis.makeCentered(),
           ).positioned(bottom: 0, left: 0, right: 0),
         ]),
-      ).cornerRadius(8).pOnly(right: 8);
+      ).cornerRadius(8).pOnly(right: interactive ? 8 : 0);
     return interactive ? _buildSelectableItem(video, child) : child;
   }
 

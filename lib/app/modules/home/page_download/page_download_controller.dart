@@ -87,6 +87,13 @@ class PageDownloadController extends GetxController {
     });
   }
 
+  Future<void> openResultRows(String title, List<Map<String, dynamic>> rows) async {
+    if (isClosed || rows.isEmpty) return;
+    addTab(focusSearch: false);
+    await activeTab.showResultRows(title, rows);
+    if (!isClosed) _saveTabs();
+  }
+
   void selectTab(int index) {
     if (index < 0 || index >= tabs.length) return;
     activeTabIndex.value = index;

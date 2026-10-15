@@ -16,6 +16,7 @@ import 'package:kuraku/app/modules/home/page_explore/page_explore_controller.dar
 import 'package:kuraku/app/modules/home/page_explore/page_explore_view.dart';
 import 'package:kuraku/app/modules/widgets/widget_controls.dart';
 import 'package:kuraku/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/modules/widgets/widget_title_translation.dart';
 
 import 'icon_finder.dart';
 
@@ -246,6 +247,9 @@ void main() {
       tab.rightListViewMode.value = kLocal;
       tab.rightListR18TotalVideo.value = 0;
       await tester.pumpAndSettle();
+      final translation = tester.widget<TitleTranslation>(find.byType(TitleTranslation));
+      expect(translation.title, 'Series');
+      expect(find.descendant(of: find.byType(TitleTranslation), matching: find.text('Series')), findsOneWidget);
       await tester.tap(find.text('R18: 0'));
       await tester.pumpAndSettle();
       expect(tab.rightListViewMode.value, kR18, reason: menu);
