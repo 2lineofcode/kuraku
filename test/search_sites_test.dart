@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -167,6 +168,8 @@ void main() {
         final loader = FontLoader('VisualQA');
         loader.addFont(File(font).readAsBytes().then((bytes) => ByteData.sublistView(bytes)));
         await loader.load();
+        await (FontLoader('packages/${CupertinoIcons.iconFontPackage}/${CupertinoIcons.iconFont}')
+          ..addFont(rootBundle.load('packages/cupertino_icons/assets/CupertinoIcons.ttf'))).load();
       });
     }
     tester.view.devicePixelRatio = 1;
@@ -183,38 +186,41 @@ void main() {
       });
     }
     for (final language in ['en', 'id']) {
-      for (final width in [360.0, 900.0]) {
-        tester.view.physicalSize = Size(width, 650);
-        Get.locale = Locale(language);
-        await tester.pumpWidget(GetMaterialApp(
-          translations: AppTranslations(), locale: Locale(language),
-          theme: ThemeData(brightness: Brightness.dark, fontFamily: font.isEmpty ? null : 'VisualQA'),
-          builder: (_, child) => RepaintBoundary(key: boundary, child: child!),
-          home: Scaffold(body: AppButton(onPressed: () => Get.dialog(const SearchSitesDialog()), child: const Text('Manage'))),
-        ));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Manage'));
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull, reason: 'list $language $width');
-        final edits = find.byTooltip('Edit'.tr);
-        for (var index = 1; index < edits.evaluate().length; index++) {
-          expect(tester.getRect(edits.at(index)).right, closeTo(tester.getRect(edits.first).right, 1));
+      for (final brightness in [Brightness.dark, Brightness.light]) {
+        for (final width in [360.0, 900.0]) {
+          tester.view.physicalSize = Size(width, 650);
+          Get.locale = Locale(language);
+          await tester.pumpWidget(GetMaterialApp(
+            translations: AppTranslations(), locale: Locale(language),
+            theme: ThemeData(brightness: brightness, fontFamily: font.isEmpty ? null : 'VisualQA',
+              cupertinoOverrideTheme: font.isEmpty ? null : const CupertinoThemeData(textTheme: CupertinoTextThemeData(actionTextStyle: TextStyle(fontFamily: 'VisualQA')))),
+            builder: (_, child) => RepaintBoundary(key: boundary, child: child!),
+            home: Scaffold(body: AppButton(onPressed: () => Get.dialog(const SearchSitesDialog()), child: const Text('Manage'))),
+          ));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Manage'));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull, reason: 'list $language $width');
+          final edits = find.byTooltip('Edit'.tr);
+          for (var index = 1; index < edits.evaluate().length; index++) {
+            expect(tester.getRect(edits.at(index)).right, closeTo(tester.getRect(edits.first).right, 1));
+          }
+          if (width == 900 && language == 'en') await capture('list-${brightness.name}');
+          await tester.tap(find.byKey(const ValueKey('search-site-NJAV')));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull, reason: 'editor $language $width');
+          if (width == 900 && language == 'en') await capture('edit-${brightness.name}');
+          await tester.tap(find.text('Cancel'.tr));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Add site'.tr));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull, reason: 'add $language $width');
+          if (width == 900 && language == 'en') await capture('add-${brightness.name}');
+          await tester.tap(find.text('Cancel'.tr));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('Close'.tr));
+          await tester.pumpAndSettle();
         }
-        if (width == 900 && language == 'en') await capture('list');
-        await tester.tap(find.byKey(const ValueKey('search-site-NJAV')));
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull, reason: 'editor $language $width');
-        if (width == 900 && language == 'en') await capture('edit');
-        await tester.tap(find.byTooltip('Back'.tr));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Add site'.tr));
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull, reason: 'add $language $width');
-        if (width == 900 && language == 'en') await capture('add');
-        await tester.tap(find.text('Cancel'.tr));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Close'.tr));
-        await tester.pumpAndSettle();
       }
     }
     await tester.pumpWidget(const SizedBox());

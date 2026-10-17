@@ -1555,4 +1555,5 @@ const indonesianTranslations = <String, String>{
   'Same as Search URL': 'Sama dengan URL pencarian',
   'Delete site': 'Hapus situs',
   'Delete this site?': 'Hapus situs ini?',
+  'Download URL': 'URL download',
 };

@@ -1,6 +1,6 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../../../core/app_color.dart';
@@ -28,44 +28,59 @@ class _SearchSitesDialogState extends State<SearchSitesDialog> {
   Widget build(BuildContext context) {
     if (editing) return SearchSiteEditor(site: selected, onDone: () => setState(() => editing = false));
     return AppDialog(
-      maxWidth: 440,
-      titlePadding: const EdgeInsets.fromLTRB(16, 10, 8, 8),
-      contentPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-      title: Row(children: [
-        Expanded(child: Text('Search sites'.tr)),
-        AppButton(onPressed: () => edit(null), icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize), child: Text('Add site'.tr)),
-        const SizedBox(width: 4),
-        AppIconButton(tooltip: 'Close'.tr, onPressed: () => Navigator.pop(context),
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: AppStyle.iconSize)),
-      ]),
-      content: SizedBox(width: 440, child: Material(type: MaterialType.transparency, child: Obx(() => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final site in DBSearchSite.sites) InkWell(
-            key: ValueKey('search-site-${site.name}'),
-            onTap: () => edit(site),
-            borderRadius: BorderRadius.circular(AppStyle.radius),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(children: [
-                Expanded(child: Row(children: [
-                  Flexible(child: Text(site.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12))),
-                  if (site.name == AppPref.getDefaultSearchEngine()) Padding(
-                    padding: const EdgeInsets.only(left: 6),
-                    child: Tooltip(message: 'Default'.tr, child: HugeIcon(icon: HugeIcons.strokeRoundedTick02, size: 14, color: AppColor.muted)),
-                  ),
-                ])),
-                const SizedBox(width: 12),
-                Expanded(child: Text(Uri.parse(site.searchUrl.replaceAll('{code}', 'ABC-001')).host.replaceFirst(RegExp(r'^www\.'), ''),
-                  maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.right, style: TextStyle(fontSize: 11, color: AppColor.muted))),
-                const SizedBox(width: 8),
-                AppIconButton(tooltip: 'Edit'.tr, onPressed: () => edit(site),
-                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: AppStyle.iconSize)),
-              ]),
-            ),
-          ),
-        ],
-      )))),
+      maxWidth: 480,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xff282828) : const Color(0xfff3f3f3),
+      titlePadding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+      actionsPadding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+      title: Text('Search sites'.tr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+      content: SizedBox(width: 480, child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark ? const Color(0xff202020) : Colors.white,
+          border: Border.all(color: AppColor.border, width: .5),
+          borderRadius: BorderRadius.circular(7),
+        ),
+        child: Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Obx(() => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final site in DBSearchSite.sites) ...[
+              if (site != DBSearchSite.sites.first) Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Divider(height: .5, thickness: .5, color: AppColor.border),
+              ),
+              Tooltip(message: 'Edit'.tr, child: CupertinoButton(
+                key: ValueKey('search-site-${site.name}'),
+                minimumSize: const Size(0, 35),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                onPressed: () => edit(site),
+                child: Row(children: [
+                  Expanded(child: Row(children: [
+                    Flexible(child: Text(site.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: AppColor.text))),
+                    if (site.name == AppPref.getDefaultSearchEngine()) Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: Tooltip(message: 'Default'.tr, child: Icon(CupertinoIcons.check_mark, size: 12, color: AppColor.muted)),
+                    ),
+                  ])),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(Uri.parse(site.searchUrl.replaceAll('{code}', 'ABC-001')).host.replaceFirst(RegExp(r'^www\.'), ''),
+                    maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.right, style: TextStyle(fontSize: 11, color: AppColor.muted))),
+                  const SizedBox(width: 10),
+                  Icon(CupertinoIcons.chevron_right, size: 10, color: AppColor.muted),
+                ]),
+              )),
+            ],
+          ],
+        ))),
+      )),
+      actions: [SizedBox(width: double.infinity, child: Row(children: [
+        AppButton(variant: AppButtonVariant.outlined, height: 28,
+          onPressed: () => edit(null), icon: const Icon(CupertinoIcons.add, size: 13), child: Text('Add site'.tr)),
+        const Spacer(),
+        Tooltip(message: 'Close'.tr, child: AppButton(variant: AppButtonVariant.filled, height: 28, width: 70,
+          backgroundColor: CupertinoColors.activeBlue.resolveFrom(context), labelColor: CupertinoColors.white,
+          onPressed: () => Navigator.pop(context), child: Text('Done'.tr))),
+      ]))],
     );
   }
 }
@@ -139,42 +154,53 @@ class _SearchSiteEditorState extends State<SearchSiteEditor> {
     }
   }
 
+  Widget formRow(String label, Widget field) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      SizedBox(width: 94, child: Padding(padding: const EdgeInsets.only(top: 7),
+        child: Text(label, textAlign: TextAlign.right, style: TextStyle(fontSize: 12, color: AppColor.text)))),
+      const SizedBox(width: 10),
+      Expanded(child: field),
+    ]),
+  );
+
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !busy,
     child: AppDialog(
-      maxWidth: 440,
-      titlePadding: const EdgeInsets.fromLTRB(8, 10, 16, 12),
-      title: Row(children: [
-        AppIconButton(tooltip: 'Back'.tr, onPressed: busy ? null : widget.onDone,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: AppStyle.iconSize)),
-        const SizedBox(width: 8),
-        Expanded(child: Text(widget.site?.name ?? 'Add site'.tr, maxLines: 1, overflow: TextOverflow.ellipsis)),
-      ]),
-      content: SizedBox(width: 440, child: Column(
+      maxWidth: 480,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xff282828) : const Color(0xfff3f3f3),
+      titlePadding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+      actionsPadding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+      title: Text(widget.site?.name ?? 'Add site'.tr, maxLines: 1, overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+      content: SizedBox(width: 480, child: Column(
         mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          if (widget.site == null) ...[
+          if (widget.site == null) formRow('Name'.tr,
             AppTextField(key: const ValueKey('site-name'), semanticsLabel: 'Name'.tr, controller: name, enabled: !busy, autofocus: true, placeholder: '',
-              textInputAction: TextInputAction.next, decoration: InputDecoration(labelText: 'Name'.tr, errorText: nameError)),
-            const SizedBox(height: 12),
-          ],
-          AppTextField(key: const ValueKey('site-search-url'), semanticsLabel: 'Search URL'.tr, controller: search, enabled: !busy, autofocus: widget.site != null,
-            autocorrect: false, enableSuggestions: false, keyboardType: TextInputType.url,
-            textInputAction: showDownload ? TextInputAction.next : TextInputAction.done,
-            onSubmitted: (_) { if (!showDownload) save(); },
-            decoration: InputDecoration(labelText: 'Search URL'.tr, errorText: searchError), placeholder: 'https://example.com/search?q={code}'),
-          const SizedBox(height: 6),
-          Text('{code} = video code'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted)),
-          const SizedBox(height: 8),
+              textInputAction: TextInputAction.next, decoration: InputDecoration(errorText: nameError)),
+          ),
+          formRow('Search URL'.tr, Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+            AppTextField(key: const ValueKey('site-search-url'), semanticsLabel: 'Search URL'.tr, controller: search, enabled: !busy, autofocus: widget.site != null,
+              autocorrect: false, enableSuggestions: false, keyboardType: TextInputType.url,
+              textInputAction: showDownload ? TextInputAction.next : TextInputAction.done,
+              onSubmitted: (_) { if (!showDownload) save(); },
+              decoration: InputDecoration(errorText: searchError), placeholder: 'https://example.com/search?q={code}'),
+            const SizedBox(height: 5),
+            Text('{code} = video code'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted)),
+          ])),
           Align(alignment: Alignment.centerLeft, child: AppButton(
-            padding: EdgeInsets.zero,
+            height: 24, padding: EdgeInsets.zero,
             onPressed: busy ? null : () => setState(() => showDownload = !showDownload),
-            icon: HugeIcon(icon: showDownload ? HugeIcons.strokeRoundedArrowUp01 : HugeIcons.strokeRoundedArrowDown01, size: 14),
+            icon: Icon(showDownload ? CupertinoIcons.chevron_down : CupertinoIcons.chevron_right, size: 10, color: AppColor.muted),
             child: Text('Download URL (optional)'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted)),
           )),
-          if (showDownload) AppTextField(key: const ValueKey('site-download-url'), semanticsLabel: 'Download URL (optional)'.tr, controller: download, enabled: !busy,
-            autocorrect: false, enableSuggestions: false, keyboardType: TextInputType.url, textInputAction: TextInputAction.done,
-            onSubmitted: (_) => save(), placeholder: 'Same as Search URL'.tr, decoration: InputDecoration(errorText: downloadError)),
+          if (showDownload) Padding(padding: const EdgeInsets.only(top: 6), child: formRow('Download URL'.tr,
+            AppTextField(key: const ValueKey('site-download-url'), semanticsLabel: 'Download URL (optional)'.tr, controller: download, enabled: !busy,
+              autocorrect: false, enableSuggestions: false, keyboardType: TextInputType.url, textInputAction: TextInputAction.done,
+              onSubmitted: (_) => save(), placeholder: 'Same as Search URL'.tr, decoration: InputDecoration(errorText: downloadError)),
+          )),
           if (error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(error!, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.error))),
         ],
       )),
@@ -182,16 +208,22 @@ class _SearchSiteEditorState extends State<SearchSiteEditor> {
         SizedBox(width: double.infinity, child: Row(children: [
           if (deleting) ...[
             Expanded(child: Text('Delete this site?'.tr, style: const TextStyle(fontSize: 12))),
-            AppButton(onPressed: busy ? null : () => setState(() => deleting = false), child: Text('Cancel'.tr)),
-            AppButton(onPressed: busy ? null : remove, labelColor: Theme.of(context).colorScheme.error, child: Text('Delete'.tr)),
+            AppButton(variant: AppButtonVariant.outlined, height: 28,
+              onPressed: busy ? null : () => setState(() => deleting = false), child: Text('Cancel'.tr)),
+            const SizedBox(width: 8),
+            AppButton(variant: AppButtonVariant.filled, height: 28, backgroundColor: CupertinoColors.systemRed.resolveFrom(context), labelColor: CupertinoColors.white,
+              onPressed: busy ? null : remove, child: Text('Delete'.tr)),
           ] else ...[
             if (widget.site != null && !widget.site!.isDefault) AppIconButton(tooltip: 'Delete site'.tr,
               onPressed: busy ? null : () => setState(() => deleting = true),
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize, color: AppColor.muted)),
+              icon: Icon(CupertinoIcons.trash, size: AppStyle.iconSize, color: AppColor.muted)),
             const Spacer(),
-            AppButton(onPressed: busy ? null : widget.onDone, child: Text('Cancel'.tr)),
+            AppButton(variant: AppButtonVariant.outlined, height: 28, width: 70,
+              onPressed: busy ? null : widget.onDone, child: Text('Cancel'.tr)),
             const SizedBox(width: 8),
-            AppButton(variant: AppButtonVariant.outlined, onPressed: busy ? null : save, child: Text('Save'.tr)),
+            AppButton(variant: AppButtonVariant.filled, height: 28, width: 70,
+              backgroundColor: CupertinoColors.activeBlue.resolveFrom(context), labelColor: CupertinoColors.white,
+              onPressed: busy ? null : save, child: Text('Save'.tr)),
           ],
         ])),
       ],

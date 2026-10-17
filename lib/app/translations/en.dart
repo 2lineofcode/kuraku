@@ -1555,4 +1555,5 @@ const englishTranslations = <String, String>{
   'Same as Search URL': 'Same as Search URL',
   'Delete site': 'Delete site',
   'Delete this site?': 'Delete this site?',
+  'Download URL': 'Download URL',
 };
