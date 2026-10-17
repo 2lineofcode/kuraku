@@ -64,10 +64,10 @@ After cloning the repository and completing platform setup:
 make deps
 make env
 make doctor
-make rundev
+make run
 ```
 
-`make rundev` detects the host OS. Pass Flutter arguments with `make rundev ARGS="--release"`.
+`make run` detects the host OS. Pass Flutter arguments with `make run ARGS="--release"`.
 
 On first launch, choose **Download & Install** to import the R18 catalog. Wait for it to finish, then restart the app.
 
@@ -101,7 +101,7 @@ make build
 
 `make build` detects the host OS; override it with `TARGET=macos`, `TARGET=linux`, or `TARGET=windows`. Run `make deps` and `make env` first. Package an existing Linux build with `bash tool/package_linux.sh`; on Windows, run `./tool/package_windows.ps1` in PowerShell.
 
-Run `make` or `make help` to list all targets. `ARGS="..."` forwards Flutter arguments for `rundev`, `build`, `analyze`, and `test`. `make clean` removes Flutter's `build/` and `.dart_tool/`; run `make deps` afterward.
+Run `make` or `make help` to list all targets. `ARGS="..."` forwards Flutter arguments for `run`, `build`, `analyze`, and `test`. `make clean` removes Flutter's `build/` and `.dart_tool/`; run `make deps` afterward.
 
 ## Checks
 

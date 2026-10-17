@@ -30,7 +30,7 @@ Install Python 3. On first launch, choose **Download & Install** to set up the R
 [ -f .env ] || cp .env.sample .env
 make deps
 make env
-make rundev
+make run
 ```
 
 Run `make help` for build, install, test, and maintenance commands.

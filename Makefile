@@ -3,11 +3,11 @@ TARGET ?= auto
 export TARGET
 
 .DEFAULT_GOAL := help
-.PHONY: help rundev install deps env build analyze test doctor clean
+.PHONY: help run install deps env build analyze test doctor clean
 
 help: ## Show available commands
 	@awk 'BEGIN { print "Usage: make <target> [VARIABLE=value]\n" } /^[a-z]+:.*## / { split($$0, parts, "## "); sub(/:.*/, "", parts[1]); printf "  %-10s %s\n", parts[1], parts[2] }' $(MAKEFILE_LIST)
-	@printf '\nOptions:\n  TARGET=auto|macos|linux|windows\n  TEST=test/affected_test.dart (required for test)\n  ARGS="..." (extra Flutter arguments for rundev, build, analyze, test)\n'
+	@printf '\nOptions:\n  TARGET=auto|macos|linux|windows\n  TEST=test/affected_test.dart (required for test)\n  ARGS="..." (extra Flutter arguments for run, build, analyze, test)\n'
 
 deps: ## Fetch locked Flutter dependencies
 	flutter pub get --enforce-lockfile
@@ -32,10 +32,10 @@ doctor: ## Diagnose Flutter and platform tooling
 clean: ## Remove Flutter build artifacts (run deps afterward)
 	flutter clean
 
-rundev: ## Run the app on the host OS
+run: ## Run the app on the host OS
 build: ## Build a release without installation or version changes
 
-rundev build:
+run build:
 	@set -Eeuo pipefail; \
 	target="$$TARGET"; \
 	case "$$target" in \
@@ -49,7 +49,7 @@ rundev build:
 		macos|linux|windows) ;; \
 		*) echo 'Invalid TARGET: use auto, macos, linux, or windows' >&2; exit 1 ;; \
 	esac; \
-	if [ '$@' = rundev ]; then \
+	if [ '$@' = run ]; then \
 		exec flutter run -d "$$target" $(ARGS); \
 	else \
 		exec flutter build "$$target" --release --no-tree-shake-icons $(ARGS); \

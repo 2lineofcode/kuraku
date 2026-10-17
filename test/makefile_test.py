@@ -6,7 +6,7 @@ import tempfile
 
 def test_desktop_targets():
     makefile = (Path(__file__).resolve().parents[1] / 'Makefile').read_text()
-    with tempfile.TemporaryDirectory(prefix='rundev test ') as directory:
+    with tempfile.TemporaryDirectory(prefix='run test ') as directory:
         root = Path(directory)
         (root / 'Makefile').write_text(makefile)
         commands = root / 'bin'
@@ -20,7 +20,7 @@ def test_desktop_targets():
             command.chmod(0o755)
         for goal, host, override, target in [
             (goal, host, override, target)
-            for goal in ['rundev', 'build']
+            for goal in ['run', 'build']
             for host, override, target in [
                 ('Darwin', 'auto', 'macos'), ('Linux', 'auto', 'linux'),
                 ('MINGW64_NT', 'auto', 'windows'), ('unknown', 'auto', None),
@@ -35,13 +35,13 @@ def test_desktop_targets():
             )
             assert (result.returncode == 0) == (target is not None), result.stderr
             if target:
-                command = f'<run>\n<-d>\n<{target}>\n' if goal == 'rundev' else (
+                command = f'<run>\n<-d>\n<{target}>\n' if goal == 'run' else (
                     f'<build>\n<{target}>\n<--release>\n<--no-tree-shake-icons>\n')
                 assert result.stdout == command + '<--release>\n<--dart-define=LABEL=hello world>\n'
             else:
                 assert ('Invalid TARGET' if override == 'invalid' else 'Unsupported OS') in result.stderr
         result = subprocess.run(
-            ['make', '--no-print-directory', '-C', str(root), 'rundev'],
+            ['make', '--no-print-directory', '-C', str(root), 'run'],
             env={**os.environ, 'PATH': f'{commands}:{os.environ["PATH"]}', 'MOCK_OS': 'Darwin', 'MOCK_EXIT': '7'},
             capture_output=True, text=True,
         )
@@ -83,7 +83,7 @@ def test_helper_targets():
             assert (result.returncode == 0) == (arguments != ['test']), result.stderr
             assert log.read_text().splitlines() == expected
             if not arguments or arguments == ['help']:
-                for target in ['rundev', 'install', 'deps', 'env', 'build', 'analyze', 'test', 'doctor', 'clean']:
+                for target in ['run', 'install', 'deps', 'env', 'build', 'analyze', 'test', 'doctor', 'clean']:
                     assert f'  {target:<10} ' in result.stdout
         result = subprocess.run(
             ['make', '--no-print-directory', '-C', str(root), 'test', 'TEST=test/example.dart'],
