@@ -35,7 +35,27 @@ COPY public.derived_video (content_id, dvd_id, service_code, title_en) FROM stdi
 '''
 
 
+def test_copy_escapes():
+    cases = [
+        (r'\N', None), (r'\\N', r'\N'), ('', ''),
+        (r'Line\nTwo\tPart\\End', 'Line\nTwo\tPart\\End'),
+        (r'\b\f\r\v', '\b\f\r\v'),
+        (r'\101\x42\7\12\x3', 'AB\x07\n\x03'),
+        ('日本語' + r'\343\201\202\xe3\x81\x84', '日本語あい'),
+        (r'\q', 'q'),
+    ]
+    rows = ''.join(f'118abp{i:05}\t\\N\tdigital\t{encoded}\n' for i, (encoded, _) in enumerate(cases, 1))
+    with tempfile.TemporaryDirectory(prefix='r18 copy escapes ') as directory:
+        source, output = Path(directory) / 'dump.sql.gz', Path(directory) / 'r18.db'
+        with gzip.open(source, 'wt', encoding='utf-8') as stream:
+            stream.write(dump().replace('118abp00001\t\\N\tdigital\tExample\n', rows))
+        converter['convert_dump'](source, output)
+        with closing(sqlite3.connect(output)) as conn:
+            assert conn.execute('SELECT title_en FROM derived_video ORDER BY content_id').fetchall() == [(expected,) for _, expected in cases]
+
+
 if __name__ == '__main__':
+    test_copy_escapes()
     with tempfile.TemporaryDirectory(prefix='r18 update ') as directory:
         root = Path(directory)
         source = root / 'r18dotdev_dump_2026-10-06.sql.gz'
@@ -49,7 +69,7 @@ if __name__ == '__main__':
             assert conn.execute('SELECT video_code FROM derived_video').fetchone() == ('ABP-001',)
             assert conn.execute('PRAGMA quick_check').fetchone() == ('ok',)
         valid = output.read_bytes()
-        for broken in [dump().replace('\\.\n', ''), dump() + 'INVALID SQL;\n', dump().replace('118abp00001\t\\N\tdigital\tExample\n', ''), 'not a gzip file']:
+        for broken in [dump().replace('\\.\n', ''), dump() + 'INVALID SQL;\n', dump().replace('Example', r'\xff'), dump().replace('118abp00001\t\\N\tdigital\tExample\n', ''), 'not a gzip file']:
             if broken == 'not a gzip file':
                 source.write_text(broken)
             else:

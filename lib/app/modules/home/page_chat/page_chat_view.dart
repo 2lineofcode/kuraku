@@ -493,6 +493,7 @@ class PageChatView extends GetView<PageChatController> {
         H4Config(style: TextStyle(fontSize: 13, height: 1.4, fontWeight: FontWeight.w600, color: AppColor.text)),
         H5Config(style: TextStyle(fontSize: 13, height: 1.4, fontWeight: FontWeight.w600, color: AppColor.text)),
         H6Config(style: TextStyle(fontSize: 13, height: 1.4, fontWeight: FontWeight.w600, color: AppColor.text)),
+        // Untrusted markup cannot authorize network requests, even with kuraku-cover:.
         ImgConfig(builder: (url, attributes) {
           final imageUrl = _imageUrl(url);
           final valid = imageUrl.isNotEmpty;
@@ -500,8 +501,8 @@ class PageChatView extends GetView<PageChatController> {
             child: ClipRRect(borderRadius: BorderRadius.circular(6), child: valid
               ? Tooltip(message: 'Preview image'.tr, child: Material(color: Colors.transparent, child: InkWell(
                   onTap: () => _previewImage(context, imageUrl, attributes['alt'] ?? 'Image', images),
-                  child: ExThumbnail(imageUrl: imageUrl, videoCode: attributes['alt'], width: 96, height: 64,
-                    iconSize: AppStyle.largeIconSize, fitUrl: BoxFit.cover),
+                  child: Container(width: 96, height: 64, color: AppColor.hover,
+                    child: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: AppStyle.largeIconSize, color: AppColor.muted)),
                 )))
               : Container(width: 96, height: 64, color: AppColor.hover,
                   child: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: AppStyle.largeIconSize, color: AppColor.muted))),

@@ -24,10 +24,10 @@ class SemanticWorkerTest(unittest.TestCase):
             root = Path(tmp)
             db_path = root / 'kuraku.db'
             db = connections.enter_context(closing(sqlite3.connect(db_path)))
-            db.execute('CREATE TABLE videos (id TEXT PRIMARY KEY, video_path TEXT, title TEXT, video_code TEXT, actress TEXT, updated_at TEXT, is_deleted INTEGER NOT NULL DEFAULT 0)')
+            db.execute('CREATE TABLE videos (id TEXT PRIMARY KEY, video_path TEXT, title TEXT, video_code TEXT, actress TEXT, updated_at TEXT, is_deleted INTEGER NOT NULL DEFAULT 0, filesize INTEGER)')
             db.execute("CREATE TABLE video_embeddings (video_id TEXT PRIMARY KEY REFERENCES videos(id) ON DELETE CASCADE, source_text TEXT NOT NULL, embedding BLOB NOT NULL CHECK(typeof(embedding)='blob' AND length(embedding)>0 AND length(embedding)%4=0), model TEXT NOT NULL, created_at TEXT, updated_at TEXT)")
-            db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?, 0)', ('one', str(root / 'one.mp4'), 'A red car', 'TEST-001', '[{"name_romaji":"Jane Doe"}]', ''))
-            db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?, 0)', ('two', str(root / 'two.mp4'), 'A blue boat', 'TEST-002', '[]', ''))
+            db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?, 0, 3)', ('one', str(root / 'one.mp4'), 'A red car', 'TEST-001', '[{"name_romaji":"Jane Doe"}]', ''))
+            db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?, 0, 3)', ('two', str(root / 'two.mp4'), 'A blue boat', 'TEST-002', '[]', ''))
             db.commit()
             (root / 'vid_thumbnail').mkdir()
             from PIL import Image
@@ -77,6 +77,21 @@ class SemanticWorkerTest(unittest.TestCase):
                     self.assertTrue(worker.index('one')['indexed'])
                 self.assertEqual(worker.plan()['ids'], ['two'])
                 self.assertEqual(worker.summary()['indexed'], 1)
+                self.assertEqual(db.execute("SELECT filesize FROM videos WHERE id='one'").fetchone()[0], len(content))
+                self.assertEqual([hit['video']['id'] for hit in worker.search('forest')], ['one'])
+                self.assertEqual(worker.indexed_count, 1)
+            original_source = db.execute("SELECT source_text FROM video_embeddings WHERE video_id='one'").fetchone()[0]
+            for change in ["video_path='/moved.mp4', filesize=999", 'is_deleted=1, filesize=999']:
+                def move_during_inference(kind, value):
+                    db.execute(f"UPDATE videos SET {change} WHERE id='one'")
+                    db.commit()
+                    return vector
+                with patch.object(worker, 'encode', side_effect=move_during_inference), patch.object(worker, 'ensure_thumbnail', side_effect=lambda row, force=False: worker.thumbnail(row)):
+                    self.assertFalse(worker.index('one')['indexed'])
+                self.assertEqual(db.execute("SELECT filesize FROM videos WHERE id='one'").fetchone()[0], 999)
+                self.assertEqual(db.execute("SELECT source_text FROM video_embeddings WHERE video_id='one'").fetchone()[0], original_source)
+                db.execute("UPDATE videos SET video_path=?, is_deleted=0, filesize=? WHERE id='one'", (str(video), video.stat().st_size))
+                db.commit()
             # Index only pending items; rebuilding explicitly includes completed frames.
             (root / 'vid_thumbnail/one.jpg').write_bytes(b'changed thumbnail')
             self.assertEqual(worker.plan()['ids'], ['two'])
@@ -84,7 +99,7 @@ class SemanticWorkerTest(unittest.TestCase):
             self.assertEqual(set(worker.plan(force=True)['ids']), {'one', 'two'})
             (root / 'one.mp4').unlink()
             self.assertEqual(worker.plan()['ids'], ['two'])
-            db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?, 0)', ('duplicate', '/other/one.mp4', '', '', '[]', ''))
+            db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?, 0, 0)', ('duplicate', '/other/one.mp4', '', '', '[]', ''))
             db.commit()
             self.assertEqual(worker.plan()['missing_thumbnails'], 1)
             worker.refresh()

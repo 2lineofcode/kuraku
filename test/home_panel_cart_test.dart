@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,7 @@ import 'package:kuraku/app/modules/home/home_controller.dart';
 import 'package:kuraku/app/modules/home/home_panel/home_panel_cart.dart';
 import 'package:kuraku/app/modules/home/home_panel/home_panel_log.dart';
 import 'package:kuraku/app/modules/widgets/widget_style.dart';
+import 'package:kuraku/app/modules/widgets/widget_surfaces.dart';
 import 'package:kuraku/app/modules/widgets/widget_thumbnail.dart';
 import 'package:overlayment/overlayment.dart';
 import 'package:sqflite/sqflite.dart';
@@ -267,5 +269,52 @@ void main() {
 
     expect(Overlayment.count, 1, reason: 'the panel stays open when nothing can be played');
     expect(HomePanelAppLog.appLogRuntime.map((entry) => entry.content), contains(contains('No playable video found')));
+  });
+
+  panelTest('batch delete counts successful files and keeps failed entries for retry', (tester) async {
+    final directory = Directory.systemTemp.createTempSync('kuraku-cart-delete-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final file = File('${directory.path}/ABP-001.mp4')..writeAsStringSync('fixture');
+    final blocked = Directory('${directory.path}/ABP-002.mp4')..createSync();
+    final failed = _video(code: 'ABP-002', path: blocked.path);
+    home.cart.addAll([_video(code: 'ABP-001', path: file.path), failed]);
+    await pump(tester);
+    unawaited(HomePanelCart.open());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Delete All This Files'));
+    await tester.pumpAndSettle();
+    final confirm = tester.widget<AppDialogAction>(find.ancestor(of: find.text('Yes'), matching: find.byType(AppDialogAction)));
+    await tester.runAsync(confirm.onPressed as Future<void> Function());
+    await tester.pumpAndSettle();
+    expect(file.existsSync(), isFalse);
+    expect(blocked.existsSync(), isTrue);
+    expect(home.cart, [failed]);
+    final messages = HomePanelAppLog.appLogRuntime.map((entry) => entry.content);
+    expect(messages, contains('1 Video deleted'));
+    expect(messages, isNot(contains('2 Video deleted')));
+    expect(messages, contains(contains('Failed to delete video')));
+    unawaited(HomePanelCart.open());
+    await tester.pumpAndSettle();
+    expect(find.text('Video Cart (1)'), findsOneWidget);
+    expect(find.text('ABP-002'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  panelTest('single delete keeps a failed file and never reports success', (tester) async {
+    final failed = _video(code: 'ABP-001', path: '/definitely/missing/ABP-001.mp4');
+    home.cart.add(failed);
+    await pump(tester);
+    unawaited(HomePanelCart.open());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Video actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete file'));
+    await tester.pumpAndSettle();
+    final confirm = tester.widget<AppDialogAction>(find.ancestor(of: find.text('Yes'), matching: find.byType(AppDialogAction)));
+    await tester.runAsync(confirm.onPressed as Future<void> Function());
+    await tester.pumpAndSettle();
+    expect(home.cart, [failed]);
+    expect(HomePanelAppLog.appLogRuntime.map((entry) => entry.content), isNot(contains(contains('Video deleted'))));
+    expect(tester.takeException(), isNull);
   });
 }
