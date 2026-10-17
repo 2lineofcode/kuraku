@@ -20,6 +20,7 @@ import '../../widgets/widget_style.dart';
 import '../../widgets/widget_surfaces.dart';
 import '../../widgets/widget_thumbnail.dart';
 import 'page_chat_controller.dart';
+import 'page_chat_settings_dialog.dart';
 
 class PageChatView extends GetView<PageChatController> {
   const PageChatView({super.key, this.openVideoInfo = HelperOpener.openVideoInfo});
@@ -63,6 +64,14 @@ class PageChatView extends GetView<PageChatController> {
                       Expanded(child: Obx(() => Text(controller.activeChat.value.title == 'New chat' ? 'New chat'.tr : controller.activeChat.value.title,
                         maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)))),
+                      const SizedBox(width: 12),
+                      Obx(() => AppIconButton(tooltip: 'AI settings'.tr,
+                        onPressed: controller.respondingChatId.value != null ? null : () => showDialog<void>(
+                          context: context, builder: (_) => const PageChatSettingsDialog()),
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                        padding: EdgeInsets.zero,
+                        icon: const HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: AppStyle.iconSize))),
                       const SizedBox(width: 12),
                       AppIconButton(tooltip: 'Chat shortcuts'.tr,
                         onPressed: () => _showShortcuts(context),

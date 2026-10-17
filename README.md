@@ -85,7 +85,7 @@ Linux drag-out updates paths for same-filesystem moves. Cross-filesystem or move
 
 **Visual Search:** **Settings → Visual Search → Set up → Index new / changed**. Requires Python 3.12–3.14 with venv support and downloads about 155 MB of models plus Python dependencies. Search in English; indexing/search runs offline after setup and pauses during playback. Results compare one frame per video and may miss scenes.
 
-**AI chat:** set `AI_PROVIDER`, `AI_BASE_URL`, `AI_MODEL`, and `AI_API_KEY` in `.env`; the provider must support HTTPS OpenAI-compatible chat completions, streaming, and tool calls. Add `TAVILY_API_KEY` for web search. Run `dart run enven` and restart/rebuild after changes. Exact local queries work without an API key.
+**AI chat:** open AI settings in the chat toolbar to set the provider, Base URL, model, and API key. Settings are saved in AppPref and apply immediately without restarting or rebuilding. The provider must support HTTPS OpenAI-compatible chat completions, streaming, and tool calls. Add `TAVILY_API_KEY` to `.env` for web search, then run `dart run enven` and restart/rebuild. Exact local queries work without an API key.
 
 AI requests may include conversation history and selected library/catalog metadata; web search sends queries to Tavily. Enven embeds keys into builds, so do not distribute builds containing personal credentials. Public CI builds use `.env.sample` without personal keys.
 
