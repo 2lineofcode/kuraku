@@ -199,9 +199,9 @@ if source_path:
     await DBUpdate.onUpgrade(playlistMigration, 10, 11);
     final retry = _Database()..hasPlaylistId = true..hasChatActivity = true;
     await DBUpdate.onUpgrade(retry, 5, DBUpdate.version);
-    final result = await Process.run('python3', ['-c', r'''
+    final worker = await Process.start('python3', ['-c', r'''
 import json, sqlite3, sys
-fresh, paths, retry, latest, legacy, playlist_migration = json.loads(sys.argv[1])
+fresh, paths, retry, latest, legacy, playlist_migration = json.load(sys.stdin)
 def connect():
     db = sqlite3.connect(':memory:')
     db.execute('PRAGMA foreign_keys = ON')
@@ -330,7 +330,12 @@ assert db.execute('SELECT count(*) FROM videos').fetchone()[0] == 1
 assert db.execute('PRAGMA foreign_key_check').fetchall() == []
 db.close()
 reference.close()
-''', jsonEncode([fresh.statements, paths, retry.statements, DBUpdate.version, legacy.statements, playlistMigration.statements])]);
-    expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+''']);
+    addTearDown(() { worker.kill(); });
+    final output = worker.stdout.transform(utf8.decoder).join();
+    final errors = worker.stderr.transform(utf8.decoder).join();
+    worker.stdin.write(jsonEncode([fresh.statements, paths, retry.statements, DBUpdate.version, legacy.statements, playlistMigration.statements]));
+    await worker.stdin.close();
+    expect(await worker.exitCode, 0, reason: '${await output}\n${await errors}');
   });
 }

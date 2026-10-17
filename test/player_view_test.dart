@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
@@ -58,10 +59,14 @@ void main() {
   });
   tearDown(Get.reset);
 
-  /// The desktop drag & drop plugin has no test implementation; its async
-  /// registration error must not hide the assertions above it.
-  void ignorePlatformChannelErrors(WidgetTester tester) {
-    while (tester.takeException() != null) {}
+  // Native drag registration has no engine context in widget tests.
+  void expectOnlyMissingDragPlugin(WidgetTester tester) {
+    Object? error;
+    while ((error = tester.takeException()) != null) {
+      expect(error, isA<MissingPluginException>());
+      expect('$error', contains('dev.irondash.engine_context'));
+      expect('$error', contains('getEngineHandle'));
+    }
   }
 
   testWidgets('waits on the loading state before the video surface exists', (tester) async {
@@ -76,7 +81,7 @@ void main() {
 
     expect(find.byType(ValueListenableBuilder<int?>), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget, reason: 'no texture id yet');
-    ignorePlatformChannelErrors(tester);
+    expectOnlyMissingDragPlugin(tester);
   });
 
   testWidgets('the drop hint is hidden and inert until a file hovers the window', (tester) async {
@@ -99,7 +104,7 @@ void main() {
     controller.isDropHovering.value = false;
     await tester.pump();
     expect(hint().opacity, 0);
-    ignorePlatformChannelErrors(tester);
+    expectOnlyMissingDragPlugin(tester);
   });
 
   testWidgets('closing the route stops playback first', (tester) async {
@@ -118,7 +123,7 @@ void main() {
 
     expect(controller.stops, 1);
     expect(find.text('Library'), findsOneWidget);
-    ignorePlatformChannelErrors(tester);
+    expectOnlyMissingDragPlugin(tester);
   });
 
   testWidgets('in mini mode the route closes without touching the playback', (tester) async {
@@ -137,6 +142,6 @@ void main() {
 
     expect(controller.stops, 0, reason: 'the mini player keeps playing');
     expect(find.text('Library'), findsOneWidget);
-    ignorePlatformChannelErrors(tester);
+    expectOnlyMissingDragPlugin(tester);
   });
 }

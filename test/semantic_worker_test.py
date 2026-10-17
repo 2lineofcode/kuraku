@@ -1,4 +1,5 @@
 """Run with the semantic runtime's Python: python -B test/semantic_worker_test.py."""
+from contextlib import ExitStack, closing
 import importlib.util
 import json
 import os
@@ -19,10 +20,10 @@ spec.loader.exec_module(worker_module)
 
 class SemanticWorkerTest(unittest.TestCase):
     def test_index_resume_binary_freshness_and_search(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory() as tmp, ExitStack() as connections:
             root = Path(tmp)
             db_path = root / 'kuraku.db'
-            db = sqlite3.connect(db_path)
+            db = connections.enter_context(closing(sqlite3.connect(db_path)))
             db.execute('CREATE TABLE videos (id TEXT PRIMARY KEY, video_path TEXT, title TEXT, video_code TEXT, actress TEXT, updated_at TEXT, is_deleted INTEGER NOT NULL DEFAULT 0)')
             db.execute("CREATE TABLE video_embeddings (video_id TEXT PRIMARY KEY REFERENCES videos(id) ON DELETE CASCADE, source_text TEXT NOT NULL, embedding BLOB NOT NULL CHECK(typeof(embedding)='blob' AND length(embedding)>0 AND length(embedding)%4=0), model TEXT NOT NULL, created_at TEXT, updated_at TEXT)")
             db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?, 0)', ('one', str(root / 'one.mp4'), 'A red car', 'TEST-001', '[{"name_romaji":"Jane Doe"}]', ''))
@@ -34,6 +35,7 @@ class SemanticWorkerTest(unittest.TestCase):
                 (root / (name + '.mp4')).write_bytes(b'video fixture')
                 Image.new('RGB', (256, 256), 'gray').save(root / 'vid_thumbnail' / (name + '.jpg'))
             worker = worker_module.Worker(db_path, root)
+            connections.enter_context(closing(worker.db))
             self.assertEqual(worker.db.execute('PRAGMA foreign_keys').fetchone()[0], 1)
             calls = []
             vector = np.zeros(512, dtype='<f4')
@@ -99,8 +101,6 @@ class SemanticWorkerTest(unittest.TestCase):
             with worker.db:
                 worker.db.execute("DELETE FROM videos WHERE id='one'")
             self.assertEqual(worker.db.execute('SELECT COUNT(*) FROM video_embeddings').fetchone()[0], 0)
-            worker.db.close()
-            db.close()
 
     def test_visual_cutoff_is_stable_and_long_queries_are_rejected(self):
         worker = worker_module.Worker(None, Path('/unused'))
@@ -123,15 +123,15 @@ class SemanticWorkerTest(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which('ffmpeg'), 'FFmpeg is not installed')
     def test_missing_frame_is_created_once_and_short_video_falls_back(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory() as tmp, ExitStack() as connections:
             root = Path(tmp)
             video = root / 'short.mp4'
             subprocess.run([shutil.which('ffmpeg'), '-hide_banner', '-loglevel', 'error', '-f', 'lavfi',
                 '-i', 'color=c=blue:s=320x240:d=1', '-threads', '1', str(video)], check=True)
-            db = sqlite3.connect(root / 'kuraku.db')
-            db.execute('CREATE TABLE videos(video_path TEXT, is_deleted INTEGER NOT NULL DEFAULT 0)')
-            db.close()
+            with closing(sqlite3.connect(root / 'kuraku.db')) as db:
+                db.execute('CREATE TABLE videos(video_path TEXT, is_deleted INTEGER NOT NULL DEFAULT 0)')
             worker = worker_module.Worker(root / 'kuraku.db', root / 'runtime')
+            connections.enter_context(closing(worker.db))
             row = {'video_path': str(video)}
             frame = worker.ensure_thumbnail(row)
             self.assertTrue(frame.exists())
@@ -151,18 +151,18 @@ class SemanticWorkerTest(unittest.TestCase):
             with self.assertRaisesRegex(OSError, 'offline'):
                 worker.ensure_thumbnail({'video_path': str(root / 'missing.mp4')})
             self.assertFalse(list(frame.parent.glob('*.part.jpg')))
-            worker.db.close()
 
     def test_legacy_or_corrupt_vectors_are_not_used(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory() as tmp, ExitStack() as connections:
             path = Path(tmp) / 'kuraku.db'
-            db = sqlite3.connect(path)
+            db = connections.enter_context(closing(sqlite3.connect(path)))
             db.execute('CREATE TABLE videos (id TEXT PRIMARY KEY, video_path TEXT, title TEXT, updated_at TEXT, is_deleted INTEGER NOT NULL DEFAULT 0)')
             db.execute('CREATE TABLE video_embeddings (video_id TEXT PRIMARY KEY, source_text TEXT, embedding TEXT, model TEXT)')
             db.execute("INSERT INTO videos VALUES ('a', '/a.mp4', 'A car', '', 0)")
             db.execute('INSERT INTO video_embeddings VALUES (?, ?, ?, ?)', ('a', json.dumps(['/a.mp4']), '[1, 2]', worker_module.MODEL))
             db.commit()
             worker = worker_module.Worker(path, Path(tmp))
+            connections.enter_context(closing(worker.db))
             worker.refresh()
             self.assertFalse(np.any(worker.matrix))
             self.assertEqual(worker.summary()['pending'], 1)
@@ -178,8 +178,6 @@ class SemanticWorkerTest(unittest.TestCase):
                 self.assertEqual(worker.plan()['ids'], ['a'])
             with self.assertRaisesRegex(ValueError, 'No visual index'):
                 worker.search('forest')
-            worker.db.close()
-            db.close()
 
 
 if __name__ == '__main__':

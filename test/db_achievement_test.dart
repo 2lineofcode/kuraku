@@ -15,6 +15,7 @@ class _Database implements Database {
   final rows = <Map<String, Object?>>[];
   final queries = <Map<String, Object?>>[];
   Object? totalOverride;
+  bool countReturnsNull = false;
 
   @override
   Future<List<Map<String, Object?>>> query(String table, {bool? distinct, List<String>? columns, String? where, List<Object?>? whereArgs, String? groupBy, String? having, String? orderBy, int? limit, int? offset}) async {
@@ -37,7 +38,7 @@ class _Database implements Database {
   @override
   Future<List<Map<String, Object?>>> rawQuery(String sql, [List<Object?>? arguments]) async {
     expect(sql, 'SELECT COUNT(*) AS total FROM achievement_unlock');
-    return [{'total': totalOverride ?? rows.length}];
+    return [{'total': countReturnsNull ? null : totalOverride ?? rows.length}];
   }
 
   @override
@@ -90,6 +91,8 @@ void main() {
     expect(await DBAchievement.countUnlocked(), 7);
     database.totalOverride = null;
     expect(await DBAchievement.countUnlocked(), 2);
+    database.countReturnsNull = true;
+    expect(await DBAchievement.countUnlocked(), 0);
   });
 
   test('lists unlocks newest first, honours the limit and never returns null fields', () async {

@@ -466,6 +466,7 @@ const englishTranslations = <String, String>{
   'Duration (minutes)': 'Duration (minutes)',
   'Duration:': 'Duration:',
   'EN Sub': 'EN Sub',
+  'Edit': 'Edit',
   'Edit Metadata': 'Edit Metadata',
   'Edit Metadata @{videoCode}': 'Edit Metadata @{videoCode}',
   'Edit Playlist': 'Edit Playlist',

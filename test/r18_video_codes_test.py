@@ -1,3 +1,4 @@
+from contextlib import closing
 import runpy
 import sqlite3
 from pathlib import Path
@@ -25,7 +26,7 @@ def database():
 
 
 if __name__ == '__main__':
-    with database() as conn:
+    with closing(database()) as conn, conn:
         before = conn.execute('SELECT content_id, dvd_id FROM derived_video').fetchall()
         conn.execute("CREATE TRIGGER fail_migration BEFORE UPDATE ON derived_video BEGIN SELECT RAISE(ABORT, 'forced failure'); END")
         try:
