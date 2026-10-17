@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
-import '../../env.g.dart';
+import '../core/app_pref.dart';
 import '../core/app_translations.dart';
 import 'chat_knowledge.dart';
 import 'chat_web_search.dart';
@@ -18,27 +18,30 @@ class ChatService {
   ChatService({Dio? dio, String? apiKey, String? baseUrl, String? model, String? provider, this.knowledge, ChatWebSearch? webSearch})
       : webSearch = webSearch ?? ChatWebSearch(),
         _dio = dio ?? Dio(BaseOptions(connectTimeout: const Duration(seconds: 20))),
-        _apiKey = (apiKey ?? Env.aiApiKey).trim(),
-        baseUrl = (baseUrl ?? Env.aiBaseUrl).trim().replaceFirst(RegExp(r'/+$'), ''),
-        model = (model ?? Env.aiModel).trim(),
-        provider = (provider ?? Env.aiProvider).trim();
+        _configuredApiKey = apiKey,
+        _configuredBaseUrl = baseUrl,
+        _configuredModel = model,
+        _configuredProvider = provider;
 
   void Function(String)? onActivity;
   void Function(Map<String, dynamic>)? onTitleSearch;
   final ChatWebSearch webSearch;
   final ChatKnowledge? knowledge;
   final Dio _dio;
-  final String _apiKey;
-  final String baseUrl, model, provider;
+  final String? _configuredApiKey, _configuredBaseUrl, _configuredModel, _configuredProvider;
+  String get _apiKey => (_configuredApiKey ?? AppPref.getAiSettings()['apiKey']!).trim();
+  String get baseUrl => (_configuredBaseUrl ?? AppPref.getAiSettings()['baseUrl']!).trim().replaceFirst(RegExp(r'/+$'), '');
+  String get model => (_configuredModel ?? AppPref.getAiSettings()['model']!).trim();
+  String get provider => (_configuredProvider ?? AppPref.getAiSettings()['provider']!).trim();
 
   String? get configurationError {
-    if (_apiKey.isEmpty) return 'Set AI_API_KEY in .env, run dart run enven, then restart the app.';
+    if (_apiKey.isEmpty) return 'Enter an API key in AI settings.';
     final uri = Uri.tryParse(baseUrl);
     if (uri == null || uri.scheme != 'https' || uri.host.isEmpty || uri.userInfo.isNotEmpty || uri.hasQuery || uri.hasFragment) {
-      return 'AI_BASE_URL must be an HTTPS API base URL, such as https://api.example.com/v1.';
+      return 'Base URL must be an HTTPS API base URL, such as https://api.example.com/v1.';
     }
-    if (provider.isEmpty) return 'Set AI_PROVIDER in .env, then regenerate the environment and restart.';
-    if (model.isEmpty) return 'Set AI_MODEL in .env, then regenerate the environment and restart.';
+    if (provider.isEmpty) return 'Enter a provider in AI settings.';
+    if (model.isEmpty) return 'Enter a model in AI settings.';
     return null;
   }
 
@@ -78,6 +81,7 @@ class ChatService {
   }
 
   Stream<String> _remoteReply(List<Map<String, String>> messages, CancelToken cancelToken, {Map<String, dynamic>? schema}) async* {
+    final baseUrl = this.baseUrl, model = this.model, apiKey = _apiKey;
     final invalid = configurationError;
     if (invalid != null) throw ChatException(invalid);
     final links = <String, String>{};
@@ -116,7 +120,7 @@ class ChatService {
           },
           cancelToken: cancelToken,
           options: Options(
-            headers: {'Authorization': 'Bearer $_apiKey', 'Accept': 'text/event-stream'},
+            headers: {'Authorization': 'Bearer $apiKey', 'Accept': 'text/event-stream'},
             contentType: Headers.jsonContentType,
             responseType: ResponseType.stream,
             followRedirects: false,
@@ -219,7 +223,7 @@ class ChatService {
       final message = switch (status) {
         401 || 403 => 'The AI provider rejected the API key or model access. Check your account and configuration.',
         429 => 'The AI provider rate limit or quota reached. Wait before retrying.',
-        404 => 'The AI provider endpoint or model was not found. Check AI_BASE_URL and AI_MODEL.',
+        404 => 'The AI provider endpoint or model was not found. Check the Base URL and model in AI settings.',
         400 => 'The AI provider rejected this request. The conversation may be too long or the model configuration invalid.',
         _ => 'Could not reach The AI provider or the response was interrupted. Please retry.',
       };
@@ -230,6 +234,7 @@ class ChatService {
   }
 
   Future<String> translateTitle(String title, CancelToken token) async {
+    final baseUrl = this.baseUrl, model = this.model, apiKey = _apiKey;
     if (title.trim().isEmpty || title.length > 4000) throw const ChatException('Title must contain 1–4000 characters.');
     if (configurationError != null) throw ChatException(configurationError!);
     try {
@@ -239,7 +244,7 @@ class ChatService {
           {'role': 'user', 'content': title},
         ]},
         cancelToken: token,
-        options: Options(headers: {'Authorization': 'Bearer $_apiKey', 'Accept': 'text/event-stream'},
+        options: Options(headers: {'Authorization': 'Bearer $apiKey', 'Accept': 'text/event-stream'},
           contentType: Headers.jsonContentType, responseType: ResponseType.stream, followRedirects: false,
           sendTimeout: const Duration(seconds: 30), receiveTimeout: const Duration(seconds: 90)),
       );
@@ -260,6 +265,7 @@ class ChatService {
   }
 
   Future<String> generateSql(String prompt, Map<String, List<String>> schema, CancelToken token) async {
+    final baseUrl = this.baseUrl, model = this.model, apiKey = _apiKey;
     if (prompt.trim().isEmpty || prompt.length > 4000) throw const ChatException('Describe your query in 1–4000 characters.');
     if (schema.isEmpty) throw const ChatException('Load the database schema before generating SQL.');
     final schemaJson = jsonEncode(schema);
@@ -272,7 +278,7 @@ class ChatService {
           {'role': 'user', 'content': prompt.trim()},
         ]},
         cancelToken: token,
-        options: Options(headers: {'Authorization': 'Bearer $_apiKey', 'Accept': 'text/event-stream'},
+        options: Options(headers: {'Authorization': 'Bearer $apiKey', 'Accept': 'text/event-stream'},
           contentType: Headers.jsonContentType, responseType: ResponseType.stream, followRedirects: false,
           sendTimeout: const Duration(seconds: 30), receiveTimeout: const Duration(seconds: 90)),
       );

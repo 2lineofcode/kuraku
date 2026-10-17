@@ -40,6 +40,26 @@ enum AppTheme {
 mixin AppPref {
   static final _pref = Get.find<AppSettingService>().pref;
 
+  static Map<String, String> getAiSettings() {
+    final stored = Get.isRegistered<AppSettingService>() ? _pref.read<Map>('ai_settings') : null;
+    return {
+      'apiKey': stored?['apiKey'] as String? ?? '',
+      'provider': stored?['provider'] as String? ?? 'AgnesAI',
+      'baseUrl': stored?['baseUrl'] as String? ?? 'https://apihub.agnes-ai.com/v1',
+      'model': stored?['model'] as String? ?? 'agnes-2.5-flash',
+    };
+  }
+
+  static Future<void> setAiSettings(Map<String, String> value) async {
+    final previous = _pref.read<Map>('ai_settings');
+    try {
+      await savePreferences(_pref, {'ai_settings': value});
+    } catch (_) {
+      _pref.writeInMemory('ai_settings', previous);
+      rethrow;
+    }
+  }
+
   static String? getActiveChat() => _pref.read<String>('chat_active_id');
   static Future<void> setActiveChat(String id) => _pref.write('chat_active_id', id);
   static bool getChatSidebarVisible() => _pref.read<bool>('chat_sidebar_visible') ?? true;

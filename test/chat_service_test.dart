@@ -84,7 +84,7 @@ void main() {
   test('Missing configuration, cancellation and incomplete or malformed streams fail clearly', () async {
     final unnamed = ChatService(apiKey: 'test-key', provider: ' ');
     addTearDown(unnamed.close);
-    expect(unnamed.configurationError, contains('AI_PROVIDER'));
+    expect(unnamed.configurationError, contains('provider in AI settings'));
     final api = ChatService(apiKey: '');
     addTearDown(api.close);
     await expectLater(api.reply([], CancelToken()).toList(), throwsA(isA<ChatException>()));
