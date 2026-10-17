@@ -137,9 +137,17 @@ void main() {
     test('serialises the vector as a little-endian float32 blob', () {
       final json = VideoEmbeddingRecord(videoId: 'v3', sourceText: 'text', embedding: [0.1, 0.2], model: 'm', createdAt: 'c', updatedAt: 'u').toJson();
       expect(json['embedding'], isA<Uint8List>());
+      expect(json['embedding'], [0xcd, 0xcc, 0xcc, 0x3d, 0xcd, 0xcc, 0x4c, 0x3e]);
       final decoded = VideoEmbeddingRecord.fromJson(json);
       expect(decoded.embedding[0], closeTo(0.1, 1e-6));
       expect(decoded.embedding[1], closeTo(0.2, 1e-6));
+    });
+
+    test('rejects empty, non-finite and overflowing float32 vectors before writing', () async {
+      for (final vector in <List<double>>[[], [double.nan], [double.infinity], [-double.infinity], [1e40]]) {
+        await expectLater(DBVideoEmbeddings.upsert(videoId: 'v1', sourceText: 'text', embedding: vector), throwsArgumentError);
+      }
+      expect(database.rows, isEmpty);
     });
   });
 

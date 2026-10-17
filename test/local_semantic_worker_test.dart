@@ -28,6 +28,11 @@ void main() {
   test('Worker handles concurrent requests, startup cancellation and recovery', () async {
     Get.testMode = true;
     final directory = await Directory.systemTemp.createTemp('kuraku-worker-test-');
+    addTearDown(() async {
+      LocalSemanticWorker.stop();
+      Get.reset();
+      await directory.delete(recursive: true);
+    });
     final runtime = '${directory.path}/semantic_runtime';
     final python = await Process.run('python3', ['-c', 'import sys; print(sys.executable)']);
     expect(python.exitCode, 0);
@@ -50,11 +55,6 @@ void main() {
     expect(created.exitCode, 0);
     Get.put<AppSettingService>(AppSettingService()..appPath = directory.path..bundledAssetsPath = p.absolute('assets'));
     Get.put<DBService>(_DBService()..dbMain = _Database(dbPath));
-    addTearDown(() async {
-      LocalSemanticWorker.stop();
-      Get.reset();
-      await directory.delete(recursive: true);
-    });
     expect(await LocalSemanticWorker.isReady(), isTrue);
     await File('$runtime/LICENSE').writeAsString('truncated');
     expect(await LocalSemanticWorker.isReady(), isFalse);
@@ -71,8 +71,11 @@ void main() {
     await expectLater(cancelled, throwsA(isA<SemanticSearchException>()));
     expect((await LocalSemanticWorker.request('plan'))['total'], 0);
     SemanticSearchService.beginPlayback();
-    await expectLater(SemanticSearchService.search('forest'), throwsA(isA<SemanticSearchException>()));
-    SemanticSearchService.endPlayback();
+    try {
+      await expectLater(SemanticSearchService.search('forest'), throwsA(isA<SemanticSearchException>()));
+    } finally {
+      SemanticSearchService.endPlayback();
+    }
     expect((await LocalSemanticWorker.request('plan'))['total'], 0);
     final owner = Object();
     final stale = LocalSemanticWorker.request('plan', {}, owner);

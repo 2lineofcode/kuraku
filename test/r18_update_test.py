@@ -1,3 +1,4 @@
+from contextlib import closing
 import gzip
 import runpy
 import sqlite3
@@ -44,7 +45,7 @@ if __name__ == '__main__':
         with gzip.open(source, 'wt') as stream:
             stream.write(dump())
         converter['convert_dump'](source, output)
-        with sqlite3.connect(output) as conn:
+        with closing(sqlite3.connect(output)) as conn:
             assert conn.execute('SELECT video_code FROM derived_video').fetchone() == ('ABP-001',)
             assert conn.execute('PRAGMA quick_check').fetchone() == ('ok',)
         valid = output.read_bytes()

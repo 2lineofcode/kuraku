@@ -37,6 +37,11 @@ void main() {
     final directory = (await tester.runAsync(() => Directory.systemTemp.createTemp('kuraku-ai-test-')))!;
     const channel = MethodChannel('plugins.flutter.io/path_provider');
     final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    addTearDown(() async {
+      Get.reset();
+      messenger.setMockMethodCallHandler(channel, null);
+      await directory.delete(recursive: true);
+    });
     messenger.setMockMethodCallHandler(channel, (_) async => directory.path);
     final pref = (await tester.runAsync(() async {
       final storage = GetSecureStorage(container: 'ai-test', password: 'test', path: directory.path);
@@ -51,12 +56,7 @@ void main() {
         'data: {"choices":[{"delta":{"content":"SELECT 1"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', 200)));
     }));
     final api = ChatService(dio: dio);
-    addTearDown(() async {
-      api.close();
-      Get.reset();
-      messenger.setMockMethodCallHandler(channel, null);
-      await directory.delete(recursive: true);
-    });
+    addTearDown(api.close);
     await tester.pumpWidget(GetMaterialApp(home: Builder(builder: (context) => Scaffold(
       body: TextButton(onPressed: () => showDialog<void>(context: context,
         builder: (_) => const PageChatSettingsDialog()), child: const Text('Open')),

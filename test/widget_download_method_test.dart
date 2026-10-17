@@ -7,6 +7,8 @@ import 'package:kuraku/app/core/app_pref.dart';
 import 'package:kuraku/app/modules/widgets/widget_download_method.dart';
 
 void main() {
+  tearDown(Get.reset);
+
   testWidgets('only arrow opens engines while the row uses the default', (tester) async {
     ({String method, String? engine})? selected;
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(
@@ -34,7 +36,6 @@ void main() {
     await tester.tap(find.text('Cancel'));
     expect(selected, isNull);
     expect(tester.takeException(), isNull);
-    Get.reset();
   });
 
   testWidgets('source URL stays available and dismissing the menu does not select', (tester) async {
@@ -58,6 +59,5 @@ void main() {
     await tester.pumpAndSettle();
     expect(selected, (method: 'url', engine: null));
     expect(tester.takeException(), isNull);
-    Get.reset();
   });
 }

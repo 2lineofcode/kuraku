@@ -466,6 +466,7 @@ const indonesianTranslations = <String, String>{
   'Duration (minutes)': 'Durasi (menit)',
   'Duration:': 'Durasi:',
   'EN Sub': 'Sub English',
+  'Edit': 'Edit',
   'Edit Metadata': 'Edit metadata',
   'Edit Metadata @{videoCode}': 'Edit metadata @{videoCode}',
   'Edit Playlist': 'Edit playlist',

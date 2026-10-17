@@ -1,3 +1,4 @@
+from contextlib import closing
 import importlib.util
 import sqlite3
 import tempfile
@@ -13,14 +14,14 @@ def test_queries():
     with tempfile.TemporaryDirectory() as folder:
         main = Path(folder) / 'kuraku.db'
         r18 = Path(folder) / 'r18_test.db'
-        with sqlite3.connect(main) as db:
+        with closing(sqlite3.connect(main)) as db, db:
             db.executescript('CREATE TABLE videos (id TEXT, video_code TEXT, title TEXT, video_path TEXT, is_favorite INTEGER); CREATE TABLE chat_message (content TEXT);')
             db.executemany('INSERT INTO videos VALUES (?, ?, ?, ?, ?)', [(str(i), 'TEST-001', 'Title', '/private/video', 1) for i in range(30)])
-        with sqlite3.connect(r18) as db:
+        with closing(sqlite3.connect(r18)) as db, db:
             db.executescript("CREATE TABLE derived_video (content_id TEXT, dvd_id TEXT, title_en TEXT); INSERT INTO derived_video VALUES ('one', 'TEST-001', 'Catalog title');")
         def run(sql, **extra):
             return knowledge.run({'main': str(main), 'r18': str(r18), 'sql': sql, **extra})
-        with sqlite3.connect(main) as db:
+        with closing(sqlite3.connect(main)) as db, db:
             db.executescript("CREATE TABLE playlist (id TEXT, name TEXT); CREATE TABLE playlist_item (playlist_id TEXT, video_id TEXT, created_at TEXT); INSERT INTO playlist VALUES ('p1','My list'); INSERT INTO playlist_item VALUES ('p1','0','2026');")
         assert run('SELECT p.name, v.video_code FROM playlist p JOIN playlist_item i ON i.playlist_id=p.id JOIN videos v ON v.id=i.video_id')['rows'] == [['My list', 'TEST-001']]
         assert run('SELECT count(*) AS total FROM temp.videos')['rows'] == [[30]]
@@ -54,15 +55,15 @@ def test_queries():
         else:
             raise AssertionError('Unbounded query accepted')
         assert run('SELECT count(*) FROM videos')['rows'] == [[30]]
-        with sqlite3.connect(main) as db:
+        with closing(sqlite3.connect(main)) as db, db:
             db.execute('ALTER TABLE videos ADD COLUMN fan_art TEXT')
             db.execute("UPDATE videos SET fan_art = 'digital/video/test001/test001pl' WHERE video_code = 'TEST-001'")
-        with sqlite3.connect(r18) as db:
+        with closing(sqlite3.connect(r18)) as db, db:
             db.execute('ALTER TABLE derived_video ADD COLUMN jacket_full_url TEXT')
             db.execute("UPDATE derived_video SET jacket_full_url = 'https://example.com/catalog.jpg'")
             db.executemany('INSERT INTO derived_video (content_id, dvd_id, title_en) VALUES (?, ?, ?)',
                            [(str(i), f'TEST-{i:03}', 'Sample title ' + 'x' * 400) for i in range(600)])
-        with sqlite3.connect(r18) as db:
+        with closing(sqlite3.connect(r18)) as db, db:
             db.execute("UPDATE derived_video SET jacket_full_url = 'https://example.com/test002.jpg?size=large' WHERE dvd_id = 'TEST-002'")
         bulk = run('SELECT dvd_id, title_en FROM r18.derived_video ORDER BY dvd_id LIMIT 200')
         assert bulk['covers']['TEST-001'] == 'digital/video/test001/test001pl'
@@ -86,10 +87,10 @@ def test_queries():
 def test_title_search():
     with tempfile.TemporaryDirectory() as folder:
         main, r18 = Path(folder) / 'kuraku.db', Path(folder) / 'r18.db'
-        with sqlite3.connect(main) as db:
+        with closing(sqlite3.connect(main)) as db, db:
             db.execute('CREATE TABLE videos (video_code TEXT, title TEXT, title_ja TEXT)')
             db.execute("INSERT INTO videos VALUES ('LOCAL-001', NULL, '雨の散歩')")
-        with sqlite3.connect(r18) as db:
+        with closing(sqlite3.connect(r18)) as db, db:
             db.executescript('CREATE TABLE derived_video (dvd_id TEXT, title_en TEXT, title_ja TEXT); CREATE TABLE machine_translation (source_ja TEXT, target_en TEXT);')
             db.executemany('INSERT INTO derived_video VALUES (?, ?, ?)', [
                 ('TEST-001', None, '雨の散歩'), ('TEST-001', '', '雨の散歩'),
@@ -118,16 +119,16 @@ def test_title_search():
                 pass
             else:
                 raise AssertionError('Invalid title search accepted')
-        with sqlite3.connect(r18) as db:
+        with closing(sqlite3.connect(r18)) as db, db:
             db.execute('DROP TABLE machine_translation')
         assert [row[0] for row in knowledge.run(base)['rows']] == ['TEST-001']
-        with sqlite3.connect(r18) as db:
+        with closing(sqlite3.connect(r18)) as db, db:
             db.executemany('INSERT INTO derived_video VALUES (?, NULL, ?)', [(f'PAGE-{i:04}', '雨の散歩') for i in range(600)])
         beyond_old_cap = knowledge.run({**base, 'limit': 25, 'offset': 500})
         assert len(beyond_old_cap['rows']) == 25 and beyond_old_cap['rows'][0][0] == 'PAGE-0500'
         assert beyond_old_cap['has_more'] and beyond_old_cap['page_offset'] == 500
         assert knowledge.run({**base, 'offset': 10001})['rows'] == []
-        with sqlite3.connect(r18) as db:
+        with closing(sqlite3.connect(r18)) as db, db:
             db.execute('ALTER TABLE derived_video ADD COLUMN release_date TEXT')
             db.execute("UPDATE derived_video SET release_date = '2026-09-22' WHERE dvd_id IN ('PAGE-0598', 'PAGE-0599')")
             db.execute("UPDATE derived_video SET release_date = '2020-01-01' WHERE dvd_id = 'PAGE-0597'")
@@ -141,10 +142,10 @@ def test_title_search():
 def test_filters_and_similarity():
     with tempfile.TemporaryDirectory() as folder:
         main, r18 = Path(folder) / 'kuraku.db', Path(folder) / 'r18.db'
-        with sqlite3.connect(main) as db:
+        with closing(sqlite3.connect(main)) as db, db:
             db.execute('CREATE TABLE videos (video_code TEXT, title TEXT, title_ja TEXT)')
             db.execute("INSERT INTO videos VALUES ('TEST-002', 'Owned', '')")
-        with sqlite3.connect(r18) as db:
+        with closing(sqlite3.connect(r18)) as db, db:
             db.executescript('CREATE TABLE derived_video (content_id TEXT, dvd_id TEXT, title_en TEXT, title_ja TEXT, comment_en TEXT, comment_ja TEXT); CREATE TABLE derived_category (id TEXT, name_en TEXT, name_ja TEXT); CREATE TABLE derived_video_category (content_id TEXT, category_id TEXT);')
             db.executemany('INSERT INTO derived_video VALUES (?,?,?,?,?,?)', [
                 ('ref', 'REF-001', 'Evening stroll', '夜の散歩', 'An outdoor walk in the rain', ''),
@@ -181,14 +182,14 @@ def test_filters_and_similarity():
 def test_saved_translations_and_duplicate_metadata():
     with tempfile.TemporaryDirectory() as folder:
         main, r18 = Path(folder) / 'kuraku.db', Path(folder) / 'r18.db'
-        with sqlite3.connect(main) as db:
+        with closing(sqlite3.connect(main)) as db, db:
             db.executescript('CREATE TABLE videos (video_code TEXT, title TEXT); CREATE TABLE chat_translation (source_text TEXT, target_language TEXT, translated_text TEXT);')
             db.execute("INSERT INTO videos VALUES ('LOCAL-001', 'Rain in the park')")
             db.executemany('INSERT INTO chat_translation VALUES (?,?,?)', [
                 ('傘の散歩', 'id', 'Hujan di taman'), ('雨の総集編', 'id', 'Hujan di taman kompilasi'),
                 (' ', 'id', 'Hujan di taman'), ('晴れ', 'en', 'Hujan di taman'),
             ])
-        with sqlite3.connect(r18) as db:
+        with closing(sqlite3.connect(r18)) as db, db:
             db.execute('CREATE TABLE derived_video (dvd_id TEXT, title_en TEXT, title_ja TEXT, comment_ja TEXT)')
             db.executemany('INSERT INTO derived_video VALUES (?,?,?,?)', [
                 ('DUP-001', '', '雨の散歩', ''), ('DUP-001', 'Rainy walk', '雨の散歩', ''),
@@ -216,9 +217,9 @@ def test_saved_translations_and_duplicate_metadata():
 def test_deleted_videos():
     with tempfile.TemporaryDirectory() as folder:
         main, r18 = Path(folder) / 'kuraku.db', Path(folder) / 'r18.db'
-        with sqlite3.connect(main) as db:
+        with closing(sqlite3.connect(main)) as db, db:
             db.executescript("CREATE TABLE videos(id TEXT, video_code TEXT, title TEXT, title_ja TEXT, is_favorite INTEGER, is_deleted INTEGER, poster TEXT); INSERT INTO videos VALUES ('live','LIVE-001','Rain live','雨',1,0,'live.jpg'),('gone','GONE-001','Rain deleted','雨',1,1,'gone.jpg');")
-        with sqlite3.connect(r18) as db:
+        with closing(sqlite3.connect(r18)) as db, db:
             db.executescript("CREATE TABLE derived_video(dvd_id TEXT, title_en TEXT); INSERT INTO derived_video VALUES ('LIVE-001','Rain live'),('GONE-001','Rain deleted');")
         base = {'main': str(main), 'r18': str(r18)}
         assert knowledge.run({**base, 'sql': 'SELECT COUNT(*) FROM temp.videos'})['rows'] == [[1]]
