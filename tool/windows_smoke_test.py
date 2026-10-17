@@ -1,4 +1,5 @@
 import ctypes
+from contextlib import closing
 import shutil
 import sqlite3
 import subprocess
@@ -22,7 +23,7 @@ def main():
         while time.monotonic() < deadline and process.poll() is None:
             if database.exists():
                 try:
-                    with sqlite3.connect(f'{database.as_uri()}?mode=ro', uri=True) as connection:
+                    with closing(sqlite3.connect(f'{database.as_uri()}?mode=ro', uri=True)) as connection:
                         ready = connection.execute("SELECT 1 FROM sqlite_master WHERE name = 'chat_translation'").fetchone() is not None
                 except sqlite3.OperationalError:
                     pass
