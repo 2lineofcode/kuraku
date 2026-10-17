@@ -7,10 +7,12 @@ import 'package:kuraku/app/utils/chat_service.dart';
 
 class _Adapter implements HttpClientAdapter {
   int status = 200;
+  int requests = 0;
   RequestOptions? request;
   String body = 'data: {"choices":[{"delta":{"content":"Halo 👋"},"finish_reason":null}]}\r\n\r\ndata: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n';
   @override
   Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+    requests++;
     request = options;
     return ResponseBody(Stream.fromIterable(utf8.encode(body).map((byte) => Uint8List.fromList([byte]))), status,
       headers: {Headers.contentTypeHeader: ['text/event-stream']});
@@ -99,5 +101,19 @@ void main() {
     ]) {
       await expectLater(ChatService.decodeEvents(Stream.value(utf8.encode(payload))).toList(), throwsA(isA<ChatException>()));
     }
+  });
+
+  test('Malformed streams after visible text fail without appending a retry', () async {
+    final adapter = _Adapter()..body = 'data: {"choices":[{"delta":{"content":"There are 99 videos."}}]}\n\ndata: {broken\n\n';
+    final api = ChatService(dio: Dio()..httpClientAdapter = adapter, apiKey: 'test-key');
+    addTearDown(api.close);
+    final output = StringBuffer();
+    await expectLater(() async {
+      await for (final chunk in api.reply([{'role': 'user', 'content': 'Count my videos'}], CancelToken())) {
+        output.write(chunk);
+      }
+    }(), throwsA(isA<ChatException>()));
+    expect(output.toString(), 'There are 99 videos.');
+    expect(adapter.requests, 1);
   });
 }

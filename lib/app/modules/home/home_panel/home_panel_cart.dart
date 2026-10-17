@@ -170,7 +170,7 @@ mixin HomePanelCart {
               onPressed: () => menu.isOpen ? menu.close() : menu.open(),
             ),
             menuChildren: [MenuItemButton(
-              onPressed: () => _deleteVideo(video),
+              onPressed: () => _deleteVideos([video]),
               leadingIcon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: AppStyle.iconSize, color: Theme.of(context).colorScheme.error),
               child: Text('Delete file'.tr, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             )],
@@ -187,71 +187,38 @@ mixin HomePanelCart {
   );
 
   // ────────────────────────────────────────────────────────────────
-  // ! Delete Video
-  // ────────────────────────────────────────────────────────────────
-  static Future<void> _deleteVideo(Videos videos) async {
-    await Overlayment.dismissLast();
-    AppConfirmDialog.show(
-      isDismissible: false,
-      title: Text('Are you sure?'.tr, style: TextStyle(fontSize: 14)),
-      content: Text('Delete "@{title}"? this action can\'t be undo'.trNamed({'title': '${videos.title}'}), style: TextStyle(fontSize: 12)).pOnly(top: 8),
-      actions: [
-        AppDialogAction(
-          child: Text('Yes'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
-          onPressed: () async {
-            Get.back();
-
-            if (videos.videoPath.isNotEmptyAndNotNull) {
-              try {
-                File(videos.videoPath!).deleteSync();
-              } catch (e) {
-                AppLog.logE('Failed to delete video ${videos.videoPath}: $e');
-                await HelperToast.error('Failed to delete video: @{videoPath}'.trNamed({'videoPath': '${videos.videoPath}'}));
-              }
-              _controller.cart.remove(videos);
-              _controller.cart.refresh();
-              await open();
-            }
-            await _refreshState();
-          },
-        ),
-        AppDialogAction(
-          child: Text('No'.tr, style: TextStyle(fontSize: 13)),
-          onPressed: () async => {Get.back(), await open()},
-        ),
-      ],
-    );
-  }
-
-  // ────────────────────────────────────────────────────────────────
   // ! Delete Videos
   // ────────────────────────────────────────────────────────────────
   static Future<void> _deleteVideos(List<Videos> videos) async {
     await Overlayment.dismissLast();
 
     AppConfirmDialog.show(
+      isDismissible: false,
       title: Text('Are you sure?'.tr, style: TextStyle(fontSize: 14)),
-      content: Text('Delete this video files? this action can\'t be undo'.tr, style: TextStyle(fontSize: 12)).pOnly(top: 8),
+      content: Text(videos.length == 1
+        ? 'Delete "@{title}"? this action can\'t be undo'.trNamed({'title': '${videos.single.title}'})
+        : 'Delete this video files? this action can\'t be undo'.tr, style: TextStyle(fontSize: 12)).pOnly(top: 8),
       actions: [
         AppDialogAction(
           child: Text('Yes'.tr, style: TextStyle(color: Vx.red500, fontSize: 13)),
           onPressed: () async {
             Get.back();
-            final fileToDelete = videos.map((e) => e.videoPath).toList();
-            for (var file in fileToDelete) {
+            var deleted = 0;
+            for (final video in videos) {
+              final file = video.videoPath ?? '';
               AppLog.logW('delete video: $file');
-
-              if (file.isNotEmptyAndNotNull) {
-                try {
-                  File(file!).deleteSync();
-                } catch (e) {
-                  AppLog.logE('Failed to delete video $file: $e');
-                  await HelperToast.error('Failed to delete video: @{file}'.trNamed({'file': '$file'}));
-                }
+              try {
+                if (file.trim().isEmpty) throw FileSystemException('Video path is empty');
+                await File(file).delete();
+                deleted++;
+                _controller.cart.remove(video);
+              } catch (e) {
+                AppLog.logE('Failed to delete video $file: $e');
+                await HelperToast.error('Failed to delete video: @{file}'.trNamed({'file': file}));
               }
             }
 
-            await HelperToast.warn('@{length} Video deleted'.trNamed({'length': '${_controller.cart.length}'}));
+            if (deleted > 0) await HelperToast.warn('@{length} Video deleted'.trNamed({'length': '$deleted'}));
             await _refreshState();
           },
         ),
@@ -292,7 +259,6 @@ mixin HomePanelCart {
   // * Refresh State
   // ────────────────────────────────────────────────────────────────
   static Future<void> _refreshState() async {
-    _controller.cart.clear();
     await 300.milliseconds.delay();
     await HomePanelLibrary.doRescanAllVideoFromLibrary(_controller.library);
   }

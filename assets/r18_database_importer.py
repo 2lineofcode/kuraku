@@ -14,6 +14,21 @@ SCRIPT_VERSION = "1.4.0"
 SCRIPT_UPDATED_AT = "2026-10-06"
 
 
+def copy_value(value):
+    if value == r'\N':
+        return None
+    if '\\' not in value:
+        return value
+    def unescape(match):
+        escape = match[1]
+        if escape[:1] in b'01234567':
+            return bytes([int(escape, 8) & 255])
+        if escape.startswith(b'x') and len(escape) > 1:
+            return bytes([int(escape[1:], 16)])
+        return {b'b': b'\b', b'f': b'\f', b'n': b'\n', b'r': b'\r', b't': b'\t', b'v': b'\v'}.get(escape, escape)
+    return re.sub(rb'\\([0-7]{1,3}|x[0-9a-fA-F]{1,2}|.)', unescape, value.encode('utf-8')).decode('utf-8')
+
+
 def create_video_codes(conn):
     if any(row[1] == 'video_code' for row in conn.execute('PRAGMA table_info(derived_video)')):
         return
@@ -151,7 +166,7 @@ def psql2sqlite(in_psql_file, out_sqlite_file):
                         continue
 
                     values = raw_line.rstrip("\n").split("\t")
-                    parsed = [None if v == r"\N" else v for v in values]
+                    parsed = [copy_value(v) for v in values]
                     batch.append(parsed)
 
                     if len(batch) >= batch_size:

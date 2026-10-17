@@ -375,6 +375,9 @@ class Worker:
                 ON CONFLICT(video_id) DO UPDATE SET source_text=excluded.source_text, embedding=excluded.embedding,
                 model=excluded.model, updated_at=excluded.updated_at''',
                 (source, vector.tobytes(), MODEL, video_id, row['video_path']))
+            if cursor.rowcount > 0:
+                self.db.execute('UPDATE videos SET filesize = ? WHERE is_deleted = 0 AND id = ? AND video_path = ?',
+                    (json.loads(source)['video'][0], video_id, row['video_path']))
         self.cache_version = None
         return {'indexed': cursor.rowcount > 0}
 

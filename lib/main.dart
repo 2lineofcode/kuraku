@@ -33,6 +33,7 @@ import 'app/data/database/app_backup.dart';
 import 'app/data/database/db_search_site.dart';
 import 'app/modules/home/home_controller.dart';
 import 'app/modules/home/page_chat/page_chat_controller.dart';
+import 'app/modules/home/page_sqleditor/page_sqleditor_controller.dart';
 import 'app/modules/widgets/widget_dependency_guide.dart';
 import 'app/modules/widgets/widget_style.dart';
 import 'app/modules/widgets/widget_surfaces.dart';
@@ -75,6 +76,30 @@ Future<void> _initializeHotkeys() async {
   }
 }
 
+Future<bool> flushBeforeExit() async {
+  if (R18Updater.busy.value) {
+    await HelperToast.info('Please wait for the R18 update to finish.'.tr);
+    return false;
+  }
+  try {
+    if (Get.isRegistered<PageChatController>() && !Get.isPrepared<PageChatController>()) {
+      final chat = Get.find<PageChatController>();
+      await chat.stopResponse();
+      if (!await chat.flushDraft()) return false;
+    }
+    if (Get.isRegistered<PageSqleditorController>() && !Get.isPrepared<PageSqleditorController>()) {
+      final sql = Get.find<PageSqleditorController>();
+      await sql.saveTabs();
+      if (sql.saveError.value.isNotEmpty) throw StateError(sql.saveError.value);
+    }
+    await WatchSessionTracker.flushAll();
+    return true;
+  } catch (e) {
+    AppLog.logE('Could not save pending activity before exit: $e');
+    return false;
+  }
+}
+
 class Kuraku extends StatefulWidget {
   const Kuraku({super.key});
 
@@ -86,30 +111,6 @@ class _KurakuState extends State<Kuraku> with WindowListener {
   AppLifecycleListener? _lifecycle;
   bool _closing = false;
 
-  Future<bool> _flushChat() async {
-    if (Get.isRegistered<PageChatController>() && !Get.isPrepared<PageChatController>()) {
-      final chat = Get.find<PageChatController>();
-      await chat.stopResponse();
-      return chat.flushDraft();
-    }
-    return true;
-  }
-
-  Future<bool> _flushBeforeExit() async {
-    if (R18Updater.busy.value) {
-      await HelperToast.info('Please wait for the R18 update to finish.'.tr);
-      return false;
-    }
-    try {
-      if (!await _flushChat()) return false;
-      await WatchSessionTracker.flushAll();
-      return true;
-    } catch (e) {
-      AppLog.logE('Could not save pending activity before exit: $e');
-      return false;
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -117,7 +118,7 @@ class _KurakuState extends State<Kuraku> with WindowListener {
     windowManager.setPreventClose(true);
     _lifecycle = AppLifecycleListener(
       onResume: Get.find<AppSettingService>().refreshTheme,
-      onExitRequested: () async => await _flushBeforeExit() ? AppExitResponse.exit : AppExitResponse.cancel,
+      onExitRequested: () async => await flushBeforeExit() ? AppExitResponse.exit : AppExitResponse.cancel,
     );
   }
 
@@ -166,7 +167,7 @@ class _KurakuState extends State<Kuraku> with WindowListener {
   void onWindowClose([int? windowId]) async {
     if (_closing) return;
     _closing = true;
-    if (!await _flushBeforeExit()) {
+    if (!await flushBeforeExit()) {
       _closing = false;
       await HelperToast.error('Could not save pending activity or chat draft. Please try closing again.'.tr);
       return;

@@ -73,6 +73,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   double _lastPersistedSpeed = AppPref.getPlayerSpeed();
   bool _hasSyncedPreferences = false;
   bool _isAutoAdvancing = false;
+  bool _openingVideo = false;
 
   final _watchTracker = WatchSessionTracker();
   bool _watchVideoReady = false;
@@ -119,7 +120,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     change(currentVideo.value, status: RxStatus.loading());
   }
 
-  Future<void> _initializePlayer() async {
+  Future<void> initializePlayer() async {
     player = Player(
       configuration: PlayerConfiguration(
         vo: 'libmpv',
@@ -185,28 +186,34 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       return false;
     }
 
-    final decodedPath = Uri.parse(path!).toFilePath();
-    final file = File(decodedPath);
+    final file = File(path!);
     if (!file.existsSync()) {
       await HelperToast.error('Cant access file: @{videoPath}'.trNamed({'videoPath': '${video.videoPath}'}));
       return false;
     }
 
-    await (_playerInitialization ??= _initializePlayer());
-    _externalPlaylist = playlist;
-    currentVideo.value = video;
+    if (_openingVideo) return false;
+    _openingVideo = true;
+    try {
+      await (_playerInitialization ??= initializePlayer());
+      if (!await _openVideo(video)) return false;
+      _externalPlaylist = playlist;
+      currentVideo.value = video;
 
-    await DBVideos.updateViewCount(currentVideo.value);
-    await generatePlaylist();
-    currentIndexPlaying.value = this.playlist.indexWhere((element) => element.id == currentVideo.value.id);
+      try {
+        await DBVideos.updateViewCount(video);
+      } catch (e) { AppLog.logW('Failed to update video view count: $e'); }
+      await generatePlaylist();
+      if (!identical(currentVideo.value, video)) return false;
 
-    await _openVideo(currentVideo.value);
-
-    isPlayerVisible.value = true;
-    isMiniMode.value = false;
-    change(currentVideo.value, status: RxStatus.success());
-    requestFocusOnPlayer();
-    return true;
+      isPlayerVisible.value = true;
+      isMiniMode.value = false;
+      change(video, status: RxStatus.success());
+      requestFocusOnPlayer();
+      return true;
+    } finally {
+      _openingVideo = false;
+    }
   }
 
   Future<void> stopPlayback() async {
@@ -505,23 +512,22 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     return isNoAudio;
   }
 
-  Future<void> _openVideo(Videos video) async {
+  Future<bool> _openVideo(Videos video) async {
     final path = video.videoPath;
     if (path.isNullOrEmpty) {
       await HelperToast.error('Video path is null'.tr);
-      return;
+      return false;
     }
 
     final file = File(path!);
     if (!file.existsSync()) {
       await HelperToast.warn('Cant access video file'.tr);
-      return;
+      return false;
     }
 
-    _watchVideoReady = false;
-    _watchTracker.setVideo(video);
-
     try {
+      _watchVideoReady = false;
+      _watchTracker.setVideo(video);
       isInitialized.value = false;
       _hasSyncedPreferences = false;
       position.value = Duration.zero;
@@ -543,12 +549,16 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
         await videoController.waitUntilFirstFrameRendered.timeout(3.seconds, onTimeout: () => null);
       } catch (_) {}
       isInitialized.value = true;
+      return true;
     } catch (e) {
       _watchVideoReady = false;
       _watchTracker.setPlaying(false);
+      try { await player.stop(); } catch (_) {}
+      isPlaying.value = false;
       isInitialized.value = false;
       AppLog.logE('Failed to load video: $e');
       await HelperToast.error('Failed to load video: @{e}'.trNamed({'e': '$e'}));
+      return false;
     }
   }
 
@@ -735,15 +745,22 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   }
 
   Future<void> generatePlaylist() async {
-    playlist.clear();
+    final video = currentVideo.value;
     final initialPlaylist = _externalPlaylist;
+    final entries = <Videos>[];
     if (initialPlaylist != null && initialPlaylist.isNotEmpty) {
-      playlist.addAll(initialPlaylist);
-    } else if ((currentVideo.value.videoPath ?? '').isNotEmpty) {
-      final directoryVideos = await DBVideos.getAllVideoPath('video_path', dirname(currentVideo.value.videoPath!));
-      playlist.addAll(directoryVideos);
+      entries.addAll(initialPlaylist);
+    } else if ((video.videoPath ?? '').isNotEmpty) {
+      try {
+        entries.addAll(await DBVideos.getAllVideoPath('video_path', dirname(video.videoPath!)));
+      } catch (e) {
+        AppLog.logW('Failed to load video playlist: $e');
+        entries.add(video);
+      }
     }
-    currentIndexPlaying.value = playlist.indexWhere((element) => element.id == currentVideo.value.id);
+    if (!identical(currentVideo.value, video)) return;
+    playlist.assignAll(entries);
+    currentIndexPlaying.value = playlist.indexWhere((element) => element.id == video.id);
   }
 
   Future<void> addToCart() async {
@@ -974,17 +991,22 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   }
 
   Future<void> changeVideo(Videos newVideo) async {
-    currentVideo.value = newVideo;
-    await _openVideo(newVideo);
-    await generatePlaylist();
-    await showInfoOverlay('${currentIndexPlaying.value + 1}/${playlist.length}');
-
+    if (_openingVideo) return;
+    _openingVideo = true;
     try {
-      await DBVideos.updateViewCount(currentVideo.value);
-    } catch (_) {}
-
-    change(newVideo, status: RxStatus.success());
-    requestFocusOnPlayer();
+      if (!await _openVideo(newVideo)) return;
+      currentVideo.value = newVideo;
+      await generatePlaylist();
+      try {
+        await DBVideos.updateViewCount(newVideo);
+      } catch (e) { AppLog.logW('Failed to update video view count: $e'); }
+      if (!identical(currentVideo.value, newVideo)) return;
+      change(newVideo, status: RxStatus.success());
+      requestFocusOnPlayer();
+    } finally {
+      _openingVideo = false;
+    }
+    await showInfoOverlay('${currentIndexPlaying.value + 1}/${playlist.length}');
   }
 
   Future<void> showInfoOverlay(String text) async {
@@ -1006,14 +1028,12 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
   Future<void> nextVideo() async {
     if (currentIndexPlaying.value + 1 >= playlist.length) return;
-    currentIndexPlaying.value++;
-    await changeVideo(playlist[currentIndexPlaying.value]);
+    await changeVideo(playlist[currentIndexPlaying.value + 1]);
   }
 
   Future<void> prevVideo() async {
     if (currentIndexPlaying.value - 1 < 0) return;
-    currentIndexPlaying.value--;
-    await changeVideo(playlist[currentIndexPlaying.value]);
+    await changeVideo(playlist[currentIndexPlaying.value - 1]);
   }
 
   bool _fullscreenTransition = false;

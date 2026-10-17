@@ -138,7 +138,7 @@ class ChatService {
             yield chunk;
           }
         } on FormatException {
-          if (round == 2) rethrow;
+          if (round == 2 || content.isNotEmpty) rethrow;
           onActivity?.call('Retrying an unreadable tool response');
           history.add({'role': 'system', 'content': 'Your last stream was invalid. Use native tool_calls for search_local_titles, query_local or web_search. Do not emit XML, tool tags, or JSON plans as answer text.'});
           continue;
