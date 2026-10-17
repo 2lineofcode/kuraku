@@ -187,8 +187,8 @@ The `macOS CI and Release` workflow runs analysis, Flutter tests, a release buil
 To publish a release, commit and push the workflow and app changes, then push a tag matching the `major.minor.patch` version in `pubspec.yaml`:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.1
+git push origin v1.0.1
 ```
 
 Use a new version and tag for each release. A mismatched tag fails before building. Only a successful tag build publishes a GitHub Release with its DMG, checksum, installation notes, and generated changelog. CI uses the Actions run number as the build number and does not edit `pubspec.yaml` or run `publish.sh`.

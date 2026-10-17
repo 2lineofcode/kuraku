@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Test release version validation
+      - name: Test release validation and architecture
         run: python3 -B test/macos_release_workflow_test.py
 
       - name: Validate version
@@ -78,7 +78,7 @@ jobs:
         run: |
           app='build/macos/Build/Products/Release/KuraKu.app'
           codesign --verify --deep --strict "$app"
-          lipo -verify_arch arm64 "$app/Contents/MacOS/KuraKu"
+          xcrun lipo "$app/Contents/MacOS/KuraKu" -verify_arch arm64
           mkdir -p build/dmg dist
           ditto "$app" build/dmg/KuraKu.app
           ln -s /Applications build/dmg/Applications
