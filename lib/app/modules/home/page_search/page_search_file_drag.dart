@@ -58,8 +58,8 @@ class SearchFileDrag extends StatelessWidget {
           missing.add(oldPath);
         }
       }
-      // Linux cannot resolve a copy-and-delete move across filesystems.
-      await controller.applyFileMoves(files, moves, Platform.isLinux ? [] : missing);
+      // Linux and Windows cannot resolve copy-and-delete moves across filesystems.
+      await controller.applyFileMoves(files, moves, Platform.isMacOS ? missing : []);
       if (missing.isNotEmpty || operation == 'move' && files.keys.any((path) => File(path).existsSync())) {
         await HelperToast.warn('Some moved paths could not be confirmed. Add the destination folder to your library and rescan after the file manager finishes.'.tr);
       }
@@ -67,7 +67,7 @@ class SearchFileDrag extends StatelessWidget {
       AppLog.logE('File drag failed: $e');
       await HelperToast.error('File drag failed: @{e}'.trNamed({'e': '$e'}));
     } finally {
-      if (Platform.isLinux) {
+      if (!Platform.isMacOS) {
         try { await channel.invokeMethod<void>('release'); }
         catch (e) { AppLog.logW('Could not release file drag tracking: $e'); }
       }
@@ -77,7 +77,7 @@ class SearchFileDrag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (![TargetPlatform.macOS, TargetPlatform.linux].contains(defaultTargetPlatform)) return child;
+    if (![TargetPlatform.macOS, TargetPlatform.linux, TargetPlatform.windows].contains(defaultTargetPlatform)) return child;
     return Obx(() => GestureDetector(
       onPanStart: canDrag ? (_) => startDrag() : null,
       child: child,

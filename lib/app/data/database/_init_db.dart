@@ -29,7 +29,7 @@ class DBService extends GetxService {
   late String appPath;
 
   Future<DBService> init() async {
-    if (Platform.isLinux) {
+    if (Platform.isLinux || Platform.isWindows) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
     }

@@ -216,6 +216,8 @@ class PageToolsController extends GetxController with StateMixin {
 
     final external = Platform.isLinux
         ? "(video_path LIKE '/media/%' OR video_path LIKE '/mnt/%' OR video_path LIKE '/run/media/%')"
+        : Platform.isWindows
+        ? "(UPPER(SUBSTR(video_path, 1, 1)) BETWEEN 'F' AND 'Z' AND SUBSTR(video_path, 2, 2) = ':\\') OR SUBSTR(video_path, 1, 2) = '\\\\'"
         : "video_path LIKE '/Volumes/%'";
     var whereQ = 'filesize > 0';
     switch (mode) {

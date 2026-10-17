@@ -37,9 +37,9 @@ import '../modules/player/player_controller.dart';
 import '../modules/widgets/widget_auto_complate.dart';
 import '../modules/widgets/widget_chiwie_custom.dart';
 import '../modules/widgets/widget_controls.dart';
+import '../modules/widgets/widget_desktop_trailer.dart';
 import '../modules/widgets/widget_download_method.dart';
 import '../modules/widgets/widget_keyboard_shortcuts.dart';
-import '../modules/widgets/widget_linux_trailer.dart';
 import '../modules/widgets/widget_screenshot_viewer.dart';
 import '../modules/widgets/widget_style.dart';
 import '../modules/widgets/widget_surfaces.dart';
@@ -54,10 +54,12 @@ mixin HelperOpener {
     try {
       if (path.isEmpty || await FileSystemEntity.type(path) == FileSystemEntityType.notFound) throw FileSystemException('File is unavailable', path);
       final target = await FileSystemEntity.isDirectory(path) ? path : p.dirname(path);
-      final result = Platform.isLinux
+      final result = Platform.isWindows
+          ? await Process.run('explorer.exe', [if (!await FileSystemEntity.isDirectory(path)) '/select,', path])
+          : Platform.isLinux
           ? await Process.run('xdg-open', [target])
           : await Process.run('open', ['-R', path]);
-      if (result.exitCode != 0) throw FileSystemException('${result.stderr}', path);
+      if (!Platform.isWindows && result.exitCode != 0) throw FileSystemException('${result.stderr}', path);
     } catch (e) {
       await HelperToast.error('File does not exist at path: @{path}'.trNamed({'path': path}));
     }
@@ -101,8 +103,13 @@ mixin HelperOpener {
       }
     } else {
       try {
-        final result = await Process.run(Platform.isLinux ? 'xdg-open' : 'open', [video.videoPath ?? '']);
-        if (result.exitCode != 0) throw StateError('${result.stderr}');
+        if (Platform.isWindows) {
+          final opened = await launchUrlString(Uri.file(video.videoPath!).toString(), mode: LaunchMode.externalApplication);
+          if (!opened) throw StateError('No application could open the file');
+        } else {
+          final result = await Process.run(Platform.isLinux ? 'xdg-open' : 'open', [video.videoPath ?? '']);
+          if (result.exitCode != 0) throw StateError('${result.stderr}');
+        }
         await DBVideos.updateViewCount(video);
         await Get.find<PageHomeController>().getListMostWatch();
       } catch (e) {
@@ -653,10 +660,10 @@ mixin HelperOpener {
         throw StateError('Trailer not found or URL is invalid'.tr);
       }
 
-      if (defaultTargetPlatform == TargetPlatform.linux) {
+      if ([TargetPlatform.linux, TargetPlatform.windows].contains(defaultTargetPlatform)) {
         HelperLoading.dismiss();
         loading = false;
-        await Get.dialog<void>(LinuxTrailer(video: video, urls: urls));
+        await Get.dialog<void>(DesktopTrailer(video: video, urls: urls));
         return;
       }
       for (final url in urls) {

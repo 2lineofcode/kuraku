@@ -96,6 +96,7 @@ flutter:
     - assets/sql_editor_worker.py
     - assets/kuraku
     - assets/linux-x64/
+    - assets/windows-x64/
     - assets/download_complete.mp3
 
 get_cli:

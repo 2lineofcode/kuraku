@@ -55,11 +55,17 @@ void main() {
       expect(knowledge.directQuery('ABP-001')!['args'], next == null ? ['ABP-001'] : ['ABP-001', 'ABP-001']);
     }
   });
+  test('Python workers exchange Unicode in UTF-8 mode on every desktop', () async {
+    final knowledge = ChatKnowledge(mainPath: '/unused.db', loadScript: () async =>
+      'import json,sys; request=json.load(sys.stdin); print(json.dumps({"text": request["text"], "utf8": sys.flags.utf8_mode}, ensure_ascii=False))');
+    final result = await knowledge.request({'text': '日本語 — Indonesia'}, CancelToken());
+    expect(result, {'text': '日本語 — Indonesia', 'utf8': 1});
+  });
   test('Bundled worker reads a real database and cancels a running query', () async {
     final folder = await Directory.systemTemp.createTemp('kuraku-knowledge-test-');
     addTearDown(() => folder.delete(recursive: true));
     final path = '${folder.path}/kuraku.db';
-    final setup = await Process.run('python3', ['-B', '-c',
+    final setup = await Process.run(Platform.isWindows ? 'python' : 'python3', ['-X', 'utf8', '-B', '-c',
       'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("CREATE TABLE videos (video_code TEXT)"); c.executemany("INSERT INTO videos VALUES (?)", [("TEST-001",)]*100); c.commit(); c.close()', path]);
     expect(setup.exitCode, 0);
     final knowledge = ChatKnowledge(mainPath: path, loadScript: () => rootBundle.loadString('assets/chat_database_worker.py'));

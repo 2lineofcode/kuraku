@@ -10,7 +10,7 @@ void main() {
   late HttpServer server;
   late String url;
   var segment = <int>[];
-  final binary = p.absolute(Platform.isLinux ? 'assets/linux-x64/kuraku' : 'assets/kuraku');
+  final binary = p.absolute(Platform.isWindows ? 'assets/windows-x64/kuraku.exe' : Platform.isLinux ? 'assets/linux-x64/kuraku' : 'assets/kuraku');
 
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('kuraku download test ');
@@ -84,6 +84,41 @@ void main() {
     expect(job.exitCode, isNot(0));
     expect(await File(p.join(directory.path, 'error.bin')).exists(), isFalse);
   });
+
+  test('real binary cancellation kills FFmpeg children on Windows', () async {
+    final waiting = Completer<void>(), release = Completer<void>();
+    final slow = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    slow.listen((request) async {
+      if (request.uri.path == '/hls') {
+        request.response.write('#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:1,\nsegment.ts\n#EXT-X-ENDLIST\n');
+      } else {
+        if (!waiting.isCompleted) waiting.complete();
+        await release.future;
+      }
+      await request.response.close();
+    });
+    final job = PageDownloadJob();
+    final download = job.start(DownloadRequest(url: 'http://127.0.0.1:${slow.port}/hls', directory: directory.path,
+      filename: 'cancelled.mp4', mode: 'hls'), binary: binary, cache: p.join(directory.path, 'cache'));
+    addTearDown(() async {
+      job.cancel();
+      if (!release.isCompleted) release.complete();
+      await download;
+      await slow.close(force: true);
+    });
+    await waiting.future.timeout(const Duration(seconds: 20));
+    final children = await Process.run('powershell.exe', ['-NoProfile', '-Command',
+      "(Get-CimInstance Win32_Process -Filter 'ParentProcessId = ${job.process!.pid}').ProcessId"]);
+    expect(children.exitCode, 0, reason: '${children.stderr}');
+    final pids = RegExp(r'\d+').allMatches('${children.stdout}').map((match) => int.parse(match[0]!)).toList();
+    expect(pids, isNotEmpty);
+    job.cancel();
+    await download.timeout(const Duration(seconds: 20));
+    expect(job.status, 'Cancelled');
+    for (final pid in pids) {
+      expect(Process.killPid(pid), isFalse, reason: 'Child $pid survived downloader cancellation');
+    }
+  }, skip: !Platform.isWindows);
 
   test('real binary detects HLS and remuxes a playable MP4', () async {
     final source = p.join(directory.path, 'source.ts');

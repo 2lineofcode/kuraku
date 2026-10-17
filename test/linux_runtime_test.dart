@@ -50,7 +50,7 @@ void main() {
     expect(plugin.receivedPayload, 'download');
   }, skip: !Platform.isLinux);
 
-  test('Linux startup creates both databases, migrates R18 and persists library data', () async {
+  test('FFI desktop startup creates both databases, migrates R18 and persists library data', () async {
     final directory = await Directory.systemTemp.createTemp('kuraku-linux-db-');
     addTearDown(() async { Get.reset(); await directory.delete(recursive: true); });
     Get.put(AppSettingService()..appPath = directory.path);
@@ -90,9 +90,9 @@ void main() {
     } finally {
       await service.close();
     }
-  }, skip: !Platform.isLinux);
+  }, skip: !Platform.isLinux && !Platform.isWindows);
 
-  testWidgets('Linux Ctrl shortcuts require the specified modifiers', (tester) async {
+  testWidgets('Desktop Ctrl shortcuts require the specified modifiers', (tester) async {
     const shortcut = AppShortcut(LogicalKeyboardKey.keyN);
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     expect(shortcut.accepts(const KeyDownEvent(physicalKey: PhysicalKeyboardKey.keyN,
@@ -103,5 +103,5 @@ void main() {
     await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     expect(AppShortcut.label('⌘ + N'), 'Ctrl + N');
-  }, skip: !Platform.isLinux);
+  }, skip: !Platform.isLinux && !Platform.isWindows);
 }

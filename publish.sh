@@ -111,7 +111,7 @@ case "$resolved_target" in
     bash tool/package_linux.sh "$new_version"
     ;;
   windows)
-    log "Output: build/windows/x64/runner/Release"
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File tool/package_windows.ps1 -Version "$new_version"
     ;;
 esac
 

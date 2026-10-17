@@ -96,7 +96,7 @@ class ChatKnowledge {
     final script = await (loadScript?.call() ?? File('assets/chat_database_worker.py').readAsString());
     final python = await AppDependencies.shared.requirePython();
     if (token.isCancelled) throw token.cancelError!;
-    final worker = await Process.start(python, ['-B', '-c', script]);
+    final worker = await Process.start(python, ['-X', 'utf8', '-B', '-c', script]);
     var finished = false;
     unawaited(token.whenCancel.then((_) { if (!finished) worker.kill(); }));
     final timer = Timer(const Duration(seconds: 15), () => worker.kill(ProcessSignal.sigkill));

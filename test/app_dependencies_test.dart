@@ -24,7 +24,7 @@ void main() {
 
   test('Browser detection checks executable paths without launching a browser', () async {
     final checker = AppDependencies(
-      exists: (path) async => path == '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' || Platform.isLinux && path.endsWith('/google-chrome'),
+      exists: (path) async => Platform.isWindows && path.endsWith(r'Google\Chrome\Application\chrome.exe') || path == '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' || Platform.isLinux && path.endsWith('/google-chrome'),
       run: (_, _) => throw StateError('Must not launch Chrome during startup'),
     );
     expect((await checker.browser()).ready, isTrue);
@@ -129,7 +129,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(ready, isTrue);
     expect(tester.takeException(), isNull);
-  }, variant: TargetPlatformVariant({TargetPlatform.macOS, TargetPlatform.linux}));
+  }, variant: TargetPlatformVariant({TargetPlatform.macOS, TargetPlatform.linux, TargetPlatform.windows}));
 
   testWidgets('Required startup dependencies have no Continue action and tolerate a narrow window', (tester) async {
     tester.view.physicalSize = const Size(400, 500);
