@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
+import '../core/app_dependencies.dart';
 import '../core/app_logging.dart';
 import '../core/app_setting.dart';
 import '../core/app_translations.dart';
@@ -68,18 +69,13 @@ mixin LocalSemanticWorker {
     final epoch = _setupEpoch;
     onProgress('Checking Python and preparing local runtime...'.tr);
     AppLog.logI('Visual Search: checking Python and preparing local runtime');
-    String? python;
-    for (final candidate in ['python3', '/opt/homebrew/bin/python3', '/usr/local/bin/python3']) {
-      try {
-        final probe = await Process.start(candidate, ['-c', 'import sys; sys.exit(0 if (3,12) <= sys.version_info[:2] <= (3,14) else 1)']);
-        unawaited(probe.stdout.drain<void>());
-        unawaited(probe.stderr.drain<void>());
-        final code = await probe.exitCode.timeout(const Duration(seconds: 5), onTimeout: () { probe.kill(); return -1; });
-        if (code == 0) { python = candidate; break; }
-      } on ProcessException { continue; }
+    final String python;
+    try {
+      python = await AppDependencies.shared.requirePython(visualSearch: true);
+    } on StateError catch (e) {
+      throw SemanticSearchException('${e.message}');
     }
     if (epoch != _setupEpoch) throw SemanticSearchException('Setup stopped. Retry to continue.'.tr);
-    if (python == null) throw SemanticSearchException('Install Python 3.12–3.14, then retry setup.'.tr);
     AppLog.logI('Visual Search: starting installer with $python');
     final process = await Process.start(python, ['-B', '-u', _script, 'setup', _root]);
     _installer = process;

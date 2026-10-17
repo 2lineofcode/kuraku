@@ -26,7 +26,9 @@ class _Tools extends PageToolsController {
 }
 
 class _Database implements Database {
-  _Database({this.includeFallback = false, this.includeBrowseDuplicates = false, this.includePagination = false, this.includeSeriesGaps = false, this.includeNameFallback = false});
+  _Database({this.includeFallback = false, this.includeBrowseDuplicates = false, this.includePagination = false, this.includeSeriesGaps = false, this.includeNameFallback = false}) {
+    addTearDown(_close);
+  }
 
   final bool includeFallback;
   final bool includeBrowseDuplicates;
@@ -35,10 +37,13 @@ class _Database implements Database {
   final bool includeNameFallback;
   Future<List<Map<String, Object?>>> Function(String, List<Object?>)? run;
 
-  @override
-  Future<List<Map<String, Object?>>> rawQuery(String sql, [List<Object?>? arguments]) async {
-    if (run != null) return run!(sql, arguments ?? []);
-    final result = await Process.run('python3', ['-c', r'''
+  Future<Process>? _worker;
+  late StreamIterator<String> _output;
+  late Future<String> _errors;
+  Future<void> _pending = Future.value();
+
+  Future<Process> _startWorker() async {
+    final worker = await Process.start('python3', ['-B', '-u', '-c', r'''
 import sqlite3, json, sys, runpy
 c = sqlite3.connect(':memory:')
 c.row_factory = sqlite3.Row
@@ -74,7 +79,7 @@ INSERT INTO derived_video_actress VALUES ('a',1),('a',2),('b',3),('c',1),('c',1)
 INSERT INTO derived_video_director VALUES ('a',1),('b',1),('c',1);
 INSERT INTO machine_translation VALUES ('日本語','Translated title');
 """)
-if sys.argv[2] == 'true':
+if sys.argv[1] == 'true':
     c.executescript("""
     INSERT INTO derived_video(content_id,dvd_id,series_id,release_date,title_en,runtime_mins,jacket_thumb_url,service_code) VALUES
       ('n_1541naac066',NULL,1,'2026-05-28','Recovered',120,'naac.jpg','mono'),
@@ -93,7 +98,7 @@ if sys.argv[2] == 'true':
     INSERT INTO derived_video_director VALUES ('n_1541naac066',1);
     """)
 before = c.execute('SELECT count(*) FROM derived_video').fetchone()[0]
-if sys.argv[4] == 'true':
+if sys.argv[3] == 'true':
     c.executescript("""
     INSERT INTO derived_category VALUES (99,'Pagination',NULL);
     WITH RECURSIVE numbers(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM numbers WHERE n<1001)
@@ -102,7 +107,7 @@ if sys.argv[4] == 'true':
     INSERT INTO derived_video_category SELECT content_id,99 FROM derived_video WHERE content_id LIKE 'page-%';
     """)
     before = c.execute('SELECT count(*) FROM derived_video').fetchone()[0]
-if sys.argv[3] == 'true':
+if sys.argv[2] == 'true':
     c.executescript("""
     INSERT INTO derived_video(content_id,dvd_id,series_id,release_date,title_en,title_ja,runtime_mins,sample_url,jacket_full_url,jacket_thumb_url)
       VALUES ('new-a','ABC-123',1,'2026-02-01','New original','新しい',180,'trailer','fan','poster');
@@ -119,9 +124,9 @@ if sys.argv[3] == 'true':
 indexer = runpy.run_path('assets/r18_database_importer.py')['create_catalog_indexes']
 indexer(c)
 indexer(c)
-if sys.argv[5] == 'true':
+if sys.argv[4] == 'true':
     c.execute("UPDATE derived_video SET series_id=NULL WHERE content_id='b'")
-if sys.argv[6] == 'true':
+if sys.argv[5] == 'true':
     c.execute("UPDATE derived_series SET name_en='   ' WHERE id=1")
     c.execute("UPDATE derived_series SET name_en=NULL, name_ja='日本語シリーズ' WHERE id=2")
     c.executescript("""
@@ -137,14 +142,52 @@ if sys.argv[6] == 'true':
     UPDATE derived_video_director SET director_id=3 WHERE content_id='c';
     """)
 assert c.execute('SELECT count(*) FROM derived_video').fetchone()[0] == before
-q, args = json.loads(sys.argv[1])
-if 'summary AS' in q:
-    plan = c.execute('EXPLAIN QUERY PLAN ' + q, args).fetchall()
-    assert any('idx_dv_advanced_codes' in row[3] for row in plan), [tuple(row) for row in plan]
-print(json.dumps([dict(r) for r in c.execute(q,args)]))
-''', jsonEncode([sql, arguments ?? []]), '$includeFallback', '$includeBrowseDuplicates', '$includePagination', '$includeSeriesGaps', '$includeNameFallback']);
-    if (result.exitCode != 0) throw StateError('${result.stderr}');
-    return (jsonDecode('${result.stdout}') as List).map((row) => Map<String, Object?>.from(row as Map)).toList();
+for line in sys.stdin:
+    try:
+        q, args = json.loads(line)
+        if 'summary AS' in q:
+            plan = c.execute('EXPLAIN QUERY PLAN ' + q, args).fetchall()
+            assert any('idx_dv_advanced_codes' in row[3] for row in plan), [tuple(row) for row in plan]
+        print(json.dumps({'rows': [dict(r) for r in c.execute(q,args)]}), flush=True)
+    except Exception as error:
+        print(json.dumps({'error': str(error)}), flush=True)
+c.close()
+''', '$includeFallback', '$includeBrowseDuplicates', '$includePagination', '$includeSeriesGaps', '$includeNameFallback']);
+    _output = StreamIterator(worker.stdout.transform(utf8.decoder).transform(const LineSplitter()));
+    _errors = worker.stderr.transform(utf8.decoder).join();
+    return worker;
+  }
+
+  Future<void> _close() async {
+    if (_worker == null) return;
+    await _pending;
+    final worker = await _worker!;
+    await worker.stdin.close();
+    final code = await worker.exitCode.timeout(const Duration(seconds: 5), onTimeout: () async {
+      worker.kill();
+      return worker.exitCode;
+    });
+    await _output.cancel();
+    expect(code, 0, reason: await _errors);
+  }
+
+  @override
+  Future<List<Map<String, Object?>>> rawQuery(String sql, [List<Object?>? arguments]) async {
+    if (run != null) return run!(sql, arguments ?? []);
+    final previous = _pending;
+    final done = Completer<void>();
+    _pending = done.future;
+    await previous;
+    try {
+      final worker = await (_worker ??= _startWorker());
+      worker.stdin.writeln(jsonEncode([sql, arguments ?? []]));
+      if (!await _output.moveNext()) throw StateError('SQLite worker stopped: ${await _errors}');
+      final response = jsonDecode(_output.current) as Map<String, dynamic>;
+      if (response['error'] != null) throw StateError('${response['error']}');
+      return (response['rows'] as List).map((row) => Map<String, Object?>.from(row as Map)).toList();
+    } finally {
+      done.complete();
+    }
   }
 
   @override
@@ -161,6 +204,20 @@ void main() {
     Get.put<DBService>(_Service()..dbR18 = database..dbMain = database);
   });
   tearDown(Get.reset);
+
+  test('SQLite workers serialize queries, recover from errors and isolate fixtures', () async {
+    await database.rawQuery('CREATE TEMP TABLE worker_state(value INTEGER)');
+    await database.rawQuery('INSERT INTO worker_state VALUES (?)', [42]);
+    final rows = await Future.wait([
+      database.rawQuery('SELECT value FROM worker_state'),
+      database.rawQuery('SELECT ? AS value', [7]),
+    ]);
+    expect(rows.map((result) => result.single['value']), [42, 7]);
+    await expectLater(database.rawQuery('SELECT * FROM missing_table'), throwsStateError);
+    expect((await database.rawQuery('SELECT value FROM worker_state')).single['value'], 42);
+    final isolated = _Database();
+    expect((await isolated.rawQuery('SELECT count(*) AS total FROM sqlite_temp_master')).single['total'], 0);
+  });
 
   test('video info uses Japanese series names when English is null or blank', () async {
     expect((await DBR18.getVideo('ABC-123'))!['series'], 'Cast');

@@ -132,7 +132,7 @@ KuraKu is currently developed and tested on macOS. Install the following first:
 Install the native dependencies:
 
 ```bash
-brew install cocoapods python libiconv ffmpeg
+brew install cocoapods python@3.13 ffmpeg
 ```
 
 Enable Flutter desktop support and verify the environment:
@@ -261,28 +261,17 @@ Example provider reference: https://agnes-ai.com/en/docs/agnes-25-flash
 
 On launch, KuraKu looks for an `r18*.db` file in its app data directory. If one is missing, the app shows a **Download & Install** prompt.
 
-The app first displays a loading screen while settings and databases initialize. Initialization failures appear on that screen with an instruction to restart.
+The app first displays a loading screen while settings and databases initialize. Initialization failures remain visible. Missing playback libraries show recovery guidance before dependent pages open.
+
+After Home appears, runtime dependencies are checked in parallel in the background: Python, Visual Search's Python version, FFmpeg CLI, yt-dlp, Chrome/Chromium, the bundled downloader, system libiconv, libmpv, and FFmpegKit. A dialog appears only when something is unavailable, with affected features, installation instructions, **Check again**, and **Continue** for optional features. No Settings page or permanent status UI is added. R18 checks Python before downloading its dump; other Python features use the same resolver.
 
 The setup process downloads the R18 dump, then runs the bundled `r18_database_importer.py` with Python to read the compressed dump and create the SQLite database. The import can take several minutes; keep the application open until it finishes, then restart the app.
 
 ## Troubleshooting
 
-If the macOS app fails to launch with the following error:
+For missing runtime tools, follow the startup dialog and choose **Check again** after installing. If you continue first, restarting KuraKu runs the checks again. Missing optional tools do not block the rest of the app.
 
-```text
-Library not loaded: /opt/homebrew/opt/libiconv/lib/libiconv.2.dylib
-```
-
-Reinstall the native dependencies and rebuild:
-
-```bash
-brew reinstall libiconv ffmpeg
-brew link --overwrite libiconv
-flutter clean
-flutter pub get
-dart run enven
-flutter run -d macos
-```
+The current macOS frameworks use system `/usr/lib/libiconv.2.dylib`; users do not need Homebrew libiconv for that linkage. Bundled media-library failures require restoring the app bundle. If macOS fails to load a library before Dart starts, the in-app checker cannot display a dialog; inspect the macOS launch error and reinstall KuraKu or update macOS as appropriate.
 
 ## Contributing
 

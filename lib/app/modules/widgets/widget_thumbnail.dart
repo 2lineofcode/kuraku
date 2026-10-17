@@ -19,6 +19,7 @@ import 'package:video_compress/video_compress.dart';
 
 import '../../../env.g.dart';
 import '../../core/app_color.dart';
+import '../../core/app_dependencies.dart';
 import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
 import '../../core/app_setting.dart';
@@ -61,8 +62,10 @@ class _ExThumbnailC extends GetxController {
   Future<String?> _detectCodec(String videopath) async {
     if (_codecCache.containsKey(videopath)) return _codecCache[videopath];
     try {
+      final ffmpeg = await AppDependencies.shared.tool('ffmpeg');
+      if (!ffmpeg.ready) { _codecCache[videopath] = ''; return ''; }
       final result = await Process.run(
-        '/usr/local/bin/ffmpeg',
+        ffmpeg.executable!,
         ['-hide_banner', '-loglevel', 'info', '-i', videopath],
         runInShell: false,
       );

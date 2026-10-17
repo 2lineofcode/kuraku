@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
 import '../../env.g.dart';
+import '../core/app_dependencies.dart';
 import '../core/app_logging.dart';
 import '../core/app_setting.dart';
 import '../core/app_translations.dart';
@@ -83,6 +84,7 @@ class R18Updater {
         report('');
         return null;
       }
+      final python = await AppDependencies.shared.requirePython();
       work = await Directory(appPath).createTemp('.r18-update-');
       final dumpName = 'r18dotdev_dump_$tag.sql.gz';
       final dump = local?.file.path ?? p.join(work.path, dumpName);
@@ -96,9 +98,9 @@ class R18Updater {
       report('Importing and validating R18...'.tr);
       final name = 'r18_${tag.replaceAll('-', '_')}.db';
       final output = p.join(work.path, name);
-      final result = await Process.run('python3', ['-B', '-u', p.join(Get.find<AppSettingService>().bundledAssetsPath, 'r18_database_importer.py'), '--input', dump, '--output', output, if (local != null) '--keep-source']);
+      final result = await Process.run(python, ['-B', '-u', p.join(Get.find<AppSettingService>().bundledAssetsPath, 'r18_database_importer.py'), '--input', dump, '--output', output, if (local != null) '--keep-source']);
       AppLog.logI('R18 import: ${result.stdout}');
-      if (result.exitCode != 0) throw ProcessException('python3', [], '${result.stderr}', result.exitCode);
+      if (result.exitCode != 0) throw ProcessException(python, [], '${result.stderr}', result.exitCode);
       if (!await File(output).exists() || await File(output).length() == 0) throw StateError('R18 importer produced no database.');
       report('Activating R18 database...'.tr);
       published = await File(output).rename(p.join(appPath, name));

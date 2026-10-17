@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../modules/widgets/widget_dependency_guide.dart';
 import '../modules/widgets/widget_style.dart';
+import 'app_dependencies.dart';
 import 'app_logging.dart';
 import 'app_scroll_behavior.dart';
 import 'app_translations.dart';
@@ -23,16 +25,19 @@ class _AppStartupState extends State<AppStartup> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      try {
-        await widget.initialize();
-        if (mounted) setState(() => _ready = true);
-      } catch (e) {
-        AppLog.logE('Application startup failed: $e');
-        if (mounted) setState(() => _error = e);
-      }
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
+  }
+
+  Future<void> _initialize() async {
+    if (!mounted) return;
+    setState(() => _error = null);
+    try {
+      await widget.initialize();
+      if (mounted) setState(() => _ready = true);
+    } catch (e) {
+      AppLog.logE('Application startup failed: $e');
+      if (mounted) setState(() => _error = e);
+    }
   }
 
   @override
@@ -52,7 +57,13 @@ class _AppStartupState extends State<AppStartup> {
                     SizedBox(height: 16),
                     Text('Opening KuraKu, Please wait...'.tr),
                   ])
-                : SelectableText('Could not start KuraKu. Please restart the app.\n\n@{error}'.trNamed({'error': '$_error'})),
+                : _error is DependencyException
+                    ? DependencyGuide(
+                        issues: (_error as DependencyException).issues,
+                        check: () async => [AppDependencies.shared.playback()],
+                        onReady: _initialize,
+                      )
+                    : SelectableText('Could not start KuraKu. Please restart the app.\n\n@{error}'.trNamed({'error': '$_error'})),
           ),
         ),
       ),

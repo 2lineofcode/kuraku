@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 
+import '../core/app_dependencies.dart';
 import '../core/app_translations.dart';
 
 class ChatKnowledge {
@@ -93,16 +94,9 @@ class ChatKnowledge {
   Future<Map<String, dynamic>> request(Map<String, dynamic> query, CancelToken token) async {
     if (token.isCancelled) throw token.cancelError!;
     final script = await (loadScript?.call() ?? File('assets/chat_database_worker.py').readAsString());
-    Process? process;
-    for (final candidate in ['python3', '/opt/homebrew/bin/python3', '/usr/local/bin/python3', if (Platform.isWindows) 'python']) {
-      if (token.isCancelled) throw token.cancelError!;
-      try {
-        process = await Process.start(candidate, ['-B', '-c', script]);
-        break;
-      } on ProcessException { continue; }
-    }
-    if (process == null) throw StateError('Python 3 is required for local knowledge.');
-    final worker = process;
+    final python = await AppDependencies.shared.requirePython();
+    if (token.isCancelled) throw token.cancelError!;
+    final worker = await Process.start(python, ['-B', '-c', script]);
     var finished = false;
     unawaited(token.whenCancel.then((_) { if (!finished) worker.kill(); }));
     final timer = Timer(const Duration(seconds: 15), () => worker.kill(ProcessSignal.sigkill));

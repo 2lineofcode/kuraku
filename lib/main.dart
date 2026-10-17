@@ -13,12 +13,12 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:media_kit/generated/libmpv/bindings.dart' as generated;
-import 'package:media_kit/media_kit.dart';
 import 'package:media_kit/src/player/native/core/native_library.dart';
 import 'package:media_kit/src/player/native/utils/native_reference_holder.dart';
 import 'package:toastification/toastification.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'app/core/app_dependencies.dart';
 import 'app/core/app_identity.dart';
 import 'app/core/app_logging.dart';
 import 'app/core/app_notification.dart';
@@ -32,6 +32,7 @@ import 'app/data/database/_init_db.dart';
 import 'app/data/database/app_backup.dart';
 import 'app/modules/home/home_controller.dart';
 import 'app/modules/home/page_chat/page_chat_controller.dart';
+import 'app/modules/widgets/widget_dependency_guide.dart';
 import 'app/modules/widgets/widget_style.dart';
 import 'app/modules/widgets/widget_surfaces.dart';
 import 'app/routes/app_pages.dart';
@@ -54,7 +55,8 @@ Future<void> _initializeApp() async {
   await settings.setupDesktop();
   AppLog.logD('Startup window shown: ${sw.elapsedMilliseconds}ms');
   await _cleanupDanglingMediaKitPlayers();
-  MediaKit.ensureInitialized();
+  final playback = AppDependencies.shared.playback();
+  if (!playback.ready) throw DependencyException([playback]);
   await hotKeyManager.unregisterAll();
   await Get.putAsync(() => settings.init(), permanent: true);
   AppLog.logD('Startup settings ready: ${sw.elapsedMilliseconds}ms');
@@ -188,6 +190,8 @@ class _KurakuState extends State<Kuraku> with WindowListener {
   }
 
   Future<void> _checkApplicationIsReady() async {
+    final dependencies = await showStartupDependencyGuide();
+    if (!mounted || dependencies.any((result) => result.name == 'Python 3' && !result.ready)) return;
     if (Get.find<DBService>().dbR18 == null) {
       AppLog.logW('!!! Database `r18` not found...');
       AppConfirmDialog.show(
@@ -219,7 +223,7 @@ class _KurakuState extends State<Kuraku> with WindowListener {
         ],
       );
     } else {
-      AppLog.logS('=== Application is ready, without any issue ===');
+      AppLog.logS('Application database is ready.');
     }
   }
 }

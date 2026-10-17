@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../core/app_dependencies.dart';
 import '../../../core/app_logging.dart';
 import '../../../core/app_notification.dart';
 import '../../../core/app_pref.dart';
@@ -295,8 +296,15 @@ class PageDownloadController extends GetxController {
     job.running = true;
     jobRevision.value++;
     try {
-      final binary = p.join(appSetting.bundledAssetsPath, 'kuraku');
-      if (!await File(binary).exists()) throw StateError('Downloader binary is missing. Restart KuraKu to restore it.'.tr);
+      final downloader = await AppDependencies.shared.downloader(appSetting.bundledAssetsPath);
+      if (!downloader.ready) throw StateError(downloader.message);
+      final binary = downloader.executable!;
+      if (request.mode == 'extract' && Platform.isMacOS) {
+        final browser = await AppDependencies.shared.browser();
+        if (!browser.ready) throw StateError(browser.message);
+      }
+      if (request.mode == 'hls' || request.mode == 'youtube') await AppDependencies.shared.requireTool('ffmpeg');
+      if (request.mode == 'youtube') await AppDependencies.shared.requireTool('yt-dlp');
       if (job.cancelled || isClosed) {
         job.status = 'Cancelled';
         return;
