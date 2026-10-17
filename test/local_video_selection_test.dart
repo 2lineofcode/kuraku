@@ -128,7 +128,7 @@ void main() {
       expect(actions.actions.length, 5);
       await tester.pumpWidget(const SizedBox.shrink());
       expect(tester.takeException(), isNull);
-    }, variant: TargetPlatformVariant({TargetPlatform.macOS, TargetPlatform.linux}));
+    }, variant: TargetPlatformVariant({TargetPlatform.macOS, TargetPlatform.linux, TargetPlatform.windows}));
   }
 
   for (final page in ['Home', 'Explore']) {

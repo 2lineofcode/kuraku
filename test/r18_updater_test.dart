@@ -34,7 +34,7 @@ void main() {
     await Directory('${folder.path}/r18dotdev_dump_2099-10-06.sql').create();
     final selected = await R18Updater.findLocalDump(folder.path, 20260922);
     expect(selected?.date, DateTime(2026, 10, 6));
-    expect(selected?.file.path, '${folder.path}/r18dotdev_dump_2026-10-06.sql.gz');
+    expect(selected?.file.path, p.join(folder.path, 'r18dotdev_dump_2026-10-06.sql.gz'));
     expect(await R18Updater.findLocalDump(folder.path, 20261006), isNull);
   });
 
@@ -51,7 +51,7 @@ void main() {
     Get.put<DBService>(db);
     for (final extension in ['sql', 'sql.gz']) {
       final source = File('${folder.path}/r18dotdev_dump_2099-10-06.$extension');
-      final setup = await Process.run('python3', ['-B', '-c', '''
+      final setup = await Process.run(Platform.isWindows ? 'python' : 'python3', ['-X', 'utf8', '-B', '-c', '''
 import gzip, runpy, sys
 from pathlib import Path
 dump = runpy.run_path('test/r18_update_test.py')['dump']()

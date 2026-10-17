@@ -163,7 +163,7 @@ class _ExThumbnailC extends GetxController {
 
     // skip kalau file gak ada (misal drive eject, file rusak, dll)
     final f = File(inputPath);
-    if (!f.existsSync() || Platform.isLinux) return null;
+    if (!f.existsSync() || Platform.isLinux || Platform.isWindows) return null;
 
     try {
       return await _videoCompressLimiter.run(() async {
@@ -219,7 +219,7 @@ class _ExThumbnailC extends GetxController {
 
     if (position != 90) {
       Uint8List? bytes;
-      if (Platform.isLinux) {
+      if (Platform.isLinux || Platform.isWindows) {
         final directory = await Directory(await _thumbDir()).createTemp('preview-');
         try {
           bytes = await _thumbWithFfmpeg(videopath, p.join(directory.path, 'frame.jpg'), seconds: position);
@@ -252,10 +252,10 @@ class _ExThumbnailC extends GetxController {
       return bytes;
     }
 
-    final codec = Platform.isLinux ? '' : (await _detectCodec(videopath)) ?? '';
+    final codec = (Platform.isLinux || Platform.isWindows) ? '' : (await _detectCodec(videopath)) ?? '';
     Uint8List? bytes;
 
-    if (Platform.isLinux || codec.contains('av1')) {
+    if (Platform.isLinux || Platform.isWindows || codec.contains('av1')) {
       AppLog.logW('[thumb] AV1 → ffmpeg');
       bytes = await _thumbWithFfmpeg(videopath, filePath, seconds: position);
     } else {

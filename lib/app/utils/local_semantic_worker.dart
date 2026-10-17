@@ -77,7 +77,7 @@ mixin LocalSemanticWorker {
     }
     if (epoch != _setupEpoch) throw SemanticSearchException('Setup stopped. Retry to continue.'.tr);
     AppLog.logI('Visual Search: starting installer with $python');
-    final process = await Process.start(python, ['-B', '-u', _script, 'setup', _root]);
+    final process = await Process.start(python, ['-X', 'utf8', '-B', '-u', _script, 'setup', _root]);
     _installer = process;
     if (epoch != _setupEpoch) _terminate(process);
     final lines = <String>[];
@@ -126,7 +126,7 @@ mixin LocalSemanticWorker {
   static Future<void> _spawn() async {
     final epoch = _epoch;
     if (!await isReady()) throw SemanticSearchException('Set up Visual Search in Settings first.'.tr);
-    final process = await Process.start(_python, ['-B', '-u', _script, 'serve', _root, Get.find<DBService>().dbMain.path]);
+    final process = await Process.start(_python, ['-X', 'utf8', '-B', '-u', _script, 'serve', _root, Get.find<DBService>().dbMain.path]);
     if (epoch != _epoch) {
       process.kill();
       throw SemanticSearchException('Visual Search paused.'.tr);

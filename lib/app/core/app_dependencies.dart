@@ -122,7 +122,7 @@ class AppDependencies {
   }
 
   Future<DependencyStatus> downloader(String assetsPath) async {
-    final executable = p.join(assetsPath, Platform.isLinux ? 'linux-x64/kuraku' : 'kuraku');
+    final executable = p.join(assetsPath, Platform.isWindows ? 'windows-x64/kuraku.exe' : Platform.isLinux ? 'linux-x64/kuraku' : 'kuraku');
     var detail = '';
     try {
       final result = await _run(executable, ['--help']);
@@ -130,13 +130,19 @@ class AppDependencies {
       detail = '${result.stderr}'.trim();
     } catch (e) { detail = '$e'; }
     return DependencyStatus('KuraKu downloader', 'Downloads',
-      Platform.isLinux ? 'Reinstall KuraKu for Linux x64 and install libwebkit2gtk-4.1-0 if the downloader cannot start.'
+      Platform.isWindows ? 'Reinstall KuraKu for Windows x64 if its bundled executable is missing or damaged.'
+          : Platform.isLinux ? 'Reinstall KuraKu for Linux x64 and install libwebkit2gtk-4.1-0 if the downloader cannot start.'
           : 'The bundled downloader requires macOS 26+. Reinstall KuraKu if its bundled executable is missing or damaged.', ready: false, detail: detail);
   }
 
   Future<DependencyStatus> browser() async {
     var detail = '';
-    for (final executable in Platform.isLinux
+    for (final executable in Platform.isWindows
+        ? [for (final directory in ['PROGRAMFILES', 'PROGRAMFILES(X86)', 'LOCALAPPDATA'])
+            if (Platform.environment[directory] != null)
+              for (final browser in ['Google/Chrome/Application/chrome.exe', 'Chromium/Application/chrome.exe'])
+                p.joinAll([Platform.environment[directory]!, ...browser.split('/')])]
+        : Platform.isLinux
         ? [for (final directory in (Platform.environment['PATH'] ?? '').split(':'))
             for (final name in ['google-chrome', 'chromium', 'chromium-browser']) p.join(directory, name)]
         : ['/Applications/Chromium.app/Contents/MacOS/Chromium', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']) {
@@ -182,7 +188,7 @@ class AppDependencies {
   Future<List<DependencyStatus>> checkAll(String assetsPath) async {
     _tools.clear();
     final native = libraries();
-    final results = await Future.wait([python(), python(visualSearch: true), tool('ffmpeg'), tool('yt-dlp'), downloader(assetsPath), if (Platform.isMacOS || Platform.isLinux) browser()]);
+    final results = await Future.wait([python(), python(visualSearch: true), tool('ffmpeg'), tool('yt-dlp'), downloader(assetsPath), browser()]);
     return [...await native, ...results];
   }
 }

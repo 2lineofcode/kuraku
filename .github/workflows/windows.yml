@@ -1,0 +1,85 @@
+name: Windows x64 CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+
+      - name: Install download tools
+        run: choco install ffmpeg yt-dlp -y --no-progress
+
+      - name: Prepare public environment
+        run: |
+          Copy-Item .env.sample .env
+          flutter config --enable-windows-desktop
+          flutter pub get --enforce-lockfile
+          dart run enven
+
+      - name: Analyze
+        run: flutter analyze --no-pub
+
+      - name: Test Windows runtime and related regressions
+        run: >-
+          flutter test --no-pub --concurrency=1
+          test/windows_runtime_test.dart test/linux_runtime_test.dart
+          test/chat_knowledge_test.dart test/r18_updater_test.dart
+          test/app_data_path_test.dart test/bundled_assets_test.dart test/app_dependencies_test.dart
+          test/page_search_file_drag_test.dart test/local_video_selection_test.dart
+          test/page_tools_large_files_test.dart test/page_tools_resolution_test.dart
+          test/search_shortcut_test.dart test/keyboard_shortcuts_test.dart
+          test/helper_opener_trailer_test.dart test/widget_download_method_test.dart
+          test/screenshot_viewer_test.dart test/player_seek_preview_test.dart
+
+      - name: Test real Windows downloader
+        run: >-
+          flutter test --no-pub --concurrency=1 test/page_download_job_test.dart
+          --plain-name "real binary"
+
+      - name: Build and package
+        run: |
+          flutter build windows --release --no-pub --no-tree-shake-icons
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./tool/package_windows.ps1
+          python -B test/windows_package_test.py
+
+      - name: Check native file tracking and startup
+        run: |
+          cmake --build build/windows/x64 --config Release --target file_drag_test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & build/windows/x64/runner/Release/file_drag_test.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B tool/windows_smoke_test.py
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: KuraKu-windows-x64
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7

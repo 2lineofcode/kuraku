@@ -627,21 +627,7 @@ class PageSettingsController extends GetxController {
     };
   }
 
-  Future<Map<String, int>?> _readUsageWindows(String path) async {
-    // fsutil output is stable across Windows versions
-    final drive = path.length >= 2 ? path.substring(0, 2) : path;
-    final result = await Process.run('fsutil', ['volume', 'diskfree', drive]);
-    if (result.exitCode != 0) return null;
-
-    final freeMatch = RegExp(r'Total # of avail free bytes\s*:\s*(\d+)').firstMatch(result.stdout.toString());
-    final totalMatch = RegExp(r'Total # of bytes\s*:\s*(\d+)').firstMatch(result.stdout.toString());
-    if (freeMatch == null || totalMatch == null) return null;
-
-    return {
-      'free': int.tryParse(freeMatch.group(1) ?? '') ?? 0,
-      'total': int.tryParse(totalMatch.group(1) ?? '') ?? 0,
-    };
-  }
+  Future<Map<String, int>?> _readUsageWindows(String path) async => HelperMisc.windowsStorageUsage(path);
 
   Future<List<String>> _discoverExternalMounts() async {
     final mounts = <String>[];

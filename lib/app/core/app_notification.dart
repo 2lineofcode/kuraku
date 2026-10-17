@@ -30,6 +30,11 @@ mixin AppNotification {
 
     const initializationSettings = InitializationSettings(
       linux: LinuxInitializationSettings(defaultActionName: 'Open'),
+      windows: WindowsInitializationSettings(
+        appName: 'KuraKu',
+        appUserModelId: '2lineofcode.KuraKu',
+        guid: '473d5457-5686-4e6e-a8ed-b2fabfb318c5',
+      ),
       macOS: DarwinInitializationSettings(
         requestBadgePermission: false,
         defaultPresentBadge: false,
@@ -64,6 +69,7 @@ mixin AppNotification {
   static Future<void> show(NotificationModel model) async {
     const notificationDetails = NotificationDetails(
       linux: LinuxNotificationDetails(),
+      windows: WindowsNotificationDetails(),
       macOS: DarwinNotificationDetails(presentBadge: false, badgeNumber: 0),
     );
 

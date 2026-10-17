@@ -8,6 +8,7 @@ cd "$ROOT_DIR"
 case "$(uname -s)" in
   Darwin) target=macos ;;
   Linux) target=linux ;;
+  MINGW*|MSYS*|CYGWIN*|Windows_NT) target=windows ;;
   *) echo 'Unsupported OS' >&2; exit 1 ;;
 esac
 exec flutter run -d "$target" "$@"

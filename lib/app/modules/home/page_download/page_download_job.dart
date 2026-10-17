@@ -21,6 +21,7 @@ class DownloadRequest {
     if (!p.isAbsolute(directory) || !Directory(directory).existsSync()) throw FormatException('Choose an existing output folder.'.tr);
     if (filename.isEmpty && mode != 'extract') throw FormatException('Enter an output filename.'.tr);
     if (filename.isNotEmpty && (filename == '.' || filename == '..' || RegExp(r'[<>:"/\\|?*\x00-\x1f]').hasMatch(filename) || filename.endsWith('.') || filename.trim() != filename)) throw FormatException('Use a filename without path separators or reserved characters.'.tr);
+    if (Platform.isWindows && RegExp(r'^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)', caseSensitive: false).hasMatch(filename)) throw FormatException('Use a filename without path separators or reserved characters.'.tr);
     if (concurrency < 1 || concurrency > 64 || retries < 0 || retries > 10 || timeout < 1 || captureDuration < 1) throw FormatException('Concurrency: 1–64, retries: 0–10; durations must be positive.'.tr);
     if (referer.isNotEmpty) {
       final ref = Uri.tryParse(referer);
@@ -92,7 +93,7 @@ class PageDownloadJob {
         cancel();
       });
       if (cancelled) {
-        process!.kill(ProcessSignal.sigterm);
+        unawaited(_terminate(process!));
         _scheduleForceKill();
       }
       if (request.mode != 'extract') await process!.stdin.close();
@@ -240,6 +241,20 @@ class PageDownloadJob {
     _notify();
   }
 
+  Future<void> _terminate(Process active) async {
+    if (Platform.isWindows) {
+      try {
+        // Kill FFmpeg/Chrome children before the downloader disappears.
+        final result = await Process.run('taskkill.exe', ['/PID', '${active.pid}', '/T', '/F']).timeout(const Duration(seconds: 10));
+        if (result.exitCode != 0) active.kill();
+      } catch (_) {
+        active.kill();
+      }
+    } else {
+      active.kill(ProcessSignal.sigterm);
+    }
+  }
+
   void _scheduleForceKill() {
     final active = process;
     _forceKill = Timer(const Duration(seconds: 15), () => active?.kill(ProcessSignal.sigkill));
@@ -249,7 +264,7 @@ class PageDownloadJob {
     if (!running || cancelled) return;
     cancelled = true;
     status = 'Cancelling';
-    process?.kill(ProcessSignal.sigterm);
+    if (process != null) unawaited(_terminate(process!));
     if (process != null) _scheduleForceKill();
     _notify();
   }

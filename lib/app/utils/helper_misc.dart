@@ -1,8 +1,10 @@
+import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:math' as m;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:ex_kit/ex.dart';
+import 'package:ffi/ffi.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -199,6 +201,24 @@ mixin HelperMisc {
     }
   }
 
+  static Map<String, int>? windowsStorageUsage(String path) {
+    final read = ffi.DynamicLibrary.open('kernel32.dll').lookupFunction<
+      ffi.Int32 Function(ffi.Pointer<Utf16>, ffi.Pointer<ffi.Uint64>, ffi.Pointer<ffi.Uint64>, ffi.Pointer<ffi.Uint64>),
+      int Function(ffi.Pointer<Utf16>, ffi.Pointer<ffi.Uint64>, ffi.Pointer<ffi.Uint64>, ffi.Pointer<ffi.Uint64>)
+    >('GetDiskFreeSpaceExW');
+    final directory = path.toNativeUtf16();
+    final free = calloc<ffi.Uint64>(), total = calloc<ffi.Uint64>(), available = calloc<ffi.Uint64>();
+    try {
+      if (read(directory, available, total, free) == 0) return null;
+      return {'total': total.value, 'free': available.value};
+    } finally {
+      calloc.free(directory);
+      calloc.free(free);
+      calloc.free(total);
+      calloc.free(available);
+    }
+  }
+
   static bool isExternalDrive(String? filePath) {
     if (filePath == null) return false;
     final path = Platform.isWindows ? filePath.toUpperCase() : filePath;
@@ -208,7 +228,7 @@ mixin HelperMisc {
         final driveLetter = path[0];
         return driveLetter.compareTo('E') > 0;
       }
-      return false;
+      return path.startsWith(r'\\');
     } else if (Platform.isMacOS) {
       return path.startsWith('/Volumes/');
     } else if (Platform.isLinux) {

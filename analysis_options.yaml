@@ -6,6 +6,7 @@ analyzer:
     - build/**
     - macos/**
     - linux/**
+    - windows/**
 
   errors:
     todo: ignore

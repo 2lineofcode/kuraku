@@ -10,16 +10,16 @@ import '../../data/models/videos_entity.dart';
 import 'widget_controls.dart';
 import 'widget_surfaces.dart';
 
-class LinuxTrailer extends StatefulWidget {
-  const LinuxTrailer({super.key, required this.video, required this.urls});
+class DesktopTrailer extends StatefulWidget {
+  const DesktopTrailer({super.key, required this.video, required this.urls});
   final Videos video;
   final List<String> urls;
 
   @override
-  State<LinuxTrailer> createState() => _LinuxTrailerState();
+  State<DesktopTrailer> createState() => _DesktopTrailerState();
 }
 
-class _LinuxTrailerState extends State<LinuxTrailer> {
+class _DesktopTrailerState extends State<DesktopTrailer> {
   late final player = Player();
   late final controller = VideoController(player);
   String? error;

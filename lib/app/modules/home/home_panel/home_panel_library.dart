@@ -845,7 +845,7 @@ mixin HomePanelLibrary {
   }
 
   static Future<void> _getVideoResolution(Videos video) async {
-    if (!Platform.isLinux) {
+    if (!Platform.isLinux && !Platform.isWindows) {
       try {
         final medInfo = await VideoCompress.getMediaInfo(video.videoPath!);
         if ((medInfo.width ?? 0) > 0 && (medInfo.height ?? 0) > 0) {
