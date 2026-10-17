@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
+import '../../core/app_shortcut.dart';
 
 class DoubleTap extends StatefulWidget {
   final Widget child;
@@ -62,7 +63,7 @@ class _DoubleTapState extends State<DoubleTap> {
     );
     if (widget.onCommandTap == null) return child;
     return Listener(
-      onPointerDown: (_) => _commandTap = HardwareKeyboard.instance.isMetaPressed,
+      onPointerDown: (_) => _commandTap = AppShortcut.isPressed,
       child: child,
     );
   }

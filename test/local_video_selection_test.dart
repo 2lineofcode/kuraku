@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -82,9 +83,10 @@ void main() {
       ]))));
       await tester.pumpAndSettle();
       Future<void> commandClick(int index) async {
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        final modifier = defaultTargetPlatform == TargetPlatform.macOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft;
+        await tester.sendKeyDownEvent(modifier);
         final gesture = await tester.startGesture(tester.getCenter(find.byType(DoubleTap).at(index)), kind: PointerDeviceKind.mouse);
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyUpEvent(modifier);
         await gesture.up();
         await tester.pump(const Duration(milliseconds: 200));
       }
@@ -126,7 +128,7 @@ void main() {
       expect(actions.actions.length, 5);
       await tester.pumpWidget(const SizedBox.shrink());
       expect(tester.takeException(), isNull);
-    });
+    }, variant: TargetPlatformVariant({TargetPlatform.macOS, TargetPlatform.linux}));
   }
 
   for (final page in ['Home', 'Explore']) {
@@ -214,6 +216,7 @@ void main() {
         final drag = SearchFileDrag(controller: controller, video: videos.first, child: const SizedBox());
         final moves = <String, String>{};
         tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SearchFileDrag.channel, (call) async {
+          if (call.method == 'release') return null;
           if (call.method == 'bookmark') {
             expect(call.arguments, files.map((file) => file.path).toList());
             return {for (final file in files) file.path: [1]};

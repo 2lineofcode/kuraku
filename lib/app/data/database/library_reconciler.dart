@@ -76,7 +76,7 @@ mixin LibraryReconciler {
         && !byPath.containsKey(path) && !movedPaths.contains(path)).toList();
       if (pending.isNotEmpty) additions.addAll(await prepareVideos(Library(rootFolder: root, videos: pending)));
     }
-    // Metadata probing and Finder transfers may outlive the scan. Retry stale plans without writing them.
+    // Metadata probing and file transfers may outlive the scan. Retry stale plans without writing them.
     for (final entry in identities.entries) {
       if (await VideoFileIdentity.read(entry.key, cached: entry.value) != entry.value) {
         return (added: 0, moved: 0, missing: missing.length, changed: false, retry: true);

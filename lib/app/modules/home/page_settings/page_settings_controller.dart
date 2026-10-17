@@ -22,7 +22,6 @@ import '../../../data/database/db_library.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../utils/helper.dart';
-import '../../../utils/helper_toast.dart';
 import '../../../utils/local_semantic_worker.dart';
 import '../../../utils/r18_updater.dart';
 import '../../../utils/semantic_search_service.dart';
@@ -659,15 +658,7 @@ class PageSettingsController extends GetxController {
         }
       }
     } else if (Platform.isLinux) {
-      for (final base in ['/media', '/mnt']) {
-        final dir = Directory(base);
-        if (!dir.existsSync()) continue;
-        for (final entity in dir.listSync(recursive: false)) {
-          if (entity is Directory) {
-            mounts.add(entity.path);
-          }
-        }
-      }
+      mounts.addAll(HelperMisc.linuxExternalMounts(await File('/proc/self/mountinfo').readAsString()));
     } else if (Platform.isWindows) {
       for (var codeUnit = 'D'.codeUnitAt(0); codeUnit <= 'Z'.codeUnitAt(0); codeUnit++) {
         final letter = String.fromCharCode(codeUnit);

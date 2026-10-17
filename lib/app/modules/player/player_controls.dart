@@ -13,6 +13,7 @@ import 'package:overlayment/overlayment.dart';
 
 import '../../core/app_color.dart';
 import '../../core/app_pref.dart';
+import '../../core/app_shortcut.dart';
 import '../../core/app_translations.dart';
 import '../../utils/helper.dart';
 import '../widgets/widget_style.dart';
@@ -188,10 +189,10 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       // Seeking
       LogicalKeySet(LogicalKeyboardKey.arrowRight): SeekForward5sIntent(),
       LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowRight): SeekForward30sIntent(),
-      LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.arrowRight): SeekForward60sIntent(),
+      LogicalKeySet(AppShortcut.modifier, LogicalKeyboardKey.arrowRight): SeekForward60sIntent(),
       LogicalKeySet(LogicalKeyboardKey.arrowLeft): SeekBackward5sIntent(),
       LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowLeft): SeekBackward30sIntent(),
-      LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.arrowLeft): SeekBackward60sIntent(),
+      LogicalKeySet(AppShortcut.modifier, LogicalKeyboardKey.arrowLeft): SeekBackward60sIntent(),
 
       // Volume (ArrowUp conflicts with screenshot, so only ArrowDown)
       LogicalKeySet(LogicalKeyboardKey.arrowUp): VolumeUpIntent(),
@@ -206,8 +207,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       LogicalKeySet(LogicalKeyboardKey.keyA): ToggleVideoFitIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyP): MiniPlayerIntent(),
       LogicalKeySet(LogicalKeyboardKey.comma): ToggleVideoAdjustmentsIntent(),
-      LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowLeft): RotateLeftIntent(),
-      LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowRight): RotateRightIntent(),
+      LogicalKeySet(AppShortcut.modifier, LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowLeft): RotateLeftIntent(),
+      LogicalKeySet(AppShortcut.modifier, LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowRight): RotateRightIntent(),
 
       // Navigation shortcuts from player_view
       LogicalKeySet(LogicalKeyboardKey.keyL): OpenListIntent(),
@@ -215,7 +216,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowUp): OpenScreenshotIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyI): OpenInfoIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyC): AddToCartIntent(),
-      LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.alt, LogicalKeyboardKey.keyC): TogglePlaybackControlsIntent(),
+      LogicalKeySet(AppShortcut.modifier, LogicalKeyboardKey.alt, LogicalKeyboardKey.keyC): TogglePlaybackControlsIntent(),
       LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.greater): NextVideoIntent(),
       LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.less): PrevVideoIntent(),
     };
@@ -885,8 +886,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
         bindings: {
           const SingleActivator(LogicalKeyboardKey.comma): _toggleVideoAdjustments,
           const SingleActivator(LogicalKeyboardKey.escape): _toggleVideoAdjustments,
-          const SingleActivator(LogicalKeyboardKey.arrowLeft, meta: true, alt: true): () => _rotateVideo(clockwise: false),
-          const SingleActivator(LogicalKeyboardKey.arrowRight, meta: true, alt: true): () => _rotateVideo(clockwise: true),
+          const AppShortcut(LogicalKeyboardKey.arrowLeft, alt: true): () => _rotateVideo(clockwise: false),
+          const AppShortcut(LogicalKeyboardKey.arrowRight, alt: true): () => _rotateVideo(clockwise: true),
         },
         child: Focus(
           focusNode: panelFocus,

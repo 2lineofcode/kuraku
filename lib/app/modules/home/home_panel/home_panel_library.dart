@@ -26,6 +26,7 @@ import '../../../data/models/library_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../routes/app_pages.dart';
 import '../../../utils/helper_file_picker.dart';
+import '../../../utils/helper_media.dart';
 import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_opener.dart';
 import '../../../utils/helper_toast.dart';
@@ -844,24 +845,23 @@ mixin HomePanelLibrary {
   }
 
   static Future<void> _getVideoResolution(Videos video) async {
-    try {
-      final medInfo = await VideoCompress.getMediaInfo(video.videoPath!);
-      if (medInfo.width == null) return;
-      video.quality = '${medInfo.width}x${medInfo.height}';
-    } catch (e) {
-      AppLog.logD('error, try (ffmpeg) way -> ${video.videoPath}');
-      await FFprobeKit.getMediaInformation(video.videoPath!).then((medInfo) {
-        if (medInfo.getMediaInformation() == null) return;
-        final streams = medInfo.getMediaInformation()?.getStreams();
-        if (streams == null || streams.isEmpty) return;
-        final stream = streams.firstWhere(
-          (s) => s.getWidth() != null && s.getHeight() != null,
-          orElse: () => streams.first,
-        );
-        if (stream.getWidth() != null && stream.getHeight() != null) {
-          video.quality = '${stream.getWidth()}x${stream.getHeight()}';
+    if (!Platform.isLinux) {
+      try {
+        final medInfo = await VideoCompress.getMediaInfo(video.videoPath!);
+        if ((medInfo.width ?? 0) > 0 && (medInfo.height ?? 0) > 0) {
+          video.quality = '${medInfo.width}x${medInfo.height}';
+          return;
         }
-      });
+      } catch (e) {
+        AppLog.logD('error, try (ffmpeg) way -> ${video.videoPath}');
+      }
+    }
+    try {
+      final session = await FFprobeKit.getMediaInformation(video.videoPath!);
+      final stream = HelperMedia.videoStream(await HelperMedia.readInformation(session));
+      if (stream != null) video.quality = '${stream.getWidth()}x${stream.getHeight()}';
+    } catch (e) {
+      AppLog.logW('Could not read video resolution [${video.videoPath}]: $e');
     }
   }
 

@@ -56,7 +56,7 @@ class AppDependencies {
     var detail = '';
     final candidates = [
       ..._candidates('python3'),
-      if (Platform.isMacOS)
+      if (Platform.isMacOS || Platform.isLinux)
         for (final version in ['3.14', '3.13', '3.12']) ..._candidates('python$version'),
       if (Platform.isWindows) 'python',
     ];
@@ -82,14 +82,14 @@ class AppDependencies {
         final version = RegExp(r'^3\.(\d+)$').firstMatch('${result.stdout}'.trim());
         if (result.exitCode == 0 && version != null && (!visualSearch || int.parse(version[1]!) >= 12 && int.parse(version[1]!) <= 14)) {
           return DependencyStatus(visualSearch ? 'Python 3.12–3.14' : 'Python 3', visualSearch ? 'Visual Search setup' : 'R18 import and local Chat',
-            visualSearch ? 'Install Python 3.12–3.14. On macOS: brew install python@3.13' : 'Install Python 3. On macOS: brew install python@3.13',
+            visualSearch ? 'Install Python 3.12–3.14 with venv support and add it to PATH. See README for platform setup.' : 'Install Python 3 and add it to PATH. See README for platform setup.',
             ready: true, executable: executable, detail: '${result.stdout}'.trim());
         }
         detail = '$candidate: ${result.exitCode == 0 ? result.stdout : result.stderr}'.trim();
       } catch (e) { detail = '$candidate: $e'; }
     }
     return DependencyStatus(visualSearch ? 'Python 3.12–3.14' : 'Python 3', visualSearch ? 'Visual Search setup' : 'R18 import and local Chat',
-      visualSearch ? 'Install Python 3.12–3.14. On macOS: brew install python@3.13' : 'Install Python 3. On macOS: brew install python@3.13', ready: false, detail: detail);
+      visualSearch ? 'Install Python 3.12–3.14 with venv support and add it to PATH. See README for platform setup.' : 'Install Python 3 and add it to PATH. See README for platform setup.', ready: false, detail: detail);
   }
 
   Future<String> requirePython({bool visualSearch = false}) async {
@@ -100,7 +100,7 @@ class AppDependencies {
 
   Future<DependencyStatus> tool(String name, {bool refresh = false}) async {
     final feature = name == 'ffmpeg' ? 'HLS downloads, YouTube and visual thumbnails' : 'YouTube downloads';
-    final fix = name == 'ffmpeg' ? 'Install FFmpeg. On macOS: brew install ffmpeg' : 'Install yt-dlp. On macOS: brew install yt-dlp';
+    final fix = name == 'ffmpeg' ? 'Install FFmpeg and add it to PATH. See README for platform setup.' : 'Install yt-dlp and add it to PATH.';
     if (!refresh && _tools[name] != null) return _tools[name]!;
     var detail = '';
     for (final candidate in _candidates(name)) {
@@ -122,7 +122,7 @@ class AppDependencies {
   }
 
   Future<DependencyStatus> downloader(String assetsPath) async {
-    final executable = p.join(assetsPath, 'kuraku');
+    final executable = p.join(assetsPath, Platform.isLinux ? 'linux-x64/kuraku' : 'kuraku');
     var detail = '';
     try {
       final result = await _run(executable, ['--help']);
@@ -130,18 +130,22 @@ class AppDependencies {
       detail = '${result.stderr}'.trim();
     } catch (e) { detail = '$e'; }
     return DependencyStatus('KuraKu downloader', 'Downloads',
-      'The bundled downloader requires macOS 26+. Reinstall KuraKu if its bundled executable is missing or damaged.', ready: false, detail: detail);
+      Platform.isLinux ? 'Reinstall KuraKu for Linux x64 and install libwebkit2gtk-4.1-0 if the downloader cannot start.'
+          : 'The bundled downloader requires macOS 26+. Reinstall KuraKu if its bundled executable is missing or damaged.', ready: false, detail: detail);
   }
 
   Future<DependencyStatus> browser() async {
     var detail = '';
-    for (final executable in ['/Applications/Chromium.app/Contents/MacOS/Chromium', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']) {
+    for (final executable in Platform.isLinux
+        ? [for (final directory in (Platform.environment['PATH'] ?? '').split(':'))
+            for (final name in ['google-chrome', 'chromium', 'chromium-browser']) p.join(directory, name)]
+        : ['/Applications/Chromium.app/Contents/MacOS/Chromium', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']) {
       try {
         if (await _exists(executable)) return DependencyStatus('Chrome / Chromium', 'Website downloads', '', ready: true, executable: executable);
       } catch (e) { detail = '$e'; }
     }
     return DependencyStatus('Chrome / Chromium', 'Website downloads',
-      'Install Google Chrome or Chromium. On macOS: brew install --cask google-chrome', ready: false, detail: detail);
+      'Install Google Chrome or Chromium for your desktop platform.', ready: false, detail: detail);
   }
 
   DependencyStatus playback() {
@@ -149,7 +153,7 @@ class AppDependencies {
       MediaKit.ensureInitialized();
       return const DependencyStatus('libmpv', 'In-app playback', '', ready: true);
     } catch (e) {
-      return DependencyStatus('libmpv', 'In-app playback', 'Reinstall KuraKu to restore its bundled media libraries.', ready: false, detail: '$e');
+      return DependencyStatus('libmpv', 'In-app playback', Platform.isLinux ? 'Install libmpv (Debian/Ubuntu: sudo apt install libmpv-dev).' : 'Reinstall KuraKu to restore its bundled media libraries.', ready: false, detail: '$e');
     }
   }
 
@@ -178,7 +182,7 @@ class AppDependencies {
   Future<List<DependencyStatus>> checkAll(String assetsPath) async {
     _tools.clear();
     final native = libraries();
-    final results = await Future.wait([python(), python(visualSearch: true), tool('ffmpeg'), tool('yt-dlp'), downloader(assetsPath), if (Platform.isMacOS) browser()]);
+    final results = await Future.wait([python(), python(visualSearch: true), tool('ffmpeg'), tool('yt-dlp'), downloader(assetsPath), if (Platform.isMacOS || Platform.isLinux) browser()]);
     return [...await native, ...results];
   }
 }

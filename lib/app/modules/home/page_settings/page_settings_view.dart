@@ -531,7 +531,7 @@ class PageSettingsView extends GetView<PageSettingsController> {
       Row(children: [
         Expanded(child: Wrap(spacing: 10, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
         Tooltip(
-          message: 'Local visual search · English queries · One frame per video.\nSetup: ~155 MB + runtime, Python 3.12–3.14, macOS 14+, FFmpeg.\nCLIP ViT-B/32 INT8 · MIT license.'.tr,
+          message: 'Local visual search · English queries · One frame per video.\nSetup: ~155 MB + runtime, Python 3.12–3.14, venv, FFmpeg.\nCLIP ViT-B/32 INT8 · MIT license.'.tr,
           child: Text('Visual Search'.tr, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
         ),
         if (ready) Text('@{semanticEmbeddingCount} indexed • @{missing} pending'.trNamed({'semanticEmbeddingCount': '${controller.semanticEmbeddingCount.value}', 'missing': '$missing'}), style: const TextStyle(fontSize: 11)),

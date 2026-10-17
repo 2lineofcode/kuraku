@@ -212,9 +212,21 @@ mixin HelperMisc {
     } else if (Platform.isMacOS) {
       return path.startsWith('/Volumes/');
     } else if (Platform.isLinux) {
-      return path.startsWith('/media/') || path.startsWith('/mnt/');
+      return path.startsWith('/media/') || path.startsWith('/mnt/') || path.startsWith('/run/media/');
     }
     return false;
+  }
+
+  static List<String> linuxExternalMounts(String mountInfo) {
+    final mounts = <String>{};
+    for (final line in mountInfo.split('\n')) {
+      final fields = line.split(' ');
+      if (fields.length < 6) continue;
+      final path = fields[4].replaceAllMapped(RegExp(r'\\([0-7]{3})'),
+          (match) => String.fromCharCode(int.parse(match[1]!, radix: 8)));
+      if (path.startsWith('/media/') || path.startsWith('/mnt/') || path.startsWith('/run/media/')) mounts.add(path);
+    }
+    return mounts.toList();
   }
 
   static Future<void> playSoundDownloadComplate() async {

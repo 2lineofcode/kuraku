@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/app_shortcut.dart';
 import '../../../core/app_translations.dart';
 import '../../../core/const.dart';
 import '../../../data/models/videos_entity.dart';
@@ -27,8 +28,8 @@ class PageSearchView extends GetView<PageSearchController> {
     AppColor.dependOn(context);
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyN, meta: true, includeRepeats: false): controller.addTab,
-        const SingleActivator(LogicalKeyboardKey.keyW, meta: true, includeRepeats: false): () => controller.closeTab(controller.activeTabIndex.value),
+        const AppShortcut(LogicalKeyboardKey.keyN, includeRepeats: false): controller.addTab,
+        const AppShortcut(LogicalKeyboardKey.keyW, includeRepeats: false): () => controller.closeTab(controller.activeTabIndex.value),
       },
       child: Focus(autofocus: true, child: Column(children: [
       Obx(() => SearchTabBar(

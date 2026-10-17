@@ -6,7 +6,7 @@ import 'package:get/get.dart';
 import 'package:glob/glob.dart';
 import 'package:glob/list_local_fs.dart';
 import 'package:path/path.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../core/app_logging.dart';
 import '../../core/app_setting.dart';
@@ -29,6 +29,10 @@ class DBService extends GetxService {
   late String appPath;
 
   Future<DBService> init() async {
+    if (Platform.isLinux) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
     appPath = Get.find<AppSettingService>().appPath;
     dbMain = await _initializeDatabase();
     dbR18 = await _initializeR18Database();

@@ -174,7 +174,7 @@ void main() {
     expect(platform.sources, [...HelperOpener.trailerUrls(url), ...HelperOpener.trailerUrls(url)]);
     expect(platform.disposed, [1, 2, 3, 4]);
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.macOS}));
 
   testWidgets('trailer fits the window, preserves its ratio and disposes on Close or Escape', (tester) async {
     final previousPlatform = VideoPlayerPlatform.instance;
@@ -223,5 +223,5 @@ void main() {
     await tester.pump(const Duration(seconds: 16));
     expect(platform.disposed, [1, 2]);
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.macOS}));
 }

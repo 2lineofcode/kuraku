@@ -3,6 +3,14 @@ import 'package:kuraku/app/utils/helper_misc.dart';
 import 'package:kuraku/env.g.dart';
 
 void main() {
+  test('Linux mount discovery reads actual mountpoints and escaped names', () {
+    expect(HelperMisc.linuxExternalMounts(r'1 2 8:1 / /media/user/My\040Drive rw - ext4 /dev/sdb1 rw' '\n'
+      r'2 3 8:2 / /run/media/user/日本語 rw - ext4 /dev/sdc1 rw' '\n'
+      r'3 4 8:3 / /mnt/Archive rw - ext4 /dev/sdd1 rw' '\n'
+      r'4 5 8:4 / /home rw - ext4 /dev/sda1 rw' '\ninvalid'),
+      ['/media/user/My Drive', '/run/media/user/日本語', '/mnt/Archive']);
+  });
+
   test('quality labels handle malformed metadata and keep high resolutions out of HD tiers', () {
     for (final value in ['bad', '1920x', 'ax1080', '0x1080', '-1x720', '1920x1080x720']) {
       expect(HelperMisc.formatVideoQuality(value), 'Unknown');

@@ -13,6 +13,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../../core/app_color.dart';
 import '../../core/app_logging.dart';
 import '../../core/app_pref.dart';
+import '../../core/app_shortcut.dart';
 import '../../core/app_translations.dart';
 import '../../data/database/db_gamification.dart';
 import '../../data/models/videos_entity.dart';
@@ -372,10 +373,10 @@ class _PlayerMultiViewState extends State<PlayerMultiView> {
               LogicalKeySet(LogicalKeyboardKey.space): const _MultiPlayPauseIntent(),
               LogicalKeySet(LogicalKeyboardKey.arrowRight): const _MultiSeekForwardShortIntent(),
               LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowRight): const _MultiSeekForwardMidIntent(),
-              LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.arrowRight): const _MultiSeekForwardLongIntent(),
+              LogicalKeySet(AppShortcut.modifier, LogicalKeyboardKey.arrowRight): const _MultiSeekForwardLongIntent(),
               LogicalKeySet(LogicalKeyboardKey.arrowLeft): const _MultiSeekBackwardShortIntent(),
               LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowLeft): const _MultiSeekBackwardMidIntent(),
-              LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.arrowLeft): const _MultiSeekBackwardLongIntent(),
+              LogicalKeySet(AppShortcut.modifier, LogicalKeyboardKey.arrowLeft): const _MultiSeekBackwardLongIntent(),
               LogicalKeySet(LogicalKeyboardKey.arrowUp): const _MultiVolumeUpIntent(),
               LogicalKeySet(LogicalKeyboardKey.arrowDown): const _MultiVolumeDownIntent(),
               LogicalKeySet(LogicalKeyboardKey.bracketRight): const _MultiSpeedUpIntent(),

@@ -7,6 +7,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/app_shortcut.dart';
 import '../../../core/app_translations.dart';
 import '../../../core/const.dart';
 import '../../../utils/helper.dart';
@@ -30,8 +31,8 @@ class PageDownloadView extends GetView<PageDownloadController> {
     AppColor.dependOn(context);
     return CallbackShortcuts(
     bindings: {
-      const SingleActivator(LogicalKeyboardKey.keyN, meta: true, includeRepeats: false): controller.addTab,
-      const SingleActivator(LogicalKeyboardKey.keyW, meta: true, includeRepeats: false): () => controller.closeTab(controller.activeTabIndex.value),
+      const AppShortcut(LogicalKeyboardKey.keyN, includeRepeats: false): controller.addTab,
+      const AppShortcut(LogicalKeyboardKey.keyW, includeRepeats: false): () => controller.closeTab(controller.activeTabIndex.value),
     },
     child: Focus(autofocus: true, child: Column(children: [
       Obx(() => SearchTabBar(

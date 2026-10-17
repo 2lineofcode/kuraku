@@ -59,7 +59,6 @@ class _DependencyGuideState extends State<DependencyGuide> {
         ? 'Restore the dependencies below, then check again to open KuraKu.'
         : 'Only the features listed below are affected. Install what you need, then check again.').tr),
       const SizedBox(height: 8),
-      SelectableText('The brew commands require Homebrew: https://brew.sh'.tr, style: const TextStyle(fontSize: 12)),
       for (final issue in _issues) Padding(
         padding: const EdgeInsets.only(top: 16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

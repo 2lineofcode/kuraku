@@ -14,7 +14,7 @@ void main() {
         ? p.join(p.dirname(executableDirectory), 'Frameworks', 'App.framework', 'Resources', 'flutter_assets', 'assets')
         : p.join(executableDirectory, 'data', 'flutter_assets', 'assets'));
     service.bundledAssetsPath = p.absolute('assets');
-    final binary = p.join(service.bundledAssetsPath, 'kuraku');
+    final binary = p.join(service.bundledAssetsPath, Platform.isLinux ? 'linux-x64/kuraku' : 'kuraku');
     final result = await Process.run(binary, ['--help'], workingDirectory: directory.path);
     expect(result.exitCode, 0, reason: '${result.stderr}');
     expect(await directory.list().isEmpty, isTrue);

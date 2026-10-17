@@ -19,6 +19,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../core/app_color.dart';
 import '../../core/app_pref.dart';
+import '../../core/app_shortcut.dart';
 import '../../core/app_translations.dart';
 import '../../data/models/videos_entity.dart';
 import 'widget_style.dart';
@@ -107,11 +108,11 @@ class _ExChewieCustomState extends State<ExChewieCustom> with SingleTickerProvid
       // Seek Forward: Arrow Right
       LogicalKeySet(LogicalKeyboardKey.arrowRight): SeekForward5sIntent(),
       LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowRight): SeekForward30sIntent(),
-      LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.arrowRight): SeekForward60sIntent(),
+      LogicalKeySet(AppShortcut.modifier, LogicalKeyboardKey.arrowRight): SeekForward60sIntent(),
       // Seek Backward: Arrow Left
       LogicalKeySet(LogicalKeyboardKey.arrowLeft): SeekBackward5sIntent(),
       LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowLeft): SeekBackward30sIntent(),
-      LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.arrowLeft): SeekBackward60sIntent(),
+      LogicalKeySet(AppShortcut.modifier, LogicalKeyboardKey.arrowLeft): SeekBackward60sIntent(),
       // Volume: Arrow Up/Down
       LogicalKeySet(LogicalKeyboardKey.arrowUp): VolumeUpIntent(),
       LogicalKeySet(LogicalKeyboardKey.arrowDown): VolumeDownIntent(),

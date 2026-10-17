@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -10,9 +12,9 @@ void main() {
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(
       body: Center(child: DownloadMethodDialog(defaultEngine: 'MISSAV', onSelected: (value) => selected = value)),
     )));
-    expect(tester.getTopLeft(find.text('Native')).dy, lessThan(tester.getTopLeft(find.text('Downie')).dy));
-    expect(tester.getTopLeft(find.text('Downie')).dy, lessThan(tester.getTopLeft(find.text('Just Open URL')).dy));
-    for (final option in const {'Native': 'native', 'Downie': 'downie', 'Just Open URL': 'url'}.entries) {
+    expect(find.text('Downie'), Platform.isMacOS ? findsOneWidget : findsNothing);
+    expect(tester.getTopLeft(find.text('Native')).dy, lessThan(tester.getTopLeft(find.text('Just Open URL')).dy));
+    for (final option in {'Native': 'native', if (Platform.isMacOS) 'Downie': 'downie', 'Just Open URL': 'url'}.entries) {
       selected = null;
       await tester.tap(find.text(option.key));
       await tester.pumpAndSettle();

@@ -88,5 +88,6 @@
   },
   "postman.settings.dotenv-detection-notification-visibility": false,
   "chatgpt.openOnStartup": false,
-  "explorerExcludeManager.backup": {}
+  "explorerExcludeManager.backup": {},
+  "cmake.sourceDirectory": "${workspaceFolder}/linux"
 }

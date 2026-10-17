@@ -72,6 +72,7 @@ void main() {
       expect(widget.canDrag, isTrue);
       final destinations = <String, String>{};
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SearchFileDrag.channel, (call) async {
+        if (call.method == 'release') return null;
         if (call.method == 'bookmark') {
           expect(call.arguments, files.map((file) => file.path).toList());
           return {for (final file in files) file.path: [1]};

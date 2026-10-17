@@ -8,6 +8,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../core/app_color.dart';
+import '../../../core/app_shortcut.dart';
 import '../../../core/app_translations.dart';
 import '../../../data/models/activity_entity.dart';
 import '../../../data/models/videos_entity.dart';
@@ -380,7 +381,7 @@ class PageToolsView extends GetView<PageToolsController> {
         ),
         const SizedBox(width: 4),
         Tooltip(
-          message: 'Add Todo: [⌘ + T]'.tr,
+          message: AppShortcut.label('Add Todo: [⌘ + T]'.tr),
           child: AppButton(
             label: 'Add New Todo'.tr,
             icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: AppStyle.iconSize),

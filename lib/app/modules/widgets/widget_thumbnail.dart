@@ -109,20 +109,21 @@ class _ExThumbnailC extends GetxController {
         '-ss', _fmtSec(seconds), // fast seek (kurang akurat dikit, cukup buat thumbnail)
         '-skip_frame', 'nokey', // decode keyframe saja
         '-threads', '1', // hindari kontensi di HDD
-        '-i', '"$inputPath"',
+        '-i', inputPath,
         '-frames:v', '1',
         '-update', '1', // single image output, avoid image2 sequence warning
-        '"$outPath"',
-      ].join(' ');
+        outPath,
+      ];
 
       final completer = Completer<Uint8List?>();
       Timer? killer;
 
       // jalanin async biar bisa cancel
-      final session = await FFmpegKit.executeAsync(cmd, (s) async {
+      final session = await FFmpegKit.executeWithArgumentsAsync(cmd, (s) async {
         // selesai normal
         killer?.cancel();
         final rc = await s.getReturnCode();
+        if (completer.isCompleted) return;
         if (ReturnCode.isSuccess(rc) && await File(outPath).exists()) {
           completer.complete(await File(outPath).readAsBytes());
         } else {
@@ -145,6 +146,7 @@ class _ExThumbnailC extends GetxController {
       });
 
       final res = await completer.future;
+      killer.cancel();
       return res;
     });
   }
@@ -161,7 +163,7 @@ class _ExThumbnailC extends GetxController {
 
     // skip kalau file gak ada (misal drive eject, file rusak, dll)
     final f = File(inputPath);
-    if (!f.existsSync()) return null;
+    if (!f.existsSync() || Platform.isLinux) return null;
 
     try {
       return await _videoCompressLimiter.run(() async {
@@ -215,9 +217,18 @@ class _ExThumbnailC extends GetxController {
     final isExternal = videopath.startsWith('/Volumes/') || videopath.startsWith('/media/');
     final cacheKey = '$videopath#$position';
 
-    // Screenshot previews use video_compress only, without ffmpeg fallback.
     if (position != 90) {
-      final bytes = await _safeVideoCompress(videopath, position, timeout: _vcPreviewTimeout);
+      Uint8List? bytes;
+      if (Platform.isLinux) {
+        final directory = await Directory(await _thumbDir()).createTemp('preview-');
+        try {
+          bytes = await _thumbWithFfmpeg(videopath, p.join(directory.path, 'frame.jpg'), seconds: position);
+        } finally {
+          await directory.delete(recursive: true);
+        }
+      } else {
+        bytes = await _safeVideoCompress(videopath, position, timeout: _vcPreviewTimeout);
+      }
       if (bytes != null && bytes.isNotEmpty && bytes.length > 1000) {
         _setPreviewCache(cacheKey, bytes);
         return bytes;
@@ -241,10 +252,10 @@ class _ExThumbnailC extends GetxController {
       return bytes;
     }
 
-    final codec = (await _detectCodec(videopath)) ?? '';
+    final codec = Platform.isLinux ? '' : (await _detectCodec(videopath)) ?? '';
     Uint8List? bytes;
 
-    if (codec.contains('av1')) {
+    if (Platform.isLinux || codec.contains('av1')) {
       AppLog.logW('[thumb] AV1 → ffmpeg');
       bytes = await _thumbWithFfmpeg(videopath, filePath, seconds: position);
     } else {

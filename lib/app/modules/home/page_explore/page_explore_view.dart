@@ -7,6 +7,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:kana_kit/kana_kit.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/app_shortcut.dart';
 import '../../../core/app_translations.dart';
 import '../../../core/const.dart';
 import '../../../data/database/db_r18.dart';
@@ -28,8 +29,8 @@ class PageExploreView extends GetView<PageExploreController> {
     AppColor.dependOn(context);
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyN, meta: true, includeRepeats: false): controller.addTab,
-        const SingleActivator(LogicalKeyboardKey.keyW, meta: true, includeRepeats: false): () => controller.closeTab(controller.activeTabIndex.value),
+        const AppShortcut(LogicalKeyboardKey.keyN, includeRepeats: false): controller.addTab,
+        const AppShortcut(LogicalKeyboardKey.keyW, includeRepeats: false): () => controller.closeTab(controller.activeTabIndex.value),
       },
       child: Focus(autofocus: true, child: Column(children: [
       Obx(() => SearchTabBar(

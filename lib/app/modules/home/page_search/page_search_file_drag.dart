@@ -41,7 +41,7 @@ class SearchFileDrag extends StatelessWidget {
       if (!canDrag) return;
       final operation = await channel.invokeMethod<String>('drag', files.keys.toList());
       if (operation != 'move' && operation != 'copy') return;
-      // ponytail: wait up to 10s for Finder; longer transfers need a library rescan.
+      // shortcut: wait up to 10s for file managers; longer transfers need a library rescan.
       for (var attempt = 0; operation == 'move' && attempt < 20; attempt++) {
         if (!files.keys.any((path) => File(path).existsSync())) break;
         await Future<void>.delayed(const Duration(milliseconds: 500));
@@ -58,21 +58,26 @@ class SearchFileDrag extends StatelessWidget {
           missing.add(oldPath);
         }
       }
-      await controller.applyFileMoves(files, moves, missing);
+      // Linux cannot resolve a copy-and-delete move across filesystems.
+      await controller.applyFileMoves(files, moves, Platform.isLinux ? [] : missing);
       if (missing.isNotEmpty || operation == 'move' && files.keys.any((path) => File(path).existsSync())) {
-        await HelperToast.warn('Some moved paths could not be confirmed. Add the destination folder to your library and rescan after Finder finishes.'.tr);
+        await HelperToast.warn('Some moved paths could not be confirmed. Add the destination folder to your library and rescan after the file manager finishes.'.tr);
       }
     } catch (e) {
       AppLog.logE('File drag failed: $e');
       await HelperToast.error('File drag failed: @{e}'.trNamed({'e': '$e'}));
     } finally {
+      if (Platform.isLinux) {
+        try { await channel.invokeMethod<void>('release'); }
+        catch (e) { AppLog.logW('Could not release file drag tracking: $e'); }
+      }
       HomePanelLibrary.fileDragInProgress = false;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (defaultTargetPlatform != TargetPlatform.macOS) return child;
+    if (![TargetPlatform.macOS, TargetPlatform.linux].contains(defaultTargetPlatform)) return child;
     return Obx(() => GestureDetector(
       onPanStart: canDrag ? (_) => startDrag() : null,
       child: child,

@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/app_color.dart';
+import '../../core/app_shortcut.dart';
 import 'widget_controls.dart';
 import 'widget_style.dart';
 import 'widget_surfaces.dart';
@@ -188,7 +189,7 @@ class _KeyboardShortcutsPanelState extends State<KeyboardShortcutsPanel> {
                           Expanded(child: Text(shortcut.$2.tr, style: const TextStyle(fontSize: 13))),
                           const SizedBox(width: 16),
                           Row(mainAxisSize: MainAxisSize.min, children: [
-                            for (final key in shortcut.$1.split(' + '))
+                            for (final key in AppShortcut.label(shortcut.$1).split(' + '))
                               Container(
                                 constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                                 margin: const EdgeInsets.only(left: 4),
