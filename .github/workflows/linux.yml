@@ -35,7 +35,8 @@ jobs:
       - name: Install native dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libmpv-dev \
+          # Select distro libunwind headers instead of the runner's conflicting LLVM variant.
+          sudo apt-get install -y libunwind-dev clang cmake ninja-build pkg-config libgtk-3-dev libmpv-dev \
             libkeybinder-3.0-dev libjson-glib-dev libgstreamer1.0-dev \
             libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good \
             libwebkit2gtk-4.1-dev libopencore-amrnb0 libvo-amrwbenc0 \
