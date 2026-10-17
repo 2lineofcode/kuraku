@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -234,11 +235,11 @@ void main() {
     addTearDown(controller.infoAnimationController.dispose);
     await pump(tester);
     Future<void> toggle() async {
-      await tester.sendKeyDownEvent((Platform.isMacOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
+      await tester.sendKeyDownEvent((defaultTargetPlatform == TargetPlatform.macOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
       await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
-      await tester.sendKeyUpEvent((Platform.isMacOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
+      await tester.sendKeyUpEvent((defaultTargetPlatform == TargetPlatform.macOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
       await tester.pumpAndSettle();
     }
     expect(find.byTooltip('Play (Space)').hitTestable(), findsOneWidget);
@@ -277,7 +278,7 @@ void main() {
     expect(find.byTooltip('Pause (Space)').hitTestable(), findsNothing, reason: 'auto-hide remains enabled');
     await mouse.removePointer();
     await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.macOS, TargetPlatform.linux}));
 
   testWidgets('Cupertino seeking and menus keep playback usable through auto-hide', (tester) async {
     addTearDown(tester.view.reset);

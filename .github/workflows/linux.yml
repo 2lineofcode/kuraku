@@ -60,6 +60,7 @@ jobs:
           test/page_tools_large_files_test.dart test/page_tools_resolution_test.dart
           test/helper_opener_trailer_test.dart test/widget_download_method_test.dart
           test/search_shortcut_test.dart test/keyboard_shortcuts_test.dart
+          test/page_search_selection_test.dart test/player_rotation_test.dart test/player_cupertino_controls_test.dart
           test/screenshot_viewer_test.dart test/player_seek_preview_test.dart
 
       - name: Build and package

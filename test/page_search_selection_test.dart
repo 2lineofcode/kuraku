@@ -1,4 +1,5 @@
 import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -65,9 +66,9 @@ void main() {
     await tester.pumpAndSettle();
 
     Future<void> commandClick(int index) async {
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent((defaultTargetPlatform == TargetPlatform.macOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
       final gesture = await tester.startGesture(tester.getCenter(find.byType(DoubleTap).at(index)), kind: PointerDeviceKind.mouse);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyUpEvent((defaultTargetPlatform == TargetPlatform.macOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
       await gesture.up();
       await tester.pump(const Duration(milliseconds: 200));
     }
@@ -109,7 +110,7 @@ void main() {
     expect(tab.actions.length, 5);
     await tester.pumpWidget(const SizedBox.shrink());
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.macOS, TargetPlatform.linux}));
 
   testWidgets('Command taps do not trigger normal single or double tap actions', (tester) async {
     var singles = 0;
@@ -120,10 +121,10 @@ void main() {
       child: const SizedBox(width: 100, height: 100),
     ))));
     final item = find.byType(DoubleTap);
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyDownEvent((defaultTargetPlatform == TargetPlatform.macOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
     await tester.tap(item);
     await tester.tap(item);
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyUpEvent((defaultTargetPlatform == TargetPlatform.macOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
     await tester.pump(const Duration(milliseconds: 200));
     expect([commands, singles, doubles], [2, 0, 0]);
     await tester.tap(item);
@@ -148,7 +149,7 @@ void main() {
     await tester.tap(item);
     await tester.tap(item);
     expect(singles, 3);
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.macOS, TargetPlatform.linux}));
 
   testWidgets('batch cart deduplicates and favorite updates every selected video', (tester) async {
     final home = Get.put<HomeController>(_Home()) as _Home;

@@ -4,11 +4,13 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
+import 'package:kuraku/app/core/app_pref.dart';
 import 'package:kuraku/app/core/app_setting.dart';
 import 'package:kuraku/app/data/models/videos_entity.dart';
 import 'package:kuraku/app/modules/player/player_controller.dart';
@@ -410,6 +412,7 @@ void main() {
     addTearDown(tester.view.reset);
     Get.put(AppSettingService()..pref = _Preferences());
     addTearDown(Get.reset);
+    await AppPref.setPlayerCustomAdjustment({});
     final native = _NativePlayer();
     final controller = PlayerController()..player = _Player(native);
     controller.currentVideo.value = Videos(videoCode: '', title: 'Test', videoPath: '');
@@ -422,12 +425,12 @@ void main() {
       builder: (context, visible, child) => visible ? PlayerControls(controller: controller, videoState: VideoState()) : const SizedBox.shrink(),
     ))));
     Future<void> rotateWithShortcuts() async {
-      await tester.sendKeyDownEvent((Platform.isMacOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
+      await tester.sendKeyDownEvent((defaultTargetPlatform == TargetPlatform.macOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
       await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
-      await tester.sendKeyUpEvent((Platform.isMacOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
+      await tester.sendKeyUpEvent((defaultTargetPlatform == TargetPlatform.macOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
       await tester.pumpAndSettle();
       expect(native.commands, [
         ['cycle-values', 'video-rotate', '0', '270', '180', '90'],
@@ -500,5 +503,5 @@ void main() {
     expect(Overlayment.count, 0);
     await tester.pumpWidget(const SizedBox.shrink());
     controller.infoAnimationController.dispose();
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.macOS, TargetPlatform.linux}));
 }
