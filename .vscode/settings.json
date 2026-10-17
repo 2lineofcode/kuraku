@@ -47,7 +47,7 @@
     }
   ],
   "files.exclude": {
-    "**/.git": true,
+    "**/.git": false,
     "**/.svn": true,
     "**/.hg": true,
     "**/.DS_Store": true,
