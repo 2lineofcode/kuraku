@@ -579,7 +579,6 @@ const englishTranslations = <String, String>{
   'HD+ (18.5:9)': 'HD+ (18.5:9)',
   'HD+ (20:9)': 'HD+ (20:9)',
   'In Library: @{havingVideos}': 'In Library: @{havingVideos}',
-  'Hi There, Select Or Drag & Drop your JAV Folder Here': 'Hi There, Select Or Drag & Drop your JAV Folder Here',
   'Hide matches · Regex · Case-insensitive': 'Hide matches · Regex · Case-insensitive',
   'Highest rating videos': 'Highest rating videos',
   'History': 'History',
@@ -1276,7 +1275,6 @@ const englishTranslations = <String, String>{
   'video': 'video',
   'videos': 'videos',
   'you can type "Video Code" or "Title" to search': 'you can type "Video Code" or "Title" to search',
-  '~ Fresh ~': '~ Fresh ~',
   '~ No Exact Duplicate Found 🔥 ~': '~ No Exact Duplicate Found ~',
   '~ No Probable Duplicate Found 🔥 ~': '~ No Probable Duplicate Found ~',
   '~ Type Something ~': '~ Type Something ~',
@@ -1556,4 +1554,7 @@ const englishTranslations = <String, String>{
   'Delete site': 'Delete site',
   'Delete this site?': 'Delete this site?',
   'Download URL': 'Download URL',
+  'Drop a folder here': 'Drop a folder here',
+  'Add folder': 'Add folder',
+  'Add videos or image albums to your library.': 'Add videos or image albums to your library.',
 };

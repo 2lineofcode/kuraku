@@ -17,6 +17,7 @@ import '../../widgets/widget_search_tab_bar.dart';
 import '../../widgets/widget_title_translation.dart';
 import '../../widgets/widgets.dart';
 import '../home_controller.dart';
+import '../home_panel/home_panel_library.dart';
 import '../home_panel/home_panel_video_info.dart';
 import '../local_video_selection_item.dart';
 import 'page_explore_controller.dart';
@@ -62,11 +63,7 @@ class PageExploreTabView extends StatelessWidget {
     return Obx(
       () => controller.isFresh.isFalse || controller.isLoading.value || controller.error.value.isNotEmpty
           ? buildPage()
-          : ExUiErrorOrEmpty(
-              illustration: HugeIcon(icon: HugeIcons.strokeRoundedComputerAdd, size: AppStyle.emptyIconSize),
-              title: '~ Fresh ~'.tr,
-              message: 'Hi There, Select Or Drag & Drop your JAV Folder Here'.tr,
-            ),
+          : LibraryEmptyState(onAdd: () => HomePanelLibrary.showDialogAddorEditLibrary()),
     );
   }
 

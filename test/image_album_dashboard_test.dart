@@ -131,7 +131,7 @@ void main() {
     expect(cover.width, 440);
     expect(cover.height, 880);
     expect(cover.policy, ResizeImagePolicy.fit);
-    expect(find.text('~ Fresh ~'), findsNothing);
+    expect(find.text('Drop a folder here'), findsNothing);
     await tester.runAsync(() async {
       await tester.tap(find.text('My album'));
       await tester.pumpAndSettle();
@@ -144,7 +144,7 @@ void main() {
     expect(find.byType(ImgViewerView), findsNothing);
     home.listImageAlbums.clear();
     await tester.pumpAndSettle();
-    expect(find.text('~ Fresh ~'), findsOneWidget);
+    expect(find.text('Drop a folder here'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });

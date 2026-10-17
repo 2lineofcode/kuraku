@@ -579,7 +579,6 @@ const indonesianTranslations = <String, String>{
   'HD+ (18.5:9)': 'HD+ (18.5:9)',
   'HD+ (20:9)': 'HD+ (20:9)',
   'In Library: @{havingVideos}': 'Punya: @{havingVideos}',
-  'Hi There, Select Or Drag & Drop your JAV Folder Here': 'Halo bos, pilih atau tarik folder JAV lu ke sini',
   'Hide matches · Regex · Case-insensitive': 'Sembunyikan hasil cocok · Regex · Abaikan kapital',
   'Highest rating videos': 'Video dengan rating paling mantap',
   'History': 'Riwayat',
@@ -1276,7 +1275,6 @@ const indonesianTranslations = <String, String>{
   'video': 'video',
   'videos': 'video',
   'you can type "Video Code" or "Title" to search': 'ketik "Kode video" atau "Judul" buat cari',
-  '~ Fresh ~': '~ Masih anget ~',
   '~ No Exact Duplicate Found 🔥 ~': '~ Nggak ada duplikat persis, aman bos ~',
   '~ No Probable Duplicate Found 🔥 ~': '~ Nggak ada kandidat duplikat, aman bos ~',
   '~ Type Something ~': '~ Ketik dulu, bos ~',
@@ -1556,4 +1554,7 @@ const indonesianTranslations = <String, String>{
   'Delete site': 'Hapus situs',
   'Delete this site?': 'Hapus situs ini?',
   'Download URL': 'URL download',
+  'Drop a folder here': 'Taruh folder di sini',
+  'Add folder': 'Tambah folder',
+  'Add videos or image albums to your library.': 'Tambahkan video atau album foto ke library kamu.',
 };

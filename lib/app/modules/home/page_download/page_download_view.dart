@@ -18,6 +18,7 @@ import '../../widgets/widget_search_suggestions_overlay.dart';
 import '../../widgets/widget_search_tab_bar.dart';
 import '../../widgets/widget_style.dart';
 import '../../widgets/widget_thumbnail.dart';
+import '../../widgets/widget_title_translation.dart';
 import '../home_controller.dart';
 import 'page_download_command_dropdown.dart';
 import 'page_download_controller.dart';
@@ -299,7 +300,11 @@ class PageDownloadSearchView extends StatelessWidget {
                 '${item.videoCode}'.text.bold.size(12).ellipsis.make().onInkTap(() {
                   HelperMisc.copyToClipboard(item.videoCode, showToast: true);
                 }),
-                '${HelperDecensor.decensor(item.title ?? '')}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240).hide(isVisible: item.title != null && item.title != ''),
+                TitleTranslation(
+                  key: ValueKey(item.title),
+                  title: item.title ?? '',
+                  child: '${HelperDecensor.decensor(item.title ?? '')}'.text.size(10).maxLines(2).minFontSize(10).ellipsis.make().w(240),
+                ).hide(isVisible: item.title != null && item.title != ''),
               ]).p8(),
             ).positioned(bottom: 0, left: 0, right: 0),
             ]),

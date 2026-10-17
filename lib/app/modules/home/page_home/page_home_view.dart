@@ -32,11 +32,7 @@ class PageHomeView extends GetView<PageHomeController> {
               Align(alignment: Alignment.centerRight, child: LocalVideoSelectionClear(controller: controller)),
               Expanded(child: buildPage()),
             ])
-          : ExUiErrorOrEmpty(
-              illustration: HugeIcon(icon: HugeIcons.strokeRoundedComputerAdd, size: AppStyle.emptyIconSize),
-              title: '~ Fresh ~'.tr,
-              message: 'Hi There, Select Or Drag & Drop your JAV Folder Here'.tr,
-            ),
+          : LibraryEmptyState(onAdd: () => HomePanelLibrary.showDialogAddorEditLibrary()),
     );
   }
 

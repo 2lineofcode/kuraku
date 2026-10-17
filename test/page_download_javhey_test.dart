@@ -1,8 +1,13 @@
+// ignore_for_file: depend_on_referenced_packages
+
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:kuraku/app/core/app_setting.dart';
 import 'package:kuraku/app/data/database/db_r18.dart';
@@ -181,6 +186,36 @@ void main() {
     expect(controller.requestedUrl, item.sourceUrl);
     await tester.pumpWidget(const SizedBox.shrink());
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('long pressing a download result title opens its translation', (tester) async {
+    Get.put<PageDownloadController>(_Controller());
+    final tab = _Tab(1);
+    addTearDown(tab.dispose);
+    final item = result('ABC-001').result!.single;
+    tab.videos.add(item);
+    final requests = <http.Request>[];
+    await http.runWithClient(() async {
+      await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PageDownloadSearchView(controller: tab))));
+      await tester.pumpAndSettle();
+      expect(requests, isEmpty);
+      await tester.longPress(find.text(item.title!));
+      await tester.pumpAndSettle();
+      expect(requests.single.url.queryParameters['q'], item.title);
+      expect(requests.single.url.queryParameters['tl'], 'id');
+      expect(find.text('Judul terjemahan').hitTestable(), findsOneWidget);
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+      expect(find.text('Judul terjemahan'), findsNothing);
+      expect(find.text(item.title!), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+      requests.add(request);
+      return http.Response(jsonEncode([
+        [['Judul terjemahan', item.title]], null, 'en',
+      ]), 200, headers: {'content-type': 'application/json; charset=utf-8'});
+    }));
   });
 
   testWidgets('missing JavHey release dates stay empty after loading', (tester) async {
