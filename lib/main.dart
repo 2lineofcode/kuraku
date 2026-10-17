@@ -30,6 +30,7 @@ import 'app/core/app_startup.dart';
 import 'app/core/app_translations.dart';
 import 'app/data/database/_init_db.dart';
 import 'app/data/database/app_backup.dart';
+import 'app/data/database/db_search_site.dart';
 import 'app/modules/home/home_controller.dart';
 import 'app/modules/home/page_chat/page_chat_controller.dart';
 import 'app/modules/widgets/widget_dependency_guide.dart';
@@ -62,6 +63,7 @@ Future<void> _initializeApp() async {
   AppLog.logD('Startup settings ready: ${sw.elapsedMilliseconds}ms');
   final database = await Get.putAsync(() => DBService().init(), permanent: true);
   await AppBackup.applyPending(settings.appPath, database.dbMain, settings.pref);
+  await DBSearchSite.load(database.dbMain);
   AppLog.logD('Startup dependencies ready: ${sw.elapsedMilliseconds}ms');
 }
 

@@ -132,6 +132,26 @@ void main() {
     await directory.delete(recursive: true);
   });
 
+  test('custom sites survive backup and v18 backups receive the five defaults', () async {
+    await db.insert('search_site', {'name': 'Custom', 'search_url': 'https://example.test/?q={code}', 'download_url': 'https://example.test/{code}'});
+    pref.values['_kDefaultSearchEngine'] = 'Custom';
+    final backup = await AppBackup.capture(db, pref);
+    await backup.validate(database: db);
+    await db.delete('search_site', where: "name = 'Custom'");
+    await backup.apply(db, pref);
+    expect((await db.query('search_site', where: "name = 'Custom'")).single['search_url'], 'https://example.test/?q={code}');
+    expect(pref.values['_kDefaultSearchEngine'], 'Custom');
+    final old = jsonDecode(backup.encode()) as Map<String, dynamic>;
+    old['database_version'] = 18;
+    old['tables'].remove('search_site');
+    old['settings']['_kDefaultSearchEngine'] = 'NJAV';
+    final migrated = AppBackup.decode(jsonEncode(old));
+    expect(migrated.count('search_site'), 5);
+    await migrated.validate(database: db);
+    old['database_version'] = DBUpdate.version;
+    expect(() => AppBackup.decode(jsonEncode(old)), throwsFormatException);
+  });
+
   test('round trip preserves metadata, relationships, history and settings without video files or PIN', () async {
     await _seed(db);
     final backup = await AppBackup.capture(db, pref);

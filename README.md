@@ -22,6 +22,8 @@ macOS: drag to Applications; unsigned builds may need **Privacy & Security → O
 
 Install Python 3. On first launch, choose **Download & Install** to set up the R18 catalog, then restart.
 
+Search sites are stored in the app database. Open **Settings → Playback & Search → Manage sites** to edit the five defaults or add custom URL templates using `{code}`.
+
 ## Development
 
 [Development guide](docs/development.md) — platform dependencies, setup, build, and checks.

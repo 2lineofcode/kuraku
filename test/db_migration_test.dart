@@ -40,14 +40,14 @@ void main() {
 
   test('Migration runner respects target versions, rejects downgrade and stops on failure', () async {
     final db = _Database();
-    expect(DBUpdate.version, 18);
+    expect(DBUpdate.version, 19);
     await DBUpdate.onUpgrade(db, 1, 3);
     expect(db.statements.where((sql) => sql.contains('CREATE TABLE IF NOT EXISTS watch_session')).length, 2);
     expect(db.statements.any((sql) => sql.contains('DROP TABLE') || sql.contains('playlist_id') || sql.contains('historical') || sql.contains('chat_')), isFalse);
     db.statements.clear();
     await DBUpdate.onUpgrade(db, 8, 8);
     expect(db.statements, isEmpty);
-    for (final range in [(0, 8), (8, 7), (18, 19)]) {
+    for (final range in [(0, 8), (8, 7), (19, 20)]) {
       await expectLater(DBUpdate.onUpgrade(db, range.$1, range.$2), throwsStateError);
     }
     await expectLater(DBUpdate.onDowngrade(db, 9, 8), throwsStateError);

@@ -17,7 +17,6 @@ import 'package:super_context_menu/super_context_menu.dart' as scm;
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:video_compress/video_compress.dart';
 
-import '../../../env.g.dart';
 import '../../core/app_color.dart';
 import '../../core/app_dependencies.dart';
 import '../../core/app_logging.dart';
@@ -25,6 +24,7 @@ import '../../core/app_pref.dart';
 import '../../core/app_setting.dart';
 import '../../core/app_translations.dart';
 import '../../data/api/api_kuraku.dart';
+import '../../data/database/db_search_site.dart';
 import '../../data/database/db_videos.dart';
 import '../../data/models/videos_entity.dart';
 import '../../modules/home/home_controller.dart';
@@ -562,27 +562,7 @@ class _ExVideoContextMenuState extends State<ExVideoContextMenu> {
       return;
     }
 
-    final searchEngine = AppPref.getDefaultSearchEngine();
-    switch (searchEngine.toLowerCase()) {
-      case 'njav':
-        await launchUrlString('${Env.njavUrl}/$code');
-        break;
-      case 'missav':
-        await launchUrlString('${Env.missavUrl}/$code');
-        break;
-      case 'javmost':
-        await launchUrlString('${Env.javmostUrl}/$code');
-        break;
-      case 'sextb':
-        await launchUrlString('${Env.sextbUrl}/$code');
-        break;
-      case 'javguru':
-        await launchUrlString('${Env.javguruUrl}/?s=$code');
-        break;
-      default:
-        await launchUrlString('${Env.njavUrl}/$code');
-        break;
-    }
+    await launchUrlString(DBSearchSite.resolve(AppPref.getDefaultSearchEngine()).urlFor(code));
   }
 
   Future<scm.Menu?> _buildContextMenu() async {

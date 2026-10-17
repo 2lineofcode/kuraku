@@ -18,6 +18,7 @@ import '../../widgets/widget_style.dart';
 import '../../widgets/widget_surfaces.dart';
 import '../home_controller.dart';
 import 'page_settings_controller.dart';
+import 'search_sites_dialog.dart';
 
 class PageSettingsView extends GetView<PageSettingsController> {
   const PageSettingsView({super.key});
@@ -70,15 +71,25 @@ class PageSettingsView extends GetView<PageSettingsController> {
                     AppPref.setDefaultPlayer(value);
                   },
                 ))),
-                _settingRow('Search Engine'.tr, Obx(() => _dropdown<String>(
-                  value: controller.tecDefaultSearchEngine.value.isEmpty ? 'NJAV' : controller.tecDefaultSearchEngine.value,
-                  items: AppPref.searchEngines.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    controller.tecDefaultSearchEngine.value = value;
-                    AppPref.setDefaultSearchEngine(value);
-                  },
-                ))),
+                _settingRow('Search Engine'.tr, Row(children: [
+                  Expanded(child: Obx(() => _dropdown<String>(
+                    value: AppPref.searchEngines.contains(controller.tecDefaultSearchEngine.value) ? controller.tecDefaultSearchEngine.value : AppPref.getDefaultSearchEngine(),
+                    items: AppPref.searchEngines.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      controller.tecDefaultSearchEngine.value = value;
+                      AppPref.setDefaultSearchEngine(value);
+                    },
+                  ))),
+                  const SizedBox(width: 8),
+                  AppButton(
+                    onPressed: () async {
+                      await Get.dialog(const SearchSitesDialog());
+                      controller.tecDefaultSearchEngine.value = AppPref.getDefaultSearchEngine();
+                    },
+                    child: Text('Manage sites'.tr),
+                  ),
+                ])),
                 _settingRow('Daily relapse limit'.tr, _numberField(controller.tecAppMaxColi,
                   onSubmitted: (_) => controller.saveRelapseLimit(),
                   suffix: AppIconButton(

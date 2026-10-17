@@ -24,6 +24,7 @@ import '../core/const.dart';
 import '../data/api/api_javtrailers.dart';
 import '../data/api/api_kuraku.dart';
 import '../data/database/db_r18.dart';
+import '../data/database/db_search_site.dart';
 import '../data/database/db_videos.dart';
 import '../data/models/__kuraku_search_entity.dart';
 import '../data/models/videos_entity.dart';
@@ -129,31 +130,7 @@ mixin HelperOpener {
       }
       return uri.toString();
     }
-    late String url;
-    switch ((searchEngine ?? AppPref.getDefaultSearchEngine()).toLowerCase()) {
-      case 'njav':
-        url = '${Env.njavUrl}/en/$code'.replaceAll('/en/search', '');
-        url += '-uncensored-leak';
-        break;
-      case 'missav':
-        url = '${Env.missavUrl}/en/$code'.replaceAll('/en/search', '');
-        url += '-uncensored-leak';
-        break;
-      case 'javmost':
-        url = '${Env.javmostUrl}/$code'.replaceAll('/search', '');
-        break;
-      case 'sextb':
-        url = '${Env.sextbUrl}/$code'.replaceAll('/search', '');
-        break;
-      case 'javguru':
-        url = '${Env.javguruUrl}/?s=$code';
-        break;
-      default:
-        url = '${Env.njavUrl}/$code';
-        break;
-    }
-
-    return url;
+    return DBSearchSite.resolve(searchEngine ?? AppPref.getDefaultSearchEngine()).urlFor(code, download: true);
   }
 
   static Future<void> openVideoInfo(dynamic item, {List<dynamic>? items}) async {

@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
 
+import '../data/database/db_search_site.dart';
 import '../data/models/videos_entity.dart';
 import 'app_setting.dart';
 import 'app_translations.dart';
@@ -254,9 +255,9 @@ mixin AppPref {
   static String getFavoriteCoverURL() => _pref.read(_kFavoriteCoverURL) ?? 'https://www.zenra.net/imgcache/max-content-width/blog/10/best-debuts-and-honorable-mentions-xx-677ad45348fe4.png';
   static void setFavoriteCoverURL(String value) => _pref.write(_kFavoriteCoverURL, value);
 
-  static const searchEngines = ['NJAV', 'MISSAV', 'JAVMOST', 'SEXTB', 'JAVGURU'];
+  static List<String> get searchEngines => DBSearchSite.sites.map((site) => site.name).toList();
 
-  static String getDefaultSearchEngine() => _pref.read(_kDefaultSearchEngine) ?? 'NJAV';
+  static String getDefaultSearchEngine() => DBSearchSite.resolve(_pref.read(_kDefaultSearchEngine) ?? 'NJAV').name;
   static void setDefaultSearchEngine(String value) => _pref.write(_kDefaultSearchEngine, value);
 
   static Map<String, dynamic> getSearchTabs() {

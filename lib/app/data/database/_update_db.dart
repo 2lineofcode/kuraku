@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../core/app_logging.dart';
 import '../models/activity_entity.dart';
+import '../models/search_site.dart';
 
 mixin DBUpdate {
   // Version 1 lives in DBService.onCreate. Append new migrations; never edit released steps.
@@ -23,7 +24,19 @@ mixin DBUpdate {
     16: (name: 'Soft delete videos', run: _v16SoftDeleteVideos),
     17: (name: 'Preserve file identity across library moves', run: _v17FileIdentity),
     18: (name: 'Add library image albums', run: _v18ImageAlbums),
+    19: (name: 'Add configurable search sites', run: _v19SearchSites),
   };
+
+  static Future<void> _v19SearchSites(Database db) async {
+    await db.execute('''CREATE TABLE search_site (
+      name TEXT NOT NULL PRIMARY KEY COLLATE NOCASE CHECK(length(trim(name)) BETWEEN 1 AND 60 AND name = trim(name)),
+      search_url TEXT NOT NULL CHECK(instr(search_url, '{code}') > 0),
+      download_url TEXT NOT NULL CHECK(instr(download_url, '{code}') > 0)
+    )''');
+    for (final site in SearchSite.defaults) {
+      await db.execute("INSERT INTO search_site VALUES ('${site.name}', '${site.searchUrl}', '${site.downloadUrl}')");
+    }
+  }
 
   static Future<void> _v18ImageAlbums(Database db) async {
     await db.execute("ALTER TABLE library ADD COLUMN images TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(images) AND json_type(images) = 'array')");

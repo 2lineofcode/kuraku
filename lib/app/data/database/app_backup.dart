@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../core/app_pref.dart';
 import '../models/library_entity.dart';
+import '../models/search_site.dart';
 import '../models/videos_entity.dart';
 import '_init_db.dart';
 import '_update_db.dart';
@@ -18,7 +19,7 @@ class AppBackup {
 
   static const tables = ['library', 'videos', 'playlist', 'playlist_item', 'watch_session', 'profile',
     'achievement_unlock', 'relapse_event', 'historical', 'todo', 'download_log', 'video_file_identity',
-    'chat_conversation', 'chat_message', 'chat_translation'];
+    'chat_conversation', 'chat_message', 'chat_translation', 'search_site'];
   static const _boolKeys = ['_kAppHideSideMenu', '_kAppDarkMode', '_kAppIsDarkMode', '_kPlayerAudioNormalization',
     '_kHomeSecNewRelease', '_kHomeSecRecommendation', '_kHomeSecFavorite', '_kHomeSecNewAdd',
     '_kHomeSecMostWatch', '_kHomeSecNeverWatch', '_kHomeSecRandom', '_kHomeSecOldest', '_kHomeSecImageAlbums', 'chat_sidebar_visible'];
@@ -54,12 +55,16 @@ class AppBackup {
     if (utf8.encode(content).length > 128 * 1024 * 1024) throw const FormatException('Backup exceeds the 128 MB limit.');
     final data = jsonDecode(content);
     if (data is! Map<String, dynamic> || data['format'] != 'kuraku-backup' || data['version'] != 2
-        || data['database_version'] != DBUpdate.version || data['created_at'] is! String
+        || ![18, DBUpdate.version].contains(data['database_version']) || data['created_at'] is! String
         || DateTime.tryParse(data['created_at']) == null) {
       throw const FormatException('Invalid backup or incompatible app/database version.');
     }
     final rows = data['tables'];
     final settings = data['settings'];
+    if (data['database_version'] == 18 && rows is Map && !rows.containsKey('search_site')) {
+      rows['search_site'] = SearchSite.defaults.map((site) => site.toJson()).toList();
+      data['database_version'] = DBUpdate.version;
+    }
     if (rows is! Map || rows.keys.any((table) => !tables.contains(table))
         || !tables.every((table) => rows[table] is List) || rows.values.any((value) => value is! List)
         || settings is! Map<String, dynamic> || settings.keys.any((key) => !settingKeys.contains(key))
@@ -99,7 +104,7 @@ class AppBackup {
       if (key == '_kAppLanguage') valid = ['en', 'id'].contains(value);
       if (key == '_kAppTheme') valid = ['system', 'schedule', 'dark', 'light'].contains(value);
       if (key == '_kDefaultPlayer') valid = ['In App', 'Default System'].contains(value);
-      if (key == '_kDefaultSearchEngine') valid = ['NJAV', 'MISSAV', 'JAVMOST', 'SEXTB', 'JAVGURU'].contains(value);
+      if (key == '_kDefaultSearchEngine') valid = (rows['search_site'] as List).any((site) => site['name'] == value);
       if (!valid) throw FormatException('Invalid setting: $key.');
       if (key == '_kAppCart') {
         try {
@@ -107,6 +112,10 @@ class AppBackup {
         } catch (_) { throw const FormatException('Invalid cart video.'); }
       }
       if (key == '_kPlayerVolume' || key == '_kPlayerSpeed') settings[key] = (value as num).toDouble();
+    }
+    final sites = (rows['search_site'] as List).map((row) => SearchSite.fromJson(Map<String, Object?>.from(row))).toList();
+    if (!SearchSite.defaults.every((site) => sites.any((item) => item.name == site.name))) {
+      throw const FormatException('Backup is missing default search sites.');
     }
     if ((rows['profile'] as List).length != 1) throw const FormatException('Backup must contain one profile.');
     return AppBackup._(data);

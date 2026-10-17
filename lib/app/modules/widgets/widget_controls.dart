@@ -113,7 +113,7 @@ class AppIconButton extends StatelessWidget {
 }
 
 class AppTextField extends StatelessWidget {
-  const AppTextField({super.key, this.controller, this.focusNode, this.placeholder,
+  const AppTextField({super.key, this.controller, this.focusNode, this.placeholder, this.semanticsLabel,
     this.style, this.placeholderStyle, this.decoration, this.prefix, this.suffix,
     this.padding = const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     this.clearButtonMode = OverlayVisibilityMode.never, this.onChanged, this.onSubmitted,
@@ -125,7 +125,7 @@ class AppTextField extends StatelessWidget {
 
   final TextEditingController? controller;
   final FocusNode? focusNode;
-  final String? placeholder;
+  final String? placeholder, semanticsLabel;
   final TextStyle? style, placeholderStyle;
   final InputDecoration? decoration;
   final Widget? prefix, suffix;
@@ -166,13 +166,14 @@ class AppTextField extends StatelessWidget {
     );
     final control = maxLines == 1 && !expands
         ? ConstrainedBox(constraints: const BoxConstraints(minHeight: AppStyle.inputHeight), child: field) : field;
-    if (input == null || (input.labelText == null && input.helperText == null && input.errorText == null)) return control;
+    final accessibleControl = semanticsLabel == null ? control : Semantics(label: semanticsLabel, child: control);
+    if (input == null || (input.labelText == null && input.helperText == null && input.errorText == null)) return accessibleControl;
     return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (input.labelText != null) Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Text(input.labelText!, style: TextStyle(fontSize: AppStyle.fontSize, color: scheme.onSurface)),
       ),
-      control,
+      accessibleControl,
       if (input.errorText != null || input.helperText != null) Padding(
         padding: const EdgeInsets.only(top: 6),
         child: Text(input.errorText ?? input.helperText!, style: TextStyle(fontSize: 11, color: input.errorText == null ? scheme.onSurfaceVariant : scheme.error)),
