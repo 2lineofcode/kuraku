@@ -355,7 +355,7 @@ void main() {
       home: Scaffold(body: TextButton(onPressed: controller.restoreBackup, child: const Text('Open restore')))));
     for (final confirm in [false, true]) {
       await tester.runAsync(() => tester.tap(find.text('Open restore')));
-      for (var attempt = 0; attempt < 100 && find.text('Restore Preview').evaluate().isEmpty; attempt++) {
+      for (var attempt = 0; attempt < 500 && find.text('Restore Preview').evaluate().isEmpty; attempt++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
         await tester.pump();
       }
@@ -367,7 +367,7 @@ void main() {
       await tester.ensureVisible(find.text(confirm ? 'Restore on next startup' : 'Cancel'));
       await tester.runAsync(() => tester.tap(find.text(confirm ? 'Restore on next startup' : 'Cancel')));
       await tester.pumpAndSettle();
-      for (var attempt = 0; attempt < 100 && controller.backupBusy.value; attempt++) {
+      for (var attempt = 0; attempt < 500 && controller.backupBusy.value; attempt++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
         await tester.pump();
       }

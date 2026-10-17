@@ -49,6 +49,8 @@ app.*.map.json
 .metadata
 .firebase/**
 *.lock
+!pubspec.lock
+!macos/Podfile.lock
 *.sql
 !assets/r18_video_code_migration.sql
 !assets/r18_catalog_queries.sql

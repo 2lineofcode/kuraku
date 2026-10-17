@@ -110,6 +110,14 @@ Captured directly from the running macOS app. Cover images, video codes, titles,
 - [media_kit](https://pub.dev/packages/media_kit) and libmpv for playback
 - [Dio](https://pub.dev/packages/dio) for networking and downloads
 
+## Download
+
+Tagged builds are published on [GitHub Releases](https://github.com/2lineofcode/kuraku/releases) as `KuraKu-<version>-macos-arm64.dmg`, with a SHA-256 checksum file. These builds support Apple Silicon only. The bundled `assets/kuraku` downloader currently requires macOS 26 or later.
+
+Open the DMG and drag KuraKu to Applications. Releases currently have no Developer ID signing or Apple notarization. If macOS blocks the first launch, try opening the app, then use **System Settings → Privacy & Security → Open Anyway** if you trust the download. See [Apple's instructions](https://support.apple.com/en-us/102445).
+
+Python 3 is still required for database setup; the R18 database downloads on first run. Optional Visual Search requires Python 3.12–3.14 and macOS 14+. Public builds use `.env.sample` without personal API keys, so AI replies and Tavily web search are unavailable in these builds.
+
 ## Requirements
 
 KuraKu is currently developed and tested on macOS. Install the following first:
@@ -171,6 +179,23 @@ Settings reads the running app’s version and build number from platform metada
 macOS release and profile builds target Apple Silicon (ARM64), configured in `pubspec.yaml`. To produce a universal build for Intel Macs, set `flutter.config.enable-macos-arm64-only` to `false` before building.
 
 Flutter currently uses Swift Package Manager with CocoaPods fallback for `hotkey_manager_macos`, `irondash_engine_context`, `media_kit_libs_macos_video`, `media_kit_video`, `super_native_extensions`, and `video_compress`. Their published versions do not yet support Swift Package Manager. Keep CocoaPods installed until these plugins migrate; disabling Swift Package Manager does not remove Flutter's compatibility warning. Upgrade these plugins when support becomes available before upgrading to a Flutter release that removes the fallback.
+
+### GitHub CI/CD
+
+The `macOS CI and Release` workflow runs analysis, Flutter tests, a release build, and DMG packaging on pull requests to `main`, pushes to `main`, and version tags. It can also be started manually from Actions for a build without publishing. Each successful build provides a `KuraKu-macos-arm64` Actions artifact for seven days.
+
+To publish a release, commit and push the workflow and app changes, then push a tag matching the `major.minor.patch` version in `pubspec.yaml`:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Use a new version and tag for each release. A mismatched tag fails before building. Only a successful tag build publishes a GitHub Release with its DMG, checksum, installation notes, and generated changelog. CI uses the Actions run number as the build number and does not edit `pubspec.yaml` or run `publish.sh`.
+
+No repository secrets are required: publishing uses the built-in `GITHUB_TOKEN` with write permission only in the release job. GitHub Actions must be enabled. CI uses Python 3.13 and Flutter `3.47.7`; update the workflow pin when upgrading the project SDK.
+
+Commit `pubspec.lock` and `macos/Podfile.lock` with dependency changes. CI enforces the Dart lockfile to keep package resolution consistent with the checked-in versions.
 
 ## Keyboard Shortcuts
 

@@ -1,0 +1,59 @@
+PODS:
+  - FlutterMacOS (1.0.0)
+  - HotKey (0.2.1)
+  - hotkey_manager_macos (0.0.1):
+    - FlutterMacOS
+    - HotKey
+  - irondash_engine_context (0.0.1):
+    - FlutterMacOS
+  - media_kit_libs_macos_video (1.0.4):
+    - FlutterMacOS
+  - media_kit_video (0.0.1):
+    - FlutterMacOS
+  - super_native_extensions (0.0.1):
+    - FlutterMacOS
+  - video_compress (0.3.0):
+    - FlutterMacOS
+
+DEPENDENCIES:
+  - FlutterMacOS (from `Flutter/ephemeral`)
+  - hotkey_manager_macos (from `Flutter/ephemeral/.symlinks/plugins/hotkey_manager_macos/macos`)
+  - irondash_engine_context (from `Flutter/ephemeral/.symlinks/plugins/irondash_engine_context/macos`)
+  - media_kit_libs_macos_video (from `Flutter/ephemeral/.symlinks/plugins/media_kit_libs_macos_video/macos`)
+  - media_kit_video (from `Flutter/ephemeral/.symlinks/plugins/media_kit_video/macos`)
+  - super_native_extensions (from `Flutter/ephemeral/.symlinks/plugins/super_native_extensions/macos`)
+  - video_compress (from `Flutter/ephemeral/.symlinks/plugins/video_compress/macos`)
+
+SPEC REPOS:
+  trunk:
+    - HotKey
+
+EXTERNAL SOURCES:
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+  hotkey_manager_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/hotkey_manager_macos/macos
+  irondash_engine_context:
+    :path: Flutter/ephemeral/.symlinks/plugins/irondash_engine_context/macos
+  media_kit_libs_macos_video:
+    :path: Flutter/ephemeral/.symlinks/plugins/media_kit_libs_macos_video/macos
+  media_kit_video:
+    :path: Flutter/ephemeral/.symlinks/plugins/media_kit_video/macos
+  super_native_extensions:
+    :path: Flutter/ephemeral/.symlinks/plugins/super_native_extensions/macos
+  video_compress:
+    :path: Flutter/ephemeral/.symlinks/plugins/video_compress/macos
+
+SPEC CHECKSUMS:
+  FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
+  HotKey: 400beb7caa29054ea8d864c96f5ba7e5b4852277
+  hotkey_manager_macos: a4317849af96d2430fa89944d3c58977ca089fbe
+  irondash_engine_context: 893c7d96d20ce361d7e996f39d360c4c2f9869ba
+  media_kit_libs_macos_video: 85a23e549b5f480e72cae3e5634b5514bc692f65
+  media_kit_video: fa6564e3799a0a28bff39442334817088b7ca758
+  super_native_extensions: c2795d6d9aedf4a79fae25cb6160b71b50549189
+  video_compress: 752b161da855df2492dd1a8fa899743cc8fe9534
+
+PODFILE CHECKSUM: 5b513c252a1cce90f7edf1346760e7b0862c3337
+
+COCOAPODS: 1.17.0

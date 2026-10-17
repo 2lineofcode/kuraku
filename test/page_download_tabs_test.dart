@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:kuraku/app/core/app_pref.dart';
 import 'package:kuraku/app/core/app_setting.dart';
 import 'package:kuraku/app/data/models/__javmost_new_release.dart';
@@ -124,6 +125,7 @@ JavMostModel result(String code, {int total = 1}) => JavMostModel(
 
 void main() {
   final preferences = _Preferences();
+  setUpAll(() => initializeDateFormatting('en'));
   setUp(() {
     preferences.values.clear();
     Get.put(AppSettingService()..pref = preferences);
