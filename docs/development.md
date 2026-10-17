@@ -124,4 +124,14 @@ In Windows Git Bash, omit `nice -n 10` if unavailable and use `python -B` if Pyt
 | `make` or another command is missing | Install it, check `PATH`, then reopen the terminal |
 | App reports missing dependencies | Follow the startup dialog's guidance, then click **Check again** |
 
-CI configuration: [macOS](../.github/workflows/macos.yml) · [Linux](../.github/workflows/linux.yml) · [Windows](../.github/workflows/windows.yml).
+## CI & releases
+
+| Trigger | Checks | Release build, package & smoke tests | GitHub Release |
+|---|---|---|---|
+| Push to `main` / PR targeting `main` | Yes | No | No |
+| Push tag `v*` | Yes | Yes | DMG, .deb, ZIP, and checksums |
+| Manual **Run workflow** | Yes | Yes | No |
+
+Release tags must match the version in `pubspec.yaml`, for example `v1.0.2` for `1.0.2+20261017.83`. The Release workflow reuses all three platform workflows and publishes their packages together only after every platform succeeds. Manual runs upload Actions artifacts without publishing a release. Native build/startup failures are caught on tag or manual runs; use a manual run before tagging changes to native code.
+
+Workflow configuration: [Release](../.github/workflows/release.yml) · [macOS](../.github/workflows/macos.yml) · [Linux](../.github/workflows/linux.yml) · [Windows](../.github/workflows/windows.yml).

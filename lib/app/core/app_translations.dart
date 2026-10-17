@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import 'translations/en.dart';
-import 'translations/id.dart';
+import '../translations/en.dart';
+import '../translations/id.dart';
 
 class AppTranslations extends Translations {
   static const fallbackLocale = Locale('en');

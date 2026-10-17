@@ -9,11 +9,11 @@ import 'package:kuraku/app/core/app_color.dart';
 import 'package:kuraku/app/core/app_pref.dart';
 import 'package:kuraku/app/core/app_setting.dart';
 import 'package:kuraku/app/core/app_translations.dart';
-import 'package:kuraku/app/core/translations/en.dart';
-import 'package:kuraku/app/core/translations/id.dart';
 import 'package:kuraku/app/modules/home/page_settings/page_settings_controller.dart';
 import 'package:kuraku/app/modules/home/page_settings/page_settings_view.dart';
 import 'package:kuraku/app/modules/widgets/widget_controls.dart';
+import 'package:kuraku/app/translations/en.dart';
+import 'package:kuraku/app/translations/id.dart';
 
 class _Preferences implements GetSecureStorage {
   final values = <String, dynamic>{};

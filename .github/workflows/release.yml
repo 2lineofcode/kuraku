@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  macos:
+    uses: ./.github/workflows/macos.yml
+
+  linux:
+    uses: ./.github/workflows/linux.yml
+
+  windows:
+    uses: ./.github/workflows/windows.yml
+
+  release:
+    needs: [macos, linux, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: KuraKu-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          cd dist
+          shopt -s failglob
+          sha256sum --check ./*.sha256
+          cat > notes.md <<'EOF'
+          ## Downloads
+
+          - **macOS:** Apple Silicon, macOS 26+. Open the DMG and drag KuraKu to Applications. This build has no Developer ID signing or Apple notarization; use System Settings > Privacy & Security > Open Anyway if needed.
+          - **Linux:** Ubuntu 22.04 x64. Install the `.deb` with `sudo apt install ./KuraKu-<version>-linux-x64.deb`.
+          - **Windows:** Windows 10/11 x64. Extract the complete ZIP and run `kuraku.exe`; keep all DLLs and `data/` beside it.
+
+          SHA-256 checksums are included for each package.
+
+          ## Setup
+
+          Python 3 is required for database setup and local catalog queries. On first launch, download the R18 catalog, wait for the import to finish, then restart.
+
+          Personal API keys are not included. Configure your AI provider in the app to enable AI replies. Optional web search requires a build configured with `TAVILY_API_KEY`.
+          EOF
+          gh release create "$RELEASE_TAG" ./*.dmg ./*.deb ./*.zip ./*.sha256 \
+            --verify-tag --title "KuraKu $RELEASE_TAG" --generate-notes --notes-file notes.md
