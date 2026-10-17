@@ -4,8 +4,42 @@ import subprocess
 import tempfile
 
 
+def test_run():
+    makefile = (Path(__file__).resolve().parents[1] / 'Makefile').read_text()
+    with tempfile.TemporaryDirectory(prefix='run test ') as directory:
+        root = Path(directory)
+        (root / 'Makefile').write_text(makefile)
+        commands = root / 'bin'
+        commands.mkdir()
+        for name, body in {
+            'uname': 'echo "$MOCK_OS"',
+            'flutter': 'printf "<%s>\\n" "$@"\nexit "${MOCK_EXIT:-0}"',
+        }.items():
+            command = commands / name
+            command.write_text('#!/usr/bin/env bash\n' + body + '\n')
+            command.chmod(0o755)
+        for host, target in [('Darwin', 'macos'), ('Linux', 'linux'), ('MINGW64_NT', 'windows'), ('unknown', None)]:
+            result = subprocess.run(
+                ['make', '--no-print-directory', '-C', str(root), 'run',
+                 'ARGS=--release --dart-define="LABEL=hello world"'],
+                env={**os.environ, 'PATH': f'{commands}:{os.environ["PATH"]}', 'MOCK_OS': host},
+                capture_output=True, text=True,
+            )
+            assert (result.returncode == 0) == (target is not None), result.stderr
+            if target:
+                assert result.stdout == f'<run>\n<-d>\n<{target}>\n<--release>\n<--dart-define=LABEL=hello world>\n'
+            else:
+                assert 'Unsupported OS' in result.stderr
+        result = subprocess.run(
+            ['make', '--no-print-directory', '-C', str(root), 'run'],
+            env={**os.environ, 'PATH': f'{commands}:{os.environ["PATH"]}', 'MOCK_OS': 'Darwin', 'MOCK_EXIT': '7'},
+            capture_output=True, text=True,
+        )
+        assert result.returncode != 0
+
+
 def test_publish():
-    script = (Path(__file__).resolve().parents[1] / 'publish.sh').read_text()
+    script = (Path(__file__).resolve().parents[1] / 'Makefile').read_text()
     with tempfile.TemporaryDirectory(prefix='publish test ') as directory:
         root = Path(directory)
         apps = root / 'Applications'
@@ -13,7 +47,7 @@ def test_publish():
         script = script.replace('/Applications', str(apps))
         # Quote the directory check too, since the test path contains spaces.
         script = script.replace(f'[ -w {apps} ]', f'[ -w "{apps}" ]')
-        (root / 'publish.sh').write_text(script)
+        (root / 'Makefile').write_text(script)
         commands = root / 'bin'
         commands.mkdir()
         mocks = {
@@ -56,7 +90,7 @@ mkdir -p "$2"
             log.write_text('')
             apps.chmod(0o555 if scenario == 'needs_sudo' else 0o755)
             result = subprocess.run(
-                ['bash', str(root / 'publish.sh'), 'macos'],
+                ['make', '--no-print-directory', '-C', str(root), 'publish', 'TARGET=macos'],
                 env={**os.environ, 'PATH': f'{commands}:{os.environ["PATH"]}',
                      'SCENARIO': scenario, 'CALL_LOG': str(log),
                      'COMMIT_COUNT': 'invalid' if scenario == 'invalid_count' else '1'},
@@ -84,7 +118,7 @@ mkdir -p "$2"
         (root / 'pubspec.yaml').write_text('name: kuraku\nversion: 1.0.0+1\n')
         log.write_text('')
         result = subprocess.run(
-            ['bash', str(root / 'publish.sh'), 'linux'],
+            ['make', '--no-print-directory', '-C', str(root), 'publish', 'TARGET=linux'],
             env={**os.environ, 'PATH': f'{commands}:{os.environ["PATH"]}',
                  'SCENARIO': 'success', 'CALL_LOG': str(log)},
             capture_output=True, text=True,
@@ -95,5 +129,6 @@ mkdir -p "$2"
 
 
 if __name__ == '__main__':
+    test_run()
     test_publish()
-    print('publish checks passed')
+    print('run and publish checks passed')

@@ -80,7 +80,7 @@
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "explorer.fileNesting.patterns": {
-    "pubspec.yaml": "pubspec.lock,pubspec_overrides.yaml,.packages,.flutter-plugins,.flutter-plugins-dependencies,.metadata, analysis_options.yaml, flutter_launcher_icons.yaml, devtools_options.yaml",
+    "pubspec.yaml": "pubspec.lock,pubspec_overrides.yaml,.packages,.flutter-plugins,.flutter-plugins-dependencies,.metadata, analysis_options.yaml, flutter_launcher_icons.yaml, devtools_options.yaml, dart_test.yaml",
     "README.md": "README.md, supabase_local.md",
     "*.dart": "${capture}.g.dart",
     "firebase.json": "firebase.json, .firebaserc",

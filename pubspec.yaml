@@ -1,7 +1,7 @@
 name: kuraku
 description: "A Desktop app for managing a personal video library."
 publish_to: "none"
-version: 1.0.1+20261017.78
+version: 1.0.2+20261017.83
 
 environment:
   sdk: ^3.13.0
