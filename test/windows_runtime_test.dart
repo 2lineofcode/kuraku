@@ -37,7 +37,7 @@ void main() {
 
   test('Windows notifications retry failed setup and forward download payloads', () async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    final previous = LinuxFlutterLocalNotificationsPlugin();
+    final previous = _Notifications();
     addTearDown(() {
       FlutterLocalNotificationsPlatform.instance = previous;
       debugDefaultTargetPlatformOverride = null;
