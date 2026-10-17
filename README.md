@@ -28,7 +28,9 @@ Install Python 3. On first launch, choose **Download & Install** to set up the R
 
 ```bash
 [ -f .env ] || cp .env.sample .env
-flutter pub get
-dart run enven
-make run
+make deps
+make env
+make rundev
 ```
+
+Run `make help` for build, install, test, and maintenance commands.

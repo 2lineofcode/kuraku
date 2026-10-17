@@ -64,7 +64,7 @@ jobs:
           test/screenshot_viewer_test.dart test/player_seek_preview_test.dart
 
       - name: Test Makefile targets
-        run: python3 -B test/publish_test.py
+        run: python3 -B test/makefile_test.py
 
       - name: Build and package
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'

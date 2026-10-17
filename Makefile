@@ -2,19 +2,60 @@ SHELL := bash
 TARGET ?= auto
 export TARGET
 
-.PHONY: run publish
+.DEFAULT_GOAL := help
+.PHONY: help rundev install deps env build analyze test doctor clean
 
-run:
+help: ## Show available commands
+	@awk 'BEGIN { print "Usage: make <target> [VARIABLE=value]\n" } /^[a-z]+:.*## / { split($$0, parts, "## "); sub(/:.*/, "", parts[1]); printf "  %-10s %s\n", parts[1], parts[2] }' $(MAKEFILE_LIST)
+	@printf '\nOptions:\n  TARGET=auto|macos|linux|windows\n  TEST=test/affected_test.dart (required for test)\n  ARGS="..." (extra Flutter arguments for rundev, build, analyze, test)\n'
+
+deps: ## Fetch locked Flutter dependencies
+	flutter pub get --enforce-lockfile
+
+env: ## Generate embedded configuration from .env
+	dart run enven
+
+analyze: ## Run static analysis without fetching dependencies
+	flutter analyze --no-pub $(ARGS)
+
+test: ## Run the test file or directory specified by TEST, sequentially
+	@test -n "$(TEST)" || { echo 'Usage: make test TEST=test/affected_test.dart' >&2; exit 1; }
+	@if command -v nice >/dev/null 2>&1; then \
+		nice -n 10 flutter test --no-pub --concurrency=1 "$(TEST)" $(ARGS); \
+	else \
+		flutter test --no-pub --concurrency=1 "$(TEST)" $(ARGS); \
+	fi
+
+doctor: ## Diagnose Flutter and platform tooling
+	flutter doctor -v
+
+clean: ## Remove Flutter build artifacts (run deps afterward)
+	flutter clean
+
+rundev: ## Run the app on the host OS
+build: ## Build a release without installation or version changes
+
+rundev build:
 	@set -Eeuo pipefail; \
-	case "$$(uname -s)" in \
-		Darwin) target=macos ;; \
-		Linux) target=linux ;; \
-		MINGW*|MSYS*|CYGWIN*|Windows_NT) target=windows ;; \
-		*) echo 'Unsupported OS' >&2; exit 1 ;; \
+	target="$$TARGET"; \
+	case "$$target" in \
+		auto) \
+			case "$$(uname -s)" in \
+				Darwin) target=macos ;; \
+				Linux) target=linux ;; \
+				MINGW*|MSYS*|CYGWIN*|Windows_NT) target=windows ;; \
+				*) echo 'Unsupported OS' >&2; exit 1 ;; \
+			esac ;; \
+		macos|linux|windows) ;; \
+		*) echo 'Invalid TARGET: use auto, macos, linux, or windows' >&2; exit 1 ;; \
 	esac; \
-	exec flutter run -d "$$target" $(ARGS)
+	if [ '$@' = rundev ]; then \
+		exec flutter run -d "$$target" $(ARGS); \
+	else \
+		exec flutter build "$$target" --release --no-tree-shake-icons $(ARGS); \
+	fi
 
-publish:
+install: ## Build and install (macOS) or package (Linux/Windows), then save the build version
 	@set -Eeuo pipefail; \
 	log() { echo "==> $$1"; }; \
 	fail() { echo "ERROR: $$1" >&2; exit 1; }; \
@@ -26,7 +67,7 @@ publish:
 	[ -f .env ] || fail '.env not found'; \
 	case "$$TARGET" in \
 		auto|macos|windows|linux) ;; \
-		*) fail 'Usage: make publish [TARGET=auto|macos|windows|linux]' ;; \
+		*) fail 'Usage: make install [TARGET=auto|macos|windows|linux]' ;; \
 	esac; \
 	resolved_target="$$TARGET"; \
 	if [ "$$resolved_target" = auto ]; then \

@@ -61,13 +61,13 @@ After cloning the repository and completing platform setup:
 
 ```bash
 [ -f .env ] || cp .env.sample .env
-flutter pub get --enforce-lockfile
-dart run enven
-flutter doctor -v
-make run
+make deps
+make env
+make doctor
+make rundev
 ```
 
-`make run` detects the host OS. Pass Flutter arguments with `make run ARGS="--release"`.
+`make rundev` detects the host OS. Pass Flutter arguments with `make rundev ARGS="--release"`.
 
 On first launch, choose **Download & Install** to import the R18 catalog. Wait for it to finish, then restart the app.
 
@@ -75,12 +75,12 @@ On first launch, choose **Download & Install** to import the R18 catalog. Wait f
 
 Use [.env.sample](../.env.sample) as the starting point. Keep `APP_NAME=kuraku` unchanged: it identifies the app's data directory.
 
-After editing `.env`, run `dart run enven` and restart/rebuild. Enven embeds values into the app; do not distribute builds containing personal keys. Public CI uses `.env.sample`.
+After editing `.env`, run `make env` and restart/rebuild. Enven embeds values into the app; do not distribute builds containing personal keys. Public CI uses `.env.sample`.
 
 ## Build & package
 
 ```bash
-make publish
+make install
 ```
 
 This generates the environment, refreshes dependencies, builds a release, and installs or packages it. The build number uses `YYYYMMDD.sequence`; `pubspec.yaml` is updated only after build and installation/packaging succeed.
@@ -91,28 +91,30 @@ This generates the environment, refreshes dependencies, builds a release, and in
 | Linux | Creates a `.deb` and SHA-256 checksum in `dist/` |
 | Windows | Creates a portable ZIP and SHA-256 checksum in `dist/` |
 
-Select a target explicitly with `make publish TARGET=macos`, `TARGET=linux`, or `TARGET=windows`. This does not enable cross-compilation or upload a release.
+Select a target explicitly with `make install TARGET=macos`, `TARGET=linux`, or `TARGET=windows`. This does not enable cross-compilation or upload a release.
 
 For a build without installation or version changes:
 
 ```bash
-flutter build macos --release --no-tree-shake-icons
+make build
 ```
 
-Replace `macos` with `linux` or `windows` as needed. Package an existing Linux build with `bash tool/package_linux.sh`; on Windows, run `./tool/package_windows.ps1` in PowerShell.
+`make build` detects the host OS; override it with `TARGET=macos`, `TARGET=linux`, or `TARGET=windows`. Run `make deps` and `make env` first. Package an existing Linux build with `bash tool/package_linux.sh`; on Windows, run `./tool/package_windows.ps1` in PowerShell.
+
+Run `make` or `make help` to list all targets. `ARGS="..."` forwards Flutter arguments for `rundev`, `build`, `analyze`, and `test`. `make clean` removes Flutter's `build/` and `.dart_tool/`; run `make deps` afterward.
 
 ## Checks
 
 Run checks sequentially. Replace the example test with the affected test file; do not run the full suite for an unrelated change.
 
 ```bash
-flutter analyze --no-pub
-nice -n 10 flutter test --no-pub --concurrency=1 test/app_dependencies_test.dart
-python3 -B test/publish_test.py
+make analyze
+make test TEST=test/app_dependencies_test.dart
+python3 -B test/makefile_test.py
 git diff --check
 ```
 
-In Windows Git Bash, omit `nice -n 10` if unavailable and use `python -B` if Python is installed as `python`.
+`make test` requires `TEST` (a file or directory), runs with `--concurrency=1`, and uses `nice -n 10` when available. Use `TEST=test` only when intentionally running the full suite. In Windows Git Bash, use `python -B` if Python is installed as `python`.
 
 ## Troubleshooting
 

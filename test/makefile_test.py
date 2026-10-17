@@ -4,9 +4,9 @@ import subprocess
 import tempfile
 
 
-def test_run():
+def test_desktop_targets():
     makefile = (Path(__file__).resolve().parents[1] / 'Makefile').read_text()
-    with tempfile.TemporaryDirectory(prefix='run test ') as directory:
+    with tempfile.TemporaryDirectory(prefix='rundev test ') as directory:
         root = Path(directory)
         (root / 'Makefile').write_text(makefile)
         commands = root / 'bin'
@@ -18,29 +18,83 @@ def test_run():
             command = commands / name
             command.write_text('#!/usr/bin/env bash\n' + body + '\n')
             command.chmod(0o755)
-        for host, target in [('Darwin', 'macos'), ('Linux', 'linux'), ('MINGW64_NT', 'windows'), ('unknown', None)]:
+        for goal, host, override, target in [
+            (goal, host, override, target)
+            for goal in ['rundev', 'build']
+            for host, override, target in [
+                ('Darwin', 'auto', 'macos'), ('Linux', 'auto', 'linux'),
+                ('MINGW64_NT', 'auto', 'windows'), ('unknown', 'auto', None),
+                ('Darwin', 'linux', 'linux'), ('Darwin', 'invalid', None),
+            ]
+        ]:
             result = subprocess.run(
-                ['make', '--no-print-directory', '-C', str(root), 'run',
+                ['make', '--no-print-directory', '-C', str(root), goal, f'TARGET={override}',
                  'ARGS=--release --dart-define="LABEL=hello world"'],
                 env={**os.environ, 'PATH': f'{commands}:{os.environ["PATH"]}', 'MOCK_OS': host},
                 capture_output=True, text=True,
             )
             assert (result.returncode == 0) == (target is not None), result.stderr
             if target:
-                assert result.stdout == f'<run>\n<-d>\n<{target}>\n<--release>\n<--dart-define=LABEL=hello world>\n'
+                command = f'<run>\n<-d>\n<{target}>\n' if goal == 'rundev' else (
+                    f'<build>\n<{target}>\n<--release>\n<--no-tree-shake-icons>\n')
+                assert result.stdout == command + '<--release>\n<--dart-define=LABEL=hello world>\n'
             else:
-                assert 'Unsupported OS' in result.stderr
+                assert ('Invalid TARGET' if override == 'invalid' else 'Unsupported OS') in result.stderr
         result = subprocess.run(
-            ['make', '--no-print-directory', '-C', str(root), 'run'],
+            ['make', '--no-print-directory', '-C', str(root), 'rundev'],
             env={**os.environ, 'PATH': f'{commands}:{os.environ["PATH"]}', 'MOCK_OS': 'Darwin', 'MOCK_EXIT': '7'},
             capture_output=True, text=True,
         )
         assert result.returncode != 0
 
 
-def test_publish():
+def test_helper_targets():
+    makefile = (Path(__file__).resolve().parents[1] / 'Makefile').read_text()
+    with tempfile.TemporaryDirectory(prefix='make helpers test ') as directory:
+        root = Path(directory)
+        (root / 'Makefile').write_text(makefile)
+        commands = root / 'bin'
+        commands.mkdir()
+        log = root / 'calls'
+        for name in ['flutter', 'dart', 'nice']:
+            command = commands / name
+            body = 'shift 2\nexec "$@"' if name == 'nice' else 'exit "${MOCK_EXIT:-0}"'
+            command.write_text(f'#!/usr/bin/env bash\necho "{name} $*" >> "$CALL_LOG"\n{body}\n')
+            command.chmod(0o755)
+        environment = {**os.environ, 'PATH': f'{commands}:{os.environ["PATH"]}', 'CALL_LOG': str(log)}
+        for arguments, expected in [
+            ([], []), (['help'], []),
+            (['deps'], ['flutter pub get --enforce-lockfile']),
+            (['env'], ['dart run enven']),
+            (['analyze', 'ARGS=--fatal-infos'], ['flutter analyze --no-pub --fatal-infos']),
+            (['doctor'], ['flutter doctor -v']),
+            (['clean'], ['flutter clean']),
+            (['test', 'TEST=test/a test.dart', 'ARGS=--reporter expanded'], [
+                'nice -n 10 flutter test --no-pub --concurrency=1 test/a test.dart --reporter expanded',
+                'flutter test --no-pub --concurrency=1 test/a test.dart --reporter expanded',
+            ]),
+            (['test'], []),
+        ]:
+            log.write_text('')
+            result = subprocess.run(
+                ['make', '--no-print-directory', '-C', str(root), *arguments],
+                env=environment, capture_output=True, text=True,
+            )
+            assert (result.returncode == 0) == (arguments != ['test']), result.stderr
+            assert log.read_text().splitlines() == expected
+            if not arguments or arguments == ['help']:
+                for target in ['rundev', 'install', 'deps', 'env', 'build', 'analyze', 'test', 'doctor', 'clean']:
+                    assert f'  {target:<10} ' in result.stdout
+        result = subprocess.run(
+            ['make', '--no-print-directory', '-C', str(root), 'test', 'TEST=test/example.dart'],
+            env={**environment, 'MOCK_EXIT': '7'}, capture_output=True, text=True,
+        )
+        assert result.returncode != 0
+
+
+def test_install():
     script = (Path(__file__).resolve().parents[1] / 'Makefile').read_text()
-    with tempfile.TemporaryDirectory(prefix='publish test ') as directory:
+    with tempfile.TemporaryDirectory(prefix='install test ') as directory:
         root = Path(directory)
         apps = root / 'Applications'
         apps.mkdir()
@@ -90,7 +144,7 @@ mkdir -p "$2"
             log.write_text('')
             apps.chmod(0o555 if scenario == 'needs_sudo' else 0o755)
             result = subprocess.run(
-                ['make', '--no-print-directory', '-C', str(root), 'publish', 'TARGET=macos'],
+                ['make', '--no-print-directory', '-C', str(root), 'install', 'TARGET=macos'],
                 env={**os.environ, 'PATH': f'{commands}:{os.environ["PATH"]}',
                      'SCENARIO': scenario, 'CALL_LOG': str(log),
                      'COMMIT_COUNT': 'invalid' if scenario == 'invalid_count' else '1'},
@@ -118,7 +172,7 @@ mkdir -p "$2"
         (root / 'pubspec.yaml').write_text('name: kuraku\nversion: 1.0.0+1\n')
         log.write_text('')
         result = subprocess.run(
-            ['make', '--no-print-directory', '-C', str(root), 'publish', 'TARGET=linux'],
+            ['make', '--no-print-directory', '-C', str(root), 'install', 'TARGET=linux'],
             env={**os.environ, 'PATH': f'{commands}:{os.environ["PATH"]}',
                  'SCENARIO': 'success', 'CALL_LOG': str(log)},
             capture_output=True, text=True,
@@ -129,6 +183,7 @@ mkdir -p "$2"
 
 
 if __name__ == '__main__':
-    test_run()
-    test_publish()
-    print('run and publish checks passed')
+    test_desktop_targets()
+    test_helper_targets()
+    test_install()
+    print('Makefile checks passed')
