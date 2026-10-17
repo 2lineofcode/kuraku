@@ -4,13 +4,14 @@ import 'dart:math';
 import 'package:chewie/chewie.dart';
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:overlayment/overlayment.dart';
-import 'package:process_run/process_run.dart' as cmd;
+import 'package:path/path.dart' as p;
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:video_player/video_player.dart';
 
@@ -38,6 +39,7 @@ import '../modules/widgets/widget_chiwie_custom.dart';
 import '../modules/widgets/widget_controls.dart';
 import '../modules/widgets/widget_download_method.dart';
 import '../modules/widgets/widget_keyboard_shortcuts.dart';
+import '../modules/widgets/widget_linux_trailer.dart';
 import '../modules/widgets/widget_screenshot_viewer.dart';
 import '../modules/widgets/widget_style.dart';
 import '../modules/widgets/widget_surfaces.dart';
@@ -49,17 +51,19 @@ import 'helper.dart';
 mixin HelperOpener {
   // open folder
   static Future<void> openFolder(String path) async {
-    await cmd.run('open -R "$path"', verbose: false).catchError((e) async {
-      await HelperToast.error('File does not exist at path: @{path}'.trNamed({'path': '$path'}));
-    });
+    try {
+      if (path.isEmpty || await FileSystemEntity.type(path) == FileSystemEntityType.notFound) throw FileSystemException('File is unavailable', path);
+      final target = await FileSystemEntity.isDirectory(path) ? path : p.dirname(path);
+      final result = Platform.isLinux
+          ? await Process.run('xdg-open', [target])
+          : await Process.run('open', ['-R', path]);
+      if (result.exitCode != 0) throw FileSystemException('${result.stderr}', path);
+    } catch (e) {
+      await HelperToast.error('File does not exist at path: @{path}'.trNamed({'path': path}));
+    }
   }
 
-  // open file path
-  static Future<void> openFilePath(String path) async {
-    await cmd.run('open -R "$path"', verbose: false).catchError((e) {
-      HelperToast.error('File does not exist at path: @{path}'.trNamed({'path': '$path'}));
-    });
-  }
+  static Future<void> openFilePath(String path) => openFolder(path);
 
   static Future<void> openVideoPlaylist(List<Videos> videos) async {
     final playableVideos = videos.where((video) {
@@ -96,12 +100,14 @@ mixin HelperOpener {
         controller.requestFocusOnPlayer();
       }
     } else {
-      await cmd.run('open "${video.videoPath}"', verbose: false).then((s) async {
+      try {
+        final result = await Process.run(Platform.isLinux ? 'xdg-open' : 'open', [video.videoPath ?? '']);
+        if (result.exitCode != 0) throw StateError('${result.stderr}');
         await DBVideos.updateViewCount(video);
         await Get.find<PageHomeController>().getListMostWatch();
-      }).catchError((e) async {
-        await HelperToast.error('${e.toString()}');
-      });
+      } catch (e) {
+        await HelperToast.error('$e');
+      }
     }
   }
 
@@ -647,6 +653,12 @@ mixin HelperOpener {
         throw StateError('Trailer not found or URL is invalid'.tr);
       }
 
+      if (defaultTargetPlatform == TargetPlatform.linux) {
+        HelperLoading.dismiss();
+        loading = false;
+        await Get.dialog<void>(LinuxTrailer(video: video, urls: urls));
+        return;
+      }
       for (final url in urls) {
         player = VideoPlayerController.networkUrl(
           Uri.parse(url),

@@ -40,7 +40,7 @@ This file provides guidance to agents when working with code in this repository.
 
 ## Project Overview
 
-kuraku is a Flutter desktop application for managing JAV (Japanese Adult Video) content using GetX state management.
+kuraku is a Flutter Desktop application for managing JAV (Japanese Adult Video) content using GetX state management.
 
 ## Critical Setup Requirements
 
@@ -62,7 +62,7 @@ kuraku is a Flutter desktop application for managing JAV (Japanese Adult Video) 
 - **Subtitle Detection**: Automatic detection of English (-en), Indonesian (-id, indo), and uncensored (-un, -rm) content
 - **Actress Name Formatting**: Special formatting logic for Japanese names with number removal and capitalization
 - **Video Quality Mapping**: Specific resolution mappings (3840x2160=4K, 1920x1080=FHD, etc.) with portrait variants
-- **Content Organization**: External drive detection with platform-specific logic (Windows drives > E:, macOS /Volumes/, Linux /media|/mnt)
+- **Content Organization**: External drive detection with platform-specific logic (Windows drives > E:, macOS /Volumes/, Linux /media|/mnt|/run/media)
 
 ## GetX Architecture Patterns
 
@@ -106,6 +106,6 @@ kuraku is a Flutter desktop application for managing JAV (Japanese Adult Video) 
 
 ## Development Commands
 
-- **Build Commands**: Standard Flutter build (flutter build macos)
+- **Build Commands**: Build for the host desktop platform: `flutter build <platform>` (currently macos or linux; Windows planned)
 - **Database Setup**: Requires manual download of R18 database dump on first run
 - **Python Dependencies**: Ensure Python 3 and required libraries for database conversion

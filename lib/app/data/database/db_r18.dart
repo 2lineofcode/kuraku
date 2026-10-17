@@ -552,10 +552,10 @@ mixin DBR18 {
 
     final maps = await _query(
       'derived_actress',
-      columns: ['*', 'COALESCE(NULLIF(name_romaji, ""), NULLIF(name_kana, ""), name_kanji) AS name_en'],
+      columns: ['*', "COALESCE(NULLIF(name_romaji, ''), NULLIF(name_kana, ''), name_kanji) AS name_en"],
       where: whereClause,
       whereArgs: whereArgs,
-      groupBy: 'COALESCE(NULLIF(name_romaji, ""), NULLIF(name_kana, ""), name_kanji)',
+      groupBy: "COALESCE(NULLIF(name_romaji, ''), NULLIF(name_kana, ''), name_kanji)",
       orderBy: 'name_en COLLATE NOCASE',
     );
 

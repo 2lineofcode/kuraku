@@ -7,6 +7,7 @@ import '../modules/widgets/widget_controls.dart';
 import '../modules/widgets/widget_surfaces.dart';
 import 'app_pref.dart';
 import 'app_scroll_behavior.dart';
+import 'app_shortcut.dart';
 import 'app_translations.dart';
 
 class AppPinGate extends StatefulWidget {
@@ -61,7 +62,7 @@ class _AppPinGateState extends State<AppPinGate> {
       supportedLocales: AppTranslations.languages.keys.map((code) => Locale(code)).toList(),
       theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple)),
       home: Builder(builder: (context) => CallbackShortcuts(
-        bindings: {const SingleActivator(LogicalKeyboardKey.keyX, meta: true, alt: true): () => _showPin(context)},
+        bindings: {const AppShortcut(LogicalKeyboardKey.keyX, alt: true): () => _showPin(context)},
         child: Focus(autofocus: true, child: Scaffold(
           appBar: AppBar(
             backgroundColor: Theme.of(context).colorScheme.inversePrimary,

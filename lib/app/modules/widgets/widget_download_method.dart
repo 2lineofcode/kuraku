@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -31,7 +33,7 @@ class DownloadMethodDialog extends StatelessWidget {
             const SizedBox(height: 20),
             for (final option in [
               ('native', 'Native'.tr, 'Download in KuraKu'.tr, HugeIcons.strokeRoundedDownload01),
-              ('downie', 'Downie'.tr, 'Send to Downie'.tr, HugeIcons.strokeRoundedLinkSquare02),
+              if (Platform.isMacOS) ('downie', 'Downie'.tr, 'Send to Downie'.tr, HugeIcons.strokeRoundedLinkSquare02),
               ('url', 'Just Open URL'.tr, 'Open in your default browser'.tr, HugeIcons.strokeRoundedGlobe02),
             ])
               Padding(

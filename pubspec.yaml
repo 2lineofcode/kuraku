@@ -1,7 +1,7 @@
 name: kuraku
-description: "A macOS desktop app for managing a personal video library."
+description: "A Desktop app for managing a personal video library."
 publish_to: "none"
-version: 1.0.1+20261015.77
+version: 1.0.1+20261017.78
 
 environment:
   sdk: ^3.13.0
@@ -17,6 +17,7 @@ dependencies:
   path_provider: ^2.1.6
   package_info_plus: ^10.2.2
   sqflite: ^2.4.4
+  sqflite_common_ffi: ^2.4.4
   sql_formatter: ^0.1.0
 
   # ** player
@@ -94,6 +95,7 @@ flutter:
     - assets/chat_database_worker.py
     - assets/sql_editor_worker.py
     - assets/kuraku
+    - assets/linux-x64/
     - assets/download_complete.mp3
 
 get_cli:

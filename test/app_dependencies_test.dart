@@ -24,12 +24,12 @@ void main() {
 
   test('Browser detection checks executable paths without launching a browser', () async {
     final checker = AppDependencies(
-      exists: (path) async => path == '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      exists: (path) async => path == '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' || Platform.isLinux && path.endsWith('/google-chrome'),
       run: (_, _) => throw StateError('Must not launch Chrome during startup'),
     );
     expect((await checker.browser()).ready, isTrue);
     final missing = AppDependencies(exists: (_) async => false);
-    expect((await missing.browser()).message, contains('brew install --cask google-chrome'));
+    expect((await missing.browser()).message, contains('Install Google Chrome or Chromium for your desktop platform.'));
     final unreadable = AppDependencies(exists: (path) async => throw FileSystemException('Permission denied', path));
     expect((await unreadable.browser()).ready, isFalse);
   });
@@ -54,7 +54,7 @@ void main() {
     final result = await checker.python();
     expect(result.ready, isFalse);
     expect(result.detail, contains('broken runtime'));
-    await expectLater(checker.requirePython(), throwsA(isA<StateError>().having((e) => e.message, 'message', contains('brew install python@3.13'))));
+    await expectLater(checker.requirePython(), throwsA(isA<StateError>().having((e) => e.message, 'message', contains('Install Python 3 and add it to PATH.'))));
   });
 
   test('R18 and Chat find versioned Python after following the installation guideline', () async {
@@ -111,7 +111,7 @@ void main() {
   testWidgets('Guideline only lists missing dependencies and can recheck after installation', (tester) async {
     var ready = false;
     var continued = false;
-    const missing = DependencyStatus('ffmpeg', 'HLS downloads, YouTube and visual thumbnails', 'Install FFmpeg. On macOS: brew install ffmpeg', ready: false);
+    const missing = DependencyStatus('ffmpeg', 'HLS downloads, YouTube and visual thumbnails', 'Install FFmpeg and add it to PATH. See README for platform setup.', ready: false);
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: DependencyGuide(
       issues: const [missing],
       check: () async => [const DependencyStatus('ffmpeg', '', '', ready: true)],
@@ -119,7 +119,8 @@ void main() {
       onContinue: () => continued = true,
     ))));
     expect(find.text('Install missing dependencies'), findsOneWidget);
-    expect(find.textContaining('brew install ffmpeg'), findsOneWidget);
+    expect(find.textContaining('Install FFmpeg and add it to PATH.'), findsOneWidget);
+    expect(find.textContaining('Homebrew'), findsNothing);
     expect(find.textContaining('yt-dlp'), findsNothing);
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
@@ -128,7 +129,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(ready, isTrue);
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.macOS, TargetPlatform.linux}));
 
   testWidgets('Required startup dependencies have no Continue action and tolerate a narrow window', (tester) async {
     tester.view.physicalSize = const Size(400, 500);

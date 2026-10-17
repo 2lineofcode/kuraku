@@ -106,7 +106,7 @@ class PageHomeController extends GetxController with LocalVideoSelection {
 
   Future<void> getListNewRelease() async {
     clearVideoSelection();
-    listNewRelease.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date DESC, updated_at DESC', limit: 50);
+    listNewRelease.value = await DBVideos.getAll(where: "video_code IS NOT NULL AND video_code != ''", orderBy: 'release_date DESC, updated_at DESC', limit: 50);
   }
 
   Future<void> getListRecommendation() async {
@@ -188,7 +188,7 @@ class PageHomeController extends GetxController with LocalVideoSelection {
 
   Future<void> getListOldest() async {
     clearVideoSelection();
-    listOldest.value = await DBVideos.getAll(where: 'video_code IS NOT NULL AND video_code != ""', orderBy: 'release_date ASC, updated_at ASC', limit: 50);
+    listOldest.value = await DBVideos.getAll(where: "video_code IS NOT NULL AND video_code != ''", orderBy: 'release_date ASC, updated_at ASC', limit: 50);
   }
 
 }

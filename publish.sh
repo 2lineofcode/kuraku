@@ -31,14 +31,15 @@ require_command git
 [ -f "$ENV_FILE" ] || fail "$ENV_FILE not found"
 
 case "$TARGET" in
-  auto|macos|windows) ;;
-  *) fail "Usage: ./publish.sh [auto|macos|windows]" ;;
+  auto|macos|windows|linux) ;;
+  *) fail "Usage: ./publish.sh [auto|macos|windows|linux]" ;;
 esac
 
 resolved_target="$TARGET"
 if [ "$resolved_target" = "auto" ]; then
   case "$(uname -s)" in
     Darwin) resolved_target="macos" ;;
+    Linux) resolved_target="linux" ;;
     MINGW*|MSYS*|CYGWIN*|Windows_NT) resolved_target="windows" ;;
     *) fail "Unsupported OS: $(uname -s). Run with explicit target if needed." ;;
   esac
@@ -105,6 +106,9 @@ case "$resolved_target" in
       sudo ditto "$app_bundle" "$installed_app"
     fi
     log "Installed: $installed_app"
+    ;;
+  linux)
+    bash tool/package_linux.sh "$new_version"
     ;;
   windows)
     log "Output: build/windows/x64/runner/Release"

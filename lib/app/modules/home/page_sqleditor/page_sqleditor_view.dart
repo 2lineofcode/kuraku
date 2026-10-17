@@ -8,6 +8,7 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_logging.dart';
+import '../../../core/app_shortcut.dart';
 import '../../../core/app_translations.dart';
 import '../../../utils/helper_loading.dart';
 import '../../../utils/helper_opener.dart';
@@ -25,8 +26,8 @@ class PageSqleditorView extends GetView<PageSqleditorController> {
   @override
   Widget build(BuildContext context) => CallbackShortcuts(
     bindings: {
-      const SingleActivator(LogicalKeyboardKey.keyN, meta: true, includeRepeats: false): controller.addTab,
-      const SingleActivator(LogicalKeyboardKey.keyW, meta: true, includeRepeats: false): () => controller.closeTab(controller.activeTabIndex.value),
+      const AppShortcut(LogicalKeyboardKey.keyN, includeRepeats: false): controller.addTab,
+      const AppShortcut(LogicalKeyboardKey.keyW, includeRepeats: false): () => controller.closeTab(controller.activeTabIndex.value),
     },
     child: Focus(autofocus: true, child: Column(children: [
     Obx(() => controller.activeTab.resultsExpanded.value ? const SizedBox.shrink() : Padding(
@@ -94,7 +95,7 @@ class PageSqleditorTabView extends StatelessWidget {
               final selection = controller.input.selection;
               final hasSelection = selection.isValid && !selection.isCollapsed;
               return Tooltip(
-                message: controller.running.value ? 'Stop query'.tr : '⌘ + Enter: @{query}. DELETE is blocked.'.trNamed({'query': '${hasSelection ? 'run selection'.tr : 'run query'.tr}'}),
+                message: controller.running.value ? 'Stop query'.tr : AppShortcut.label('⌘ + Enter: @{query}. DELETE is blocked.'.trNamed({'query': '${hasSelection ? 'run selection'.tr : 'run query'.tr}'})),
                 child: AppButton(variant: AppButtonVariant.filled,
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(0, 30),
@@ -165,7 +166,7 @@ class PageSqleditorTabView extends StatelessWidget {
               Divider(height: 1, color: AppColor.border),
               Expanded(child: CallbackShortcuts(
                 bindings: {
-                  const SingleActivator(LogicalKeyboardKey.enter, meta: true, includeRepeats: false): () => _runQuery(context),
+                  const AppShortcut(LogicalKeyboardKey.enter, includeRepeats: false): () => _runQuery(context),
                 },
                 child: _SqlQueryInput(controller: controller),
               )),

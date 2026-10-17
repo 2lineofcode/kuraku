@@ -299,7 +299,7 @@ class PageDownloadController extends GetxController {
       final downloader = await AppDependencies.shared.downloader(appSetting.bundledAssetsPath);
       if (!downloader.ready) throw StateError(downloader.message);
       final binary = downloader.executable!;
-      if (request.mode == 'extract' && Platform.isMacOS) {
+      if (request.mode == 'extract') {
         final browser = await AppDependencies.shared.browser();
         if (!browser.ready) throw StateError(browser.message);
       }
@@ -317,7 +317,7 @@ class PageDownloadController extends GetxController {
       }
       job.running = false;
       await job.start(request, binary: binary, cache: p.join(appSetting.appPath, '.dl_tmp'), environment: {
-        'PATH': '/opt/homebrew/bin:/usr/local/bin:${Platform.environment['PATH'] ?? '/usr/bin:/bin:/usr/sbin:/sbin'}',
+        if (Platform.isMacOS) 'PATH': '/opt/homebrew/bin:/usr/local/bin:${Platform.environment['PATH'] ?? '/usr/bin:/bin:/usr/sbin:/sbin'}',
       });
       if (job.status == 'Completed') completedOutput = job.outputPath;
       if (activity?.id != null) {

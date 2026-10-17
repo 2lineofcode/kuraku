@@ -72,3 +72,5 @@ scripts/
 
 test*.dart
 .roo/*
+
+/dist/

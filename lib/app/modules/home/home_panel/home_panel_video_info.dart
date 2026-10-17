@@ -13,6 +13,7 @@ import '../../../core/app_logging.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
+import '../../../utils/helper_media.dart';
 import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_style.dart';
 import '../../widgets/widget_thumbnail.dart';
@@ -421,10 +422,11 @@ mixin HomePanelVideoInfo {
   static Future<List<String>> _getMediaInfo(String path) async {
     final output = <String>[];
     await FFprobeKit.getMediaInformation(path).then((value) async {
-      final medinfo = value.getMediaInformation();
-      final stream = value.getMediaInformation()?.getStreams().first;
-      output.add('${stream?.getWidth()}x${stream?.getHeight()}'); // -- [0] width x height
-      output.add('${stream?.getHeight()}p'); // -- [1] resolution
+      final medinfo = await HelperMedia.readInformation(value);
+      final stream = HelperMedia.videoStream(medinfo);
+      if (stream == null) return;
+      output.add('${stream.getWidth()}x${stream.getHeight()}'); // -- [0] width x height
+      output.add('${stream.getHeight()}p'); // -- [1] resolution
       output.add('${int.parse(medinfo!.getSize()!).toFileSizeFormat()}'); // -- [2] file size
       output.add('${HelperMisc.durationFormatFFmpeg(num.parse(medinfo.getFormatProperties()!['duration'].toString()))}'); // -- [3] duration
     }).catchError((e) {

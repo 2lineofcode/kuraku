@@ -422,12 +422,12 @@ void main() {
       builder: (context, visible, child) => visible ? PlayerControls(controller: controller, videoState: VideoState()) : const SizedBox.shrink(),
     ))));
     Future<void> rotateWithShortcuts() async {
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent((Platform.isMacOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
       await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyUpEvent((Platform.isMacOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
       await tester.pumpAndSettle();
       expect(native.commands, [
         ['cycle-values', 'video-rotate', '0', '270', '180', '90'],

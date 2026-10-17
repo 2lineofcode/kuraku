@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/app_color.dart';
+import '../../core/app_shortcut.dart';
 import '../../data/models/library_entity.dart';
 import '../widgets/widget_controls.dart';
 import '../widgets/widget_style.dart';
@@ -26,7 +27,7 @@ class ImgViewerView extends GetView<ImgViewerController> {
 
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyB, meta: true, includeRepeats: false): () => controller.toggleAlbumPanel(),
+        const AppShortcut(LogicalKeyboardKey.keyB, includeRepeats: false): () => controller.toggleAlbumPanel(),
       },
       child: Scaffold(
         backgroundColor: Colors.black,
@@ -53,7 +54,7 @@ class ImgViewerView extends GetView<ImgViewerController> {
               child: Row(children: [
                 AppIconButton(tooltip: 'Back'.tr, icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft02, size: AppStyle.iconSize), onPressed: () => Navigator.of(context).maybePop()),
                 const SizedBox(width: 4),
-                AppIconButton(tooltip: '${'Image Albums'.tr} (⌘B)',
+                AppIconButton(tooltip: AppShortcut.label('${'Image Albums'.tr} (⌘B)'),
                   icon: const HugeIcon(icon: HugeIcons.strokeRoundedSidebarLeft, size: AppStyle.iconSize),
                   onPressed: controller.toggleAlbumPanel),
               ]),

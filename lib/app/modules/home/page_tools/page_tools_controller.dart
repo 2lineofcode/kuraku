@@ -18,6 +18,7 @@ import '../../../data/database/db_videos.dart';
 import '../../../data/models/activity_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
+import '../../../utils/helper_media.dart';
 import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_surfaces.dart';
 import '../page_explore/page_explore_controller.dart';
@@ -213,10 +214,13 @@ class PageToolsController extends GetxController with StateMixin {
     topLargeError.value = '';
     topLargeFileSizeList.clear();
 
+    final external = Platform.isLinux
+        ? "(video_path LIKE '/media/%' OR video_path LIKE '/mnt/%' OR video_path LIKE '/run/media/%')"
+        : "video_path LIKE '/Volumes/%'";
     var whereQ = 'filesize > 0';
     switch (mode) {
-      case 'internal': whereQ = 'filesize > 0 AND video_path NOT LIKE "/Volumes%"'; break;
-      case 'external': whereQ = 'filesize > 0 AND video_path LIKE "/Volumes%"'; break;
+      case 'internal': whereQ = 'filesize > 0 AND NOT ($external)'; break;
+      case 'external': whereQ = 'filesize > 0 AND ($external)'; break;
     }
 
     try {
@@ -318,10 +322,10 @@ class PageToolsController extends GetxController with StateMixin {
       _qualityProbe = await FFprobeKit.getMediaInformationFromCommandArgumentsAsync([
         '-v', 'error', '-select_streams', 'V:0', '-show_entries', 'stream=width,height',
         '-print_format', 'json', '-i', localPath,
-      ], (session) {
+      ], (session) async {
         if (result.isCompleted) return;
-        final streams = session.getMediaInformation()?.getStreams();
-        final stream = streams == null || streams.isEmpty ? null : streams.first;
+        final stream = HelperMedia.videoStream(await HelperMedia.readInformation(session));
+        if (result.isCompleted) return;
         final width = stream?.getWidth() ?? 0;
         final height = stream?.getHeight() ?? 0;
         result.complete(width > 0 && height > 0 ? '${width}x$height' : null);

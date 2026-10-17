@@ -9,6 +9,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../../core/app_color.dart';
+import '../../core/app_shortcut.dart';
 import '../../data/database/_init_db.dart';
 import '../../utils/helper.dart';
 import '../player/player_mini_view.dart';
@@ -186,19 +187,19 @@ class HomeView extends GetView<HomeController> {
             onPressed: () {
               HomePanelCart.open();
             },
-          ).badge(count: controller.cart.length, color: Vx.red500).tooltip('Cart: ⌘ + E'.tr).hide(isVisible: controller.cart.isNotEmpty),
+          ).badge(count: controller.cart.length, color: Vx.red500).tooltip(AppShortcut.label('Cart: ⌘ + E'.tr)).hide(isVisible: controller.cart.isNotEmpty),
         ).pOnly(right: 8),
 
         AppIconButton(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedPlaylist02, size: AppStyle.iconSize),
           onPressed: () => HomePanelPlaylist.open(),
-          tooltip: 'Playlist: [⌘ + P]'.tr,
+          tooltip: AppShortcut.label('Playlist: [⌘ + P]'.tr),
         ).pOnly(right: 8),
 
         AppIconButton(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedCorn, size: AppStyle.iconSize),
           onPressed: () => HomePanelRelapse.open(),
-          tooltip: 'Relapse: [⌘ + .]'.tr,
+          tooltip: AppShortcut.label('Relapse: [⌘ + .]'.tr),
         ).pOnly(right: 8),
         AppIconButton(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedLayers01, size: AppStyle.iconSize),

@@ -71,7 +71,10 @@ void main() {
     final oldLoad = controller.getTopLargeFileSize(mode: 'internal');
     final newLoad = controller.getTopLargeFileSize(mode: 'external');
     expect(controller.topLargeLoading.value, isTrue);
-    expect(db.filters, ['is_deleted = 0 AND (filesize > 0 AND video_path NOT LIKE "/Volumes%")', 'is_deleted = 0 AND (filesize > 0 AND video_path LIKE "/Volumes%")']);
+    final external = Platform.isLinux
+        ? "(video_path LIKE '/media/%' OR video_path LIKE '/mnt/%' OR video_path LIKE '/run/media/%')"
+        : "video_path LIKE '/Volumes/%'";
+    expect(db.filters, ['is_deleted = 0 AND (filesize > 0 AND NOT ($external))', 'is_deleted = 0 AND (filesize > 0 AND ($external))']);
     db.requests[1].complete([{'video_code': 'NEW-001', 'filesize': 200}]);
     await newLoad;
     db.requests[0].complete([{'video_code': 'OLD-001', 'filesize': 100}]);
@@ -179,7 +182,7 @@ void main() {
     expect(find.text('Could not load videos. Please retry.'.tr), findsOneWidget);
     await tester.tap(find.text('Retry'.tr));
     await tester.pump();
-    expect(db.filters.last, contains('LIKE "/Volumes%"'));
+    expect(db.filters.last, contains(Platform.isLinux ? "LIKE '/media/%'" : "LIKE '/Volumes/%'"));
     db.requests.last.complete([]);
     await tester.pumpAndSettle();
     expect(find.text('No files with a recorded size in this location.'.tr), findsOneWidget);

@@ -25,7 +25,7 @@ if [ "$1" = build ]; then
   echo "$*" >> "$CALL_LOG"
   [ "$SCENARIO" != build_failure ] || exit 1
   if [ "$SCENARIO" != missing_bundle ]; then
-    mkdir -p build/macos/Build/Products/Release/kuraku.app
+    mkdir -p build/macos/Build/Products/Release/KuraKu.app
   fi
 fi
 ''',
@@ -78,6 +78,20 @@ mkdir -p "$2"
                 name, number = expected.split('+')
                 assert f'build macos --release --no-tree-shake-icons --build-name={name} --build-number={number}' in calls
             apps.chmod(0o755)
+
+        (root / 'tool').mkdir()
+        (root / 'tool/package_linux.sh').write_text('echo "package $1" >> "$CALL_LOG"\n')
+        (root / 'pubspec.yaml').write_text('name: kuraku\nversion: 1.0.0+1\n')
+        log.write_text('')
+        result = subprocess.run(
+            ['bash', str(root / 'publish.sh'), 'linux'],
+            env={**os.environ, 'PATH': f'{commands}:{os.environ["PATH"]}',
+                 'SCENARIO': 'success', 'CALL_LOG': str(log)},
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        assert 'build linux --release' in log.read_text()
+        assert 'package 1.0.0+20261008.1' in log.read_text()
 
 
 if __name__ == '__main__':

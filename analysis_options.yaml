@@ -5,6 +5,7 @@ analyzer:
     - lib/*.g.dart*
     - build/**
     - macos/**
+    - linux/**
 
   errors:
     todo: ignore

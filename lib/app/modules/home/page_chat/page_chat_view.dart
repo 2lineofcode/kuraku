@@ -8,6 +8,7 @@ import 'package:markdown_widget/markdown_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/app_color.dart';
+import '../../../core/app_shortcut.dart';
 import '../../../core/app_translations.dart';
 import '../../../data/models/chat_entity.dart';
 import '../../../utils/chat_knowledge.dart';
@@ -120,19 +121,19 @@ class PageChatView extends GetView<PageChatController> {
       if (controller.ready.value && !controller.busy.value) action();
     }
     return {
-      const SingleActivator(LogicalKeyboardKey.keyN, meta: true, includeRepeats: false): () => run(() {
+      const AppShortcut(LogicalKeyboardKey.keyN, includeRepeats: false): () => run(() {
         controller.scaffoldKey.currentState?.closeDrawer();
         controller.newChat();
       }),
-      const SingleActivator(LogicalKeyboardKey.keyW, meta: true, includeRepeats: false): () => run(() {
+      const AppShortcut(LogicalKeyboardKey.keyW, includeRepeats: false): () => run(() {
         controller.scaffoldKey.currentState?.closeDrawer();
         controller.deleteChat(controller.activeChat.value);
       }),
-      const SingleActivator(LogicalKeyboardKey.keyF, meta: true, includeRepeats: false): () => run(() => _searchHistory(wide)),
-      const SingleActivator(LogicalKeyboardKey.keyL, meta: true, includeRepeats: false): () => run(_focusInput),
-      const SingleActivator(LogicalKeyboardKey.keyS, meta: true, shift: true, includeRepeats: false): () => run(() => _toggleHistory(wide)),
-      const SingleActivator(LogicalKeyboardKey.keyR, meta: true, shift: true, includeRepeats: false): () => run(controller.retryResponse),
-      const SingleActivator(LogicalKeyboardKey.period, meta: true, includeRepeats: false): () => run(controller.stopResponse),
+      const AppShortcut(LogicalKeyboardKey.keyF, includeRepeats: false): () => run(() => _searchHistory(wide)),
+      const AppShortcut(LogicalKeyboardKey.keyL, includeRepeats: false): () => run(_focusInput),
+      const AppShortcut(LogicalKeyboardKey.keyS, shift: true, includeRepeats: false): () => run(() => _toggleHistory(wide)),
+      const AppShortcut(LogicalKeyboardKey.keyR, shift: true, includeRepeats: false): () => run(controller.retryResponse),
+      const AppShortcut(LogicalKeyboardKey.period, includeRepeats: false): () => run(controller.stopResponse),
       const SingleActivator(LogicalKeyboardKey.escape, includeRepeats: false): () => run(() {
         controller.cancelEdit();
         _focusInput();
@@ -179,7 +180,7 @@ class PageChatView extends GetView<PageChatController> {
       ]) Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(children: [
         Expanded(child: Text(shortcut.$2.tr, style: const TextStyle(fontSize: 12))),
         const SizedBox(width: 16),
-        Text(shortcut.$1, style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
+        Text(AppShortcut.label(shortcut.$1), style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
       ])),
     ])),
     actions: [AppButton(onPressed: () => Navigator.pop(context), child: Text('Close'.tr))],

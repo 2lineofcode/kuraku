@@ -27,6 +27,7 @@ import '../utils/local_semantic_worker.dart';
 import 'app_identity.dart';
 import 'app_logging.dart';
 import 'app_pref.dart';
+import 'app_shortcut.dart';
 
 
 class AppSettingService extends GetxService {
@@ -50,13 +51,26 @@ class AppSettingService extends GetxService {
 
   Future<AppSettingService> init() async {
     final directory = await getApplicationDocumentsDirectory();
-    appPath = join(directory.path, AppIdentity.displayName);
+    appPath = await prepareAppPath(directory.path);
     pref = GetSecureStorage(container: Env.appName.toLowerCase(), password: Env.appName, path: appPath);
     await pref.initStorage;
 
 
     await setupAppPref();
     return this;
+  }
+
+  static Future<String> prepareAppPath(String documentsPath) async {
+    final previous = Directory(join(documentsPath, AppIdentity.displayName));
+    if (!Platform.isLinux) return previous.path;
+    final path = join(documentsPath, '.${AppIdentity.displayName}');
+    if (await previous.exists()) {
+      if (await FileSystemEntity.type(path, followLinks: false) != FileSystemEntityType.notFound) {
+        throw FileSystemException('Cannot migrate app data: both KuraKu and .KuraKu exist. Keep one data folder before restarting.', path);
+      }
+      await previous.rename(path);
+    }
+    return path;
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -136,14 +150,14 @@ class AppSettingService extends GetxService {
   // ⵌ hotkey
   // ────────────────────────────────────────────────────────────────
   bool _handleKeyboardShortcutsShortcut(KeyEvent event) {
-    if (event is! KeyDownEvent || !const SingleActivator(LogicalKeyboardKey.slash, meta: true).accepts(event, HardwareKeyboard.instance)) return false;
+    if (event is! KeyDownEvent || !const AppShortcut(LogicalKeyboardKey.slash).accepts(event, HardwareKeyboard.instance)) return false;
     unawaited(HelperOpener.openKeyboardShortcuts());
     return true;
   }
 
   bool _handleSearchShortcut(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
-    final commandF = const SingleActivator(LogicalKeyboardKey.keyF, meta: true).accepts(event, HardwareKeyboard.instance);
+    final commandF = const AppShortcut(LogicalKeyboardKey.keyF).accepts(event, HardwareKeyboard.instance);
     if (!commandF && !const SingleActivator(LogicalKeyboardKey.slash).accepts(event, HardwareKeyboard.instance)) return false;
     final context = FocusManager.instance.primaryFocus?.context;
     if (context?.widget is EditableText || context?.findAncestorWidgetOfExactType<EditableText>() != null) return false;
@@ -174,23 +188,24 @@ class AppSettingService extends GetxService {
       AppLog.logE('$stackTrace');
     }
 
+    final modifier = Platform.isMacOS ? HotKeyModifier.meta : HotKeyModifier.control;
     HotKey _hotKeyEsc = HotKey(key: PhysicalKeyboardKey.escape, modifiers: [], scope: HotKeyScope.inapp);
-    HotKey _hotKeyE = HotKey(key: PhysicalKeyboardKey.keyE, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
-    HotKey _hotKeyP = HotKey(key: PhysicalKeyboardKey.keyP, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
-    HotKey _hotKeyL = HotKey(key: PhysicalKeyboardKey.keyL, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
-    HotKey _hotKeyR = HotKey(key: PhysicalKeyboardKey.keyR, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
-    HotKey _hotKeyD = HotKey(key: PhysicalKeyboardKey.keyD, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
-    HotKey _hotKeyT = HotKey(key: PhysicalKeyboardKey.keyT, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
-    HotKey _hotKeyShiftT = HotKey(key: PhysicalKeyboardKey.keyT, modifiers: [HotKeyModifier.meta, HotKeyModifier.shift], scope: HotKeyScope.inapp);
-    HotKey _hotKeyB = HotKey(key: PhysicalKeyboardKey.keyB, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
-    HotKey _hotKeyDot = HotKey(key: PhysicalKeyboardKey.period, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKeyE = HotKey(key: PhysicalKeyboardKey.keyE, modifiers: [modifier], scope: HotKeyScope.inapp);
+    HotKey _hotKeyP = HotKey(key: PhysicalKeyboardKey.keyP, modifiers: [modifier], scope: HotKeyScope.inapp);
+    HotKey _hotKeyL = HotKey(key: PhysicalKeyboardKey.keyL, modifiers: [modifier], scope: HotKeyScope.inapp);
+    HotKey _hotKeyR = HotKey(key: PhysicalKeyboardKey.keyR, modifiers: [modifier], scope: HotKeyScope.inapp);
+    HotKey _hotKeyD = HotKey(key: PhysicalKeyboardKey.keyD, modifiers: [modifier], scope: HotKeyScope.inapp);
+    HotKey _hotKeyT = HotKey(key: PhysicalKeyboardKey.keyT, modifiers: [modifier], scope: HotKeyScope.inapp);
+    HotKey _hotKeyShiftT = HotKey(key: PhysicalKeyboardKey.keyT, modifiers: [modifier, HotKeyModifier.shift], scope: HotKeyScope.inapp);
+    HotKey _hotKeyB = HotKey(key: PhysicalKeyboardKey.keyB, modifiers: [modifier], scope: HotKeyScope.inapp);
+    HotKey _hotKeyDot = HotKey(key: PhysicalKeyboardKey.period, modifiers: [modifier], scope: HotKeyScope.inapp);
 
-    HotKey _hotKey1 = HotKey(key: PhysicalKeyboardKey.digit1, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
-    HotKey _hotKey2 = HotKey(key: PhysicalKeyboardKey.digit2, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
-    HotKey _hotKey3 = HotKey(key: PhysicalKeyboardKey.digit3, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
-    HotKey _hotKey4 = HotKey(key: PhysicalKeyboardKey.digit4, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
-    HotKey _hotKey5 = HotKey(key: PhysicalKeyboardKey.digit5, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
-    HotKey _hotKeyComma = HotKey(key: PhysicalKeyboardKey.comma, modifiers: [HotKeyModifier.meta], scope: HotKeyScope.inapp);
+    HotKey _hotKey1 = HotKey(key: PhysicalKeyboardKey.digit1, modifiers: [modifier], scope: HotKeyScope.inapp);
+    HotKey _hotKey2 = HotKey(key: PhysicalKeyboardKey.digit2, modifiers: [modifier], scope: HotKeyScope.inapp);
+    HotKey _hotKey3 = HotKey(key: PhysicalKeyboardKey.digit3, modifiers: [modifier], scope: HotKeyScope.inapp);
+    HotKey _hotKey4 = HotKey(key: PhysicalKeyboardKey.digit4, modifiers: [modifier], scope: HotKeyScope.inapp);
+    HotKey _hotKey5 = HotKey(key: PhysicalKeyboardKey.digit5, modifiers: [modifier], scope: HotKeyScope.inapp);
+    HotKey _hotKeyComma = HotKey(key: PhysicalKeyboardKey.comma, modifiers: [modifier], scope: HotKeyScope.inapp);
 
     await hotKeyManager.register(_hotKeyEsc, keyUpHandler: (hotKey) {
       // AppLog.logD('hotKeyEsc Pressed');

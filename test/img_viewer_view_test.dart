@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -134,7 +135,7 @@ void main() {
       final title = find.text('first.png  1/3');
       final rendered = tester.widget<RichText>(find.descendant(of: title, matching: find.byType(RichText)));
       expect(rendered.text.style?.color, theme.colorScheme.onSurface);
-      final button = find.byTooltip('Image Albums (⌘B)');
+      final button = find.byTooltip(defaultTargetPlatform == TargetPlatform.macOS ? 'Image Albums (⌘B)' : 'Image Albums (CtrlB)');
       await tester.tap(button);
       await tester.pumpAndSettle();
       expect(controller.albumPanelVisible.value, isTrue);
@@ -143,7 +144,7 @@ void main() {
       expect(controller.albumPanelVisible.value, isFalse);
       expect(tester.takeException(), isNull);
     }
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.macOS, TargetPlatform.linux}));
 
   testWidgets('only thumbnails use a bounded decode and the main image keeps its original provider', (tester) async {
     tester.view.devicePixelRatio = 2;

@@ -29,16 +29,22 @@ mixin AppNotification {
   static Future<void> _initialize() async {
 
     const initializationSettings = InitializationSettings(
+      linux: LinuxInitializationSettings(defaultActionName: 'Open'),
       macOS: DarwinInitializationSettings(
         requestBadgePermission: false,
         defaultPresentBadge: false,
       ),
     );
 
-    await _plugin.initialize(
-      settings: initializationSettings,
-      onDidReceiveNotificationResponse: (response) => _onNotificationTap?.call(response.payload),
-    );
+    try {
+      await _plugin.initialize(
+        settings: initializationSettings,
+        onDidReceiveNotificationResponse: (response) => _onNotificationTap?.call(response.payload),
+      );
+    } catch (_) {
+      _initialization = null;
+      rethrow;
+    }
   }
 
   static void registerNotificationTapHandler(void Function(String? payload)? handler) {
@@ -57,6 +63,7 @@ mixin AppNotification {
 
   static Future<void> show(NotificationModel model) async {
     const notificationDetails = NotificationDetails(
+      linux: LinuxNotificationDetails(),
       macOS: DarwinNotificationDetails(presentBadge: false, badgeNumber: 0),
     );
 

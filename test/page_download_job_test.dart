@@ -10,7 +10,7 @@ void main() {
   late HttpServer server;
   late String url;
   var segment = <int>[];
-  final binary = p.absolute('assets/kuraku');
+  final binary = p.absolute(Platform.isLinux ? 'assets/linux-x64/kuraku' : 'assets/kuraku');
 
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('kuraku download test ');
