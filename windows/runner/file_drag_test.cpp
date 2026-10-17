@@ -12,12 +12,14 @@ using flutter::EncodableList;
 using flutter::EncodableMap;
 using flutter::EncodableValue;
 
-void Check(bool condition) {
+void CheckResult(bool condition, const char* expression, int line) {
   if (!condition) {
-    std::fputs("Windows file drag check failed\n", stderr);
+    std::fprintf(stderr, "Windows file drag check failed at line %d: %s (Win32 error %lu)\n", line, expression, GetLastError());
     std::abort();
   }
 }
+
+#define Check(condition) CheckResult(condition, #condition, __LINE__)
 
 class Messenger : public flutter::BinaryMessenger {
  public:
@@ -63,7 +65,8 @@ int main() {
     Check(std::get<EncodableMap>(bookmarks).size() == 1);
     Check(MoveFileW(source.c_str(), target.c_str()) != 0);
     const auto resolved = std::get<EncodableMap>(messenger.Call("resolve", bookmarks));
-    Check(std::get<std::string>(resolved.at(EncodableValue(source.u8string()))) == target.u8string());
+    Check(std::filesystem::equivalent(std::filesystem::u8path(
+        std::get<std::string>(resolved.at(EncodableValue(source.u8string())))), target));
     messenger.Call("release", EncodableValue());
     Check(std::get<EncodableMap>(messenger.Call("resolve", bookmarks)).empty());
     messenger.Call("bookmark", paths, false);
