@@ -51,6 +51,7 @@ jobs:
           test/windows_runtime_test.dart test/linux_runtime_test.dart
           test/chat_knowledge_test.dart test/r18_updater_test.dart
           test/app_data_path_test.dart test/bundled_assets_test.dart test/app_dependencies_test.dart
+          test/app_updater_test.dart test/app_update_settings_test.dart test/app_update_dialog_test.dart
           test/page_search_file_drag_test.dart test/local_video_selection_test.dart
           test/page_tools_large_files_test.dart test/page_tools_resolution_test.dart
           test/search_shortcut_test.dart test/keyboard_shortcuts_test.dart
