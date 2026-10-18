@@ -6,6 +6,7 @@ import 'package:overlayment/overlayment.dart';
 
 import '../../../core/app_color.dart';
 import '../../../core/app_translations.dart';
+import '../../../core/const.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/videos_entity.dart';
@@ -15,6 +16,7 @@ import '../home_controller.dart';
 
 mixin HomePanelMetadata {
   static Future<void> open(Videos video) async {
+    final original = Videos.fromJson(video.toJson());
     Widget section(String title, List<Widget> children) => CupertinoFormSection.insetGrouped(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
       backgroundColor: Colors.transparent,
@@ -61,11 +63,15 @@ mixin HomePanelMetadata {
     final actresses = [...?video.actress];
     final categories = [...?video.category];
 
-    WidgetsBinding.instance.scheduleFrame();
-    await Overlayment.show(
-      context: Get.context,
-      OverPanel(
+    var saving = false;
+    var editorOpen = true;
+    late OverPanel panel;
+    panel = OverPanel(
         alignment: Alignment.center,
+        actions: OverlayActions(canClose: (_) async {
+          editorOpen = false;
+          return true;
+        }),
         width: Get.width < 552 ? Get.width - 32 : 520,
         height: Get.height * .8,
         backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
@@ -104,12 +110,12 @@ mixin HomePanelMetadata {
                   crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     Row(children: [
                       Expanded(child: Text('Actress'.tr, style: TextStyle(fontSize: 12, color: AppColor.text))),
-                      iconButton('Add actress'.tr, CupertinoIcons.add, () => _showDialogAddActress(actresses)),
+                      iconButton('Add actress'.tr, CupertinoIcons.add, () => _showDialogAddActress(actresses, isAvailable: () => editorOpen && !saving)),
                     ]),
                     if (actresses.isEmpty)
                       Text('No actress added'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted))
                     else Wrap(spacing: 8, runSpacing: 8, children: actresses.map((actress) {
-                      final name = actress.nameRomaji ?? actress.nameKana ?? actress.nameKanji ?? '';
+                      final name = _actressName(actress);
                       return Container(
                         width: 96, padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(color: AppColor.container, borderRadius: BorderRadius.circular(8)),
@@ -139,7 +145,7 @@ mixin HomePanelMetadata {
                   crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     Row(children: [
                       Expanded(child: Text('Category'.tr, style: TextStyle(fontSize: 12, color: AppColor.text))),
-                      iconButton('Add category'.tr, CupertinoIcons.add, () => _showDialogAddCategory(categories)),
+                      iconButton('Add category'.tr, CupertinoIcons.add, () => _showDialogAddCategory(categories, isAvailable: () => editorOpen && !saving)),
                     ]),
                     if (categories.isEmpty)
                       Text('No category added'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted))
@@ -170,169 +176,213 @@ mixin HomePanelMetadata {
             ]),
           ]))),
           Divider(height: 1, thickness: .5, color: AppColor.border),
-          Padding(padding: const EdgeInsets.all(12), child: Row(children: [
+          StatefulBuilder(builder: (context, setState) => Padding(padding: const EdgeInsets.all(12), child: Row(children: [
             CupertinoButton(
               padding: const EdgeInsets.symmetric(horizontal: 12), minimumSize: const Size(0, 32),
-              onPressed: () => _remove(video),
+              onPressed: saving ? null : () async {
+                if (saving) return;
+                setState(() => saving = true);
+                await _remove(video, panel);
+                if (context.mounted) setState(() => saving = false);
+              },
               child: Text('Delete'.tr, style: const TextStyle(fontSize: 12, color: CupertinoColors.systemRed)),
             ),
             const Spacer(),
             CupertinoButton.filled(
               padding: const EdgeInsets.symmetric(horizontal: 20), minimumSize: const Size(0, 32),
               borderRadius: BorderRadius.circular(AppStyle.radius),
-              onPressed: () {
+              onPressed: saving ? null : () async {
+                if (saving) return;
                 final videoCode = tecVideoCode.text.trim().toUpperCase();
                 if (videoCode.isNotEmpty && !videoCode.isValidVideoCode()) {
-                  HelperToast.warn('Video code not valid'.tr);
+                  await HelperToast.warn('Video code not valid'.tr);
+                  return;
+                }
+                final releaseDate = tecReleaseDate.text.trim();
+                final parsedDate = DateTime.tryParse(releaseDate);
+                if (releaseDate.isNotEmpty && (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(releaseDate) ||
+                    parsedDate == null || parsedDate.toIso8601String().substring(0, 10) != releaseDate)) {
+                  await HelperToast.warn('Enter a valid release date (YYYY-MM-DD) or leave it empty.'.tr);
+                  return;
+                }
+                final durationText = tecDuration.text.trim();
+                final duration = int.tryParse(durationText);
+                if (durationText.isNotEmpty && (duration == null || duration < 0)) {
+                  await HelperToast.warn('Enter a whole number of minutes (0 or more) or leave it empty.'.tr);
                   return;
                 }
                 final edited = Videos.fromJson(video.toJson());
                 edited.videoCode = videoCode.getVideoCode();
                 edited.title = tecTitle.text;
                 edited.fanArt = tecFanArt.text.trim();
-                edited.releaseDate = tecReleaseDate.text;
-                edited.duration = tecDuration.text.toNum();
+                edited.releaseDate = releaseDate;
+                edited.releaseDateFormated = releaseDate.isEmpty ? '' : releaseDate.reformatDate(from: kYMd, to: kMdY);
+                edited.duration = duration ?? 0;
+                edited.durationFormated = HelperMisc.durationFormatDB(edited.duration!);
                 edited.studio = tecStudio.text;
                 edited.label = tecLabel.text;
                 edited.director = tecDirector.text;
                 edited.series = tecSeries.text;
                 edited.category = categories;
                 edited.actress = actresses;
-                _submit(edited);
+                setState(() => saving = true);
+                await _submit(edited, original, panel);
+                if (context.mounted) setState(() => saving = false);
               },
               child: Text('Submit'.tr, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
             ),
-          ])),
+          ]))),
         ]),
-      ),
     );
-  }
-
-  static Future<void> _submit(Videos video) async {
+    WidgetsBinding.instance.scheduleFrame();
     try {
-      await DBVideos.update(video);
-      await Overlayment.dismissLast();
-    } catch (e) {
-      await HelperToast.error(e.toString());
+      await Overlayment.show(context: Get.context, panel);
+    } finally {
+      editorOpen = false;
+      for (final controller in [tecVideoCode, tecTitle, tecFanArt, tecReleaseDate, tecDuration, tecStudio, tecLabel, tecDirector, tecSeries]) {
+        controller.dispose();
+      }
     }
   }
 
-  static Future<void> _remove(Videos video) async {
+  static Future<void> _submit(Videos video, Videos original, OverPanel panel) async {
+    try {
+      await DBVideos.update(video, original: original);
+      await Overlayment.dismiss(panel);
+    } catch (e) {
+      await HelperToast.error(e is StateError ? '${e.message}'.tr : e.toString());
+    }
+  }
+
+  static Future<void> _remove(Videos video, OverPanel panel) async {
     try {
       await DBVideos.delete(video);
-      await Overlayment.dismissLast();
+      await Overlayment.dismiss(panel);
     } catch (e) {
       await HelperToast.error(e.toString());
     }
   }
 
-  static Future<void> _showDialogAddCategory(List<VideoCategory> currentCategories) async {
+  static Future<void> _showDialogAddCategory(List<VideoCategory> currentCategories, {required bool Function() isAvailable}) async {
+    if (!isAvailable()) return;
     final tecCategory = TextEditingController();
 
-    final categories = await DBR18.getAllCategories();
-    final categoriesIds = <String>[].obs;
-    final categoriesNames = <String>[].obs;
+    try {
+      final categories = (await DBR18.getAllCategories()).where((category) => category['name_en'] is String
+        && (category['name_en'] as String).trim().isNotEmpty).toList();
+      if (!isAvailable()) return;
+      final categoriesNames = categories.map((category) => '${category['name_en']}').toList();
+      var submitted = false;
 
-    for (var cat in categories) {
-      categoriesIds.add('${cat['id']}');
-      categoriesNames.add('${cat['name_en']}');
+      await Overlayment.show(
+        context: Get.context,
+        OverPanel(
+          alignment: Alignment.center,
+          width: 300,
+          height: 144,
+          backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
+          animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
+          color: AppColor.panel,
+          child: VStack(
+            [
+              'Add Category'.tr.text.bold.make().pOnly(bottom: 16),
+              ExAutoComplate(
+                controller: tecCategory,
+                items: categoriesNames,
+                placeHolder: 'Type something...'.tr,
+                onSelected: (cat) => tecCategory.text = cat,
+              ).pOnly(bottom: 12),
+              AppButton(variant: AppButtonVariant.filled,
+                width: double.infinity,
+                label: 'Submit'.tr,
+                onPressed: () async {
+                  if (submitted) return;
+                  final category = categories.firstWhereOrNull((category) => (category['name_en'] as String).trim() == tecCategory.text.trim());
+                  if (category == null) {
+                    await HelperToast.warn('Choose a category from the suggestions.'.tr);
+                    return;
+                  }
+                  final id = num.tryParse('${category['id']}');
+                  if (id == null) {
+                    await HelperToast.warn('Choose a category from the suggestions.'.tr);
+                    return;
+                  }
+                  submitted = true;
+                  if (!currentCategories.any((existing) => existing.category?.trim().toLowerCase() == '${category['name_en']}'.trim().toLowerCase())) {
+                    currentCategories.add(VideoCategory(id: id, category: category['name_en'] as String));
+                  }
+                  Get.find<HomeController>().update();
+                  await Overlayment.dismissLast();
+                },
+              ),
+            ],
+          ).p12(),
+        ),
+      );
+    } catch (e) {
+      if (isAvailable()) await HelperToast.error(e.toString());
+    } finally {
+      tecCategory.dispose();
     }
-
-    await Overlayment.show(
-      context: Get.context,
-      OverPanel(
-        alignment: Alignment.center,
-        width: 300,
-        height: 144,
-        backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
-        animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: AppColor.panel,
-        child: VStack(
-          [
-            'Add Category'.tr.text.bold.make().pOnly(bottom: 16),
-            ExAutoComplate(
-              controller: tecCategory,
-              items: categoriesNames,
-              placeHolder: 'Type something...'.tr,
-              onSelected: (cat) => tecCategory.text = cat,
-            ).pOnly(bottom: 12),
-            AppButton(variant: AppButtonVariant.filled,
-              width: double.infinity,
-              label: 'Submit'.tr,
-              onPressed: () async {
-                if (tecCategory.text.isEmpty) return;
-
-                final id = categoriesIds[categoriesNames.indexOf(tecCategory.text)];
-                final name = tecCategory.text;
-                final newCat = VideoCategory(id: id.toNum(), category: name);
-                currentCategories.add(newCat);
-                Get.find<HomeController>().update();
-                await Overlayment.dismissLast();
-              },
-            ),
-          ],
-        ).p12(),
-      ),
-    );
   }
 
-  static Future<void> _showDialogAddActress(List<VideoActress> currentActresses) async {
+  static Future<void> _showDialogAddActress(List<VideoActress> currentActresses, {required bool Function() isAvailable}) async {
+    if (!isAvailable()) return;
     final tecActress = TextEditingController();
 
-    final actresses = await DBR18.getAllActress();
-    final actressesIds = <String>[].obs;
-    final actressesNameRomaji = <String>[].obs;
-    final actressesNameKana = <String>[].obs;
-    final actressesNameKanji = <String>[].obs;
-    final actressesImageUrl = <String>[].obs;
+    try {
+      final actresses = (await DBR18.getAllActress()).map(VideoActress.fromJson).toList();
+      if (!isAvailable()) return;
+      final actressesNames = actresses.map(_actressName).toList();
+      var submitted = false;
 
-    for (var actress in actresses) {
-      actressesIds.add('${actress['id']}');
-      actressesNameRomaji.add('${actress['name_romaji']}');
-      actressesNameKana.add('${actress['name_kana']}');
-      actressesNameKanji.add('${actress['name_kanji']}');
-      actressesImageUrl.add('${actress['image_url']}');
+      await Overlayment.show(
+        context: Get.context,
+        OverPanel(
+          alignment: Alignment.center,
+          width: 300,
+          height: 144,
+          backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
+          animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
+          color: AppColor.panel,
+          child: VStack(
+            [
+              'Add Actress'.tr.text.bold.make().pOnly(bottom: 16),
+              ExAutoComplate(
+                controller: tecActress,
+                items: actressesNames,
+                placeHolder: 'Type something...'.tr,
+                onSelected: (actress) => tecActress.text = actress,
+              ).pOnly(bottom: 12),
+              AppButton(variant: AppButtonVariant.filled,
+                width: double.infinity,
+                label: 'Submit'.tr,
+                onPressed: () async {
+                  if (submitted) return;
+                  final actress = actresses.firstWhereOrNull((actress) => _actressName(actress) == tecActress.text.trim());
+                  if (actress == null || actress.id == null) {
+                    await HelperToast.warn('Choose an actress from the suggestions.'.tr);
+                    return;
+                  }
+                  submitted = true;
+                  if (!currentActresses.any((existing) => existing.id == actress.id)) {
+                    currentActresses.add(actress);
+                  }
+                  Get.find<HomeController>().update();
+                  await Overlayment.dismissLast();
+                },
+              ),
+            ],
+          ).p12(),
+        ),
+      );
+    } catch (e) {
+      if (isAvailable()) await HelperToast.error(e.toString());
+    } finally {
+      tecActress.dispose();
     }
-
-    await Overlayment.show(
-      context: Get.context,
-      OverPanel(
-        alignment: Alignment.center,
-        width: 300,
-        height: 144,
-        backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
-        animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: AppColor.panel,
-        child: VStack(
-          [
-            'Add Actress'.tr.text.bold.make().pOnly(bottom: 16),
-            ExAutoComplate(
-              controller: tecActress,
-              items: actressesNameRomaji,
-              placeHolder: 'Type something...'.tr,
-              onSelected: (actress) => tecActress.text = actress,
-            ).pOnly(bottom: 12),
-            AppButton(variant: AppButtonVariant.filled,
-              width: double.infinity,
-              label: 'Submit'.tr,
-              onPressed: () async {
-                if (tecActress.text.isEmpty) return;
-
-                final id = actressesIds[actressesNameRomaji.indexOf(tecActress.text)];
-                final nameRomaji = tecActress.text;
-                final nameKana = actressesNameKana[actressesNameRomaji.indexOf(tecActress.text)];
-                final nameKanji = actressesNameKanji[actressesNameRomaji.indexOf(tecActress.text)];
-                final imageUrl = actressesImageUrl[actressesNameRomaji.indexOf(tecActress.text)];
-                final newActress = VideoActress(id: id.toNum(), nameRomaji: nameRomaji, nameKanji: nameKanji, nameKana: nameKana, imageUrl: imageUrl);
-
-                currentActresses.add(newActress);
-                Get.find<HomeController>().update();
-                await Overlayment.dismissLast();
-              },
-            ),
-          ],
-        ).p12(),
-      ),
-    );
   }
+
+  static String _actressName(VideoActress actress) => [actress.nameRomaji, actress.nameKana, actress.nameKanji]
+    .firstWhereOrNull((name) => name != null && name.trim().isNotEmpty)?.trim() ?? '';
 }

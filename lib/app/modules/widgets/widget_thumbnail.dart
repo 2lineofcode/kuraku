@@ -494,59 +494,14 @@ class _ExVideoContextMenuState extends State<ExVideoContextMenu> {
     HelperLoading.show();
     try {
       final resp = await ApiKuraku.getMetadata(code: code);
-      final newVideo = video;
-      newVideo.videoCode = HelperMisc.resolveVideoCode(videoCode: resp.videoCode, title: code);
-
-      newVideo.title = resp.title;
-      newVideo.titleJa = resp.titleJa;
-      newVideo.description = resp.description;
-      newVideo.fanArt = resp.fanArt?.replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '') ?? '';
-      newVideo.poster = resp.poster?.replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '') ?? '';
-      newVideo.trailer = resp.trailer;
-      newVideo.site = 'R18';
-
-      if (video.actress.isEmptyOrNull && !resp.actress.isEmptyOrNull) {
-        newVideo.actress = <VideoActress>[];
-        for (var i = 0; i < resp.actress!.length; i++) {
-          newVideo.actress?.add(
-            VideoActress(
-              id: resp.actress![i].castId,
-              nameRomaji: resp.actress![i].castNames,
-              imageUrl: resp.actress![i].castImage,
-            ),
-          );
-        }
+      final metadata = Videos.fromMetadata(resp);
+      metadata.videoCode = HelperMisc.resolveVideoCode(videoCode: resp.videoCode, title: code);
+      // Keep manually corrected cast names when refreshing other metadata.
+      if (!video.actress.isEmptyOrNull) metadata.actress = null;
+      if (await DBVideos.updateMetadata(video, metadata) == 0) {
+        await HelperToast.warn('Video changed or was removed. Reopen it and try again.'.tr);
+        return;
       }
-
-      newVideo.category = <VideoCategory>[];
-      if (resp.genre != null) {
-        for (var i = 0; i < resp.genre!.length; i++) {
-          newVideo.category?.add(VideoCategory(id: i, category: resp.genre![i]));
-        }
-      }
-
-      newVideo.releaseDate = resp.releaseDate;
-      newVideo.releaseDateFormated = resp.releaseDateFormated;
-      newVideo.duration = resp.duration;
-      newVideo.durationFormated = resp.durationFormated;
-      newVideo.studio = resp.studio;
-      newVideo.label = resp.label;
-      newVideo.director = resp.director;
-      newVideo.series = resp.series;
-
-      newVideo.screenshot = <String>[];
-      if (resp.screenshot != null) {
-        for (var i = 0; i < resp.screenshot!.length; i++) {
-          final shot = resp.screenshot![i].toString();
-          if (shot.contains('jp-')) {
-            newVideo.screenshot?.add(shot.replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', ''));
-          } else {
-            newVideo.screenshot?.add(shot.replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '').replaceAll('-', 'jp-'));
-          }
-        }
-      }
-
-      await DBVideos.update(newVideo);
       await HelperToast.success('@{code} metadata updated'.trNamed({'code': '$code'}));
     } catch (e) {
       await HelperToast.error(e.toString());

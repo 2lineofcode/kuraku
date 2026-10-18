@@ -82,6 +82,14 @@ void main() {
     expect(find.text('No category found'), findsOneWidget);
   });
 
+  testWidgets('missing suggestions use a readable default instead of null', (tester) async {
+    await pump(tester);
+    await tester.enterText(find.byType(CupertinoTextField), 'zzzz');
+    await tester.pumpAndSettle();
+    expect(find.text('No matches.'), findsOneWidget);
+    expect(find.text('null'), findsNothing);
+  });
+
   testWidgets('reports the picked suggestion', (tester) async {
     final picked = <String>[];
     await pump(tester, onSelected: picked.add);

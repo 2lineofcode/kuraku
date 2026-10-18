@@ -12,6 +12,7 @@ import 'package:kuraku/app/data/database/db_library.dart';
 import 'package:kuraku/app/data/database/db_playlist.dart';
 import 'package:kuraku/app/data/database/db_video_embedding.dart';
 import 'package:kuraku/app/data/database/db_videos.dart';
+import 'package:kuraku/app/data/models/__kuraku_metadata_entity.dart';
 import 'package:kuraku/app/data/models/activity_entity.dart';
 import 'package:kuraku/app/data/models/library_entity.dart';
 import 'package:kuraku/app/data/models/videos_entity.dart';
@@ -284,6 +285,76 @@ void main() {
     expect((await DBVideos.getAll()).single.duration, 90);
   });
 
+  test('API refresh preserves local records and relationships using the real SQLite schema', () async {
+    final db = await _database();
+    Get.put<DBService>(_Service()..dbMain = db);
+    await DBVideos.addBulk([Videos(rootPath: '/videos', videoPath: '/videos/a.mkv',
+      videoCode: 'ABP-001', title: 'Original', duration: 90, durationFormated: '1 hour, 30 minutes',
+      releaseDate: '2026-01-01', releaseDateFormated: 'Jan 01, 2026', viewCount: 4,
+      isFavorite: 1, filesize: 123, quality: '1920x1080',
+      category: [VideoCategory(id: 1, category: 'Drama')], screenshot: ['existing-shot'])]);
+    final video = (await DBVideos.getAll()).single;
+    await db.insert('playlist', {'id': 'playlist', 'name': 'Keep'});
+    await db.insert('playlist_item', {'playlist_id': 'playlist', 'video_id': video.id, 'created_at': '2026-01-01'});
+    await db.insert('watch_session', {'id': 'watch', 'video_id': video.id, 'watched_seconds': 60, 'created_at': '2026-01-01'});
+    final before = (await db.query('videos')).single;
+    final membership = await db.query('playlist_item');
+    final history = await db.query('watch_session');
+    expect(await DBVideos.updateMetadata(video, Videos.fromMetadata(KurakuMetadata(
+      title: 'New title', duration: 0, releaseDate: '', genre: [], screenshot: [],
+    ))), 1);
+    final saved = (await db.query('videos')).single;
+    expect(saved['title'], 'New title');
+    expect(video.title, 'Original');
+    for (final key in ['id', 'root_path', 'video_path', 'view_count', 'is_favorite', 'filesize', 'quality',
+      'created_at', 'duration', 'duration_formated', 'release_date', 'release_date_formated', 'category', 'screenshot']) {
+      expect(saved[key], before[key], reason: key);
+    }
+    expect(await db.query('playlist_item'), membership);
+    expect(await db.query('watch_session'), history);
+    await expectLater(DBVideos.updateMetadata((await DBVideos.getAll()).single, Videos(title: 'Invalid', duration: 1.5)),
+      throwsA(isA<SqliteTestException>()));
+    expect((await db.query('videos')).single, saved);
+    await DBVideos.delete(video);
+    expect(await DBVideos.updateMetadata(video, Videos(title: 'Deleted update')), 0);
+    expect((await db.query('videos')).single['title'], 'New title');
+    expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
+  });
+
+  test('video path lookup follows platform case sensitivity and excludes deleted rows', () async {
+    final db = await _database();
+    Get.put<DBService>(_Service()..dbMain = db);
+    await DBVideos.addBulk([Videos(rootPath: '/videos', videoPath: '/videos/A.mkv', title: 'Tracked')]);
+    final video = (await DBVideos.getAll()).single;
+    final differentCase = await DBVideos.getByVideoPath('/VIDEOS/a.MKV');
+    expect(differentCase?.id, Platform.isWindows ? video.id : isNull);
+    expect((await DBVideos.getByVideoPath('/videos/A.mkv'))?.id, video.id);
+    await DBVideos.delete(video);
+    expect(await DBVideos.getByVideoPath('/videos/A.mkv'), isNull);
+    expect(await DBVideos.getByVideoPath('/VIDEOS/a.MKV'), isNull);
+  });
+
+  test('late metadata refresh cannot overwrite a newer manual edit even with the same timestamp', () async {
+    final db = await _database();
+    Get.put<DBService>(_Service()..dbMain = db);
+    await DBVideos.addBulk([Videos(rootPath: '/videos', videoPath: '/videos/a.mkv', title: 'Original')]);
+    final stale = (await DBVideos.getAll()).single;
+    await db.update('videos', {'title': 'Manual title', 'actress': '[{"id":7,"name_romaji":"Manual Cast"}]'},
+      where: 'id = ?', whereArgs: [stale.id]);
+    final saved = (await db.query('videos')).single;
+    expect(saved['updated_at'], stale.updatedAt);
+    final revision = DBVideos.revision.value;
+    expect(await DBVideos.updateMetadata(stale, Videos(title: 'Late API title',
+      actress: [VideoActress(id: 8, nameRomaji: 'API Cast')])), 0);
+    expect((await db.query('videos')).single, saved);
+    expect(DBVideos.revision.value, revision);
+
+    final fresh = (await DBVideos.getAll()).single;
+    await DBVideos.addToFavorite(fresh);
+    expect(await DBVideos.updateMetadata(fresh, Videos(title: 'Fresh metadata')), 1);
+    expect((await DBVideos.getAll()).single.isFavorite, 1);
+  });
+
   test('stale metadata saves preserve moves, counters, favorites and file properties', () async {
     final db = await _database();
     Get.put<DBService>(_Service()..dbMain = db);
@@ -300,6 +371,30 @@ void main() {
     expect(saved.title, 'Edited title');
     expect([saved.rootPath, saved.videoPath, saved.viewCount, saved.isFavorite, saved.filesize, saved.quality],
       ['/new', '/new/a.mp4', 2, 1, 456, 'new']);
+  });
+
+  test('manual editor baseline rejects refreshed metadata but permits local counter changes', () async {
+    final db = await _database();
+    Get.put<DBService>(_Service()..dbMain = db);
+    await DBVideos.addBulk([Videos(rootPath: '/videos', videoPath: '/videos/a.mkv', title: 'Original', duration: 120)]);
+    final original = (await DBVideos.getAll()).single;
+    final edited = Videos.fromJson(original.toJson())..title = 'Draft title';
+    expect(await DBVideos.updateMetadata(original, Videos(poster: 'New poster', duration: 125)), 1);
+    final saved = (await db.query('videos')).single;
+    final revision = DBVideos.revision.value;
+    await expectLater(DBVideos.update(edited, original: original), throwsStateError);
+    expect((await db.query('videos')).single, saved);
+    expect(DBVideos.revision.value, revision);
+
+    final fresh = (await DBVideos.getAll()).single;
+    await DBVideos.addToFavorite(fresh);
+    await DBVideos.updateViewCount(fresh);
+    await DBVideos.update(Videos.fromJson(fresh.toJson())..title = 'New title', original: fresh);
+    final current = (await DBVideos.getAll()).single;
+    expect([current.title, current.poster, current.duration, current.isFavorite, current.viewCount],
+      ['New title', 'New poster', 125, 1, 1]);
+    await DBVideos.delete(current);
+    await expectLater(DBVideos.update(edited, original: current), throwsStateError);
   });
 
   test('directory queries match direct children only and treat wildcards literally', () async {

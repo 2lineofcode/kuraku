@@ -4,6 +4,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kuraku/app/utils/helper_file_picker.dart';
 
 void main() {
+  test('supported video paths use the file extension case-insensitively', () {
+    for (final extension in ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v']) {
+      expect(HelperFilePicker.isSupportedVideoPath('/movies/Video.${extension.toUpperCase()}'), isTrue);
+    }
+    for (final path in ['mp4', '/movies.mp4/notes', '/movies/video.mp4.txt', '/movies/.mp4', '/movies/video.srt', '']) {
+      expect(HelperFilePicker.isSupportedVideoPath(path), isFalse, reason: path);
+    }
+  });
+
   test('existingImages preserves order across batches, skips missing files and deduplicates', () async {
     final root = await Directory.systemTemp.createTemp('kuraku_existing_images_');
     addTearDown(() => root.delete(recursive: true));

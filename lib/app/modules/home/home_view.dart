@@ -404,7 +404,7 @@ class HomeView extends GetView<HomeController> {
                   child: VStack([
                     HugeIcon(icon: HugeIcons.strokeRoundedUpload01, size: AppStyle.emptyIconSize, color: AppColor.text).pOnly(bottom: 12).centered(),
                     'Drop here'.tr.text.bold.size(16).makeCentered().pOnly(bottom: 6),
-                    'Drop a folder to add Library\nDrop a .mp4 file to play instantly'.tr.text.size(12).align(TextAlign.center).color(AppColor.muted).makeCentered(),
+                    'Drop a folder to add a library\nDrop video files to play instantly'.tr.text.size(12).align(TextAlign.center).color(AppColor.muted).makeCentered(),
                   ]).centered(),
                 ),
               ),

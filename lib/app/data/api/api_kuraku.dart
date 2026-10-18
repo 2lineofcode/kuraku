@@ -28,8 +28,19 @@ mixin ApiKuraku {
     code = code.getVideoCode();
 
     try {
-      final res = await Api.get('/api/$kProviderR18/bycode?code=$code');
-      return KurakuMetadata.fromJson(res.data);
+      final res = await Api.get('/api/$kProviderR18/bycode', queryParameters: {'code': code}, withCache: false);
+      final metadata = KurakuMetadata.fromJson(res.data);
+      final fields = [
+        metadata.title, metadata.titleJa, metadata.description, metadata.fanArt, metadata.poster,
+        metadata.trailer, metadata.releaseDate, metadata.studio, metadata.label, metadata.director, metadata.series,
+        ...?metadata.genre, ...?metadata.screenshot,
+        ...?metadata.actress?.expand((actress) => [actress.castNames, actress.castImage]),
+      ];
+      if ((metadata.duration ?? 0) <= 0 && !fields.any((value) => value is String
+          && value.trim().isNotEmpty && value.trim().toLowerCase() != 'null')) {
+        throw ApiException('No metadata found for @{code}'.trNamed({'code': code}));
+      }
+      return metadata;
     } catch (e) {
       throw ApiException(e.toString());
     }
@@ -40,7 +51,7 @@ mixin ApiKuraku {
 
     if (lang == '') lang = 'en';
     try {
-      final res = await Api.get('/api/$provider/search?q=$s&lang=$lang&page=$page', withCache: false);
+      final res = await Api.get('/api/$provider/search', queryParameters: {'q': s, 'lang': lang, 'page': page}, withCache: false);
       return KurakuSearch.fromJson(res.data);
     } catch (e) {
       throw ApiException(e.toString());

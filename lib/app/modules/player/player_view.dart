@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
+import '../../core/app_translations.dart';
+import '../../utils/helper_file_picker.dart';
 import '../widgets/widget_style.dart';
 import 'player_controller.dart';
 import 'player_controls.dart';
@@ -104,7 +106,9 @@ class PlayerView extends GetView<PlayerController> {
                   ),
                   SizedBox(height: 6),
                   Text(
-                    'Videos: .mp4, .mkv, .avi, .mov\nMultiple videos become a playlist\nSubtitle: .srt, .vtt, .ass, .ssa'.tr,
+                    'Videos: @{formats}\nMultiple videos become a playlist\nSubtitle: .srt, .vtt, .ass, .ssa'.trNamed({
+                      'formats': HelperFilePicker.videoExtensions.map((extension) => '.$extension').join(', '),
+                    }),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white70,
