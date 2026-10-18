@@ -21,6 +21,7 @@ import '../../../data/database/db_activity.dart';
 import '../../../data/database/db_library.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/database/db_videos.dart';
+import '../../../utils/app_updater.dart';
 import '../../../utils/helper.dart';
 import '../../../utils/local_semantic_worker.dart';
 import '../../../utils/r18_updater.dart';
@@ -34,6 +35,7 @@ import '../home_panel/home_panel_log.dart';
 import '../page_chat/page_chat_controller.dart';
 import '../page_explore/page_explore_controller.dart';
 import '../page_sqleditor/page_sqleditor_controller.dart';
+import 'app_update_dialog.dart';
 
 class PageSettingsController extends GetxController {
   final appSetting = Get.find<AppSettingService>();
@@ -41,6 +43,10 @@ class PageSettingsController extends GetxController {
   final backupBusy = false.obs;
   final restorePending = false.obs;
   final appVersion = '-'.obs;
+  final appUpdateChecking = false.obs;
+  final appUpdateStatus = ''.obs;
+  final appUpdateError = false.obs;
+  final availableAppUpdate = Rxn<AppRelease>(AppUpdater.latestRelease);
 
   final totalLibrary = 0.obs;
   final totalVideos = 0.obs;
@@ -102,6 +108,50 @@ class PageSettingsController extends GetxController {
     } catch (e) {
       AppLog.logE('Could not read app version: $e');
     }
+  }
+
+  Future<AppRelease?> fetchAppUpdate() => AppUpdater.checkInstalled();
+
+  Future<void> offerStartupAppUpdate(AppRelease release) async {
+    if (isClosed || availableAppUpdate.value?.version == release.version) return;
+    availableAppUpdate.value = release;
+    appUpdateError.value = false;
+    appUpdateStatus.value = 'Update available: @{version}'.trNamed({'version': release.version});
+    await showAppUpdate(automatic: true);
+  }
+
+  Future<void> checkForAppUpdate() async {
+    if (appUpdateChecking.value) return;
+    appUpdateChecking.value = true;
+    appUpdateError.value = false;
+    appUpdateStatus.value = '';
+    availableAppUpdate.value = null;
+    try {
+      final release = await fetchAppUpdate();
+      if (isClosed) return;
+      availableAppUpdate.value = release;
+      appUpdateStatus.value = release == null
+        ? 'You’re up to date.'.tr
+        : 'Update available: @{version}'.trNamed({'version': release.version});
+    } catch (e) {
+      if (isClosed) return;
+      AppLog.logW('App update check failed: $e');
+      appUpdateError.value = true;
+      appUpdateStatus.value = (e is AppUpdateException ? e.message : 'Could not check for updates. Please try again.').tr;
+    } finally {
+      appUpdateChecking.value = false;
+    }
+    if (!isClosed && availableAppUpdate.value != null) await showAppUpdate();
+  }
+
+  Future<void> showAppUpdate({bool automatic = false}) async {
+    final release = availableAppUpdate.value;
+    if (release == null) return;
+    await AppUpdateDialog.show(
+      release: release,
+      installedVersion: appVersion.value,
+      automatic: automatic,
+    );
   }
 
   Future<void> setLanguage(String code) async {

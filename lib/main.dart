@@ -15,6 +15,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:media_kit/generated/libmpv/bindings.dart' as generated;
 import 'package:media_kit/src/player/native/core/native_library.dart';
 import 'package:media_kit/src/player/native/utils/native_reference_holder.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:toastification/toastification.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -33,11 +34,14 @@ import 'app/data/database/app_backup.dart';
 import 'app/data/database/db_search_site.dart';
 import 'app/modules/home/home_controller.dart';
 import 'app/modules/home/page_chat/page_chat_controller.dart';
+import 'app/modules/home/page_settings/app_update_dialog.dart';
+import 'app/modules/home/page_settings/page_settings_controller.dart';
 import 'app/modules/home/page_sqleditor/page_sqleditor_controller.dart';
 import 'app/modules/widgets/widget_dependency_guide.dart';
 import 'app/modules/widgets/widget_style.dart';
 import 'app/modules/widgets/widget_surfaces.dart';
 import 'app/routes/app_pages.dart';
+import 'app/utils/app_updater.dart';
 import 'app/utils/helper_toast.dart';
 import 'app/utils/r18_updater.dart';
 import 'app/utils/watch_session_tracker.dart';
@@ -110,6 +114,7 @@ class Kuraku extends StatefulWidget {
 class _KurakuState extends State<Kuraku> with WindowListener {
   AppLifecycleListener? _lifecycle;
   bool _closing = false;
+  Timer? _appUpdateTimer;
 
   @override
   void initState() {
@@ -124,6 +129,7 @@ class _KurakuState extends State<Kuraku> with WindowListener {
 
   @override
   void dispose() {
+    _appUpdateTimer?.cancel();
     _lifecycle?.dispose();
     windowManager.removeListener(this);
     super.dispose();
@@ -152,10 +158,33 @@ class _KurakuState extends State<Kuraku> with WindowListener {
           Get.find<AppSettingService>().refreshTheme();
           unawaited(_initializeHotkeys());
           unawaited(_initializeNotifications());
-          unawaited(_checkApplicationIsReady());
+          unawaited(_checkApplicationIsReady().then((_) {
+            if (!mounted || _closing) return;
+            _appUpdateTimer ??= Timer(const Duration(seconds: 3), () => unawaited(_checkForAppUpdate()));
+          }));
         },
       ),
     );
+  }
+
+  Future<void> _checkForAppUpdate() async {
+    if (!mounted || _closing) return;
+    try {
+      final release = await AppUpdater.checkInstalled();
+      if (!mounted || _closing || release == null) return;
+      if (Get.isPrepared<PageSettingsController>()) {
+        final info = await PackageInfo.fromPlatform();
+        if (!mounted || _closing) return;
+        await AppUpdateDialog.show(release: release, installedVersion: info.version, automatic: true);
+      } else {
+        final settings = Get.find<PageSettingsController>();
+        await settings.refreshAppVersion();
+        if (!mounted || _closing) return;
+        await settings.offerStartupAppUpdate(release);
+      }
+    } catch (e) {
+      AppLog.logW('Startup app update check failed: $e');
+    }
   }
 
   @override

@@ -35,12 +35,15 @@ class _Preferences implements GetSecureStorage {
 class _Settings extends PageSettingsController {
   int refreshes = 0;
   int saves = 0;
+  int updateChecks = 0;
   @override
   Future<void> onRefresh() async {}
   @override
   Future<void> onRefreshStorage() async { refreshes++; }
   @override
   Future<void> saveRelapseLimit() async { saves++; }
+  @override
+  Future<void> checkForAppUpdate() async { updateChecks++; }
 }
 
 class _Home extends HomeController {
@@ -127,6 +130,7 @@ void main() {
             expect(tester.getSize(theme).width, lessThanOrEqualTo(320));
           }
           expect(find.text('1.2.3+20261008.60'), findsOneWidget);
+          expect(find.text('Check for Updates'.tr), findsOneWidget);
           expect(find.text('Total Albums'.tr), findsOneWidget);
           expect(find.text('Total Images'.tr), findsOneWidget);
           expect(find.text('112'), findsOneWidget);
@@ -144,6 +148,16 @@ void main() {
     }
     tester.view.physicalSize = const Size(1100, 1500);
     await tester.pumpAndSettle();
+    controller.appUpdateChecking.value = true;
+    await tester.pump();
+    expect(tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Checking for updates...'.tr)).onPressed, isNull);
+    controller.appUpdateChecking.value = false;
+    controller.appUpdateError.value = true;
+    controller.appUpdateStatus.value = 'The update check timed out. Please try again.'.tr;
+    await tester.pumpAndSettle();
+    expect(find.text('The update check timed out. Please try again.'.tr), findsOneWidget);
+    await tester.tap(find.text('Check for Updates'.tr));
+    expect(controller.updateChecks, 1);
     await tester.tap(find.byWidgetPredicate((widget) => widget is Switch && widget.key != const ValueKey('app-pin-switch')));
     await tester.pumpAndSettle();
     expect(home.sideMenuWidth.value, 65);

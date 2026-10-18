@@ -121,6 +121,25 @@ class PageSettingsView extends GetView<PageSettingsController> {
             final info = _section('Application Info'.tr, [
               Obx(() => Column(children: [
                 _infoRow('Version'.tr, controller.appVersion.value),
+                Align(alignment: Alignment.centerLeft, child: Wrap(spacing: 8, runSpacing: 6, children: [
+                  AppButton(
+                    variant: AppButtonVariant.outlined,
+                    onPressed: controller.appUpdateChecking.value ? null : controller.checkForAppUpdate,
+                    icon: controller.appUpdateChecking.value ? const SizedBox(width: 12, height: 12, child: CupertinoActivityIndicator(radius: 6)) : null,
+                    child: Text(controller.appUpdateChecking.value ? 'Checking for updates...'.tr : 'Check for Updates'.tr),
+                  ),
+                  if (controller.availableAppUpdate.value != null) AppButton(
+                    onPressed: controller.appUpdateChecking.value ? null : controller.showAppUpdate,
+                    child: Text('View update'.tr),
+                  ),
+                ])),
+                if (controller.appUpdateStatus.value.isNotEmpty) Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Align(alignment: Alignment.centerLeft, child: Semantics(liveRegion: true, child: Text(
+                    controller.appUpdateStatus.value,
+                    style: TextStyle(fontSize: 11, color: controller.appUpdateError.value ? Theme.of(context).colorScheme.error : AppColor.muted),
+                  ))),
+                ),
                 Divider(height: 24, color: AppColor.border),
                 _infoRow('Total Library'.tr, '${controller.totalLibrary.value}'),
                 _infoRow('Total Video'.tr, controller.totalVideos.value.numberFormat()),
