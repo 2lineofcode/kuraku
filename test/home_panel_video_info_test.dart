@@ -418,11 +418,13 @@ void main() {
       final menu = await tester.widget<scm.ContextMenuWidget>(contextMenu).menuProvider(request);
       final action = menu!.children.whereType<scm.MenuAction>().singleWhere((action) => action.title == 'Refresh Metadata');
       HomePanelAppLog.clear();
+      final requests = client.requests.length;
+      // Keep UI timers on the test clock; runAsync is only for pending I/O.
+      action.callback();
       await tester.runAsync(() async {
-        final requests = client.requests.length;
-        action.callback();
         if (duringRequest != null) {
           for (var attempt = 0; attempt < 100 && client.requests.length == requests; attempt++) {
+            await tester.pump(const Duration(milliseconds: 1));
             await Future<void>.delayed(const Duration(milliseconds: 1));
           }
           expect(client.requests.length, requests + 1);
@@ -431,11 +433,16 @@ void main() {
         for (var attempt = 0; attempt < 100 && (!HomePanelAppLog.appLogRuntime.any((entry) => entry.type == 'SUCCESS' || entry.type == 'ERROR'
             || entry.content == 'Video changed or was removed. Reopen it and try again.')
             || find.text(database.row['title'] as String).evaluate().isEmpty); attempt++) {
-          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 1));
           await Future<void>.delayed(const Duration(milliseconds: 1));
         }
       });
+      await tester.pump();
+      // Finish the entry animation before dismissing this scenario's toast.
+      await tester.pump(const Duration(milliseconds: 200));
+      toastification.dismissAll(delayForAnimation: false);
       await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
       expect(tester.takeException(), isNull);
       expect(Overlayment.count, 1);
     }
@@ -452,6 +459,7 @@ void main() {
       expect(video.releaseDate, '2025-01-01');
       expect(client.requests, hasLength(1));
       expect(HomePanelAppLog.appLogRuntime.map((entry) => entry.content), contains('ABP-001 metadata updated'));
+      expect(find.text('ABP-001 metadata updated'), findsNothing);
 
       await refresh({'title': 'Newest title'});
       expect(database.updates, hasLength(2));
