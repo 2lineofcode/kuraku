@@ -34,12 +34,44 @@ mixin HomePanelVideoInfo {
     final _mediaInfo = <String>[].obs;
     final _translatedTitle = HelperDecensor.decensor(video.title ?? '').obs;
     final _focusNode = FocusNode();
+    final currentVideo = video.obs;
+    final mediaInfo = _getMediaInfo(video.videoPath ?? '');
+    final wasStored = (video.id ?? '').isEmpty || (video.videoPath ?? '').isEmpty
+        ? Future.value(false)
+        : DBVideos.getAll(where: 'id = ?', whereArgs: [video.id], limit: 1).then((rows) => rows.isNotEmpty,
+            onError: (Object error, StackTrace stack) {
+              AppLog.logW('Checking video info failed: $error');
+              return false;
+            });
+    var isOpen = true;
+    var refresh = 0;
+    late final OverPanel panel;
+    final videoWorker = ever(DBVideos.revision, (_) async {
+      final request = ++refresh;
+      final current = currentVideo.value;
+      if ((current.videoPath ?? '').isEmpty || (current.id ?? '').isEmpty) return;
+      try {
+        if (!await wasStored) return;
+        final rows = await DBVideos.getAll(where: 'id = ?', whereArgs: [current.id], limit: 1);
+        if (!isOpen || request != refresh) return;
+        if (rows.isEmpty) {
+          isOpen = false;
+          await Overlayment.dismiss(panel);
+          return;
+        }
+        final saved = rows.single;
+        if (index >= 0 && index < source.length) source[index] = saved;
+        _translatedTitle.value = HelperDecensor.decensor(saved.title ?? '');
+        currentVideo.value = saved;
+      } catch (e) {
+        AppLog.logW('Refreshing video info failed: $e');
+      }
+    });
 
     // open overlay
     WidgetsBinding.instance.scheduleFrame();
-    await Overlayment.show(
-      context: Get.context,
-      OverPanel(
+    try {
+      panel = OverPanel(
         alignment: Alignment.centerRight,
         width: 300,
         backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
@@ -48,7 +80,9 @@ mixin HomePanelVideoInfo {
         actions: OverlayActions(
           onReady: () async => _focusNode.requestFocus(),
         ),
-        child: FocusScope(
+        child: Obx(() {
+          final video = currentVideo.value;
+          return FocusScope(
           autofocus: true,
           child: KeyboardListener(
             focusNode: _focusNode,
@@ -227,7 +261,7 @@ mixin HomePanelVideoInfo {
                             'Actress:'.tr.text.size(12).bold.make().pOnly(bottom: 4),
                             Wrap(children: [
                               for (int i = 0; i < video.actress!.length; i++) ...[
-                                '${video.actress?[i].nameRomaji == '' ? '${video.actress?[i].nameKana}' : '${video.actress?[i].nameRomaji}'}'
+                                _actressName(video.actress![i])
                                     .text
                                     .color(AppColor.muted)
                                     .underline
@@ -312,7 +346,7 @@ mixin HomePanelVideoInfo {
 
                           // ~~~
                           FutureBuilder(
-                            future: _getMediaInfo(video.videoPath ?? ''),
+                            future: mediaInfo,
                             builder: (context, snapshot) {
                               if (snapshot.hasData && snapshot.data != null && snapshot.data!.length > 2) {
                                 _mediaInfo.value = snapshot.data!;
@@ -348,17 +382,26 @@ mixin HomePanelVideoInfo {
               ],
             ),
           ),
-        ),
-      ),
-    );
+          );
+        }),
+      );
+      await Overlayment.show(context: Get.context, panel);
+    } finally {
+      isOpen = false;
+      videoWorker.dispose();
+      _focusNode.dispose();
+    }
   }
 
   // ────────────────────────────────────────────────────────────────
   // ⵌ ~
   // ────────────────────────────────────────────────────────────────
+  static String _actressName(VideoActress actress) => [actress.nameRomaji, actress.nameKana, actress.nameKanji]
+    .firstWhereOrNull((name) => name != null && name.trim().isNotEmpty)?.trim() ?? '';
+
   static Future<void> _onItemActressClick(Videos video, int index) async {
     final newTab = PageExploreController.isNewTabModifierPressed;
-    final name = '${video.actress?[index].nameRomaji == '' ? '${video.actress?[index].nameKana}' : '${video.actress?[index].nameRomaji}'}';
+    final name = _actressName(video.actress![index]);
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
     await exploreC.openSelection(kActress, name, newTab: newTab);

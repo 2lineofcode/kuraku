@@ -98,7 +98,6 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
   List<Videos>? _externalPlaylist;
   static const subtitleExtensions = ['srt', 'vtt', 'ass', 'ssa'];
-  static const _supportedDropVideoExtensions = {'mp4', 'mkv', 'avi', 'mov'};
   Future<void>? _playerInitialization;
   Worker? _semanticPlaybackWorker;
   bool _semanticPlaybackActive = false;
@@ -272,7 +271,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
         continue;
       }
 
-      if (_isVideoPath(path)) {
+      if (HelperFilePicker.isSupportedVideoPath(path)) {
         videoPaths.add(path);
       } else if (subtitleExtensions.contains(extension(path).toLowerCase().replaceFirst('.', ''))) {
         subtitlePaths.add(path);
@@ -357,13 +356,6 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     isMiniMode.value = false;
   }
 
-  bool _isVideoPath(String path) {
-    if (!path.contains('.')) return false;
-
-    final ext = path.toLowerCase().split('.').last;
-    return _supportedDropVideoExtensions.contains(ext);
-  }
-
   String _normalizeDropPath(Uri uri) {
     try {
       return uri.toFilePath();
@@ -417,6 +409,14 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     final file = File(decodedPath);
     if (!file.existsSync()) {
       await HelperToast.warn('File not found'.tr);
+      return null;
+    }
+
+    try {
+      final stored = await DBVideos.getByVideoPath(decodedPath);
+      if (stored != null) return stored;
+    } catch (e) {
+      await HelperToast.error(e.toString());
       return null;
     }
 

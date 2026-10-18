@@ -1,13 +1,16 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/v4.dart';
 
 import '../../core/app_logging.dart';
+import '../../core/const.dart';
 import '../../utils/helper.dart';
 import '../models/videos_entity.dart';
 import '_init_db.dart';
@@ -84,35 +87,79 @@ mixin DBVideos {
     // actress
     if (video.actress != null) {
       for (int j = 0; j < video.actress!.length; j++) {
-        if (video.actress![j].nameRomaji == '') {
-          video.actress![j].nameRomaji = video.actress![j].imageUrl;
+        final actress = video.actress![j];
+        var name = (actress.nameRomaji ?? '').trim();
+        if (!_hasMetadataValue(name)) {
+          name = '';
+          if (!_hasMetadataValue(actress.nameKana) && !_hasMetadataValue(actress.nameKanji)
+              && _hasMetadataValue(actress.imageUrl)) {
+            final image = actress.imageUrl!.trim();
+            name = p.basenameWithoutExtension(Uri.tryParse(image)?.path ?? image);
+          }
         }
-        video.actress![j].nameRomaji = HelperMisc.formatActressName(video.actress![j].nameRomaji ?? '');
+        actress.nameRomaji = HelperMisc.formatActressName(name);
       }
     }
   }
 
-  static Future<int> updateMetadata(Videos video, Videos metadata) async {
+  static bool _hasMetadataValue(Object? value) => value != null
+      && (value is! String || value.trim().isNotEmpty && value.trim().toLowerCase() != 'null');
+
+  static Future<int> updateMetadata(Videos video, Videos metadata, {bool notify = true}) async {
+    metadata.actress = metadata.actress?.where((actress) => _hasMetadataValue(actress.nameRomaji)
+        || _hasMetadataValue(actress.nameKana) || _hasMetadataValue(actress.nameKanji)
+        || _hasMetadataValue(actress.imageUrl)).toList();
+    metadata.category = metadata.category?.where((category) => _hasMetadataValue(category.category)).toList();
+    metadata.screenshot = metadata.screenshot?.where(_hasMetadataValue).toList();
     _normalizeMetadata(metadata);
     final values = metadata.toJson()..removeWhere((key, value) => !_metadataColumns.contains(key)
-        || value == null || value == '' || value == 'null' || value == '[]'
-        || (value is String && value.trim().isEmpty));
+        || !_hasMetadataValue(value) || value == '[]');
     if ((metadata.duration ?? 0) <= 0) {
       values.remove('duration');
       values.remove('duration_formated');
+    } else {
+      values['duration_formated'] = HelperMisc.durationFormatDB(metadata.duration!);
+    }
+    if (!values.containsKey('release_date')) {
+      values.remove('release_date_formated');
+    } else {
+      final date = DateFormat(kYMd).parseStrict(values['release_date']);
+      values['release_date_formated'] = DateFormat(kMdY).format(date);
     }
     if (values.isEmpty) return 0;
     values['updated_at'] = DateTime.now().toStringEx();
-    return _db.update(_tableName, values,
-      where: 'id = ? AND video_path = ? AND is_deleted = 0', whereArgs: [video.id, video.videoPath]);
+    final snapshot = video.toJson();
+    final changed = await _db.transaction((txn) async {
+      final rows = await txn.query(_tableName,
+        where: 'id = ? AND video_path = ? AND is_deleted = 0', whereArgs: [video.id, video.videoPath]);
+      if (rows.isEmpty) return 0;
+      final current = Videos.fromJson(rows.single).toJson();
+      if (_metadataColumns.any((column) => current[column] != snapshot[column])) return 0;
+      return txn.update(_tableName, values,
+        where: 'id = ? AND video_path = ? AND is_deleted = 0', whereArgs: [video.id, video.videoPath]);
+    });
+    if (changed > 0 && notify) revision.value++;
+    return changed;
   }
 
-  static Future<void> update(Videos videos) async {
+  static Future<void> update(Videos videos, {Videos? original}) async {
     videos.updatedAt = DateTime.now().toStringEx();
     final values = videos.toJson()..removeWhere((key, value) => !_metadataColumns.contains(key)
       || key == 'duration' && value == null);
     values['updated_at'] = videos.updatedAt;
-    final changed = await _db.update(_tableName, values, where: 'id = ? AND is_deleted = 0', whereArgs: [videos.id]);
+    final changed = original == null
+        ? await _db.update(_tableName, values, where: 'id = ? AND is_deleted = 0', whereArgs: [videos.id])
+        : await _db.transaction((txn) async {
+            final rows = await txn.query(_tableName,
+              where: 'id = ? AND video_path = ? AND is_deleted = 0', whereArgs: [original.id, original.videoPath]);
+            final snapshot = original.toJson();
+            final current = rows.isEmpty ? null : Videos.fromJson(rows.single).toJson();
+            if (current == null || original.id != videos.id
+                || _metadataColumns.any((column) => current[column] != snapshot[column])) {
+              throw StateError('Video changed or was removed. Reopen it and try again.');
+            }
+            return txn.update(_tableName, values, where: 'id = ? AND is_deleted = 0', whereArgs: [videos.id]);
+          });
     if (changed == 0) throw StateError('Video no longer exists');
     revision.value++;
   }
@@ -353,7 +400,10 @@ mixin DBVideos {
   }
 
   static Future<Videos?> getByVideoPath(String videoPath) async {
-    final maps = await _db.query(_tableName, where: 'video_path = ? AND is_deleted = 0', whereArgs: [videoPath]);
+    var maps = await _db.query(_tableName, where: 'video_path = ? AND is_deleted = 0', whereArgs: [videoPath]);
+    if (maps.isEmpty && Platform.isWindows) {
+      maps = await _db.query(_tableName, where: 'video_path = ? COLLATE NOCASE AND is_deleted = 0', whereArgs: [videoPath], limit: 1);
+    }
     return maps.isNotEmpty ? Videos.fromJson(maps.first) : null;
   }
 

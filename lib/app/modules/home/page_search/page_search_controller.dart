@@ -1,20 +1,11 @@
 import 'dart:async';
 
-import 'package:ex_kit/ex.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:overlayment/overlayment.dart';
 
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
-import '../../../core/app_translations.dart';
-import '../../../data/api/api_kuraku.dart';
-import '../../../data/database/db_videos.dart';
-import '../../../data/models/videos_entity.dart';
-import '../../../utils/helper_loading.dart';
-import '../../../utils/helper_misc.dart';
 import '../../../utils/helper_tabs.dart';
-import '../../../utils/helper_toast.dart';
 import 'page_search_tab.dart';
 
 class PageSearchController extends GetxController {
@@ -117,75 +108,4 @@ class PageSearchController extends GetxController {
     }
     super.onClose();
   }
-
-  Future<void> renewMetadata(Videos videos) async {
-    await Overlayment.dismissLast();
-    HelperLoading.show();
-
-    final vidCode = HelperMisc.resolveVideoCode(videoCode: videos.videoCode, videoPath: videos.videoPath, title: videos.title);
-
-    await ApiKuraku.getMetadata(code: vidCode).then((resp) async {
-      HelperLoading.dismiss();
-      final newVideos = videos;
-      newVideos.videoCode = HelperMisc.resolveVideoCode(videoCode: resp.videoCode, title: vidCode);
-      newVideos.title = resp.title;
-      newVideos.titleJa = resp.titleJa;
-
-      newVideos.description = resp.description;
-      newVideos.fanArt = resp.fanArt?.replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '') ?? '';
-      newVideos.poster = resp.poster?.replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '') ?? '';
-      newVideos.trailer = resp.trailer;
-      newVideos.site = 'R18';
-
-      // ** only apply if actress is null
-      if (videos.actress.isEmptyOrNull) {
-        if (!resp.actress.isEmptyOrNull) {
-          newVideos.actress = <VideoActress>[];
-          for (var i = 0; i < resp.actress!.length; i++) {
-            newVideos.actress?.add(VideoActress(
-              id: resp.actress![i].castId,
-              nameRomaji: resp.actress![i].castNames,
-              imageUrl: resp.actress![i].castImage,
-            ));
-          }
-        }
-      }
-
-      newVideos.category = <VideoCategory>[];
-      if (resp.genre != null) {
-        for (var i = 0; i < resp.genre!.length; i++) {
-          newVideos.category?.add(VideoCategory(id: i, category: resp.genre![i]));
-        }
-      }
-
-      newVideos.releaseDate = resp.releaseDate;
-      newVideos.releaseDateFormated = resp.releaseDateFormated;
-      newVideos.duration = resp.duration;
-      newVideos.durationFormated = resp.durationFormated;
-
-      newVideos.studio = resp.studio;
-      newVideos.label = resp.label;
-      newVideos.director = resp.director;
-      newVideos.series = resp.series;
-
-      newVideos.screenshot = <String>[];
-      if (resp.screenshot != null) {
-        for (var i = 0; i < resp.screenshot!.length; i++) {
-          if (resp.screenshot![i].toString().contains('jp-')) {
-            newVideos.screenshot?.add(resp.screenshot![i].replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', ''));
-          } else {
-            newVideos.screenshot?.add(resp.screenshot![i].replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '').replaceAll('-', 'jp-'));
-          }
-        }
-      }
-
-      await DBVideos.update(newVideos);
-      await HelperToast.success('@{videoCode} metadata updated'.trNamed({'videoCode': '${newVideos.videoCode}'}));
-    }).catchError((e) {
-      HelperLoading.dismiss();
-      HelperToast.error(e.toString());
-      logE('renewMetadata error: $e');
-    });
-  }
-
 }

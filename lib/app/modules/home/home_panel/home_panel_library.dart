@@ -664,7 +664,7 @@ mixin HomePanelLibrary {
     if (code.isEmpty) return false;
     final metadata = await processVideo(video.videoPath ?? '', video.rootPath, code: code, metadataOnly: true);
     if (metadata == null) return false;
-    return await DBVideos.updateMetadata(video, metadata) > 0;
+    return await DBVideos.updateMetadata(video, metadata, notify: false) > 0;
   }
 
   // ** PROCESS VIDEO

@@ -1,13 +1,16 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as p;
+
 import '../data/models/library_entity.dart';
 import 'helper_misc.dart';
 
 mixin HelperFilePicker {
+  static const videoExtensions = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v'];
 
   static bool isSupportedVideoPath(String path) =>
-    ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v'].contains(path.split('.').last.toLowerCase());
+    videoExtensions.contains(p.extension(path).toLowerCase().replaceFirst('.', ''));
 
   static bool isSupportedImagePath(String path) =>
     ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(path.split('.').last.toLowerCase());

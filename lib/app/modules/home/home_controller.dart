@@ -68,13 +68,14 @@ class HomeController extends GetxController with StateMixin {
   final cart = <Videos>[].obs;
   Worker? _videoWorker;
   Worker? _gamificationWorker;
+  int _videoRefreshRevision = 0;
   Future<void>? _profileRefresh;
   bool _profileNeedsRefresh = false;
   bool _hasLoadedGamification = false;
 
   String _cartIdentity(Videos video) {
-    final videoPath = (video.videoPath ?? '').trim().toLowerCase();
-    if (videoPath.isNotEmpty) return 'path:$videoPath';
+    final videoPath = (video.videoPath ?? '').trim();
+    if (videoPath.isNotEmpty) return 'path:${Platform.isWindows ? videoPath.toLowerCase() : videoPath}';
 
     final id = (video.id ?? '').trim().toLowerCase();
     if (id.isNotEmpty) return 'id:$id';
@@ -187,8 +188,10 @@ class HomeController extends GetxController with StateMixin {
   }
 
   Future<void> refreshVideoContent() async {
+    final revision = ++_videoRefreshRevision;
     try {
-      final refreshedCart = await Future.wait(cart.toList().map((video) async {
+      final snapshot = cart.toList();
+      final refreshedCart = await Future.wait(snapshot.map((video) async {
         if ((video.id ?? '').isNotEmpty) {
           final saved = await DBVideos.getAll(where: 'id = ?', whereArgs: [video.id], limit: 1);
           if (saved.isNotEmpty) return saved.single;
@@ -196,8 +199,13 @@ class HomeController extends GetxController with StateMixin {
         if ((video.videoPath ?? '').isEmpty) return video;
         return DBVideos.getByVideoPath(video.videoPath!);
       }));
-      if (isClosed) return;
-      cart.assignAll(refreshedCart.whereType<Videos>());
+      if (isClosed || revision != _videoRefreshRevision) return;
+      final refreshed = Map<Videos, Videos?>.identity();
+      for (var i = 0; i < snapshot.length; i++) {
+        refreshed[snapshot[i]] = refreshedCart[i];
+      }
+      cart.assignAll(cart.map((video) => refreshed.containsKey(video) ? refreshed[video] : video).whereType<Videos>().toList());
+      deduplicateCart();
       await Future.wait([
         if (Get.isRegistered<PageHomeController>() && !Get.isPrepared<PageHomeController>())
           Get.find<PageHomeController>().onRefresh(),
@@ -454,7 +462,7 @@ class HomeController extends GetxController with StateMixin {
         continue;
       }
 
-      if (path.toLowerCase().endsWith('.mp4')) {
+      if (HelperFilePicker.isSupportedVideoPath(path)) {
         videoPaths.add(path);
       } else if (_isImagePath(path)) {
         imagePaths.add(path);
@@ -656,8 +664,16 @@ class HomeController extends GetxController with StateMixin {
       return null;
     }
 
+    try {
+      final stored = await DBVideos.getByVideoPath(decodedPath);
+      if (stored != null) return stored;
+    } catch (e) {
+      await HelperToast.error(e.toString());
+      return null;
+    }
+
     final fileName = decodedPath.getLastPath();
-    final cleanTitle = fileName.contains('.') ? fileName.split('.').first : fileName;
+    final cleanTitle = fileName.contains('.') ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
 
     return Videos(
       id: UuidV4().generate(),

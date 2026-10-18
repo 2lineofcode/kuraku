@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:ex_kit/ex.dart';
 
+import '__kuraku_metadata_entity.dart';
+
 /// *
 /// * JSON Source: {"video_id":"eyan00181","video_code_id":"eyan00181","video_code":"EYAN-181","title":"My Older Stepsister Is A Young Mother In Her Breastfeeding Period While In Our Parents' Home. Live Version. Mina Kitano","title_ja":"姉はヤンママ授乳中in実家 実写版 北野未奈","description":"null","fan_art":"https://pics.dmm.co.jp/digital/video/eyan00181/eyan00181pl.jpg","poster":"https://pics.dmm.co.jp/digital/video/eyan00181/eyan00181ps.jpg","trailer":"https://cc3001.dmm.co.jp/litevideo/freepv/e/eya/eyan00181/eyan00181_mhb_w.mp4","actress":[{"cast_id":1068671,"cast_names":"Mina Kitano","cast_image":"https://pics.dmm.co.jp/mono/actjpgs/kitano_mina.jpg"}],"genre":["Married Woman"],"release_date":"2022-05-17","release_date_formated":"May 17, 2022","duration":121,"duration_formated":"2 hrs 1 min","studio":"E-BODY","label":"Wives of Hanasagari","director":"Kitorune Kawaguchi","series":"null","screenshot":["https://pics.dmm.co.jp/digital/video/eyan00181/eyan00181jp-1.jpg"],"view_count":121,"score":3.3}
 /// * Code generated: https://2lineofcode.github.io/json_to_dart2023
@@ -70,6 +72,36 @@ class Videos {
     this.createdAt,
     this.updatedAt
   });
+
+  factory Videos.fromMetadata(KurakuMetadata metadata) {
+    String? imagePath(String? url) => url?.replaceAll('https://pics.dmm.co.jp/', '').replaceAll('.jpg', '');
+    return Videos(
+      videoCode: metadata.videoCode,
+      title: metadata.title,
+      titleJa: metadata.titleJa,
+      description: metadata.description,
+      fanArt: imagePath(metadata.fanArt),
+      poster: imagePath(metadata.poster),
+      trailer: metadata.trailer,
+      actress: metadata.actress?.map((actress) => VideoActress(
+        id: actress.castId, nameRomaji: actress.castNames, imageUrl: actress.castImage,
+      )).toList(),
+      category: metadata.genre?.asMap().entries.map((genre) => VideoCategory(id: genre.key, category: genre.value)).toList(),
+      releaseDate: metadata.releaseDate,
+      releaseDateFormated: metadata.releaseDateFormated,
+      duration: metadata.duration,
+      durationFormated: metadata.durationFormated,
+      studio: metadata.studio,
+      label: metadata.label,
+      director: metadata.director,
+      series: metadata.series,
+      screenshot: metadata.screenshot?.map((shot) {
+        final path = imagePath(shot)!;
+        return path.contains('jp-') ? path : path.replaceAll('-', 'jp-');
+      }).toList(),
+      site: 'R18',
+    );
+  }
 
   Videos.fromJson(Map<String, dynamic> json) {
     rootPath = json['root_path'] ?? '';

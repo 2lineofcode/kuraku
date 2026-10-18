@@ -65,7 +65,7 @@ class ExAutoComplate extends StatelessWidget {
       },
       loadingBuilder: (context) => Text('Loading...'.tr),
       errorBuilder: (context, error) => Text('Error!'.tr),
-      emptyBuilder: (context) => '$emptyText'.text.size(11).minFontSize(11).make(),
+      emptyBuilder: (context) => (emptyText ?? 'No matches.'.tr).text.size(11).minFontSize(11).make(),
       decorationBuilder: (context, child) {
         return Material(
           type: MaterialType.card,
