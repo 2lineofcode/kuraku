@@ -11,6 +11,7 @@ import 'package:kuraku/app/core/app_setting.dart';
 import 'package:kuraku/app/core/app_translations.dart';
 import 'package:kuraku/app/modules/home/page_settings/page_settings_controller.dart';
 import 'package:kuraku/app/modules/home/page_settings/page_settings_view.dart';
+import 'package:kuraku/app/modules/standalone_player/standalone_player_translations.dart';
 import 'package:kuraku/app/modules/widgets/widget_controls.dart';
 import 'package:kuraku/app/translations/en.dart';
 import 'package:kuraku/app/translations/id.dart';
@@ -65,19 +66,33 @@ void main() {
 
   test('Every static translation reference has an English mapping', () {
     final reference = RegExp(r"(?<![\w'])'((?:\\.|[^'\\\r\n])*)'\.tr(?:Named)?\b");
+    final standaloneEnglish = StandalonePlayerTranslations().keys['en']!;
     var count = 0;
     for (final file in Directory('lib').listSync(recursive: true).whereType<File>().where((file) => file.path.endsWith('.dart'))) {
+      final translations = file.uri.pathSegments.contains('standalone_player') ? standaloneEnglish : englishTranslations;
       for (final match in reference.allMatches(file.readAsStringSync())) {
         final escaped = match[1]!;
         if (RegExp(r'(?<!\\)\$').hasMatch(escaped)) continue;
         final key = escaped.replaceAllMapped(RegExp(r'\\(.)'), (part) => switch (part[1]) {
           'n' => '\n', 'r' => '\r', 't' => '\t', _ => part[1]!,
         });
-        expect(englishTranslations.containsKey(key), isTrue, reason: '${file.path}: $key');
+        expect(translations.containsKey(key), isTrue, reason: '${file.path}: $key');
         count++;
       }
     }
     expect(count, greaterThan(900));
+  });
+
+  test('Standalone player translations cover both languages without changing the library dictionary', () {
+    final translations = StandalonePlayerTranslations().keys;
+    expect(translations['id']!.keys.toSet(), translations['en']!.keys.toSet());
+    for (final entry in translations['id']!.entries) {
+      expect(entry.value.trim(), isNotEmpty, reason: entry.key);
+    }
+    expect(translations['en']!['Open files'], 'Open files');
+    expect(translations['id']!['Open files'], 'Buka file');
+    expect(englishTranslations.containsKey('Open files'), isFalse);
+    expect(indonesianTranslations.containsKey('Open files'), isFalse);
   });
 
   test('English fallback and named parameters preserve values and token boundaries', () {
