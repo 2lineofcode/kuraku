@@ -1,9 +1,19 @@
+import 'dart:async';
+import 'dart:ui' show AppExitResponse;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
+import 'package:overlayment/overlayment.dart';
+import 'package:toastification/toastification.dart';
+import 'package:window_manager/window_manager.dart';
 
+import '../modules/standalone_player/standalone_player_controller.dart';
+import '../modules/standalone_player/standalone_player_translations.dart';
+import '../modules/standalone_player/standalone_player_view.dart';
 import '../modules/widgets/widget_controls.dart';
+import '../modules/widgets/widget_style.dart';
 import '../modules/widgets/widget_surfaces.dart';
 import 'app_pref.dart';
 import 'app_scroll_behavior.dart';
@@ -19,22 +29,36 @@ class AppPinGate extends StatefulWidget {
   State<AppPinGate> createState() => _AppPinGateState();
 }
 
-class _AppPinGateState extends State<AppPinGate> {
+class _AppPinGateState extends State<AppPinGate> with WindowListener {
   late bool _unlocked;
   bool _dialogOpen = false;
-  int _counter = 0;
+  bool _closing = false;
+  StandalonePlayerController? _player;
+  AppLifecycleListener? _lifecycle;
+  final _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
     super.initState();
     _unlocked = !AppPref.getAppPinEnabled();
+    if (!_unlocked) {
+      _player = Get.put<StandalonePlayerController>(StandalonePlayerController(), permanent: true);
+      windowManager.addListener(this);
+      _lifecycle = AppLifecycleListener(onExitRequested: () async {
+        if (!_unlocked) {
+          _closing = true;
+          await _releasePlayer();
+        }
+        return AppExitResponse.exit;
+      });
+    }
     Get.addTranslations(AppTranslations().keys);
     Get.locale = Locale(AppPref.getAppLanguage());
     Get.fallbackLocale = AppTranslations.fallbackLocale;
   }
 
   Future<void> _showPin(BuildContext context) async {
-    if (_dialogOpen || _unlocked) return;
+    if (_dialogOpen || _unlocked || _closing) return;
     _dialogOpen = true;
     try {
       final unlocked = await showAdaptiveDialog<bool>(
@@ -45,41 +69,92 @@ class _AppPinGateState extends State<AppPinGate> {
           onSuccess: () => Navigator.of(context).pop(true),
         ),
       );
-      if (unlocked == true && mounted) setState(() => _unlocked = true);
+      if (unlocked == true && mounted && !_closing) {
+        await Overlayment.dismissAll();
+        if (!mounted || _closing) return;
+        await _player?.exitFullscreen();
+        if (!mounted || _closing || _player?.isFullScreen.value == true) return;
+        await _releasePlayer();
+        if (mounted && !_closing) {
+          _lifecycle?.dispose();
+          _lifecycle = null;
+          windowManager.removeListener(this);
+          setState(() => _unlocked = true);
+        }
+      }
     } finally {
       _dialogOpen = false;
     }
   }
 
+  Future<void> _releasePlayer() async {
+    final player = _player;
+    if (player == null) return;
+    _player = null;
+    if (Get.isRegistered<StandalonePlayerController>() && identical(Get.find<StandalonePlayerController>(), player)) {
+      unawaited(Get.delete<StandalonePlayerController>(force: true));
+    }
+    await player.shutdown();
+  }
+
+  @override
+  void dispose() {
+    _lifecycle?.dispose();
+    windowManager.removeListener(this);
+    unawaited(_releasePlayer());
+    super.dispose();
+  }
+
+  @override
+  void onWindowClose([int? windowId]) async {
+    if (_unlocked || _closing) return;
+    _closing = true;
+    await _releasePlayer();
+    await windowManager.setPreventClose(false);
+    await windowManager.close();
+  }
+
+  @override
+  void onWindowEnterFullScreen([int? windowId]) => _refreshFullscreen();
+
+  @override
+  void onWindowLeaveFullScreen([int? windowId]) => _refreshFullscreen();
+
+  void _refreshFullscreen() {
+    if (_unlocked || _closing || _player == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_unlocked && !_closing && _player != null) Get.forceAppUpdate();
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_unlocked) return widget.child;
-    return MaterialApp(
+    final player = _player;
+    if (player == null) return const ColoredBox(color: Colors.black);
+    return ToastificationWrapper(child: GetMaterialApp(
+      navigatorKey: _navigatorKey,
       scrollBehavior: appScrollBehavior,
       debugShowCheckedModeBanner: false,
+      title: 'Player',
+      translations: StandalonePlayerTranslations(),
       locale: Get.locale,
+      fallbackLocale: AppTranslations.fallbackLocale,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: AppTranslations.languages.keys.map((code) => Locale(code)).toList(),
-      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple)),
-      home: Builder(builder: (context) => CallbackShortcuts(
-        bindings: {const AppShortcut(LogicalKeyboardKey.keyX, alt: true): () => _showPin(context)},
-        child: Focus(autofocus: true, child: Scaffold(
-          appBar: AppBar(
-            backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-            title: const Text('Flutter Demo Home Page'),
-          ),
-          body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Text('You have pushed the button this many times:'),
-            Text('$_counter', style: Theme.of(context).textTheme.headlineMedium),
-          ])),
-          floatingActionButton: FloatingActionButton(
-            onPressed: () => setState(() => _counter++),
-            tooltip: 'Increment',
-            child: const Icon(Icons.add),
-          ),
-        )),
-      )),
-    );
+      theme: AppStyle.theme(Brightness.light),
+      darkTheme: AppStyle.theme(Brightness.dark),
+      themeMode: ThemeMode.system,
+      builder: (context, child) => CallbackShortcuts(
+        bindings: {
+          const AppShortcut(LogicalKeyboardKey.keyX, alt: true): () => _showPin(_navigatorKey.currentContext!),
+          const AppShortcut(LogicalKeyboardKey.keyO): () => _player?.pickVideos(),
+        },
+        child: Focus(autofocus: true, child: StandalonePlayerDropTarget(controller: player, child: child!)),
+      ),
+      home: StandalonePlayerView(controller: player),
+    ));
   }
 }
 

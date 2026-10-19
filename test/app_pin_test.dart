@@ -1,19 +1,31 @@
+// ignore_for_file: depend_on_referenced_packages, implementation_imports
+
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
+import 'package:irondash_message_channel/irondash_message_channel.dart';
 import 'package:kuraku/app/core/app_color.dart';
 import 'package:kuraku/app/core/app_pin.dart';
 import 'package:kuraku/app/core/app_pref.dart';
 import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/core/app_startup.dart';
 import 'package:kuraku/app/modules/home/page_settings/page_settings_controller.dart';
 import 'package:kuraku/app/modules/home/page_settings/page_settings_view.dart';
+import 'package:kuraku/app/modules/player/player_controller.dart';
+import 'package:kuraku/app/modules/standalone_player/standalone_player_controller.dart';
+import 'package:kuraku/app/modules/standalone_player/standalone_player_view.dart';
 import 'package:kuraku/app/modules/widgets/widgets.dart';
+import 'package:overlayment/overlayment.dart';
+import 'package:super_drag_and_drop/super_drag_and_drop.dart';
+import 'package:super_native_extensions/src/native/context.dart';
+import 'package:window_manager/window_manager.dart';
 
 class _Preferences implements GetSecureStorage {
   final values = <String, dynamic>{};
@@ -42,6 +54,11 @@ class _Preferences implements GetSecureStorage {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _DropEvent implements DropEvent {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _Settings extends PageSettingsController {
   @override
   Future<void> onRefresh() async {}
@@ -49,8 +66,28 @@ class _Settings extends PageSettingsController {
   Future<void> onRefreshStorage() async {}
 }
 
+class _SlowPlayer extends StandalonePlayerController {
+  final releasing = Completer<void>();
+
+  @override
+  Future<void> shutdown() async {
+    await releasing.future;
+    await super.shutdown();
+  }
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   final pref = _Preferences();
+  setUpAll(() {
+    final dropContext = MockMessageChannelContext();
+    dropContext.registerMockMethodCallHandler('DropManager', (_) async => null);
+    dropContext.registerMockMethodCallHandler('DragManager', (_) async => null);
+    setContextOverride(dropContext);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('dev.irondash.engine_context'), (_) async => 1,
+    );
+  });
   Future<void> submit(WidgetTester tester, String label) async {
     final action = find.widgetWithText(AppDialogAction, label);
     VoidCallback? onPressed() => action.evaluate().isNotEmpty
@@ -175,35 +212,85 @@ void main() {
   });
 
   testWidgets('Gate hides PIN behind the exact shortcut, unlocks content and locks again for a new session', (tester) async {
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     var builds = 0;
-    Widget gate() => AppPinGate(child: Builder(builder: (_) {
+    var libraryInitializations = 0;
+    Widget gate() => AppPinGate(child: AppStartup(
+      initialize: () async { libraryInitializations++; },
+      child: Builder(builder: (_) {
         builds++;
-        return const MaterialApp(home: Text('Private content'));
-      }));
+        return GetMaterialApp(home: const Text('Private content'));
+      }),
+    ));
     await tester.pumpWidget(gate());
     await tester.pumpAndSettle();
     expect(builds, 1);
+    expect(libraryInitializations, 1);
     expect(find.text('Private content'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.runAsync(() => AppPref.setAppPin('1234'));
     builds = 0;
+    libraryInitializations = 0;
     await tester.pumpWidget(gate());
     await tester.pumpAndSettle();
     expect(builds, 0);
     expect(find.text('Private content'), findsNothing);
-    expect(find.text('Flutter Demo Home Page'), findsOneWidget);
-    expect(find.text('You have pushed the button this many times:'), findsOneWidget);
-    expect(find.text('0'), findsOneWidget);
+    expect(find.byType(StandalonePlayerView), findsOneWidget);
+    expect(find.text('Open files'), findsOneWidget);
+    expect(find.text('Drop videos here'), findsOneWidget);
+    expect(find.descendant(of: find.byType(StandalonePlayerView),
+      matching: find.text('Multiple videos become a playlist')), findsOneWidget);
+    expect(find.ancestor(of: find.text('Drop videos here'), matching: find.byType(DottedBorder)), findsOneWidget);
     expect(Theme.of(tester.element(find.byType(Scaffold))).brightness, Brightness.light);
-    await tester.tap(find.byType(FloatingActionButton));
+    final lightLabelColor = tester.widget<Text>(find.text('Drop videos here')).style!.color!;
+    final player = Get.find<StandalonePlayerController>();
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(FloatingActionButton));
+    expect(Theme.of(tester.element(find.byType(Scaffold))).brightness, Brightness.dark);
+    expect(tester.widget<Text>(find.text('Drop videos here')).style!.color!.computeLuminance(), greaterThan(lightLabelColor.computeLuminance()));
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
     await tester.pumpAndSettle();
-    expect(find.text('2'), findsOneWidget);
-    expect(builds, 0);
+    expect(Theme.of(tester.element(find.byType(Scaffold))).brightness, Brightness.light);
+    expect(Get.find<StandalonePlayerController>(), same(player));
+    expect(Get.find<StandalonePlayerController>().isInitialized.value, isFalse);
+    expect(libraryInitializations, 0);
+    expect(Get.isRegistered<PlayerController>(), isFalse);
     expect(find.byType(AppTextField), findsNothing);
     expect(find.textContaining('PIN'), findsNothing);
     expect(find.textContaining('KuraKu'), findsNothing);
+    unawaited(Get.to(() => const Scaffold(body: Focus(autofocus: true, child: Text('Player overlay')))));
+    await tester.pumpAndSettle();
+    expect(find.text('Player overlay'), findsOneWidget);
+    expect(find.ancestor(of: find.text('Player overlay'), matching: find.byType(DropRegion)), findsOneWidget);
+    final dropRegion = tester.widget<DropRegion>(find.byType(DropRegion));
+    dropRegion.onDropEnter!(_DropEvent());
+    await tester.pumpAndSettle();
+    expect(Get.find<StandalonePlayerController>().isDropHovering.value, isTrue);
+    expect(tester.widget<AnimatedOpacity>(find.ancestor(
+      of: find.text('Drop video or subtitle here'), matching: find.byType(AnimatedOpacity),
+    )).opacity, 1);
+    final dropHint = find.text('Drop video or subtitle here');
+    expect(find.ancestor(of: dropHint, matching: find.byType(Material)), findsOneWidget);
+    expect(find.ancestor(of: dropHint, matching: find.byType(DottedBorder)), findsOneWidget);
+    expect(DefaultTextStyle.of(tester.element(dropHint)).style.decoration ?? TextDecoration.none, TextDecoration.none);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    tester.view.physicalSize = const Size(360, 240);
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+    await tester.pumpAndSettle();
+    dropRegion.onDropLeave!(_DropEvent());
+    await tester.pumpAndSettle();
+    await revealPin(tester);
+    expect(find.byType(AppConfirmDialog), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    Get.back();
+    await tester.pumpAndSettle();
     await revealPin(tester, meta: false, alt: false);
     await revealPin(tester, alt: false);
     await revealPin(tester, meta: false);
@@ -217,12 +304,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(AppTextField), findsNothing);
     expect(builds, 0);
-    expect(find.text('2'), findsOneWidget);
+    expect(find.text('Open files'), findsOneWidget);
+    expect(libraryInitializations, 0);
+    expect(Get.isRegistered<PlayerController>(), isFalse);
     await revealPin(tester);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(builds, 0);
     expect(find.byType(AppTextField), findsNothing);
+    var playlistClosed = false;
+    final playlist = Get.find<StandalonePlayerController>().openList().then((_) { playlistClosed = true; });
+    await tester.pumpAndSettle();
+    expect(Overlayment.count, 1);
+    expect(find.text('Playlist'), findsOneWidget);
+    expect(playlistClosed, isFalse);
     await revealPin(tester);
     await tester.enterText(find.byType(AppTextField), '9999');
     await submit(tester, 'Unlock');
@@ -233,14 +328,97 @@ void main() {
     expect(builds, 1);
     expect(find.text('Private content'), findsOneWidget);
     expect(find.text('Opening KuraKu, Please wait...'), findsNothing);
+    expect(libraryInitializations, 1);
+    expect(Get.isRegistered<StandalonePlayerController>(), isFalse);
+    expect(Overlayment.count, 0);
+    expect(playlistClosed, isTrue);
+    await playlist;
+    expect(Get.context, isNotNull);
+    expect(Get.key.currentState, isNotNull);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpWidget(gate());
     await tester.pumpAndSettle();
-    expect(find.text('Flutter Demo Home Page'), findsOneWidget);
-    expect(find.text('0'), findsOneWidget);
+    expect(find.byType(StandalonePlayerView), findsOneWidget);
+    expect(find.text('Open files'), findsOneWidget);
+    expect(libraryInitializations, 1);
     expect(find.byType(AppTextField), findsNothing);
     expect(find.text('Private content'), findsNothing);
     expect(builds, 1);
+    final closeCalls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('window_manager'), (call) async { closeCalls.add(call); return null; },
+    );
+    final listener = tester.state(find.byType(AppPinGate)) as WindowListener;
+    listener.onWindowClose();
+    listener.onWindowClose();
+    await tester.pumpAndSettle();
+    expect(Get.isRegistered<StandalonePlayerController>(), isFalse);
+    expect(closeCalls.map((call) => call.method), ['setPreventClose', 'close']);
+    expect(closeCalls.first.arguments, {'isPreventClose': false});
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('window_manager'), null,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('locked player can rebuild while shutdown is pending', (tester) async {
+    await tester.runAsync(() => AppPref.setAppPin('1234'));
+    final player = Get.put<StandalonePlayerController>(_SlowPlayer(), permanent: true) as _SlowPlayer;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('window_manager'), (_) async => null,
+    );
+    try {
+      await tester.pumpWidget(const AppPinGate(child: Text('Private content')));
+      await tester.pumpAndSettle();
+      final listener = tester.state(find.byType(AppPinGate)) as WindowListener;
+      listener.onWindowClose();
+      await tester.pump();
+      expect(Get.isRegistered<StandalonePlayerController>(), isFalse);
+      final reassembly = tester.binding.reassembleApplication();
+      await tester.pump();
+      await reassembly;
+      expect(tester.takeException(), isNull);
+      expect(find.text('Private content'), findsNothing);
+    } finally {
+      player.releasing.complete();
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox.shrink());
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('window_manager'), null,
+      );
+    }
+  });
+
+  testWidgets('closing during PIN verification never initializes the library', (tester) async {
+    await tester.runAsync(() => AppPref.setAppPin('1234'));
+    var libraryInitializations = 0;
+    final closeCalls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('window_manager'), (call) async { closeCalls.add(call); return null; },
+    );
+    addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('window_manager'), null,
+    ));
+    await tester.pumpWidget(AppPinGate(child: AppStartup(
+      initialize: () async { libraryInitializations++; },
+      child: GetMaterialApp(home: const Text('Private content')),
+    )));
+    await tester.pumpAndSettle();
+    await revealPin(tester);
+    await tester.enterText(find.byType(AppTextField), '1234');
+    final action = tester.widget<AppDialogAction>(find.widgetWithText(AppDialogAction, 'Unlock'));
+    final listener = tester.state(find.byType(AppPinGate)) as WindowListener;
+    await tester.runAsync(() async {
+      final pending = (action.onPressed! as Future<void> Function())();
+      listener.onWindowClose();
+      listener.onWindowEnterFullScreen();
+      await pending;
+    });
+    await tester.pumpAndSettle();
+    expect(libraryInitializations, 0);
+    expect(find.text('Private content'), findsNothing);
+    expect(closeCalls.map((call) => call.method), ['setPreventClose', 'close']);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });

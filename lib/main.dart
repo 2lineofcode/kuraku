@@ -51,7 +51,10 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(AppStartup(
     initialize: _initializeApp,
-    child: const AppPinGate(child: Kuraku()),
+    child: AppPinGate(child: AppStartup(
+      initialize: _initializeLibrary,
+      child: const Kuraku(),
+    )),
   ));
 }
 
@@ -66,10 +69,14 @@ Future<void> _initializeApp() async {
   await hotKeyManager.unregisterAll();
   await Get.putAsync(() => settings.init(), permanent: true);
   AppLog.logD('Startup settings ready: ${sw.elapsedMilliseconds}ms');
+}
+
+Future<void> _initializeLibrary() async {
+  final settings = Get.find<AppSettingService>();
   final database = await Get.putAsync(() => DBService().init(), permanent: true);
   await AppBackup.applyPending(settings.appPath, database.dbMain, settings.pref);
   await DBSearchSite.load(database.dbMain);
-  AppLog.logD('Startup dependencies ready: ${sw.elapsedMilliseconds}ms');
+  AppLog.logD('Library dependencies ready');
 }
 
 Future<void> _initializeHotkeys() async {
