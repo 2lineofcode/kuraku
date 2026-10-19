@@ -15,6 +15,7 @@ import 'package:path/path.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../../core/app_translations.dart';
+import '../../data/database/standalone_player_history.dart';
 import '../../data/models/videos_entity.dart';
 import '../../utils/helper_file_picker.dart';
 import '../../utils/helper_misc.dart';
@@ -44,6 +45,12 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
   double _appliedVideoZoom = 1;
   final isPlayerVisible = false.obs;
   final isDropHovering = false.obs;
+  final recentFiles = <StandaloneRecent>[].obs;
+  final recentError = false.obs;
+  StandalonePlayerHistory? _history;
+  Future<void> _recentOperations = Future.value();
+  Timer? _recentTimer;
+  String? _historyPath;
 
   final position = Duration.zero.obs;
   final duration = Duration.zero.obs;
@@ -75,6 +82,48 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
     super.onInit();
     infoAnimationController = AnimationController(vsync: this, duration: 1.seconds, reverseDuration: 200.milliseconds);
     change(currentVideo.value, status: RxStatus.loading());
+    if (Get.isRegistered<StandalonePlayerHistory>()) {
+      _history = Get.find<StandalonePlayerHistory>();
+      unawaited(refreshRecent());
+      _recentTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+        if (!_openingVideo && isPlaying.value) unawaited(_saveRecent());
+      });
+    }
+  }
+
+  Future<void> _updateRecent(Future<void> Function(StandalonePlayerHistory) action) {
+    final history = _history;
+    if (history == null) return Future.value();
+    return _recentOperations = _recentOperations.then((_) async {
+      try {
+        await action(history);
+        final files = await history.getAll();
+        if (!isClosed) { recentFiles.assignAll(files); recentError.value = false; }
+      } catch (e) {
+        debugPrint('Standalone recent files unavailable: $e');
+        if (!isClosed) recentError.value = true;
+      }
+    });
+  }
+
+  Future<void> refreshRecent() => _updateRecent((_) async {});
+
+  Future<void> removeRecent([String? path]) => _updateRecent((history) => history.remove(path));
+
+  Future<void> _saveRecent({bool completed = false}) {
+    final path = _historyPath;
+    if (path == null) return _recentOperations;
+    final end = duration.value;
+    final finished = completed || end > Duration.zero && position.value >= end - const Duration(seconds: 3);
+    final item = StandaloneRecent(path: path, position: finished ? Duration.zero : position.value, duration: end);
+    return _updateRecent((history) => history.save(item));
+  }
+
+  Future<void> openRecent(StandaloneRecent item) async {
+    if (isClosed || _shutdown != null || _openingVideo) return;
+    final revision = _playbackRevision;
+    final video = await _createDroppedVideo(item.path);
+    if (video != null && _isCurrentPlayback(revision)) await startPlayback(video, resumeFrom: item.position);
   }
 
   Future<void> initializePlayer() async {
@@ -124,7 +173,7 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
     await applyAudioNormalization(enabled: isAudioNormalizationEnabled.value);
   }
 
-  Future<bool> startPlayback(Videos video, {List<Videos>? playlist}) async {
+  Future<bool> startPlayback(Videos video, {List<Videos>? playlist, Duration resumeFrom = Duration.zero}) async {
     if (isClosed || _shutdown != null) return false;
 
     final path = video.videoPath;
@@ -145,7 +194,9 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
       }
       await (_playerInitialization ??= initializePlayer());
       if (!_isCurrentPlayback(revision)) return false;
-      if (!await _openVideo(video, revision) || !_isCurrentPlayback(revision)) return false;
+      await _saveRecent();
+      if (!_isCurrentPlayback(revision)) return false;
+      if (!await _openVideo(video, revision, resumeFrom: resumeFrom) || !_isCurrentPlayback(revision)) return false;
       _externalPlaylist = playlist;
       currentVideo.value = video;
 
@@ -155,7 +206,9 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
       isPlayerVisible.value = true;
       change(video, status: RxStatus.success());
       requestFocusOnPlayer();
-      return true;
+      _historyPath = path;
+      await _saveRecent();
+      return _isCurrentPlayback(revision);
     } catch (e) {
       debugPrint('Failed to start playback: $e');
       if (_shutdown == null) await HelperToast.error('Failed to load video: @{e}'.trNamed({'e': '$e'}), addToAppLog: false);
@@ -167,6 +220,8 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
 
   Future<void> stopPlayback() async {
     _playbackRevision++;
+    final saving = _saveRecent();
+    _historyPath = null;
     playlist.clear();
     _externalPlaylist = null;
     currentVideo.value = Videos();
@@ -177,6 +232,7 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
     change(currentVideo.value, status: RxStatus.loading());
     try { await player.stop(); }
     catch (_) {}
+    await saving;
   }
 
   void onDropEnter(DropEvent event) => isDropHovering.value = true;
@@ -408,6 +464,7 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
     _subscriptions.add(player.stream.duration.listen((value) => duration.value = value));
     _subscriptions.add(player.stream.playing.listen((value) {
       isPlaying.value = value;
+      if (!value && !_openingVideo && _shutdown == null) unawaited(_saveRecent());
     }));
     _subscriptions.add(player.stream.buffering.listen((value) {
       isBuffering.value = value;
@@ -441,9 +498,10 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
     }));
 
     _subscriptions.add(player.stream.completed.listen((value) async {
-      if (value != true || _isAutoAdvancing) return;
+      if (value != true || _isAutoAdvancing || _shutdown != null) return;
       _isAutoAdvancing = true;
       isPlaying.value = false;
+      await _saveRecent(completed: true);
       try {
         if (currentIndexPlaying.value >= 0 && currentIndexPlaying.value + 1 < playlist.length) await nextVideo();
       } finally {
@@ -468,7 +526,7 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
     return isNoAudio;
   }
 
-  Future<bool> _openVideo(Videos video, int revision) async {
+  Future<bool> _openVideo(Videos video, int revision, {Duration resumeFrom = Duration.zero}) async {
     final path = video.videoPath;
     if (path.isNullOrEmpty) {
       await HelperToast.error('Video path is null'.tr, addToAppLog: false);
@@ -483,14 +541,15 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
     }
 
     try {
+      _historyPath = null;
       isInitialized.value = false;
-      position.value = Duration.zero;
+      position.value = resumeFrom;
       duration.value = Duration.zero;
       await setVideoZoom(1);
       if (!_isCurrentPlayback(revision)) return false;
 
       await player.open(
-        Media(Uri.file(path).toString()),
+        Media(Uri.file(path).toString(), start: resumeFrom),
         play: true,
       );
 
@@ -863,12 +922,16 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
     _openingVideo = true;
     final revision = ++_playbackRevision;
     try {
+      await _saveRecent();
+      if (!_isCurrentPlayback(revision)) return;
       if (!await _openVideo(newVideo, revision) || !_isCurrentPlayback(revision)) return;
       currentVideo.value = newVideo;
       await generatePlaylist();
       if (!_isCurrentPlayback(revision) || !identical(currentVideo.value, newVideo)) return;
       change(newVideo, status: RxStatus.success());
       requestFocusOnPlayer();
+      _historyPath = newVideo.videoPath;
+      await _saveRecent();
     } finally {
       _openingVideo = false;
     }
@@ -946,6 +1009,8 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
   Future<void> shutdown() => _shutdown ??= _disposePlayer();
 
   Future<void> _disposePlayer() async {
+    _recentTimer?.cancel();
+    await _saveRecent();
     try {
       if (_playerInitialization != null) {
         try { await _playerInitialization; }

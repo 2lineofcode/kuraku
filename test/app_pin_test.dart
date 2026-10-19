@@ -23,6 +23,7 @@ import 'package:kuraku/app/modules/standalone_player/standalone_player_controlle
 import 'package:kuraku/app/modules/standalone_player/standalone_player_view.dart';
 import 'package:kuraku/app/modules/widgets/widgets.dart';
 import 'package:overlayment/overlayment.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:super_native_extensions/src/native/context.dart';
 import 'package:window_manager/window_manager.dart';
@@ -79,6 +80,7 @@ class _SlowPlayer extends StandalonePlayerController {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final pref = _Preferences();
+  var preventClose = false;
   setUpAll(() {
     final dropContext = MockMessageChannelContext();
     dropContext.registerMockMethodCallHandler('DropManager', (_) async => null);
@@ -108,12 +110,25 @@ void main() {
   }
   setUp(() {
     Get.testMode = true;
+    preventClose = false;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('window_manager'), (call) async {
+        if (call.method == 'setPreventClose') preventClose = call.arguments['isPreventClose'] as bool;
+        return null;
+      },
+    );
+    PackageInfo.setMockInitialValues(appName: 'KuraKu', packageName: 'kuraku', version: '1.2.3', buildNumber: '456', buildSignature: '');
     pref.values.clear();
     pref.failWrite = false;
     pref.failQueuedSave = false;
     Get.put<AppSettingService>(AppSettingService()..pref = pref);
   });
-  tearDown(() { Get.reset(); Get.clearTranslations(); Get.locale = null; Get.fallbackLocale = null; });
+  tearDown(() {
+    Get.reset(); Get.clearTranslations(); Get.locale = null; Get.fallbackLocale = null;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('window_manager'), null,
+    );
+  });
 
   Future<void> revealPin(WidgetTester tester, {bool meta = true, bool alt = true}) async {
     if (meta) await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
@@ -217,7 +232,10 @@ void main() {
     var builds = 0;
     var libraryInitializations = 0;
     Widget gate() => AppPinGate(child: AppStartup(
-      initialize: () async { libraryInitializations++; },
+      initialize: () async {
+        expect(preventClose, isFalse, reason: 'Library startup must remain closable before its own listener is ready');
+        libraryInitializations++;
+      },
       child: Builder(builder: (_) {
         builds++;
         return GetMaterialApp(home: const Text('Private content'));
@@ -258,7 +276,17 @@ void main() {
     expect(Get.isRegistered<PlayerController>(), isFalse);
     expect(find.byType(AppTextField), findsNothing);
     expect(find.textContaining('PIN'), findsNothing);
-    expect(find.textContaining('KuraKu'), findsNothing);
+    expect(find.text('KuraKu'), findsOneWidget);
+    expect(find.text('v1.2.3+456'), findsOneWidget);
+    expect(tester.widget<Image>(find.byType(Image)).image, isA<AssetImage>()
+      .having((image) => image.assetName, 'assetName', 'assets/app_icon.png'));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(360, 480));
+    await tester.pumpAndSettle();
+    expect(find.text('Open files').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.binding.setSurfaceSize(null);
+    await tester.pumpAndSettle();
     unawaited(Get.to(() => const Scaffold(body: Focus(autofocus: true, child: Text('Player overlay')))));
     await tester.pumpAndSettle();
     expect(find.text('Player overlay'), findsOneWidget);
@@ -365,8 +393,9 @@ void main() {
   testWidgets('locked player can rebuild while shutdown is pending', (tester) async {
     await tester.runAsync(() => AppPref.setAppPin('1234'));
     final player = Get.put<StandalonePlayerController>(_SlowPlayer(), permanent: true) as _SlowPlayer;
+    final closeCalls = <MethodCall>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('window_manager'), (_) async => null,
+      const MethodChannel('window_manager'), (call) async { closeCalls.add(call); return null; },
     );
     try {
       await tester.pumpWidget(const AppPinGate(child: Text('Private content')));
@@ -374,6 +403,8 @@ void main() {
       final listener = tester.state(find.byType(AppPinGate)) as WindowListener;
       listener.onWindowClose();
       await tester.pump();
+      expect(closeCalls.map((call) => call.method), ['setPreventClose']);
+      expect(closeCalls.single.arguments, {'isPreventClose': true});
       expect(Get.isRegistered<StandalonePlayerController>(), isFalse);
       final reassembly = tester.binding.reassembleApplication();
       await tester.pump();
@@ -383,6 +414,8 @@ void main() {
     } finally {
       player.releasing.complete();
       await tester.pumpAndSettle();
+      expect(closeCalls.map((call) => call.method), ['setPreventClose', 'setPreventClose', 'close']);
+      expect(closeCalls[1].arguments, {'isPreventClose': false});
       await tester.pumpWidget(const SizedBox.shrink());
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
         const MethodChannel('window_manager'), null,
@@ -418,7 +451,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(libraryInitializations, 0);
     expect(find.text('Private content'), findsNothing);
-    expect(closeCalls.map((call) => call.method), ['setPreventClose', 'close']);
+    expect(closeCalls.map((call) => call.method), ['setPreventClose', 'setPreventClose', 'close']);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });

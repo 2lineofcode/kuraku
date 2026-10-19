@@ -127,13 +127,14 @@ class AppSettingService extends GetxService {
   // ⵌ setup layout desktop
   // ────────────────────────────────────────────────────────────────
   Future<void> setupDesktop() async {
-    final idealSize = Size(746, 700);
+    // Start compact before preferences load; library startup expands the window after unlock.
+    final idealSize = Size(560, 450);
     await windowManager.ensureInitialized();
+    await windowManager.setMinimumSize(idealSize);
 
     final windowOptions = WindowOptions(
       title: AppIdentity.displayName,
       size: idealSize,
-      minimumSize: idealSize,
       titleBarStyle: Platform.isMacOS ? TitleBarStyle.hidden : TitleBarStyle.normal,
       center: true,
       backgroundColor: Colors.transparent,
@@ -142,6 +143,17 @@ class AppSettingService extends GetxService {
     await windowManager.waitUntilReadyToShow(windowOptions);
     await windowManager.show();
     await windowManager.focus();
+  }
+
+  Future<void> setupLibraryWindow() async {
+    const minimumSize = Size(746, 700);
+    final size = await windowManager.getSize();
+    await windowManager.setMinimumSize(minimumSize);
+    await windowManager.setSize(Size(
+      size.width < minimumSize.width ? minimumSize.width : size.width,
+      size.height < minimumSize.height ? minimumSize.height : size.height,
+    ));
+    await windowManager.center();
   }
 
   // ────────────────────────────────────────────────────────────────

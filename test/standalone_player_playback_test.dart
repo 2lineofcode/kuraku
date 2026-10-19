@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:kuraku/app/core/app_setting.dart';
 import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/standalone_player_history.dart';
 import 'package:kuraku/app/data/models/videos_entity.dart';
 import 'package:kuraku/app/modules/standalone_player/standalone_player_controller.dart';
 import 'package:media_kit/media_kit.dart';
@@ -15,6 +17,21 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:toastification/toastification.dart';
+
+import 'sqlite_test_database.dart';
+
+class _History extends StandalonePlayerHistory {
+  _History(this.db) : super('');
+  final SqliteTestDatabase db;
+  bool failSave = false;
+  @override
+  Future<SqliteTestDatabase> open() async => db;
+  @override
+  Future<void> save(StandaloneRecent item) async {
+    if (failSave) throw const FileSystemException('Disk full');
+    await super.save(item);
+  }
+}
 
 class _DropReader implements DataReader {
   final uri = Completer<Uri>();
@@ -135,6 +152,83 @@ void main() {
       }
     });
   }
+
+  test('standalone recents resume, save on switch and shutdown, and clear without library access', () async {
+    final db = await SqliteTestDatabase.open();
+    await StandalonePlayerHistory.createTable(db);
+    final history = _History(db);
+    Get.put<StandalonePlayerHistory>(history);
+    final first = video('recent #1.mp4');
+    final second = video('recent second.mkv');
+    var player = _Controller()..onStart();
+    try {
+      expect(await player.startPlayback(first, playlist: [first, second]), isTrue);
+      player.position.value = const Duration(seconds: 527);
+      player.duration.value = const Duration(hours: 2);
+      await player.stopPlayback();
+      expect(player.recentFiles.single.position, const Duration(seconds: 527));
+      await player.onClose();
+      player = _Controller()..onStart();
+      await player.refreshRecent();
+      await player.openRecent(player.recentFiles.single);
+      expect(player.fakePlayer.opened.single.start, const Duration(seconds: 527));
+      player.position.value = const Duration(minutes: 12);
+      player.duration.value = const Duration(hours: 2);
+      await player.startPlayback(second);
+      expect((await history.getAll()).singleWhere((item) => item.path == first.videoPath).position, const Duration(minutes: 12));
+      player.position.value = const Duration(minutes: 4);
+      player.duration.value = const Duration(hours: 1);
+      await player.shutdown();
+      expect((await history.getAll()).singleWhere((item) => item.path == second.videoPath).position, const Duration(minutes: 4));
+      expect(Get.isRegistered<DBService>(), isFalse);
+    } finally {
+      await player.onClose();
+      await db.close();
+    }
+  });
+
+  testWidgets('failed and missing files do not enter recents, completed videos restart, and storage errors do not stop playback', (tester) async {
+    await tester.pumpWidget(ToastificationWrapper(child: GetMaterialApp(home: const SizedBox.shrink())));
+    await tester.runAsync(() async {
+      final db = await SqliteTestDatabase.open();
+      await StandalonePlayerHistory.createTable(db);
+      final history = _History(db);
+      Get.put<StandalonePlayerHistory>(history);
+      final player = _Controller()..onStart();
+      try {
+        player.fakePlayer.failOpen = true;
+        expect(await player.startPlayback(video('broken.mp4')), isFalse);
+        expect(await history.getAll(), isEmpty);
+        player.fakePlayer.failOpen = false;
+        final item = video('finished.mp4');
+        expect(await player.startPlayback(item), isTrue);
+        player.position.value = const Duration(seconds: 119);
+        player.duration.value = const Duration(minutes: 2);
+        await player.stopPlayback();
+        expect(player.recentFiles.single.position, Duration.zero);
+        await File(item.videoPath!).delete();
+        await player.openRecent(player.recentFiles.single);
+        expect(player.isPlayerVisible.value, isFalse);
+        expect(player.fakePlayer.opened, hasLength(1));
+        history.failSave = true;
+        expect(await player.startPlayback(video('disk-full.mp4')), isTrue);
+        expect(player.recentError.value, isTrue);
+        expect(player.isPlayerVisible.value, isTrue);
+        await player.stopPlayback();
+        history.failSave = false;
+        await player.removeRecent(item.videoPath);
+        expect(player.recentFiles, isEmpty);
+        expect(player.recentError.value, isFalse);
+        expect(Get.isRegistered<DBService>(), isFalse);
+      } finally {
+        await player.onClose();
+        await db.close();
+      }
+    });
+    toastification.dismissAll(delayForAnimation: false);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+  });
 
   standaloneTest('standalone opens files and advances its playlist without a database service', () async {
     expect(Get.isRegistered<DBService>(), isFalse);
@@ -288,6 +382,16 @@ void main() {
       expect(controller.isPlayerVisible.value, isTrue);
     });
   }
+
+  standaloneTest('stop cancels a recent file whose stat is still pending', () async {
+    final item = video('pending-recent.mp4');
+    final opening = controller.openRecent(StandaloneRecent(path: item.videoPath!, position: const Duration(minutes: 5)));
+    await controller.stopPlayback();
+    await opening;
+    expect(controller.fakePlayer.opened, isEmpty);
+    expect(controller.isPlayerVisible.value, isFalse);
+    expect(controller.currentVideo.value.videoPath, isNull);
+  });
 
   standaloneTest('stop cancels a drop whose file reader is still pending', () async {
     final first = video('first.mp4');

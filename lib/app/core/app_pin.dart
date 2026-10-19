@@ -44,6 +44,7 @@ class _AppPinGateState extends State<AppPinGate> with WindowListener {
     if (!_unlocked) {
       _player = Get.put<StandalonePlayerController>(StandalonePlayerController(), permanent: true);
       windowManager.addListener(this);
+      unawaited(windowManager.setPreventClose(true));
       _lifecycle = AppLifecycleListener(onExitRequested: () async {
         if (!_unlocked) {
           _closing = true;
@@ -75,6 +76,7 @@ class _AppPinGateState extends State<AppPinGate> with WindowListener {
         await _player?.exitFullscreen();
         if (!mounted || _closing || _player?.isFullScreen.value == true) return;
         await _releasePlayer();
+        await windowManager.setPreventClose(false);
         if (mounted && !_closing) {
           _lifecycle?.dispose();
           _lifecycle = null;
