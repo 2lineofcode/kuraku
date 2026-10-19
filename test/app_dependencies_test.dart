@@ -101,7 +101,11 @@ void main() {
   });
 
   test('Downloader must actually run; a present but incompatible binary is unavailable', () async {
-    final checker = AppDependencies(run: (executable, args) async => ProcessResult(1, 1, '', 'incompatible architecture'));
+    final checker = AppDependencies(run: (executable, args) async {
+      final relative = Platform.isWindows ? 'windows-x64/kuraku.exe' : Platform.isLinux ? 'linux-x64/kuraku' : 'macos-arm64/kuraku';
+      expect(executable.replaceAll('\\', '/'), '/bundle/assets/bin/$relative');
+      return ProcessResult(1, 1, '', 'incompatible architecture');
+    });
     final result = await checker.downloader('/bundle/assets');
     expect(result.ready, isFalse);
     expect(result.detail, 'incompatible architecture');

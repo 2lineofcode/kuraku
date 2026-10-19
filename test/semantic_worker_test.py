@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-spec = importlib.util.spec_from_file_location('semantic_worker', Path(__file__).parents[1] / 'assets/visual_search_worker.py')
+spec = importlib.util.spec_from_file_location('semantic_worker', Path(__file__).parents[1] / 'assets/python/visual_search_worker.py')
 worker_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(worker_module)
 

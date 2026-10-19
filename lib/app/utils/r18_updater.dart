@@ -99,7 +99,7 @@ class R18Updater {
       report('Importing and validating R18...'.tr);
       final name = 'r18_${tag.replaceAll('-', '_')}.db';
       final output = p.join(work.path, name);
-      final result = await Process.run(python, ['-X', 'utf8', '-B', '-u', p.join(Get.find<AppSettingService>().bundledAssetsPath, 'r18_database_importer.py'), '--input', dump, '--output', output, if (local != null) '--keep-source'], stdoutEncoding: utf8, stderrEncoding: utf8);
+      final result = await Process.run(python, ['-X', 'utf8', '-B', '-u', p.join(Get.find<AppSettingService>().bundledAssetsPath, 'python', 'r18_importer.py'), '--input', dump, '--output', output, if (local != null) '--keep-source'], stdoutEncoding: utf8, stderrEncoding: utf8);
       AppLog.logI('R18 import: ${result.stdout}');
       if (result.exitCode != 0) throw ProcessException(python, [], '${result.stderr}', result.exitCode);
       if (!await File(output).exists() || await File(output).length() == 0) throw StateError('R18 importer produced no database.');

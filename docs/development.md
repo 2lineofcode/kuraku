@@ -53,7 +53,7 @@ flutter config --enable-windows-desktop
 
 Install Chrome/Chromium for website capture and yt-dlp for YouTube downloads. FFmpeg is needed for HLS downloads. Keep command-line tools on `PATH`.
 
-Downloader details: [Linux](../assets/linux-x64/README.md) · [Windows](../assets/windows-x64/README.md).
+Downloader details: [Linux](../assets/bin/linux-x64/README.md) · [Windows](../assets/bin/windows-x64/README.md).
 
 ## Run
 
@@ -115,6 +115,9 @@ git diff --check
 ```
 
 `make test` requires `TEST` (a file or directory), runs with `--concurrency=1`, and uses `nice -n 10` when available. Use `TEST=test` only when intentionally running the full suite. In Windows Git Bash, use `python -B` if Python is installed as `python`.
+
+Open the live Flutter component gallery with `make run ARGS="-t tool/ui_catalog_flutter.dart"`.
+See the [R18 query benchmark report](r18_query_benchmark.md) for historical measurements and reproduction commands using the current query test harness.
 
 ## Troubleshooting
 

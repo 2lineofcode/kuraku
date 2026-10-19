@@ -1,4 +1,4 @@
-<img src="assets/app_icon.png" width="80" alt="KuraKu app icon">
+<img src="assets/images/app_icon.png" width="80" alt="KuraKu app icon">
 
 # KuraKu 🇯🇵
 

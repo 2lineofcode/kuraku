@@ -68,7 +68,7 @@ void main() {
     final setup = await Process.run(Platform.isWindows ? 'python' : 'python3', ['-X', 'utf8', '-B', '-c',
       'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("CREATE TABLE videos (video_code TEXT)"); c.executemany("INSERT INTO videos VALUES (?)", [("TEST-001",)]*100); c.commit(); c.close()', path]);
     expect(setup.exitCode, 0);
-    final knowledge = ChatKnowledge(mainPath: path, loadScript: () => rootBundle.loadString('assets/chat_database_worker.py'));
+    final knowledge = ChatKnowledge(mainPath: path, loadScript: () => rootBundle.loadString('assets/python/chat_database_worker.py'));
     final result = await knowledge.request({'sql': 'SELECT COUNT(*) AS total FROM temp.videos'}, CancelToken());
     expect(result['rows'], [[100]]);
     final token = CancelToken();

@@ -36,7 +36,7 @@ def test_desktop_targets():
             assert (result.returncode == 0) == (target is not None), result.stderr
             if target:
                 command = f'<run>\n<-d>\n<{target}>\n' if goal == 'run' else (
-                    f'<build>\n<{target}>\n<--release>\n<--no-tree-shake-icons>\n')
+                    f'<build>\n<{target}>\n<--release>\n')
                 assert result.stdout == command + '<--release>\n<--dart-define=LABEL=hello world>\n'
             else:
                 assert ('Invalid TARGET' if override == 'invalid' else 'Unsupported OS') in result.stderr
@@ -164,7 +164,7 @@ mkdir -p "$2"
                     '1.2.3+20261008.1' if scenario == 'new_day' else '1.0.0+20261008.1')
                 assert (root / 'pubspec.yaml').read_text() == original.replace(version, expected)
                 name, number = expected.split('+')
-                assert f'build macos --release --no-tree-shake-icons --build-name={name} --build-number={number}' in calls
+                assert f'build macos --release --build-name={name} --build-number={number}' in calls
             apps.chmod(0o755)
 
         (root / 'tool').mkdir()

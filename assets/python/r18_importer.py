@@ -9,7 +9,7 @@ import datetime
 from pathlib import Path
 
 
-SCRIPT_NAME = "r18_database_importer"
+SCRIPT_NAME = "r18_importer"
 SCRIPT_VERSION = "1.4.0"
 SCRIPT_UPDATED_AT = "2026-10-06"
 
@@ -32,7 +32,7 @@ def copy_value(value):
 def create_video_codes(conn):
     if any(row[1] == 'video_code' for row in conn.execute('PRAGMA table_info(derived_video)')):
         return
-    script = Path(__file__).with_name('r18_video_code_migration.sql').read_text()
+    script = (Path(__file__).resolve().parent.parent / 'sql/r18_video_code_migration.sql').read_text()
     with conn:
         if not conn.in_transaction:
             conn.execute('BEGIN')
@@ -45,7 +45,7 @@ def create_catalog_indexes(conn):
     create_video_codes(conn)
     if conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'kuraku_catalog_groups_v2'").fetchone():
         return
-    script = Path(__file__).with_name('r18_catalog_queries.sql').read_text()
+    script = (Path(__file__).resolve().parent.parent / 'sql/r18_catalog_setup.sql').read_text()
     with conn:
         if not conn.in_transaction:
             conn.execute('BEGIN')

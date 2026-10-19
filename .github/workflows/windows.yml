@@ -66,7 +66,7 @@ jobs:
       - name: Build and package
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         run: |
-          flutter build windows --release --no-pub --no-tree-shake-icons
+          flutter build windows --release --no-pub
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./tool/package_windows.ps1
           python -B test/windows_package_test.py

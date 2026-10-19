@@ -72,13 +72,17 @@ jobs:
       - name: Build Apple Silicon app
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         run: >-
-          flutter build macos --release --no-pub --no-tree-shake-icons
+          flutter build macos --release --no-pub
           --build-name="$APP_VERSION" --build-number="$GITHUB_RUN_NUMBER"
 
       - name: Package DMG
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         run: |
           app='build/macos/Build/Products/Release/KuraKu.app'
+          assets="$app/Contents/Frameworks/App.framework/Resources/flutter_assets/assets"
+          test -f "$assets/bin/macos-arm64/kuraku"
+          test ! -e "$assets/bin/linux-x64/kuraku"
+          test ! -e "$assets/bin/windows-x64/kuraku.exe"
           codesign --verify --deep --strict "$app"
           xcrun lipo "$app/Contents/MacOS/KuraKu" -verify_arch arm64
           mkdir -p build/dmg dist

@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 
 
-converter = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'assets/r18_database_importer.py'))
+converter = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'assets/python/r18_importer.py'))
 
 
 def dump():

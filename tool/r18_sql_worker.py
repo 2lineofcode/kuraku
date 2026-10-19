@@ -13,7 +13,7 @@ if sys.argv[1] == ':memory:':
     conn.execute("INSERT INTO derived_video(content_id,dvd_id,series_id,release_date,title_en,runtime_mins,jacket_thumb_url) VALUES ('current','DEF-789',1,date('now','localtime'),'Current release',130,'current.jpg')")
     conn.execute("INSERT INTO derived_video_category VALUES ('current',2)")
     conn.execute("INSERT INTO derived_video_actress VALUES ('current',3)")
-    runpy.run_path('assets/r18_database_importer.py')['create_catalog_indexes'](conn)
+    runpy.run_path('assets/python/r18_importer.py')['create_catalog_indexes'](conn)
 else:
     conn = sqlite3.connect(Path(sys.argv[1]).resolve().as_uri() + '?mode=ro', uri=True)
 conn.row_factory = sqlite3.Row

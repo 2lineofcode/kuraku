@@ -35,7 +35,7 @@ flutter test test/r18_queries_test.dart
 
 # Preparation writes to this disposable copy.
 cp -c /path/to/r18.db /tmp/r18-benchmark.db
-python3 -B assets/r18_database_importer.py --indexes-only /tmp/r18-benchmark.db
+python3 -B assets/python/r18_importer.py --indexes-only /tmp/r18-benchmark.db
 R18_BENCHMARK_DB=/tmp/r18-benchmark.db R18_BENCHMARK_REPORT=/tmp/r18-report.json R18_BENCHMARK_RUNS=3 flutter test test/r18_queries_test.dart --reporter expanded
 ```
 

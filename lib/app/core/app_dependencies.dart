@@ -122,7 +122,7 @@ class AppDependencies {
   }
 
   Future<DependencyStatus> downloader(String assetsPath) async {
-    final executable = p.join(assetsPath, Platform.isWindows ? 'windows-x64/kuraku.exe' : Platform.isLinux ? 'linux-x64/kuraku' : 'kuraku');
+    final executable = p.join(assetsPath, 'bin', Platform.isWindows ? 'windows-x64/kuraku.exe' : Platform.isLinux ? 'linux-x64/kuraku' : 'macos-arm64/kuraku');
     var detail = '';
     try {
       final result = await _run(executable, ['--help']);

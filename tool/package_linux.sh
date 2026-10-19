@@ -13,10 +13,9 @@ mkdir -p "$package/DEBIAN" "$package/opt/kuraku" "$package/usr/bin" \
   "$package/usr/share/applications" "$package/usr/share/icons/hicolor/256x256/apps" dist
 cp -a "$bundle/." "$package/opt/kuraku/"
 # Flutter's asset copier does not preserve executable permissions.
-chmod 755 "$package/opt/kuraku/data/flutter_assets/assets/linux-x64/kuraku"
-rm -f "$package/opt/kuraku/data/flutter_assets/assets/kuraku"
+chmod 755 "$package/opt/kuraku/data/flutter_assets/assets/bin/linux-x64/kuraku"
 ln -s /opt/kuraku/kuraku "$package/usr/bin/kuraku"
-cp assets/app_icon.png "$package/usr/share/icons/hicolor/256x256/apps/app.kuraku.kuraku.png"
+cp assets/images/app_icon.png "$package/usr/share/icons/hicolor/256x256/apps/app.kuraku.kuraku.png"
 cat > "$package/DEBIAN/control" <<EOF
 Package: kuraku
 Version: $version

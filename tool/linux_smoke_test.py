@@ -10,6 +10,10 @@ import time
 def main():
     root = Path(__file__).resolve().parents[1]
     binary = root / 'build/linux/x64/release/bundle/kuraku'
+    assets = binary.parent / 'data/flutter_assets/assets'
+    assert (assets / 'bin/linux-x64/kuraku').is_file(), 'Missing Linux downloader'
+    assert not (assets / 'bin/macos-arm64/kuraku').exists(), 'macOS downloader must not be bundled'
+    assert not (assets / 'bin/windows-x64/kuraku.exe').exists(), 'Windows downloader must not be bundled'
     with tempfile.TemporaryDirectory(prefix='kuraku-linux-smoke-') as directory:
         temporary = Path(directory)
         config = temporary / 'config'

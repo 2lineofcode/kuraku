@@ -6,7 +6,7 @@ if (!$Version) {
 }
 if ($Version -notmatch '^\d+\.\d+\.\d+(\+[\d.]+)?$') { throw 'Invalid package version' }
 $bundle = 'build/windows/x64/runner/Release'
-foreach ($file in @('kuraku.exe', 'flutter_windows.dll', 'data/app.so', 'data/icudtl.dat', 'data/flutter_assets/assets/windows-x64/kuraku.exe')) {
+foreach ($file in @('kuraku.exe', 'flutter_windows.dll', 'data/app.so', 'data/icudtl.dat', 'data/flutter_assets/assets/bin/windows-x64/kuraku.exe')) {
     if (!(Test-Path "$bundle/$file")) { throw "Missing bundle file: $file" }
 }
 if (!(Get-ChildItem $bundle -Filter '*sqlite3*.dll')) { throw 'Missing SQLite native asset' }

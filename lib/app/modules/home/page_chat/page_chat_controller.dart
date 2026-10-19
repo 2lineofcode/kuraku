@@ -17,7 +17,7 @@ import '../../../utils/chat_service.dart';
 class PageChatController extends GetxController {
   PageChatController({ChatService? api}) : api = api ?? ChatService(knowledge: ChatKnowledge(
     mainPath: Get.find<DBService>().dbMain.path, resolveR18Path: () => Get.find<DBService>().dbR18?.path,
-    loadScript: () => rootBundle.loadString('assets/chat_database_worker.py'),
+    loadScript: () => rootBundle.loadString('assets/python/chat_database_worker.py'),
   ));
   final ChatService api;
   final respondingChatId = RxnString();

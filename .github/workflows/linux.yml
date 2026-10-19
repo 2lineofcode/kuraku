@@ -70,7 +70,7 @@ jobs:
       - name: Build and package
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         run: |
-          flutter build linux --release --no-pub --no-tree-shake-icons
+          flutter build linux --release --no-pub
           bash tool/package_linux.sh
 
       - name: Check native file tracking and startup

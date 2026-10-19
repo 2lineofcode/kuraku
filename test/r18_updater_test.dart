@@ -82,7 +82,7 @@ else:
     }
     expect(await folder.list().any((entry) => entry.path.contains('.r18-update-')), isFalse);
     expect(R18Updater.busy.value, isFalse);
-    for (final asset in ['r18_database_importer.py', 'r18_video_code_migration.sql']) {
+    for (final asset in ['python/r18_importer.py', 'sql/r18_video_code_migration.sql']) {
       expect(await File('${folder.path}/$asset').exists(), isFalse);
     }
   });

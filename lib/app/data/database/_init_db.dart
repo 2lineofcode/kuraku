@@ -94,7 +94,7 @@ class DBService extends GetxService {
   static Future<void> prepareR18VideoCodes(Database db) async {
     final columns = await db.rawQuery('PRAGMA table_info(derived_video)');
     if (!columns.any((column) => column['name'] == 'video_code')) {
-      final script = await rootBundle.loadString('assets/r18_video_code_migration.sql');
+      final script = await rootBundle.loadString('assets/sql/r18_video_code_migration.sql');
       AppLog.logD('Preparing R18 video codes');
       await db.transaction((txn) async {
         for (final statement in script.split(';')) {
@@ -105,7 +105,7 @@ class DBService extends GetxService {
     }
     final prepared = await db.rawQuery("SELECT 1 FROM sqlite_master WHERE name = 'kuraku_catalog_groups_v2'");
     if (prepared.isNotEmpty) return;
-    final catalog = await rootBundle.loadString('assets/r18_catalog_queries.sql');
+    final catalog = await rootBundle.loadString('assets/sql/r18_catalog_setup.sql');
     AppLog.logD('Preparing R18 catalog queries');
     await db.transaction((txn) async {
       for (final statement in catalog.split(';')) {

@@ -52,8 +52,8 @@ app.*.map.json
 !pubspec.lock
 !macos/Podfile.lock
 *.sql
-!assets/r18_video_code_migration.sql
-!assets/r18_catalog_queries.sql
+!assets/sql/r18_video_code_migration.sql
+!assets/sql/r18_catalog_setup.sql
 !test/fixtures/r18_catalog.sql
 supabase/**
 devtools_options.yaml
@@ -67,7 +67,6 @@ env.g.dart
 *.sqlite
 *.db
 *.html
-!tool/ui_catalog.html
 scripts/
 
 test*.dart

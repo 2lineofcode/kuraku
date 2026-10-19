@@ -93,7 +93,7 @@ class ChatKnowledge {
 
   Future<Map<String, dynamic>> request(Map<String, dynamic> query, CancelToken token) async {
     if (token.isCancelled) throw token.cancelError!;
-    final script = await (loadScript?.call() ?? File('assets/chat_database_worker.py').readAsString());
+    final script = await (loadScript?.call() ?? File('assets/python/chat_database_worker.py').readAsString());
     final python = await AppDependencies.shared.requirePython();
     if (token.isCancelled) throw token.cancelError!;
     final worker = await Process.start(python, ['-X', 'utf8', '-B', '-c', script]);

@@ -11,6 +11,7 @@ def test_build_events():
     root = Path(__file__).resolve().parents[1]
     for platform in ['macos', 'linux', 'windows']:
         workflow = (root / f'.github/workflows/{platform}.yml').read_text()
+        assert '--no-tree-shake-icons' not in workflow, platform
         steps = re.split(r'^      - ', workflow.split('\n  release:', 1)[0], flags=re.M)[1:]
         build_steps = 0
         for step in steps:

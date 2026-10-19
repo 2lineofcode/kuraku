@@ -52,7 +52,7 @@ run build:
 	if [ '$@' = run ]; then \
 		exec flutter run -d "$$target" $(ARGS); \
 	else \
-		exec flutter build "$$target" --release --no-tree-shake-icons $(ARGS); \
+		exec flutter build "$$target" --release $(ARGS); \
 	fi
 
 install: ## Build and install (macOS) or package (Linux/Windows), then save the build version
@@ -107,7 +107,7 @@ install: ## Build and install (macOS) or package (Linux/Windows), then save the 
 	log 'Refresh dependencies'; \
 	flutter pub get; \
 	log "Build KuraKu for $$resolved_target"; \
-	flutter build "$$resolved_target" --release --no-tree-shake-icons --build-name="$$base_version" --build-number="$$build_number"; \
+	flutter build "$$resolved_target" --release --build-name="$$base_version" --build-number="$$build_number"; \
 	case "$$resolved_target" in \
 		macos) \
 			log 'Output: build/macos/Build/Products/Release'; \

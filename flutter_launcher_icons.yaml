@@ -1,6 +1,6 @@
 flutter_launcher_icons:
   # Shared Desktop icon; Linux installs it through tool/package_linux.sh.
-  image_path: "assets/app_icon.png"
+  image_path: "assets/images/app_icon.png"
   android: false
   ios: false
   macos:

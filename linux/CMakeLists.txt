@@ -130,6 +130,6 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
 endif()
 
 # Asset copies lose executable permissions; install the native Linux downloader explicitly.
-install(PROGRAMS "${CMAKE_CURRENT_SOURCE_DIR}/../assets/linux-x64/kuraku"
-  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}/${FLUTTER_ASSET_DIR_NAME}/assets/linux-x64"
+install(PROGRAMS "${CMAKE_CURRENT_SOURCE_DIR}/../assets/bin/linux-x64/kuraku"
+  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}/${FLUTTER_ASSET_DIR_NAME}/assets/bin/linux-x64"
   COMPONENT Runtime)

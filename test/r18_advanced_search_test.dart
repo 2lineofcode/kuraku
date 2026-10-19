@@ -121,7 +121,7 @@ if sys.argv[2] == 'true':
         ('case-series','ABC-127',5,'2026-03-01','Case variant');
     """)
     before = c.execute('SELECT count(*) FROM derived_video').fetchone()[0]
-indexer = runpy.run_path('assets/r18_database_importer.py')['create_catalog_indexes']
+indexer = runpy.run_path('assets/python/r18_importer.py')['create_catalog_indexes']
 indexer(c)
 indexer(c)
 if sys.argv[4] == 'true':

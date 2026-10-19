@@ -88,17 +88,20 @@ flutter:
     enable-macos-arm64-only: true
   uses-material-design: true
   assets:
-    - assets/app_icon.png
-    - assets/r18_database_importer.py
-    - assets/r18_video_code_migration.sql
-    - assets/r18_catalog_queries.sql
-    - assets/visual_search_worker.py
-    - assets/chat_database_worker.py
-    - assets/sql_editor_worker.py
-    - assets/kuraku
-    - assets/linux-x64/
-    - assets/windows-x64/
-    - assets/download_complete.mp3
+    - assets/images/app_icon.png
+    - assets/python/r18_importer.py
+    - assets/sql/r18_video_code_migration.sql
+    - assets/sql/r18_catalog_setup.sql
+    - assets/python/visual_search_worker.py
+    - assets/python/chat_database_worker.py
+    - assets/python/sql_editor_worker.py
+    - path: assets/bin/macos-arm64/kuraku
+      platforms: [macos]
+    - path: assets/bin/linux-x64/kuraku
+      platforms: [linux]
+    - path: assets/bin/windows-x64/kuraku.exe
+      platforms: [windows]
+    - assets/audio/download_complete.mp3
 
 get_cli:
   sub_folder: false

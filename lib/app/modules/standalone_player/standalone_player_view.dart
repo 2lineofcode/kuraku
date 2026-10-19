@@ -123,7 +123,7 @@ class _PlayerHomeState extends State<_PlayerHome> {
         constraints: const BoxConstraints(maxWidth: 680),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
-            Image.asset('assets/app_icon.png', width: 64, height: 64, excludeFromSemantics: true),
+            Image.asset('assets/images/app_icon.png', width: 64, height: 64, excludeFromSemantics: true),
             const SizedBox(width: 14),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('KuraKu', maxLines: 1, overflow: TextOverflow.ellipsis,

@@ -4,7 +4,7 @@ import sqlite3
 from pathlib import Path
 
 
-importer = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'assets/r18_database_importer.py'))
+importer = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'assets/python/r18_importer.py'))
 create_video_codes = importer['create_video_codes']
 
 

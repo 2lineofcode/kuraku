@@ -36,7 +36,7 @@ mixin LocalSemanticWorker {
   static int _epoch = 0;
   static final _pending = <int, Completer<dynamic>>{};
   static String get _root => p.join(Get.find<AppSettingService>().appPath, 'semantic_runtime');
-  static String get _script => p.join(Get.find<AppSettingService>().bundledAssetsPath, 'visual_search_worker.py');
+  static String get _script => p.join(Get.find<AppSettingService>().bundledAssetsPath, 'python', 'visual_search_worker.py');
   static String get _python => p.join(_root, 'venv', Platform.isWindows ? 'Scripts' : 'bin', Platform.isWindows ? 'python.exe' : 'python');
 
   static Future<bool> isReady() async {

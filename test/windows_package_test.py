@@ -13,7 +13,7 @@ def pe_machine(data):
 
 def main():
     root = Path(__file__).resolve().parents[1]
-    downloader = root / 'assets/windows-x64/kuraku.exe'
+    downloader = root / 'assets/bin/windows-x64/kuraku.exe'
     assert pe_machine(downloader.read_bytes()) == 0x8664, 'Downloader must be Windows x64'
     readme = (downloader.parent / 'README.md').read_text()
     assert hashlib.sha256(downloader.read_bytes()).hexdigest() in readme, 'Downloader checksum changed'
@@ -25,9 +25,11 @@ def main():
         with zipfile.ZipFile(archive) as bundle:
             assert bundle.testzip() is None
             names = bundle.namelist()
+            assert 'data/flutter_assets/assets/bin/macos-arm64/kuraku' not in names, 'macOS downloader must not be bundled'
+            assert 'data/flutter_assets/assets/bin/linux-x64/kuraku' not in names, 'Linux downloader must not be bundled'
             for name in ['kuraku.exe', 'flutter_windows.dll', 'libmpv-2.dll', 'libffmpegkit.dll',
                          'vcruntime140.dll', 'msvcp140.dll', 'data/app.so', 'data/icudtl.dat',
-                         'data/flutter_assets/assets/windows-x64/kuraku.exe']:
+                         'data/flutter_assets/assets/bin/windows-x64/kuraku.exe']:
                 assert name in names, f'Missing {name}'
             assert any('sqlite3' in name and name.endswith('.dll') for name in names)
             for name in names:

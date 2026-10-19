@@ -47,7 +47,7 @@ class HomeBinding extends Bindings {
                 query: (source, request, token) async {
                   final path = (await databaseFor(source))?.path;
                   if (path == null) throw StateError('The selected database is unavailable.'.tr);
-                  return ChatKnowledge(mainPath: path, loadScript: () => rootBundle.loadString('assets/sql_editor_worker.py')).request(request, token);
+                  return ChatKnowledge(mainPath: path, loadScript: () => rootBundle.loadString('assets/python/sql_editor_worker.py')).request(request, token);
                 }),
         permanent: true);
 

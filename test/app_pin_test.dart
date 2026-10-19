@@ -279,7 +279,7 @@ void main() {
     expect(find.text('KuraKu'), findsOneWidget);
     expect(find.text('v1.2.3+456'), findsOneWidget);
     expect(tester.widget<Image>(find.byType(Image)).image, isA<AssetImage>()
-      .having((image) => image.assetName, 'assetName', 'assets/app_icon.png'));
+      .having((image) => image.assetName, 'assetName', 'assets/images/app_icon.png'));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(360, 480));
     await tester.pumpAndSettle();

@@ -6,5 +6,5 @@ Build requirements: Go 1.27.1, Node.js/npm, GTK3 and WebKitGTK 4.1 development l
 Runtime: GTK3, WebKitGTK 4.1; Chromium/Chrome for website extraction,
 FFmpeg for HLS and yt-dlp for YouTube.
 
-The macOS binary remains at `assets/kuraku`. Linux builds restore this binary's
+The macOS binary is at `assets/bin/macos-arm64/kuraku`. Linux builds restore this binary's
 executable permission during CMake installation.

@@ -45,7 +45,7 @@ kuraku is a Flutter Desktop application for managing JAV (Japanese Adult Video) 
 ## Critical Setup Requirements
 
 - **External R18 Database**: App requires downloading external database dumps from AWS S3 on first run
-- **Python Dependencies**: Uses Python script (assets/r18_database_importer.py) to convert PostgreSQL dumps to SQLite
+- **Python Dependencies**: Uses Python script (assets/python/r18_importer.py) to convert PostgreSQL dumps to SQLite
 - **Database Detection**: App checks for r18\*.db files in app directory on startup, shows download dialog if missing
 - **Environment Configuration**: Uses enven package to generate env.g.dart from .env file
 
@@ -91,7 +91,7 @@ kuraku is a Flutter Desktop application for managing JAV (Japanese Adult Video) 
 
 - **Window Management**: Implements WindowListener for fullscreen and close events
 - **External Drive Logic**: Platform-specific detection for removable media
-- **Audio Notifications**: Plays notification sounds for download completion (assets/download_complete.mp3)
+- **Audio Notifications**: Plays notification sounds for download completion (assets/audio/download_complete.mp3)
 - **Shell Commands**: Uses process_run for executing gunzip and python scripts
 
 ## Testing Considerations
