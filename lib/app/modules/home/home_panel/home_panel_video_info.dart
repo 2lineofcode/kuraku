@@ -86,24 +86,24 @@ mixin HomePanelVideoInfo {
           autofocus: true,
           child: KeyboardListener(
             focusNode: _focusNode,
-            onKeyEvent: (event) {
+            onKeyEvent: (event) async {
               if (event is KeyDownEvent) {
                 if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                  Overlayment.dismissLast();
+                  await Overlayment.dismiss(panel);
                 }
 
                 if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                  HelperOpener.openScreenshot(video, items: source, itemIndex: index);
-                  Overlayment.dismissLast();
+                  await Overlayment.dismiss(panel);
+                  await HelperOpener.openScreenshot(video, items: source, itemIndex: index);
                 }
 
                 if (event.logicalKey == LogicalKeyboardKey.keyI) {
-                  Overlayment.dismissLast();
+                  await Overlayment.dismiss(panel);
                 }
 
                 if (event.logicalKey == LogicalKeyboardKey.period) {
-                  HelperOpener.openVideoFile(video);
-                  Overlayment.dismissLast();
+                  await Overlayment.dismiss(panel);
+                  await HelperOpener.openVideoFile(video);
                 }
               }
             },
@@ -158,9 +158,9 @@ mixin HomePanelVideoInfo {
                           decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                           child: AppIconButton(
                             icon: HugeIcon(icon: HugeIcons.strokeRoundedPlay, size: AppStyle.iconSize),
-                            onPressed: () => {
-                              Overlayment.dismissLast(),
-                              HelperOpener.openVideoFile(video),
+                            onPressed: () async {
+                              await Overlayment.dismiss(panel);
+                              await HelperOpener.openVideoFile(video);
                             },
                           ),
                         ).pOnly(right: 8).tooltip('Play'.tr),
@@ -191,7 +191,7 @@ mixin HomePanelVideoInfo {
                           decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                           child: AppIconButton(
                             icon: HugeIcon(icon: HugeIcons.strokeRoundedVideo01, size: AppStyle.iconSize),
-                            onPressed: () async => { await Overlayment.dismissLast(), await HelperOpener.openTrailer(video)}
+                            onPressed: () async => { await Overlayment.dismiss(panel), await HelperOpener.openTrailer(video)}
                           ),
                         ).pOnly(right: 8).tooltip('Trailer'.tr),
 
@@ -213,7 +213,7 @@ mixin HomePanelVideoInfo {
                               if (!isAdded) {
                                 HelperToast.info('Already in panel cart'.tr);
                               }
-                              Overlayment.dismissLast();
+                              Overlayment.dismiss(panel);
                             },
                           ),
                         ).pOnly(right: 8).tooltip('Add to Panel Cart'.tr),
@@ -240,7 +240,7 @@ mixin HomePanelVideoInfo {
                               icon: HugeIcon(icon: HugeIcons.strokeRoundedPlayListFavourite02 , size: AppStyle.iconSize),
                               tooltip: 'Add To Playlist'.tr,
                               onPressed: () async {
-                                await Overlayment.dismissLast();
+                                await Overlayment.dismiss(panel);
                                 await HomePanelPlaylist.showDialogAddToPlaylistItem([video]);
                               },
                             ),
@@ -249,7 +249,7 @@ mixin HomePanelVideoInfo {
                               icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01 , size: AppStyle.iconSize),
                               tooltip: 'Edit Metadata'.tr,
                               onPressed: () async {
-                                await Overlayment.dismissLast();
+                                await Overlayment.dismiss(panel);
                                 await HomePanelMetadata.open(video);
                               },
                             ),
@@ -269,7 +269,7 @@ mixin HomePanelVideoInfo {
                                     .minFontSize(11)
                                     .make()
                                     .tooltip(video.actress?[i].nameRomaji == '' ? '${KanaKit().toRomaji(video.actress?[i].nameKana ?? '')}' : '')
-                                    .onInkTap(() async => await _onItemActressClick(video, i))
+                                    .onInkTap(() async => await _onItemActressClick(video, i, panel))
                                     .pOnly(right: 8),
                               ],
                             ]).pOnly(bottom: 16),
@@ -281,7 +281,7 @@ mixin HomePanelVideoInfo {
                             Wrap(children: [
                               for (int i = 0; i < video.category!.length; i++) ...[
                                 '${HelperDecensor.decensor(video.category?[i].category)}'.text.color(AppColor.muted).underline.size(11).minFontSize(11).make().onInkTap(() async {
-                                  await _onItemCategoryClick(video, i);
+                                  await _onItemCategoryClick(video, i, panel);
                                 }).pOnly(right: 8)
 
                               ],
@@ -292,7 +292,7 @@ mixin HomePanelVideoInfo {
                           if (!video.series.isEmptyOrNull) ...[
                             'Series:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${HelperDecensor.decensor(video.series)}'.text.underline.color(AppColor.muted).size(11).minFontSize(11).make().onInkTap(() async {
-                              await _onItemSeriesClick(video);
+                              await _onItemSeriesClick(video, panel);
                             }).pOnly(bottom: 16)
                           ],
 
@@ -312,7 +312,7 @@ mixin HomePanelVideoInfo {
                           if (!video.label.isEmptyOrNull) ...[
                             'Label:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.label}'.text.color(AppColor.muted).underline.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() {
-                              _onItemLabelClick(video);
+                              _onItemLabelClick(video, panel);
                             }),
                           ],
 
@@ -320,7 +320,7 @@ mixin HomePanelVideoInfo {
                           if (!video.studio.isEmptyOrNull) ...[
                             'Studio:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.studio}'.text.color(AppColor.muted).underline.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() {
-                              _onItemStudioClick(video);
+                              _onItemStudioClick(video, panel);
                             }),
                           ],
 
@@ -328,7 +328,7 @@ mixin HomePanelVideoInfo {
                           if (!video.director.isEmptyOrNull) ...[
                             'Director:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                             '${video.director}'.text.color(AppColor.muted).underline.size(11).minFontSize(11).make().pOnly(bottom: 16).onInkTap(() {
-                              _onItemDirectorClick(video);
+                              _onItemDirectorClick(video, panel);
                             }),
                           ],
 
@@ -367,7 +367,7 @@ mixin HomePanelVideoInfo {
                           // Path
                           'Path:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
                           '${video.videoPath?.getLastSegments()}'.text.color(AppColor.muted).ellipsis.size(11).minFontSize(11).make().color(AppColor.hover).onInkTap(() async {
-                            await _onItemVideoPathClick(video);
+                            await _onItemVideoPathClick(video, panel);
                           }).tooltip(video.videoPath ?? ''),
 
                           // added
@@ -399,67 +399,67 @@ mixin HomePanelVideoInfo {
   static String _actressName(VideoActress actress) => [actress.nameRomaji, actress.nameKana, actress.nameKanji]
     .firstWhereOrNull((name) => name != null && name.trim().isNotEmpty)?.trim() ?? '';
 
-  static Future<void> _onItemActressClick(Videos video, int index) async {
+  static Future<void> _onItemActressClick(Videos video, int index, OverPanel panel) async {
     final newTab = PageExploreController.isNewTabModifierPressed;
     final name = _actressName(video.actress![index]);
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
     await exploreC.openSelection(kActress, name, newTab: newTab);
-    await Overlayment.dismissLast();
+    await Overlayment.dismiss(panel);
   }
 
-  static Future<void> _onItemCategoryClick(Videos video, int index) async {
+  static Future<void> _onItemCategoryClick(Videos video, int index, OverPanel panel) async {
     final newTab = PageExploreController.isNewTabModifierPressed;
     final name = '${video.category?[index].category}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
     await exploreC.openSelection(kCategory, name, newTab: newTab);
-    await Overlayment.dismissLast();
+    await Overlayment.dismiss(panel);
   }
 
-  static Future<void> _onItemSeriesClick(Videos video) async {
+  static Future<void> _onItemSeriesClick(Videos video, OverPanel panel) async {
     final newTab = PageExploreController.isNewTabModifierPressed;
     final name = '${video.series}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
     await exploreC.openSelection(kSeries, name, newTab: newTab);
-    await Overlayment.dismissLast();
+    await Overlayment.dismiss(panel);
   }
 
-  static Future<void> _onItemLabelClick(Videos video) async {
+  static Future<void> _onItemLabelClick(Videos video, OverPanel panel) async {
     final newTab = PageExploreController.isNewTabModifierPressed;
     final name = '${video.label}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
     await exploreC.openSelection(kLabel, name, newTab: newTab);
-    await Overlayment.dismissLast();
+    await Overlayment.dismiss(panel);
   }
 
-  static Future<void> _onItemStudioClick(Videos video) async {
+  static Future<void> _onItemStudioClick(Videos video, OverPanel panel) async {
     final newTab = PageExploreController.isNewTabModifierPressed;
     final name = '${video.studio}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
     await exploreC.openSelection(kStudio, name, newTab: newTab);
-    await Overlayment.dismissLast();
+    await Overlayment.dismiss(panel);
   }
 
-  static Future<void> _onItemDirectorClick(Videos video) async {
+  static Future<void> _onItemDirectorClick(Videos video, OverPanel panel) async {
     final newTab = PageExploreController.isNewTabModifierPressed;
     final name = '${video.director}';
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
     await exploreC.openSelection(kDirector, name, newTab: newTab);
-    await Overlayment.dismissLast();
+    await Overlayment.dismiss(panel);
   }
 
-  static Future<void> _onItemVideoPathClick(Videos video) async {
+  static Future<void> _onItemVideoPathClick(Videos video, OverPanel panel) async {
     final newTab = PageExploreController.isNewTabModifierPressed;
     final directory = p.dirname(video.videoPath ?? '');
     await Get.find<HomeController>().onMenuChange(kMenuExplore);
     final exploreC = Get.find<PageExploreController>();
     await exploreC.openSelection(kPath, directory, newTab: newTab);
-    await Overlayment.dismissLast();
+    await Overlayment.dismiss(panel);
   }
 
   static Future<List<String>> _getMediaInfo(String path) async {

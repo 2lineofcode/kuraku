@@ -17,6 +17,7 @@ import 'package:kuraku/app/modules/home/home_panel/home_panel_video_info.dart';
 import 'package:kuraku/app/modules/home/page_explore/page_explore_controller.dart';
 import 'package:kuraku/app/modules/home/page_home/page_home_controller.dart';
 import 'package:kuraku/app/modules/home/page_search/page_search_controller.dart';
+import 'package:kuraku/app/modules/widgets/widget_screenshot_viewer.dart';
 import 'package:kuraku/app/modules/widgets/widget_thumbnail.dart';
 import 'package:kuraku/app/utils/helper_loading.dart';
 import 'package:kuraku/app/utils/helper_opener.dart';
@@ -307,6 +308,21 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.keyI);
     await tester.pumpAndSettle();
     expect(Overlayment.count, 0);
+    await cleanup(tester);
+  });
+
+  testWidgets('the up arrow replaces Info with screenshots without dismissing the pending loader', (tester) async {
+    await pump(tester);
+    unawaited(HomePanelVideoInfo.open(_video()));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('# Metadata'), findsNothing);
+    expect(find.byType(ScreenshotViewer), findsOneWidget);
+    expect(Overlayment.count, 1);
     await cleanup(tester);
   });
 

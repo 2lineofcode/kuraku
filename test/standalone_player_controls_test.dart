@@ -282,7 +282,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('Video clicks toggle controls while mouse hover and playback actions still work', (tester) async {
+  testWidgets('Video clicks toggle controls without mouse hover revealing them', (tester) async {
     addTearDown(tester.view.reset);
     controller.infoAnimationController = AnimationController(vsync: tester);
     addTearDown(controller.infoAnimationController.dispose);
@@ -299,12 +299,23 @@ void main() {
     }
     await mouse.moveTo(const Offset(390, 250));
     await tester.pumpAndSettle();
+    expect(find.byTooltip('Play (Space)').hitTestable(), findsNothing);
+    await mouse.moveTo(const Offset(-10, -10));
+    await mouse.moveTo(const Offset(390, 250));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Play (Space)').hitTestable(), findsNothing);
+    await mouse.down(const Offset(390, 250));
+    await mouse.up();
+    await tester.pumpAndSettle();
     expect(find.byTooltip('Play (Space)').hitTestable(), findsOneWidget);
     await tester.tap(find.byTooltip('Play (Space)'));
     await tester.pumpAndSettle();
     expect(controller.isPlaying.value, isTrue);
     expect(find.byTooltip('Pause (Space)').hitTestable(), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Pause (Space)').hitTestable(), findsNothing);
+    await mouse.moveTo(const Offset(400, 250));
     await tester.pumpAndSettle();
     expect(find.byTooltip('Pause (Space)').hitTestable(), findsNothing);
     await mouse.down(const Offset(390, 250));
@@ -344,6 +355,13 @@ void main() {
     final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
     await mouse.addPointer(location: const Offset(380, 250));
     await mouse.moveTo(const Offset(390, 250));
+    for (var i = 0; i < 2; i++) {
+      await mouse.down(const Offset(390, 250));
+      await mouse.up();
+      await tester.pumpAndSettle();
+      expect(controller.showPlaybackControls.value, isFalse);
+      expect(find.byTooltip('Play (Space)').hitTestable(), findsNothing);
+    }
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
     await tester.pumpAndSettle();

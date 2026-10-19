@@ -130,7 +130,11 @@ void main() {
             expect(tester.getSize(theme).width, lessThanOrEqualTo(320));
           }
           expect(find.text('1.2.3+20261008.60'), findsOneWidget);
-          expect(find.text('Check for Updates'.tr), findsOneWidget);
+          final checkUpdate = find.byTooltip('Check for Updates'.tr);
+          expect(checkUpdate, findsOneWidget);
+          expect(find.text('Check for Updates'.tr), findsNothing);
+          expect(tester.getCenter(find.text('Version'.tr)).dy, closeTo(tester.getCenter(checkUpdate).dy, 1));
+          expect(tester.getCenter(find.text('1.2.3+20261008.60')).dy, closeTo(tester.getCenter(checkUpdate).dy, 1));
           expect(find.text('Total Albums'.tr), findsOneWidget);
           expect(find.text('Total Images'.tr), findsOneWidget);
           expect(find.text('112'), findsOneWidget);
@@ -150,13 +154,15 @@ void main() {
     await tester.pumpAndSettle();
     controller.appUpdateChecking.value = true;
     await tester.pump();
-    expect(tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Checking for updates...'.tr)).onPressed, isNull);
+    final checking = find.byTooltip('Checking for updates...'.tr);
+    expect(tester.widget<IconButton>(find.ancestor(of: checking, matching: find.byType(IconButton))).onPressed, isNull);
+    expect(find.descendant(of: checking, matching: find.byType(CupertinoActivityIndicator)), findsOneWidget);
     controller.appUpdateChecking.value = false;
     controller.appUpdateError.value = true;
     controller.appUpdateStatus.value = 'The update check timed out. Please try again.'.tr;
     await tester.pumpAndSettle();
     expect(find.text('The update check timed out. Please try again.'.tr), findsOneWidget);
-    await tester.tap(find.text('Check for Updates'.tr));
+    await tester.tap(find.byTooltip('Check for Updates'.tr));
     expect(controller.updateChecks, 1);
     await tester.tap(find.byWidgetPredicate((widget) => widget is Switch && widget.key != const ValueKey('app-pin-switch')));
     await tester.pumpAndSettle();

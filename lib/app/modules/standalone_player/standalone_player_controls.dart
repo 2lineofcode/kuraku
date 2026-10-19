@@ -1349,7 +1349,7 @@ class _StandalonePlayerControlsState extends State<StandalonePlayerControls> wit
   }
 
   void _onPointerActivity() {
-    _showControls();
+    if (_controlsVisible) _showControls();
   }
 
   void _startHideTimer() {

@@ -1346,7 +1346,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
   }
 
   void _onPointerActivity() {
-    _showControls();
+    if (_controlsVisible) _showControls();
   }
 
   void _startHideTimer() {

@@ -120,19 +120,17 @@ class PageSettingsView extends GetView<PageSettingsController> {
             ]);
             final info = _section('Application Info'.tr, [
               Obx(() => Column(children: [
-                _infoRow('Version'.tr, controller.appVersion.value),
-                Align(alignment: Alignment.centerLeft, child: Wrap(spacing: 8, runSpacing: 6, children: [
-                  AppButton(
-                    variant: AppButtonVariant.outlined,
-                    onPressed: controller.appUpdateChecking.value ? null : controller.checkForAppUpdate,
-                    icon: controller.appUpdateChecking.value ? const SizedBox(width: 12, height: 12, child: CupertinoActivityIndicator(radius: 6)) : null,
-                    child: Text(controller.appUpdateChecking.value ? 'Checking for updates...'.tr : 'Check for Updates'.tr),
-                  ),
-                  if (controller.availableAppUpdate.value != null) AppButton(
-                    onPressed: controller.appUpdateChecking.value ? null : controller.showAppUpdate,
-                    child: Text('View update'.tr),
-                  ),
-                ])),
+                _infoRow('Version'.tr, controller.appVersion.value, trailing: AppIconButton(
+                  tooltip: controller.appUpdateChecking.value ? 'Checking for updates...'.tr : 'Check for Updates'.tr,
+                  onPressed: controller.appUpdateChecking.value ? null : controller.checkForAppUpdate,
+                  icon: controller.appUpdateChecking.value
+                    ? const CupertinoActivityIndicator(radius: 6)
+                    : const HugeIcon(icon: HugeIcons.strokeRoundedRefresh01, size: AppStyle.iconSize),
+                )),
+                if (controller.availableAppUpdate.value != null) Align(alignment: Alignment.centerLeft, child: AppButton(
+                  onPressed: controller.appUpdateChecking.value ? null : controller.showAppUpdate,
+                  child: Text('View update'.tr),
+                )),
                 if (controller.appUpdateStatus.value.isNotEmpty) Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Align(alignment: Alignment.centerLeft, child: Semantics(liveRegion: true, child: Text(
@@ -280,12 +278,13 @@ class PageSettingsView extends GetView<PageSettingsController> {
     ],
   );
 
-  Widget _infoRow(String label, String value) => Padding(
+  Widget _infoRow(String label, String value, {Widget? trailing}) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 6),
-    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    child: Row(crossAxisAlignment: trailing == null ? CrossAxisAlignment.start : CrossAxisAlignment.center, children: [
       Expanded(child: Text(label, style: TextStyle(fontSize: 11, color: AppColor.muted))),
       const SizedBox(width: 12),
       Flexible(child: Text(value, textAlign: TextAlign.right, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
+      if (trailing != null) ...[const SizedBox(width: 8), trailing],
     ]),
   );
 
