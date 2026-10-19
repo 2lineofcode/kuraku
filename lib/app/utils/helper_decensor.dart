@@ -16,12 +16,12 @@ mixin HelperDecensor {
   //  ~~~
   static String censored(String? s) {
     if (s.isNullOrEmpty) return '';
-    String result = s!;
-    _map.forEach((key, value) {
-      result = result.replaceAll(value, key);
-    });
-    return result;
+    return s!.replaceAllMapped(_censoredPattern, (match) => _censoredMap[match[0]]!);
   }
+
+  static final _censoredMap = {for (final entry in _map.entries) entry.value: entry.key};
+  static final _censoredWords = _censoredMap.keys.toList()..sort((a, b) => b.length.compareTo(a.length));
+  static final _censoredPattern = RegExp(_censoredWords.map(RegExp.escape).join('|'));
 
   static final _map = {
     'A***e': 'Abuse',

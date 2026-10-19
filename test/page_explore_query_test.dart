@@ -18,16 +18,20 @@ class _Database implements Database {
   bool failCount = false;
   Completer<List<Map<String, Object?>>>? pendingCount;
   final sizes = <Object?>[];
+  List<Object?> countArguments = [];
+  List<Object?> pageArguments = [];
 
   @override
   Future<List<Map<String, Object?>>> rawQuery(String sql, [List<Object?>? arguments]) async {
     if (sql.contains('COUNT(DISTINCT v.video_code) AS total')) {
       counts++;
+      countArguments = List.of(arguments ?? []);
       if (failCount) throw StateError('Count failed');
       return pendingCount?.future ?? [{'total': 1001}];
     }
     if (sql.contains('WITH page AS')) {
       pages++;
+      pageArguments = List.of(arguments ?? []);
       sizes.add(arguments![arguments.length - 2]);
       return List.generate(500, (i) => {'video_code': 'ABC-${i + 100}', 'release_date': '2026-01-01'});
     }
@@ -91,4 +95,19 @@ void main() {
     expect(database.counts, 2);
     expect(tab.rightListR18TotalVideo.value, 1001);
   });
+
+  for (final menu in [kCategory, kLabel, kSeries, kStudio, kDirector, kYear]) {
+    test('$menu count and list use the same selected name and cast filter', () async {
+      tab.currentMenuSelected.value = menu;
+      tab.leftListSelected.value = LeftListModel(name: menu == kYear ? ' 2026 ' : r' Shotacon \n\n ');
+      for (final mode in ActressMode.values) {
+        tab.actressMode.value = mode;
+        await tab.onSectionR18Tap();
+        expect(database.countArguments, isNotEmpty);
+        expect(database.pageArguments.sublist(0, database.pageArguments.length - 2), database.countArguments);
+        expect(tab.rightListR18TotalVideo.value, 1001);
+        expect(database.pages, mode.index + 1);
+      }
+    });
+  }
 }

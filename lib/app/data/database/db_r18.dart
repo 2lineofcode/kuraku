@@ -741,6 +741,18 @@ mixin DBR18 {
     ORDER BY page.release_date DESC, v.video_code
   ''', args);
 
+  static ({String sql, List<Object?> args}) _catalogNameFilter(String name, List<String> columns, {bool like = false}) {
+    final normalized = name.replaceAll(r'\n', '\n').replaceAll(r'\r', '\r').replaceAll(r'\t', '\t').trim();
+    if (normalized.isEmpty) return (sql: '0', args: []);
+    // SQLite's default TRIM only removes ASCII spaces; match Dart's Unicode trim.
+    const whitespace = 'CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288, 65279)';
+    final comparisons = columns.map((column) {
+      final value = "TRIM(REPLACE(REPLACE(REPLACE($column, '\\n', CHAR(10)), '\\r', CHAR(13)), '\\t', CHAR(9)), $whitespace)";
+      return '$value ${like ? 'LIKE' : '='} ?';
+    });
+    return (sql: '(${comparisons.join(' OR ')})', args: List<Object?>.filled(columns.length, normalized));
+  }
+
   static Future<int> getCountAllVideosByActress(int actressId, {ActressMode actressMode = ActressMode.single}) async {
     if (!_isReady()) return 0;
 
@@ -801,19 +813,18 @@ mixin DBR18 {
   static Future<int> getCountAllVideosByCategory(String categoryName, {ActressMode actressMode = ActressMode.all}) async {
     if (!_isReady()) return 0;
 
+    final nameFilter = _catalogNameFilter(categoryName, ['c.name_en', 'c.name_ja']);
     final blacklist = _buildBlacklistClause();
     final maps = await _rawQuery('''
       SELECT 
         COUNT(DISTINCT v.video_code) AS total
-      FROM derived_video_category vc 
-      JOIN derived_category c ON c.id = vc.category_id
-      JOIN derived_video v ON v.content_id = vc.content_id
+      FROM derived_video v
       WHERE 1=1
-        AND c.name_en = ?
+        AND v.content_id IN (SELECT vc.content_id FROM derived_video_category vc WHERE vc.category_id IN (SELECT c.id FROM derived_category c WHERE ${nameFilter.sql}))
         AND v.video_code IS NOT NULL
         ${blacklist['sql']}
         ${_actressModeClause(actressMode)}
-    ''', [categoryName, ...blacklist['args']]);
+    ''', [...nameFilter.args, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
@@ -825,6 +836,7 @@ mixin DBR18 {
   }) async {
     if (!_isReady()) return [];
 
+    final nameFilter = _catalogNameFilter(categoryName, ['c.name_en', 'c.name_ja']);
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
     final offset = (page - 1) * limit;
@@ -833,10 +845,8 @@ mixin DBR18 {
           v.rowid AS video_rowid,
           MAX(v.release_date) AS release_date
         FROM derived_video v
-        JOIN derived_video_category vc ON vc.content_id = v.content_id
-        JOIN derived_category c ON c.id = vc.category_id
         WHERE 1=1
-          AND c.name_en = ?
+          AND v.content_id IN (SELECT vc.content_id FROM derived_video_category vc WHERE vc.category_id IN (SELECT c.id FROM derived_category c WHERE ${nameFilter.sql}))
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
           ${_actressModeClause(actressMode)}
@@ -844,7 +854,7 @@ mixin DBR18 {
         ORDER BY
           v.release_date DESC, v.video_code
         LIMIT ? OFFSET ?
-      ''', [categoryName, ...blacklist['args'], limit, offset]);
+      ''', [...nameFilter.args, ...blacklist['args'], limit, offset]);
     return maps;
   }
 
@@ -854,18 +864,18 @@ mixin DBR18 {
   static Future<int> getCountAllVideosByLabel(String labelName, {ActressMode actressMode = ActressMode.all}) async {
     if (!_isReady()) return 0;
 
+    final nameFilter = _catalogNameFilter(labelName, ['l.name_en', 'l.name_ja']);
     final blacklist = _buildBlacklistClause();
     final maps = await _rawQuery('''
       SELECT 
         COUNT(DISTINCT v.video_code) AS total
       FROM derived_video v
-      JOIN derived_label l ON l.id = v.label_id
       WHERE 1=1
-        AND l.name_en = ?
+        AND v.label_id IN (SELECT l.id FROM derived_label l WHERE ${nameFilter.sql})
         AND v.video_code IS NOT NULL
         ${blacklist['sql']}
         ${_actressModeClause(actressMode)}
-    ''', [labelName, ...blacklist['args']]);
+    ''', [...nameFilter.args, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
@@ -877,6 +887,7 @@ mixin DBR18 {
   }) async {
     if (!_isReady()) return [];
 
+    final nameFilter = _catalogNameFilter(labelName, ['l.name_en', 'l.name_ja']);
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
     final offset = (page - 1) * limit;
@@ -885,9 +896,8 @@ mixin DBR18 {
           v.rowid AS video_rowid,
           MAX(v.release_date) AS release_date
         FROM derived_video v
-        JOIN derived_label l ON l.id = v.label_id
         WHERE 1=1
-          AND l.name_en = ?
+          AND v.label_id IN (SELECT l.id FROM derived_label l WHERE ${nameFilter.sql})
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
           ${_actressModeClause(actressMode)}
@@ -895,7 +905,7 @@ mixin DBR18 {
         ORDER BY
           v.release_date DESC, v.video_code
         LIMIT ? OFFSET ?
-      ''', [labelName, ...blacklist['args'], limit, offset]);
+      ''', [...nameFilter.args, ...blacklist['args'], limit, offset]);
     return maps;
   }
 
@@ -904,15 +914,16 @@ mixin DBR18 {
   // ────────────────────────────────────────────────────────────────
   static Future<int> getCountAllVideosBySeries(String series, {ActressMode actressMode = ActressMode.all}) async {
     if (!_isReady()) return 0;
+    final nameFilter = _catalogNameFilter(series, ['name_en', 'name_ja'], like: true);
     final blacklist = _buildBlacklistClause();
     final maps = await _rawQuery('''
       SELECT COUNT(DISTINCT v.video_code) AS total
       FROM derived_video v
-      WHERE v.series_id IN (SELECT id FROM derived_series WHERE name_en LIKE ?)
+      WHERE v.series_id IN (SELECT id FROM derived_series WHERE ${nameFilter.sql})
         AND v.video_code IS NOT NULL
         ${blacklist['sql']}
         ${_actressModeClause(actressMode)}
-    ''', [series, ...blacklist['args']]);
+    ''', [...nameFilter.args, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
@@ -924,6 +935,7 @@ mixin DBR18 {
   }) async {
     if (!_isReady()) return [];
 
+    final nameFilter = _catalogNameFilter(series, ['name_en', 'name_ja'], like: true);
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
     final offset = (page - 1) * limit;
@@ -933,7 +945,7 @@ mixin DBR18 {
           MAX(v.release_date) AS release_date
         FROM derived_video v INDEXED BY idx_dv_catalog_series
         WHERE 1=1
-          AND v.series_id IN (SELECT id FROM derived_series WHERE name_en LIKE ?)
+          AND v.series_id IN (SELECT id FROM derived_series WHERE ${nameFilter.sql})
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
           ${_actressModeClause(actressMode)}
@@ -941,7 +953,7 @@ mixin DBR18 {
         ORDER BY
           v.release_date DESC, v.video_code
         LIMIT ? OFFSET ?
-      ''', [series, ...blacklist['args'], limit, offset]);
+      ''', [...nameFilter.args, ...blacklist['args'], limit, offset]);
     return maps;
   }
 
@@ -951,18 +963,18 @@ mixin DBR18 {
   static Future<int> getCountAllVideosByStudio(String studio, {ActressMode actressMode = ActressMode.all}) async {
     if (!_isReady()) return 0;
 
+    final nameFilter = _catalogNameFilter(studio, ['m.name_en', 'm.name_ja']);
     final blacklist = _buildBlacklistClause();
     final maps = await _rawQuery('''
       SELECT 
         COUNT(DISTINCT v.video_code) AS total
       FROM derived_video v
-      JOIN derived_maker m ON m.id = v.maker_id
       WHERE 1=1
-        AND (m.name_en = ? OR m.name_ja = ?)
+        AND v.maker_id IN (SELECT m.id FROM derived_maker m WHERE ${nameFilter.sql})
         AND v.video_code IS NOT NULL
         ${blacklist['sql']}
         ${_actressModeClause(actressMode)}
-    ''', [studio, studio, ...blacklist['args']]);
+    ''', [...nameFilter.args, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
@@ -974,6 +986,7 @@ mixin DBR18 {
   }) async {
     if (!_isReady()) return [];
 
+    final nameFilter = _catalogNameFilter(studio, ['m.name_en', 'm.name_ja']);
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
     final offset = (page - 1) * limit;
@@ -982,9 +995,8 @@ mixin DBR18 {
           v.rowid AS video_rowid,
           MAX(v.release_date) AS release_date
         FROM derived_video v
-        JOIN derived_maker m ON m.id = v.maker_id
         WHERE 1=1
-          AND (m.name_en = ? OR m.name_ja = ?)
+          AND v.maker_id IN (SELECT m.id FROM derived_maker m WHERE ${nameFilter.sql})
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
           ${_actressModeClause(actressMode)}
@@ -992,7 +1004,7 @@ mixin DBR18 {
         ORDER BY
           v.release_date DESC, v.video_code
         LIMIT ? OFFSET ?
-      ''', [studio, studio, ...blacklist['args'], limit, offset]);
+      ''', [...nameFilter.args, ...blacklist['args'], limit, offset]);
     return maps;
   }
 
@@ -1002,19 +1014,19 @@ mixin DBR18 {
   static Future<int> getCountAllVideosByDirector(String director, {ActressMode actressMode = ActressMode.all}) async {
     if (!_isReady()) return 0;
 
+    final nameFilter = _catalogNameFilter(director, ['d.name_romaji', 'd.name_kana', 'd.name_kanji']);
     final blacklist = _buildBlacklistClause();
     final maps = await _rawQuery('''
       SELECT 
         COUNT(DISTINCT v.video_code) AS total
       FROM derived_video_director vd
-      JOIN derived_director d ON d.id = vd.director_id
       JOIN derived_video v ON v.content_id = vd.content_id
       WHERE 1=1
-        AND (d.name_romaji = ? OR d.name_kana = ?)
+        AND vd.director_id IN (SELECT d.id FROM derived_director d WHERE ${nameFilter.sql})
         AND v.video_code IS NOT NULL
         ${blacklist['sql']}
         ${_actressModeClause(actressMode)}
-    ''', [director, director, ...blacklist['args']]);
+    ''', [...nameFilter.args, ...blacklist['args']]);
     return maps[0]['total'] as int;
   }
 
@@ -1026,6 +1038,7 @@ mixin DBR18 {
   }) async {
     if (!_isReady()) return [];
 
+    final nameFilter = _catalogNameFilter(director, ['d.name_romaji', 'd.name_kana', 'd.name_kanji']);
     final blacklist = _buildBlacklistClause();
     final limit = perPage;
     final offset = (page - 1) * limit;
@@ -1035,9 +1048,8 @@ mixin DBR18 {
           MAX(v.release_date) AS release_date
         FROM derived_video v
         JOIN derived_video_director vd ON vd.content_id = v.content_id
-        JOIN derived_director d ON d.id = vd.director_id
         WHERE 1=1
-          AND (d.name_romaji = ? OR d.name_kana = ?)
+          AND vd.director_id IN (SELECT d.id FROM derived_director d WHERE ${nameFilter.sql})
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
           ${_actressModeClause(actressMode)}
@@ -1045,7 +1057,7 @@ mixin DBR18 {
         ORDER BY
           v.release_date DESC, v.video_code
         LIMIT ? OFFSET ?
-      ''', [director, director, ...blacklist['args'], limit, offset]);
+      ''', [...nameFilter.args, ...blacklist['args'], limit, offset]);
     return maps;
   }
 
@@ -1053,6 +1065,7 @@ mixin DBR18 {
   // ⵌ Year
   // ────────────────────────────────────────────────────────────────
   static ({String sql, List<Object?> args}) _yearFilter(String year) {
+    year = year.trim();
     if (!RegExp(r'^\d+$').hasMatch(year)) return (sql: 'v.release_date LIKE ?', args: ['$year%']);
     final next = '${year.substring(0, year.length - 1)}${String.fromCharCode(year.codeUnitAt(year.length - 1) + 1)}';
     return (sql: 'v.release_date >= ? AND v.release_date < ?', args: [year, next]);

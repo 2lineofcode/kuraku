@@ -13,6 +13,7 @@ import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
 import 'package:kuraku/app/modules/home/page_tools/page_tools_view.dart';
 import 'package:kuraku/app/modules/widgets/widget_controls.dart';
 import 'package:kuraku/app/modules/widgets/widget_title_translation.dart';
+import 'package:kuraku/app/utils/helper_decensor.dart';
 import 'package:sqflite/sqflite.dart';
 
 class _Service extends DBService {
@@ -204,6 +205,142 @@ void main() {
     Get.put<DBService>(_Service()..dbR18 = database..dbMain = database);
   });
   tearDown(Get.reset);
+
+  final nameBrowsers = [
+    ('Series', 'derived_series', ['name_en', 'name_ja'], DBR18.getAllVideosBySeries, DBR18.getCountAllVideosBySeries, ['ABC-123', 'ABC-125']),
+    ('Category', 'derived_category', ['name_en', 'name_ja'], DBR18.getAllVideosByCategory, DBR18.getCountAllVideosByCategory, ['ABC-123', 'ABC-125']),
+    ('Label', 'derived_label', ['name_en', 'name_ja'], DBR18.getAllVideosByLabel, DBR18.getCountAllVideosByLabel, ['ABC-123', 'ABC-124', 'ABC-125']),
+    ('Studio', 'derived_maker', ['name_en', 'name_ja'], DBR18.getAllVideosByStudio, DBR18.getCountAllVideosByStudio, ['ABC-123', 'ABC-124', 'ABC-125']),
+    ('Director', 'derived_director', ['name_romaji', 'name_kana', 'name_kanji'], DBR18.getAllVideosByDirector, DBR18.getCountAllVideosByDirector, ['ABC-123', 'ABC-124', 'ABC-125']),
+  ];
+
+  test('every named browse type matches all language aliases, including Japanese-only names', () async {
+    for (final (kind, table, columns, list, count, expected) in nameBrowsers) {
+      for (final column in columns) {
+        await database.rawQuery('UPDATE $table SET ${columns.map((name) => '$name = NULL').join(', ')} WHERE id = 1');
+        await database.rawQuery('UPDATE $table SET $column = ? WHERE id = 1', ['日本語の名前']);
+        for (final query in ['日本語の名前', ' \t日本語の名前\r\n']) {
+          expect((await list(query)).map((row) => row['video_code']), expected, reason: '$kind $column');
+          expect(await count(query), expected.length, reason: '$kind $column count');
+        }
+      }
+      await database.rawQuery('UPDATE $table SET ${columns.map((name) => '$name = ?').join(', ')} WHERE id = 1', columns.map((name) => 'Alias $name').toList());
+      for (final column in columns) {
+        expect((await list('Alias $column')).map((row) => row['video_code']), expected, reason: '$kind keeps simultaneous aliases');
+        expect(await count('Alias $column'), expected.length, reason: '$kind keeps simultaneous aliases count');
+      }
+    }
+  });
+
+  test('named browse count and list normalize escaped controls and outer whitespace identically', () async {
+    for (final (kind, table, columns, list, count, expected) in nameBrowsers) {
+      for (final (stored, query) in [
+        ('Name\n\n', r'Name\n\n'),
+        (r'Name\n\n', 'Name\n\n'),
+        (' \t\r\nName\r\n\t ', 'Name'),
+        ('Name', r' \t\r\nName\r\n\t '),
+        ('\u00a0\u3000Name\u202f', 'Name'),
+        ('Name', '\u3000Name\u00a0'),
+        ('Part\nOne', r'Part\nOne'),
+        (r'Part\rOne', 'Part\rOne'),
+        ('Part\tOne', r'Part\tOne'),
+        (r'Part\tOne', 'Part\tOne'),
+        ('O\'Brien', 'O\'Brien'),
+      ]) {
+        await database.rawQuery('UPDATE $table SET ${columns.first} = ? WHERE id = 1', [stored]);
+        expect((await list(query)).map((row) => row['video_code']), expected, reason: '$kind stored=$stored query=$query');
+        expect(await count(query), expected.length, reason: '$kind normalized count');
+      }
+      await database.rawQuery('UPDATE $table SET ${columns.first} = ? WHERE id = 1', [' \tName\r\n']);
+      for (final mode in ActressMode.values) {
+        final filtered = mode == ActressMode.multi ? ['ABC-123'] : mode == ActressMode.single ? expected.where((code) => code != 'ABC-123').toList() : expected;
+        expect((await list(r'Name\n', actressMode: mode)).map((row) => row['video_code']), filtered, reason: '$kind $mode');
+        expect(await count(r'Name\n', actressMode: mode), filtered.length, reason: '$kind $mode count');
+        expect((await list(r'Name\n', actressMode: mode, page: 2, perPage: 1)).map((row) => row['video_code']), filtered.skip(1).take(1), reason: '$kind $mode pagination');
+      }
+      await database.rawQuery('UPDATE $table SET ${columns.first} = ? WHERE id = 1', ['Part\nOne']);
+      expect(await list('Part One'), isEmpty, reason: '$kind preserves internal whitespace');
+      expect(await count('Part One'), 0, reason: '$kind preserves internal whitespace count');
+    }
+  });
+
+  test('blank names and SQL-like input cannot accidentally select unnamed catalog groups', () async {
+    for (final (kind, table, columns, list, count, _) in nameBrowsers) {
+      await database.rawQuery('UPDATE $table SET ${columns.map((name) => '$name = ?').join(', ')} WHERE id = 1', columns.map((_) => ' \t\r\n').toList());
+      for (final query in ['', ' \t\r\n', r' \t\r\n', '\' OR 1=1 --']) {
+        expect(await list(query), isEmpty, reason: '$kind blank or SQL-like name');
+        expect(await count(query), 0, reason: '$kind blank or SQL-like name count');
+      }
+    }
+  });
+
+  test('decensored Explore series and category names resolve the original catalog spelling', () async {
+    for (final (_, table, columns, list, count, expected) in nameBrowsers.take(2)) {
+      await database.rawQuery('UPDATE $table SET ${columns.first} = ? WHERE id = 1', ['S******n']);
+      final displayName = HelperDecensor.decensor('S******n');
+      expect(displayName, 'Shotacon');
+      final query = HelperDecensor.censored(displayName);
+      expect(query, 'S******n');
+      expect((await list(query)).map((row) => row['video_code']), expected);
+      expect(await count(query), expected.length);
+    }
+  });
+
+  test('year counts and lists trim padded input before filtering and pagination', () async {
+    for (final mode in ActressMode.values) {
+      final expected = mode == ActressMode.multi ? ['ABC-123'] : mode == ActressMode.single ? ['ABC-124'] : ['ABC-123', 'ABC-124'];
+      expect((await DBR18.getAllVideosByYear(' \t202\r\n', actressMode: mode)).map((row) => row['video_code']), expected);
+      expect(await DBR18.getCountAllVideosByYear(' \t202\r\n', actressMode: mode), expected.length);
+      expect((await DBR18.getAllVideosByYear(' 202 ', actressMode: mode, page: 2, perPage: 1)).map((row) => row['video_code']), expected.skip(1).take(1));
+    }
+  });
+
+  test('normalized catalog lookups resolve metadata once and use indexed group matches', () async {
+    final execution = _Database(includePagination: true);
+    for (final sql in [
+      'CREATE INDEX idx_derived_video_label_id ON derived_video(label_id)',
+      'CREATE INDEX idx_derived_video_maker_id ON derived_video(maker_id)',
+      'CREATE INDEX idx_dvc_category_content ON derived_video_category(category_id, content_id)',
+      'CREATE INDEX idx_dvd_director_director_id ON derived_video_director(director_id)',
+      "UPDATE derived_video SET label_id = 100 + rowid, maker_id = 100 + rowid WHERE content_id LIKE 'page-%'",
+      "UPDATE derived_video_category SET category_id = 100 + (SELECT rowid FROM derived_video WHERE derived_video.content_id = derived_video_category.content_id) WHERE content_id LIKE 'page-%'",
+      "INSERT INTO derived_video_director SELECT content_id, 100 + rowid FROM derived_video WHERE content_id LIKE 'page-%'",
+      "INSERT INTO derived_label SELECT 100 + rowid, 'Distractor', NULL FROM derived_video WHERE content_id LIKE 'page-%'",
+      "INSERT INTO derived_maker SELECT 100 + rowid, 'Distractor', NULL FROM derived_video WHERE content_id LIKE 'page-%'",
+      "INSERT INTO derived_category SELECT 100 + rowid, 'Distractor', NULL FROM derived_video WHERE content_id LIKE 'page-%'",
+      "INSERT INTO derived_director SELECT 100 + rowid, 'Distractor', NULL, NULL FROM derived_video WHERE content_id LIKE 'page-%'",
+      'ANALYZE',
+    ]) {
+      await execution.rawQuery(sql);
+    }
+    for (final (kind, _, _, list, count, expected) in nameBrowsers.skip(1)) {
+      final (alias, key) = switch (kind) {
+        'Category' => ('c', 'category_id'),
+        'Label' => ('l', 'label_id'),
+        'Studio' => ('m', 'maker_id'),
+        _ => ('d', 'director_id'),
+      };
+      var checkedQueries = 0;
+      database.run = (sql, args) async {
+        final plan = await execution.rawQuery('EXPLAIN QUERY PLAN $sql', args);
+        final details = plan.map((row) => row['detail'] as String).toList();
+        final metadata = plan.singleWhere((row) => RegExp('^(SCAN|SEARCH) $alias(?: |\$)').hasMatch(row['detail'] as String));
+        var ancestor = metadata;
+        while (ancestor['parent'] != 0 && !(ancestor['detail'] as String).startsWith('LIST SUBQUERY')) {
+          ancestor = plan.singleWhere((row) => row['id'] == ancestor['parent']);
+        }
+        expect(ancestor['detail'], startsWith('LIST SUBQUERY'), reason: '$kind must normalize metadata once: $details');
+        expect(details.any((detail) => detail.startsWith('SEARCH ') && detail.contains('USING ') && detail.contains('($key=?)')), isTrue,
+          reason: '$kind must find matching group rows through an index: $details');
+        checkedQueries++;
+        return execution.rawQuery(sql, args);
+      };
+      final query = kind == 'Category' ? 'Cast' : kind;
+      expect(await count(query), expected.length);
+      expect((await list(query, perPage: 1)).single['video_code'], expected.first);
+      expect(checkedQueries, 2);
+    }
+  });
 
   test('SQLite workers serialize queries, recover from errors and isolate fixtures', () async {
     await database.rawQuery('CREATE TEMP TABLE worker_state(value INTEGER)');

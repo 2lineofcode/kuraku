@@ -459,10 +459,10 @@ class PageExploreTab with LocalVideoSelection {
     kActress => DBR18.getCountAllVideosByActress(item.id ?? 0, actressMode: mode),
     kCategory => DBR18.getCountAllVideosByCategory(HelperDecensor.censored(item.name), actressMode: mode),
     kLabel => DBR18.getCountAllVideosByLabel(item.name ?? '', actressMode: mode),
-    kSeries => DBR18.getCountAllVideosBySeries(HelperDecensor.censored(item.name?.trim()), actressMode: mode),
-    kStudio => DBR18.getCountAllVideosByStudio(item.name?.trim() ?? '', actressMode: mode),
-    kDirector => DBR18.getCountAllVideosByDirector(item.name?.trim() ?? '', actressMode: mode),
-    kYear => DBR18.getCountAllVideosByYear(item.name?.trim() ?? '', actressMode: mode),
+    kSeries => DBR18.getCountAllVideosBySeries(HelperDecensor.censored(item.name), actressMode: mode),
+    kStudio => DBR18.getCountAllVideosByStudio(item.name ?? '', actressMode: mode),
+    kDirector => DBR18.getCountAllVideosByDirector(item.name ?? '', actressMode: mode),
+    kYear => DBR18.getCountAllVideosByYear(item.name ?? '', actressMode: mode),
     _ => Future.value(0),
   };
 
