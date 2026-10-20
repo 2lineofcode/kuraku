@@ -101,7 +101,7 @@ class _KeyboardShortcutsPanelState extends State<KeyboardShortcutsPanel> {
         ],
         'Screenshots': [
           ('← / →', 'Previous/next image'),
-          ('⌘ + ⌥ + ← / →', 'Previous/next video screenshots'),
+          ('⌥ + ← / →', 'Previous/next video screenshots'),
           ('↓ / Esc', 'Close screenshot viewer'),
         ],
         'Video info panel': [

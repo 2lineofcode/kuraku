@@ -214,6 +214,49 @@ void main() {
     ('Director', 'derived_director', ['name_romaji', 'name_kana', 'name_kanji'], DBR18.getAllVideosByDirector, DBR18.getCountAllVideosByDirector, ['ABC-123', 'ABC-124', 'ABC-125']),
   ];
 
+  test('catalog cards prefer the original DVD over later reissues before sorting and pagination', () async {
+    for (final (id, dvd, date, title) in [
+      ('gvh00502', null, '2023-01-21', 'Digital'),
+      ('gvh502', 'GVH-502', '2023-01-24', 'Original DVD'),
+      ('7gvh502', null, '2026-04-20', 'Outlet reissue'),
+    ]) {
+      await database.rawQuery('''
+        INSERT INTO derived_video(content_id, dvd_id, video_code, series_id, release_date, title_en, runtime_mins, jacket_thumb_url)
+        VALUES (?, ?, 'GVH-502', 1, ?, ?, 120, ?)
+      ''', [id, dvd, date, title, '$id.jpg']);
+      await database.rawQuery('INSERT INTO derived_video_actress VALUES (?, 1)', [id]);
+      await database.rawQuery('INSERT INTO derived_video_category VALUES (?, 1)', [id]);
+      await database.rawQuery('INSERT INTO derived_video_director VALUES (?, 1)', [id]);
+    }
+    void expectOriginal(Map<String, dynamic> row) {
+      expect(row['id'], 'gvh502');
+      expect(row['release_date'], '2023-01-24');
+      expect(row['title'], 'Original DVD');
+      expect(row['poster'], 'gvh502.jpg');
+    }
+    expectOriginal((await DBR18.getVideo('GVH-502'))!);
+    expect((await DBR18.getPosterByCodes(['GVH-502']))['GVH-502'], 'gvh502.jpg');
+    for (final (kind, _, _, list, count, _) in nameBrowsers) {
+      final name = ['Series', 'Category'].contains(kind) ? 'Cast' : kind;
+      final rows = await list(name);
+      expectOriginal(rows.singleWhere((row) => row['video_code'] == 'GVH-502'));
+      expect(await count(name), rows.length);
+      expect(rows.first['video_code'], 'ABC-123', reason: '$kind sorts by the selected release date');
+      expectOriginal((await list(name, page: 2, perPage: 1)).single);
+    }
+    expectOriginal((await DBR18.getAllVideosByActress(1, actressMode: ActressMode.all, page: 2, perPage: 1)).single);
+    expectOriginal((await DBR18.getAllVideosByYear('202', page: 2, perPage: 1)).single);
+    for (final (kind, id) in [('Series', 1), ('Category', 1), ('Actress', 1), ('Year', '2023')]) {
+      final rows = await DBR18.getAdvancedSearchVideos(kind, id);
+      expectOriginal(rows.singleWhere((row) => row['video_code'] == 'GVH-502'));
+    }
+    expectOriginal((await DBR18.search('GVH-502')).single);
+    expectOriginal((await DBR18.getByFilter(videoCode: 'GVH-502')).single);
+    final filtered = await DBR18.getByFilter(videoCode: 'GVH-502', yearStart: 2026, yearEnd: 2026);
+    expect(filtered.single['id'], '7gvh502', reason: 'variant selection must respect active filters');
+    expect(await DBR18.getByFilterCount(videoCode: 'GVH-502', yearStart: 2026, yearEnd: 2026), filtered.length);
+  });
+
   test('every named browse type matches all language aliases, including Japanese-only names', () async {
     for (final (kind, table, columns, list, count, expected) in nameBrowsers) {
       for (final column in columns) {

@@ -219,9 +219,8 @@ mixin HelperOpener {
     final _translatedTitle = HelperDecensor.decensor(video.title ?? '').obs;
 
     WidgetsBinding.instance.scheduleFrame();
-    await Overlayment.show(
-      context: Get.context,
-      OverPanel(
+    late final OverPanel panel;
+    panel = OverPanel(
         alignment: Alignment.centerRight,
         width: 300,
         backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
@@ -232,14 +231,14 @@ mixin HelperOpener {
           autofocus: true,
           child: KeyboardListener(
             focusNode: _focusNode,
-            onKeyEvent: (event) {
+            onKeyEvent: (event) async {
               if (event is KeyDownEvent) {
                 if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                  Overlayment.dismissLast();
+                  await Overlayment.dismiss(panel);
                 }
                 if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                  HelperOpener.openScreenshot(video, items: source, itemIndex: itemIndex);
-                  Overlayment.dismissLast();
+                  await Overlayment.dismiss(panel);
+                  await HelperOpener.openScreenshot(video, items: source, itemIndex: itemIndex);
                 }
               }
             },
@@ -315,7 +314,7 @@ mixin HelperOpener {
                           );
                           if (selection == null) return;
                           final method = selection.method;
-                          await Overlayment.dismissLast();
+                          await Overlayment.dismiss(panel);
 
                           final url = downloadUrlForVideo(video.videoCode ?? '', sourceUrl: item is KurakuSearchResult ? item.sourceUrl : null, searchEngine: selection.engine);
 
@@ -350,7 +349,7 @@ mixin HelperOpener {
                       decoration: ExDecorator.box(borderRadius: 4, borderColor: AppColor.border, borderWidth: 1),
                       child: AppIconButton(
                         icon: HugeIcon(icon: HugeIcons.strokeRoundedVideo01, size: AppStyle.iconSize),
-                        onPressed: () async => {await Overlayment.dismissLast(), await openTrailer(item),}
+                        onPressed: () async => {await Overlayment.dismiss(panel), await openTrailer(item),}
                       ),
                     ).pOnly(right: 8).tooltip('Trailer'.tr),
                     Spacer(),
@@ -445,7 +444,7 @@ mixin HelperOpener {
                               // ** on series clicked
                               final newTab = PageExploreController.isNewTabModifierPressed;
                               try {
-                                await Overlayment.dismissLast();
+                                await Overlayment.dismiss(panel);
                                 final check = await DBVideos.getBySeries(video.series ?? '');
                                 final name = '${HelperDecensor.decensor(video.series)}';
 
@@ -502,8 +501,9 @@ mixin HelperOpener {
             ),
           ),
         ),
-      ),
     );
+    await Overlayment.show(panel, context: Get.context);
+    _focusNode.dispose();
   }
 
   static int screenshotItemIndex(dynamic item, List<dynamic> items) {
@@ -565,25 +565,24 @@ mixin HelperOpener {
     HelperLoading.dismiss();
     final viewerKey = GlobalKey<ScreenshotViewerState>();
     WidgetsBinding.instance.scheduleFrame();
-    await Overlayment.show(
-      context: Get.context,
-      OverPanel(
-        alignment: Alignment.center,
-        width: max(Get.width * 90 / 100, 400),
-        height: max(Get.height * 80 / 100, 400),
-        backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
-        animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
-        color: AppColor.panel,
-        actions: OverlayActions(onReady: () async => viewerKey.currentState?.requestFocus()),
-        child: ScreenshotViewer(
-          key: viewerKey,
-          video: video, items: source, itemIndex: index, localFrames: localFrames,
-          loadVideo: (value) => resolveScreenshotVideo(value, localFrames: localFrames),
-          onClose: () => Overlayment.dismissLast(),
-          onWarning: (message) => HelperToast.warn(message.tr),
-        ),
+    late final OverPanel panel;
+    panel = OverPanel(
+      alignment: Alignment.center,
+      width: max(Get.width * 90 / 100, 400),
+      height: max(Get.height * 80 / 100, 400),
+      backgroundSettings: BackgroundSettings(blur: 5, color: AppColor.appBar.withAlpha(10)),
+      animation: OverFadeAnimation(reverseDurationMilliseconds: 100, durationMilliseconds: 100),
+      color: AppColor.panel,
+      actions: OverlayActions(onReady: () async => viewerKey.currentState?.requestFocus()),
+      child: ScreenshotViewer(
+        key: viewerKey,
+        video: video, items: source, itemIndex: index, localFrames: localFrames,
+        loadVideo: (value) => resolveScreenshotVideo(value, localFrames: localFrames),
+        onClose: () => Overlayment.dismiss(panel),
+        onWarning: (message) => HelperToast.warn(message.tr),
       ),
     );
+    await Overlayment.show(panel, context: Get.context);
   }
 
   static bool _isOpeningTrailer = false;

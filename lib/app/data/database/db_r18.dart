@@ -248,10 +248,10 @@ mixin DBR18 {
       SELECT v.rowid AS video_rowid, v.video_code, v.release_date
       FROM derived_video v INDEXED BY idx_dv_catalog_date
       WHERE ${search.isEmpty ? '' : '$search AND '}$where
-        AND NOT EXISTS (
-          SELECT 1 FROM derived_video newer WHERE newer.video_code = v.video_code
+        AND v.rowid = (
+          SELECT newer.rowid FROM derived_video newer WHERE newer.video_code = v.video_code
             AND ${where.replaceAll('v.', 'newer.')}
-            AND (newer.release_date > v.release_date OR (newer.release_date = v.release_date AND newer.rowid < v.rowid))
+          ORDER BY ${_preferredVideo.replaceAll('v.', 'newer.')} LIMIT 1
         )
       ORDER BY v.release_date DESC, v.video_code LIMIT ? OFFSET ?
     ), categories AS (
@@ -505,10 +505,9 @@ mixin DBR18 {
       'Series' => 'idx_dv_advanced_codes', 'Year' => 'idx_dv_advanced_year', _ => 'idx_dv_advanced_content',
     };
     final videos = await _browseQuery('''
-      SELECT v.rowid AS video_rowid, MAX(date(v.release_date)) AS release_date
+      SELECT $_browseSelection
       FROM derived_video v INDEXED BY $index ${group.join}
       WHERE $_advancedVideos AND ${group.id} = ?
-      GROUP BY v.video_code ORDER BY date(v.release_date) DESC, v.video_code
     ''', [id], ignoreEmptyTitle: true);
     final categories = await getCategoriesByVideoCodes(videos.map((video) => '${video['video_code']}').toList());
     return [for (final video in videos) {
@@ -722,8 +721,14 @@ mixin DBR18 {
     return 'AND EXISTS (SELECT 1 FROM derived_video_actress dva2 WHERE dva2.content_id = v.content_id GROUP BY dva2.content_id HAVING COUNT(DISTINCT dva2.actress_id) ${mode == ActressMode.single ? '=' : '>'} 1)';
   }
 
-  static Future<List<Map<String, dynamic>>> _browseQuery(String sql, List<Object?> args, {String extraColumns = '', bool ignoreEmptyTitle = false}) => _rawQuery('''
-    WITH page AS ($sql)
+  static const _browseSelection = 'v.rowid AS video_rowid, v.video_code, v.release_date, '
+      'ROW_NUMBER() OVER (PARTITION BY v.video_code ORDER BY $_preferredVideo) AS variant_rank';
+
+  static Future<List<Map<String, dynamic>>> _browseQuery(String sql, List<Object?> args, {String extraColumns = '', bool ignoreEmptyTitle = false, int? limit, int offset = 0}) => _rawQuery('''
+    WITH page AS (
+      SELECT * FROM ($sql) WHERE variant_rank = 1
+      ORDER BY release_date DESC, video_code ${limit == null ? '' : 'LIMIT ? OFFSET ?'}
+    )
     SELECT
       v.content_id AS id,
       v.video_code AS video_code,
@@ -739,7 +744,7 @@ mixin DBR18 {
     FROM page
     JOIN derived_video v ON v.rowid = page.video_rowid
     ORDER BY page.release_date DESC, v.video_code
-  ''', args);
+  ''', [...args, if (limit != null) ...[limit, offset]]);
 
   static ({String sql, List<Object?> args}) _catalogNameFilter(String name, List<String> columns, {bool like = false}) {
     final normalized = name.replaceAll(r'\n', '\n').replaceAll(r'\r', '\r').replaceAll(r'\t', '\t').trim();
@@ -787,8 +792,7 @@ mixin DBR18 {
     final maps = await _browseQuery('''
       SELECT
         da.id AS actress_id,
-        v.rowid AS video_rowid,
-        MAX(v.release_date) AS release_date
+        $_browseSelection
       FROM
         derived_video v
       JOIN derived_video_actress dva ON dva.content_id = v.content_id
@@ -798,12 +802,7 @@ mixin DBR18 {
         AND da.id = ?
         ${blacklist['sql']}
         ${_actressModeClause(actressMode)}
-        
-      GROUP BY v.video_code
-      ORDER BY
-        v.release_date DESC, v.video_code
-      LIMIT ? OFFSET ?
-    ''', [actressId, ...blacklist['args'], limit, offset], extraColumns: ', page.actress_id');
+    ''', [actressId, ...blacklist['args']], extraColumns: ', page.actress_id', limit: limit, offset: offset);
     return maps;
   }
 
@@ -842,19 +841,14 @@ mixin DBR18 {
     final offset = (page - 1) * limit;
     final maps = await _browseQuery('''
         SELECT
-          v.rowid AS video_rowid,
-          MAX(v.release_date) AS release_date
+          $_browseSelection
         FROM derived_video v
         WHERE 1=1
           AND v.content_id IN (SELECT vc.content_id FROM derived_video_category vc WHERE vc.category_id IN (SELECT c.id FROM derived_category c WHERE ${nameFilter.sql}))
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
           ${_actressModeClause(actressMode)}
-        GROUP BY v.video_code
-        ORDER BY
-          v.release_date DESC, v.video_code
-        LIMIT ? OFFSET ?
-      ''', [...nameFilter.args, ...blacklist['args'], limit, offset]);
+      ''', [...nameFilter.args, ...blacklist['args']], limit: limit, offset: offset);
     return maps;
   }
 
@@ -893,19 +887,14 @@ mixin DBR18 {
     final offset = (page - 1) * limit;
     final maps = await _browseQuery('''
         SELECT
-          v.rowid AS video_rowid,
-          MAX(v.release_date) AS release_date
+          $_browseSelection
         FROM derived_video v
         WHERE 1=1
           AND v.label_id IN (SELECT l.id FROM derived_label l WHERE ${nameFilter.sql})
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
           ${_actressModeClause(actressMode)}
-        GROUP BY v.video_code
-        ORDER BY
-          v.release_date DESC, v.video_code
-        LIMIT ? OFFSET ?
-      ''', [...nameFilter.args, ...blacklist['args'], limit, offset]);
+      ''', [...nameFilter.args, ...blacklist['args']], limit: limit, offset: offset);
     return maps;
   }
 
@@ -941,19 +930,14 @@ mixin DBR18 {
     final offset = (page - 1) * limit;
     final maps = await _browseQuery('''
         SELECT
-          v.rowid AS video_rowid,
-          MAX(v.release_date) AS release_date
+          $_browseSelection
         FROM derived_video v INDEXED BY idx_dv_catalog_series
         WHERE 1=1
           AND v.series_id IN (SELECT id FROM derived_series WHERE ${nameFilter.sql})
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
           ${_actressModeClause(actressMode)}
-        GROUP BY v.video_code
-        ORDER BY
-          v.release_date DESC, v.video_code
-        LIMIT ? OFFSET ?
-      ''', [...nameFilter.args, ...blacklist['args'], limit, offset]);
+      ''', [...nameFilter.args, ...blacklist['args']], limit: limit, offset: offset);
     return maps;
   }
 
@@ -992,19 +976,14 @@ mixin DBR18 {
     final offset = (page - 1) * limit;
     final maps = await _browseQuery('''
         SELECT
-          v.rowid AS video_rowid,
-          MAX(v.release_date) AS release_date
+          $_browseSelection
         FROM derived_video v
         WHERE 1=1
           AND v.maker_id IN (SELECT m.id FROM derived_maker m WHERE ${nameFilter.sql})
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
           ${_actressModeClause(actressMode)}
-        GROUP BY v.video_code
-        ORDER BY
-          v.release_date DESC, v.video_code
-        LIMIT ? OFFSET ?
-      ''', [...nameFilter.args, ...blacklist['args'], limit, offset]);
+      ''', [...nameFilter.args, ...blacklist['args']], limit: limit, offset: offset);
     return maps;
   }
 
@@ -1044,8 +1023,7 @@ mixin DBR18 {
     final offset = (page - 1) * limit;
     final maps = await _browseQuery('''
         SELECT
-          v.rowid AS video_rowid,
-          MAX(v.release_date) AS release_date
+          $_browseSelection
         FROM derived_video v
         JOIN derived_video_director vd ON vd.content_id = v.content_id
         WHERE 1=1
@@ -1053,11 +1031,7 @@ mixin DBR18 {
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
           ${_actressModeClause(actressMode)}
-        GROUP BY v.video_code
-        ORDER BY
-          v.release_date DESC, v.video_code
-        LIMIT ? OFFSET ?
-      ''', [...nameFilter.args, ...blacklist['args'], limit, offset]);
+      ''', [...nameFilter.args, ...blacklist['args']], limit: limit, offset: offset);
     return maps;
   }
 
@@ -1103,19 +1077,14 @@ mixin DBR18 {
     final offset = (page - 1) * limit;
     final maps = await _browseQuery('''
         SELECT
-          v.rowid AS video_rowid,
-          MAX(v.release_date) AS release_date
+          $_browseSelection
         FROM derived_video v
         WHERE 1=1
           AND ${yearFilter.sql}
           AND v.video_code IS NOT NULL
           ${blacklist['sql']}
           ${_actressModeClause(actressMode)}
-        GROUP BY v.video_code
-        ORDER BY
-          v.release_date DESC, v.video_code
-        LIMIT ? OFFSET ?
-      ''', [...yearFilter.args, ...blacklist['args'], limit, offset]);
+      ''', [...yearFilter.args, ...blacklist['args']], limit: limit, offset: offset);
     return maps;
   }
 

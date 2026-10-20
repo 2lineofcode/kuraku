@@ -10,7 +10,6 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:zoom_hover_pinch_image/zoom_hover_pinch_image.dart';
 
 import '../../core/app_color.dart';
-import '../../core/app_shortcut.dart';
 import '../../data/models/videos_entity.dart';
 import 'widget_media_stack.dart';
 import 'widget_style.dart';
@@ -61,6 +60,7 @@ class ScreenshotViewerState extends State<ScreenshotViewer> {
   }
 
   void _close() {
+    if (_closing) return;
     _closing = true;
     widget.onClose();
   }
@@ -124,8 +124,8 @@ class ScreenshotViewerState extends State<ScreenshotViewer> {
       bindings: {
         const SingleActivator(LogicalKeyboardKey.arrowLeft): () => _moveImage(-1),
         const SingleActivator(LogicalKeyboardKey.arrowRight): () => _moveImage(1),
-        const AppShortcut(LogicalKeyboardKey.arrowLeft, alt: true, includeRepeats: false): () => _moveItem(-1),
-        const AppShortcut(LogicalKeyboardKey.arrowRight, alt: true, includeRepeats: false): () => _moveItem(1),
+        const SingleActivator(LogicalKeyboardKey.arrowLeft, alt: true, includeRepeats: false): () => _moveItem(-1),
+        const SingleActivator(LogicalKeyboardKey.arrowRight, alt: true, includeRepeats: false): () => _moveItem(1),
         const SingleActivator(LogicalKeyboardKey.arrowDown): _close,
         const SingleActivator(LogicalKeyboardKey.escape): _close,
       },

@@ -36,6 +36,14 @@ void main() {
             await tester.tap(find.descendant(of: find.byType(CupertinoSlidingSegmentedControl<String>), matching: find.text(entry.$1.tr)));
             await tester.pumpAndSettle();
             expect(find.text(entry.$2.tr), findsOneWidget);
+            if (entry.$1 == 'Pages') {
+              final row = find.ancestor(of: find.text('Previous/next video screenshots'.tr), matching: find.byType(Row)).last;
+              final keys = tester.widgetList<Text>(find.descendant(of: row, matching: find.byType(Text))).map((text) => text.data);
+              expect(keys, containsAll(['← / →']));
+              expect(keys, isNot(contains('⌘')));
+              expect(keys, isNot(contains('Ctrl')));
+              expect(keys.any((key) => key == '⌥' || key == 'Alt'), isTrue);
+            }
             expect(find.text('= × 2'), findsNothing);
             expect(find.text('Go to Home'.tr), findsNothing);
             await tester.ensureVisible(find.text(entry.$2.tr));

@@ -20,11 +20,9 @@ Videos video(String code, int images) => Videos(videoCode: code,
   screenshot: List.generate(images, (index) => 'https://example.test/$code-$index.jpg'));
 
 Future<void> itemKey(WidgetTester tester, LogicalKeyboardKey arrow) async {
-  await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
   await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
   await tester.sendKeyEvent(arrow);
   await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
-  await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
   await tester.pump();
 }
 
@@ -43,12 +41,12 @@ void main() {
     expect(HelperOpener.screenshotItemIndex(Videos(), [a]), -1);
   });
 
-  testWidgets('item shortcuts reset images, stop at boundaries, and consume player rotation', (tester) async {
+  testWidgets('Option arrow shortcuts reset images, stop at boundaries, and consume player seeking', (tester) async {
     final items = [video('A', 12), video('B', 2)];
     final loads = <dynamic>[];
-    var rotations = 0;
+    var seeks = 0;
     await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: CallbackShortcuts(
-      bindings: {const SingleActivator(LogicalKeyboardKey.arrowRight, meta: true, alt: true): () => rotations++},
+      bindings: {const SingleActivator(LogicalKeyboardKey.arrowRight, alt: true): () => seeks++},
       child: ScreenshotViewer(video: items.first, items: items, itemIndex: 0,
         loadVideo: (item) async { loads.add(item); return item as Videos; },
         onClose: () {}, onWarning: (message) => fail(message)),
@@ -67,7 +65,7 @@ void main() {
     expect(tester.widget<ListView>(find.byType(ListView)).controller!.offset, 0);
     expect(currentImage(tester), contains('B-0'));
     expect(find.text('1/2 · B'), findsOneWidget);
-    expect(rotations, 0);
+    expect(seeks, 0);
     await itemKey(tester, LogicalKeyboardKey.arrowRight);
     expect(loads, [items[1]]);
     await itemKey(tester, LogicalKeyboardKey.arrowLeft);
@@ -173,6 +171,58 @@ void main() {
     pending.complete(items[1]);
     await tester.pump();
     expect(currentImage(tester), contains('A-0'));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('close shortcuts and button only request closing once during the transition', (tester) async {
+    var closes = 0;
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: ScreenshotViewer(
+      video: video('A', 1), items: const [], itemIndex: -1,
+      loadVideo: (_) async => video('B', 1), onClose: () => closes++, onWarning: (message) => fail(message),
+    ))));
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.tap(findHugeIcon(HugeIcons.strokeRoundedCancel01));
+    expect(closes, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('production viewer closes cleanly after its loader and preserves the panel underneath', (tester) async {
+    await tester.pumpWidget(GetMaterialApp(home: const Scaffold(body: Text('Home'))));
+    await tester.pumpAndSettle();
+    final parent = OverPanel(child: const Text('Parent panel'));
+    unawaited(Overlayment.show(parent, context: Get.context));
+    await tester.pumpAndSettle();
+    final closed = HelperOpener.openScreenshot(video('A', 2), localFrames: true);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(find.byType(ScreenshotViewer), findsOneWidget);
+    final other = OverPanel(child: const Text('Other overlay'));
+    unawaited(Overlayment.show(other, context: Get.context));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump(const Duration(milliseconds: 10));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    await closed;
+    expect(find.byType(ScreenshotViewer), findsNothing);
+    expect(Overlayment.count, 2);
+    expect(find.text('Other overlay').hitTestable(), findsOneWidget);
+    unawaited(Overlayment.dismiss(other));
+    await tester.pumpAndSettle();
+    expect(Overlayment.count, 1);
+    expect(find.text('Parent panel').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    unawaited(Overlayment.dismiss(parent));
+    await tester.pumpAndSettle();
+    expect(Overlayment.count, 0);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

@@ -10,6 +10,7 @@ import 'package:get_secure_storage/get_secure_storage.dart';
 import 'package:kuraku/app/core/app_setting.dart';
 import 'package:kuraku/app/data/database/_init_db.dart';
 import 'package:kuraku/app/data/database/db_videos.dart';
+import 'package:kuraku/app/data/models/__kuraku_search_entity.dart';
 import 'package:kuraku/app/data/models/videos_entity.dart';
 import 'package:kuraku/app/modules/home/home_controller.dart';
 import 'package:kuraku/app/modules/home/home_panel/home_panel_log.dart';
@@ -17,6 +18,7 @@ import 'package:kuraku/app/modules/home/home_panel/home_panel_video_info.dart';
 import 'package:kuraku/app/modules/home/page_explore/page_explore_controller.dart';
 import 'package:kuraku/app/modules/home/page_home/page_home_controller.dart';
 import 'package:kuraku/app/modules/home/page_search/page_search_controller.dart';
+import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
 import 'package:kuraku/app/modules/widgets/widget_screenshot_viewer.dart';
 import 'package:kuraku/app/modules/widgets/widget_thumbnail.dart';
 import 'package:kuraku/app/utils/helper_loading.dart';
@@ -91,6 +93,12 @@ class _Explore extends PageExploreController {
     selectedMenu = menu;
     selectedName = name;
   }
+}
+
+class _Tools extends PageToolsController {
+  @override
+  // ignore: must_call_super
+  Future<void> onInit() async {}
 }
 
 class _Database implements Database, Transaction {
@@ -323,8 +331,36 @@ void main() {
     expect(find.text('# Metadata'), findsNothing);
     expect(find.byType(ScreenshotViewer), findsOneWidget);
     expect(Overlayment.count, 1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(find.byType(ScreenshotViewer), findsNothing);
+    expect(Overlayment.count, 0);
+    expect(tester.takeException(), isNull);
     await cleanup(tester);
   });
+
+  for (final key in [LogicalKeyboardKey.arrowDown, LogicalKeyboardKey.escape]) {
+    testWidgets('remote Info to screenshots to ${key.keyLabel} leaves no loader behind', (tester) async {
+      await pump(tester);
+      Get.put<PageExploreController>(_Explore());
+      Get.put<PageToolsController>(_Tools());
+      unawaited(HelperOpener.openVideoInfo(KurakuSearchResult(videoCode: 'ABC-999', title: 'Remote Info')));
+      await tester.pumpAndSettle();
+      expect(find.text('Metadata'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('Metadata'), findsNothing);
+      expect(find.byType(ScreenshotViewer), findsOneWidget);
+      expect(Overlayment.count, 1);
+      await tester.sendKeyEvent(key);
+      await tester.pumpAndSettle();
+      expect(find.byType(ScreenshotViewer), findsNothing);
+      expect(Overlayment.count, 0);
+      expect(tester.takeException(), isNull);
+      await cleanup(tester);
+    });
+  }
 
   testWidgets('editing the metadata swaps this panel for the editor', (tester) async {
     await pump(tester);
