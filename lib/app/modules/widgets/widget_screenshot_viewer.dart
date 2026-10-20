@@ -17,7 +17,7 @@ import 'widget_thumbnail.dart';
 
 class ScreenshotViewer extends StatefulWidget {
   const ScreenshotViewer({super.key, required this.video, required this.items, required this.itemIndex,
-    required this.loadVideo, required this.onClose, required this.onWarning, this.localFrames = false});
+    required this.loadVideo, required this.onClose, required this.onWarning, this.onOpenInfo, this.onItemChanged, this.localFrames = false});
 
   final Videos video;
   final List<dynamic> items;
@@ -25,6 +25,8 @@ class ScreenshotViewer extends StatefulWidget {
   final Future<Videos> Function(dynamic) loadVideo;
   final VoidCallback onClose;
   final void Function(String) onWarning;
+  final Future<void> Function(dynamic)? onOpenInfo;
+  final ValueChanged<dynamic>? onItemChanged;
   final bool localFrames;
 
   static bool hasImages(Videos video, {bool localFrames = false}) =>
@@ -104,6 +106,7 @@ class ScreenshotViewerState extends State<ScreenshotViewer> {
         _framePositions = List.generate(7, (index) => max(index * ExRandom.between(60, 180), 3));
       });
       if (_thumbnails.hasClients) _thumbnails.jumpTo(0);
+      widget.onItemChanged?.call(widget.items[next]);
     } catch (_) {
       if (mounted && !_closing) widget.onWarning('Failed to load screenshots');
     } finally {
@@ -115,6 +118,7 @@ class ScreenshotViewerState extends State<ScreenshotViewer> {
   Widget build(BuildContext context) {
     final width = max(Get.width * .9, 400.0);
     final height = max(Get.height * .8, 400.0) - 80;
+    final hasItemIndex = _itemIndex >= 0 && _itemIndex < widget.items.length;
     Widget button(dynamic icon, VoidCallback onTap) => Container(
       decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
       child: HugeIcon(icon: icon, size: AppStyle.iconSize).p12(),
@@ -144,13 +148,18 @@ class ScreenshotViewerState extends State<ScreenshotViewer> {
               videoCode: _video.videoCode,
             ),
           ),
-          if (!_frames || (_video.videoCode ?? '').trim().isNotEmpty) Container(
+          if (hasItemIndex || !_frames || (_video.videoCode ?? '').trim().isNotEmpty) Container(
             decoration: ExDecorator.box(borderColor: Colors.transparent, borderRadius: 12, fillColor: AppColor.black120),
             child: [
-              if (!_frames) _empty ? '0/0' : '${_imageIndex + 1}/${_video.screenshot!.length}',
+              if (hasItemIndex) '${'Video'.tr} ${_itemIndex + 1}/${widget.items.length}',
               if ((_video.videoCode ?? '').trim().isNotEmpty) _video.videoCode!.trim(),
+              if (!_frames) _empty ? '0/0' : '${_imageIndex + 1}/${_video.screenshot!.length}',
             ].join(' · ').text.size(11).minFontSize(11).make().p4(),
-          ).p12(),
+          ).onInkTap(() async {
+            if (_loading || _closing || widget.onOpenInfo == null) return;
+            _closing = true;
+            await widget.onOpenInfo!(hasItemIndex ? widget.items[_itemIndex] : _video);
+          }).p12(),
           Align(alignment: Alignment.centerRight, child: button(HugeIcons.strokeRoundedArrowRight01, () => _moveImage(1))).positioned(right: 8, top: 0, bottom: 0),
           Align(alignment: Alignment.centerLeft, child: button(HugeIcons.strokeRoundedArrowLeft01, () => _moveImage(-1))).positioned(left: 8, top: 0, bottom: 0),
           button(HugeIcons.strokeRoundedCancel01, _close).positioned(right: 8, top: 8),

@@ -67,6 +67,12 @@ class _Settings extends PageSettingsController {
   Future<void> onRefreshStorage() async {}
 }
 
+class _WindowSettings extends AppSettingService {
+  int homeRestores = 0;
+  @override
+  Future<void> setupStandaloneHomeWindow() async { homeRestores++; }
+}
+
 class _SlowPlayer extends StandalonePlayerController {
   final releasing = Completer<void>();
 
@@ -421,6 +427,25 @@ void main() {
         const MethodChannel('window_manager'), null,
       );
     }
+  });
+
+  testWidgets('leaving native fullscreen restores only the standalone home window', (tester) async {
+    await Get.delete<AppSettingService>(force: true);
+    final settings = _WindowSettings()..pref = pref;
+    Get.put<AppSettingService>(settings);
+    await tester.runAsync(() => AppPref.setAppPin('1234'));
+    await tester.pumpWidget(const AppPinGate(child: SizedBox.shrink()));
+    await tester.pumpAndSettle();
+    final listener = tester.state(find.byType(AppPinGate)) as WindowListener;
+    listener.onWindowLeaveFullScreen();
+    await tester.pump();
+    expect(settings.homeRestores, 1);
+    Get.find<StandalonePlayerController>().isPlayerVisible.value = true;
+    listener.onWindowLeaveFullScreen();
+    expect(settings.homeRestores, 1);
+    Get.find<StandalonePlayerController>().isPlayerVisible.value = false;
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('closing during PIN verification never initializes the library', (tester) async {

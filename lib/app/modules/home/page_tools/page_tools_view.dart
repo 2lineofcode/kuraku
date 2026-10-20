@@ -15,6 +15,7 @@ import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_media_stack.dart';
+import '../../widgets/widget_screenshot_source.dart';
 import '../../widgets/widget_style.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../../widgets/widget_title_translation.dart';
@@ -177,8 +178,8 @@ class PageToolsView extends GetView<PageToolsController> {
                     const SizedBox(height: 12),
                     Text('No files with a recorded size in this location.'.tr, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColor.muted)),
                   ]).p12())
-                : ListView.separated(
-                    itemCount: items.length,
+                : ScreenshotSource.separated(
+                    items: controller.topLargeFileSizeList,
                     separatorBuilder: (_, _) => Divider(height: 1, thickness: .5, color: AppColor.border),
                     itemBuilder: (_, index) => _largeFileRow(items[index], index),
                   ),
@@ -194,6 +195,7 @@ class PageToolsView extends GetView<PageToolsController> {
     final filename = path.isEmpty ? 'NON-JAV' : p.basename(path);
     final quality = (item.quality ?? '').trim();
     return ExVideoContextMenu(videoPath: path, videoCode: item.videoCode,
+      screenshotItems: controller.topLargeFileSizeList,
       contextMenuIsAllowed: (_) => path.isNotEmpty,
       child: Material(
         color: Colors.transparent,
@@ -303,10 +305,10 @@ class PageToolsView extends GetView<PageToolsController> {
         ]),
         const SizedBox(height: 4),
         Text(reason, style: TextStyle(fontSize: 10, color: AppColor.muted)),
-        for (final video in videos) ...[
+        ScreenshotSource.column(items: videos, itemBuilder: (_, index) => Column(children: [
           Divider(height: 20, thickness: .5, color: AppColor.border),
-          _duplicateFile(video, videos),
-        ],
+          _duplicateFile(videos[index], videos),
+        ])),
       ]),
     );
   }
@@ -316,6 +318,7 @@ class PageToolsView extends GetView<PageToolsController> {
     final available = controller.duplicateFileAvailable[path] == true;
     final poster = (video.poster ?? '').isNotEmpty ? video.poster! : video.fanArt ?? '';
     return ExVideoContextMenu(videoPath: path, videoCode: video.videoCode,
+      screenshotItems: videos,
       child: Material(color: Colors.transparent, child: InkWell(
         borderRadius: BorderRadius.circular(4),
         onTap: () => HelperOpener.openVideoInfo(video, items: videos),
@@ -712,7 +715,8 @@ class PageToolsView extends GetView<PageToolsController> {
   }
 
   Widget _buildVideoList() {
-    return GridView.builder(
+    return ScreenshotSource.grid(
+      items: controller.rightListFiltered,
       key: ValueKey(controller.leftListSelectedId.value),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 300,

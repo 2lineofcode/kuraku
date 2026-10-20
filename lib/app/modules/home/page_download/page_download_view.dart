@@ -13,6 +13,7 @@ import '../../../core/const.dart';
 import '../../../utils/helper.dart';
 import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_media_stack.dart';
+import '../../widgets/widget_screenshot_source.dart';
 import '../../widgets/widget_search_history.dart';
 import '../../widgets/widget_search_suggestions_overlay.dart';
 import '../../widgets/widget_search_tab_bar.dart';
@@ -206,7 +207,8 @@ class PageDownloadSearchView extends StatelessWidget {
         controller.onViewportMetricsChanged();
         return false;
       },
-      child: GridView.builder(
+      child: ScreenshotSource.grid(
+        items: controller.videos,
         key: PageStorageKey('download-results-${controller.id}-${controller.searchRevision}'),
         controller: controller.scrollController,
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(

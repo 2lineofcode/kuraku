@@ -141,15 +141,16 @@ void main() {
             }),
           ));
           await tester.pumpAndSettle();
-          expect(find.text('ABC-001'), findsOneWidget);
-          expect(find.text('ABC-001-long-filename.mp4'), findsOneWidget);
-          expect(find.text('4K'), findsOneWidget);
-          final rowMenu = tester.widgetList<ExVideoContextMenu>(find.byType(ExVideoContextMenu))
+          expect(find.text('ABC-001', skipOffstage: false), findsOneWidget);
+          expect(find.text('ABC-001-long-filename.mp4', skipOffstage: false), findsOneWidget);
+          expect(find.text('4K', skipOffstage: false), findsOneWidget);
+          final rowMenu = tester.widgetList<ExVideoContextMenu>(find.byType(ExVideoContextMenu, skipOffstage: false))
             .firstWhere((menu) => menu.child is Material);
           expect(rowMenu.videoPath, controller.topLargeFileSizeList.first.videoPath);
           expect(rowMenu.videoCode, 'ABC-001');
-          expect(find.text('null'), findsNothing);
-          final folders = tester.widgetList<IconButton>(find.byType(IconButton)).where((button) => button.tooltip == 'Open File Path'.tr).toList();
+          expect(rowMenu.screenshotItems, same(controller.topLargeFileSizeList));
+          expect(find.text('null', skipOffstage: false), findsNothing);
+          final folders = tester.widgetList<IconButton>(find.byType(IconButton, skipOffstage: false)).where((button) => button.tooltip == 'Open File Path'.tr).toList();
           expect(folders.first.onPressed, isNotNull);
           expect(folders.last.onPressed, isNull);
           expect(tester.takeException(), isNull);
@@ -163,7 +164,7 @@ void main() {
       }
     }
     final notifier = ValueNotifier<scm.MenuResult?>(null);
-    final menuWidget = tester.widget<scm.ContextMenuWidget>(find.byType(scm.ContextMenuWidget).first);
+    final menuWidget = tester.widget<scm.ContextMenuWidget>(find.byType(scm.ContextMenuWidget, skipOffstage: false).first);
     final menu = await menuWidget.menuProvider(scm.MenuRequest(
       onShowMenu: notifier, onHideMenu: notifier, onPreviewAction: notifier, location: Offset.zero));
     notifier.dispose();

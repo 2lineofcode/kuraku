@@ -11,6 +11,7 @@ import '../../../core/app_translations.dart';
 import '../../../core/const.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
+import '../../widgets/widget_screenshot_source.dart';
 import '../../widgets/widget_search_history.dart';
 import '../../widgets/widget_search_tab_bar.dart';
 import '../../widgets/widgets.dart';
@@ -266,11 +267,11 @@ class PageSearchTabView extends StatelessWidget {
   );
 
   Widget modeListView() {
-    return ListView.separated(
+    return ScreenshotSource.separated(
+      items: controller.videos,
       key: PageStorageKey('search-list-${controller.id}-${controller.searchRevision}'),
       controller: controller.scrollGridController,
       padding: const EdgeInsets.all(6),
-      itemCount: controller.videos.length,
       separatorBuilder: (context, index) => const SizedBox(height: 4),
       itemBuilder: (context, index) {
         final video = controller.videos[index];
@@ -319,7 +320,8 @@ class PageSearchTabView extends StatelessWidget {
     double width = 150;
     double height = 230;
 
-    return GridView.builder(
+    return ScreenshotSource.grid(
+      items: controller.videos,
       key: PageStorageKey('search-results-${controller.id}-${controller.searchRevision}'),
       controller: controller.scrollGridController,
       padding: EdgeInsets.all(8),

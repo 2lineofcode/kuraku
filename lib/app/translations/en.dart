@@ -1,4 +1,5 @@
 const englishTranslations = <String, String>{
+  'Video': 'Video',
   'Website downloads': 'Website downloads',
   'Install Google Chrome or Chromium for your desktop platform.': 'Install Google Chrome or Chromium for your desktop platform.',
   'Install missing dependencies': 'Install missing dependencies',

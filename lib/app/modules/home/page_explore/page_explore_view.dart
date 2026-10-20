@@ -13,6 +13,7 @@ import '../../../core/const.dart';
 import '../../../data/database/db_r18.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
+import '../../widgets/widget_screenshot_source.dart';
 import '../../widgets/widget_search_tab_bar.dart';
 import '../../widgets/widget_title_translation.dart';
 import '../../widgets/widgets.dart';
@@ -383,7 +384,8 @@ class PageExploreTabView extends StatelessWidget {
     final double width = 160;
     final double height = 230;
 
-    return GridView.builder(
+    return ScreenshotSource.grid(
+      items: controller.rightListLocal.value,
       key: PageStorageKey(['explore-local', controller.id, controller.currentMenuSelected.value, controller.currentMenuSelected.value == kActress ? controller.leftListSelected.value.id : null, controller.leftListSelected.value.name].join(':')),
       padding: EdgeInsets.all(8),
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
@@ -459,7 +461,8 @@ class PageExploreTabView extends StatelessWidget {
         ).pOnly(bottom: 12),
 
         // list
-        GridView.builder(
+        ScreenshotSource.grid(
+          items: controller.rightListR18Filtered,
           key: PageStorageKey(['explore-r18', controller.id, controller.currentMenuSelected.value, controller.currentMenuSelected.value == kActress ? controller.leftListSelected.value.id : null, controller.leftListSelected.value.name].join(':')),
           controller: controller.r18ScrollController,
           gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(

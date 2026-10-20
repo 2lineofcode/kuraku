@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_list_view/flutter_list_view.dart';
 import 'package:get/get.dart';
 
 import '../../../core/app_logging.dart';
@@ -27,7 +28,7 @@ class PageSearchTab with LocalVideoSelection {
   final isLoading = false.obs;
   final tecSearch = TextEditingController();
   final fnSearch = FocusNode();
-  final scrollGridController = ScrollController();
+  final scrollGridController = FlutterListViewController();
   final isListView = false.obs;
   final isSearchMode = false.obs;
   final isSemanticMode = false.obs;

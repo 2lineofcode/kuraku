@@ -67,7 +67,7 @@ void main() {
 
     Future<void> commandClick(int index) async {
       await tester.sendKeyDownEvent((defaultTargetPlatform == TargetPlatform.macOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
-      final gesture = await tester.startGesture(tester.getCenter(find.byType(DoubleTap).at(index)), kind: PointerDeviceKind.mouse);
+      final gesture = await tester.startGesture(tester.getCenter(find.byType(DoubleTap, skipOffstage: false).at(index)), kind: PointerDeviceKind.mouse);
       await tester.sendKeyUpEvent((defaultTargetPlatform == TargetPlatform.macOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
       await gesture.up();
       await tester.pump(const Duration(milliseconds: 200));
@@ -83,7 +83,7 @@ void main() {
 
     tab.toggleViewMode();
     await tester.pumpAndSettle();
-    expect(find.byType(DoubleTap), findsNWidgets(3));
+    expect(find.byType(DoubleTap, skipOffstage: false), findsNWidgets(3));
     expect(tab.selectedVideos.length, 2);
     await commandClick(1);
     expect(tab.selectedVideos, {videos[0]});
@@ -92,9 +92,9 @@ void main() {
     final notifier = ValueNotifier<scm.MenuResult?>(null);
     addTearDown(notifier.dispose);
     final request = scm.MenuRequest(onShowMenu: notifier, onHideMenu: notifier, onPreviewAction: notifier, location: Offset.zero);
-    final menus = tester.widgetList<scm.ContextMenuWidget>(find.byType(scm.ContextMenuWidget)).toList();
+    final menus = tester.widgetList<scm.ContextMenuWidget>(find.byType(scm.ContextMenuWidget, skipOffstage: false)).toList();
     final batch = tester.widgetList<scm.ContextMenuWidget>(find.ancestor(
-      of: find.byType(DoubleTap).first, matching: find.byType(scm.ContextMenuWidget),
+      of: find.byType(DoubleTap, skipOffstage: false).first, matching: find.byType(scm.ContextMenuWidget, skipOffstage: false),
     )).firstWhere((menu) => menu.contextMenuIsAllowed(Offset.zero));
     final menu = (await batch.menuProvider(request))!;
     expect(menu.children.whereType<scm.MenuAction>().map((item) => item.title), ['Play as Playlist', 'Play in Grid Player', 'Add to cart', 'Add to Playlist', 'Add to favorite']);
@@ -120,7 +120,7 @@ void main() {
       onSingleTap: () => singles++, onDoubleTap: () => doubles++, onCommandTap: () => commands++,
       child: const SizedBox(width: 100, height: 100),
     ))));
-    final item = find.byType(DoubleTap);
+    final item = find.byType(DoubleTap, skipOffstage: false);
     await tester.sendKeyDownEvent((defaultTargetPlatform == TargetPlatform.macOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft));
     await tester.tap(item);
     await tester.tap(item);

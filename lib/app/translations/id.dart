@@ -1,4 +1,5 @@
 const indonesianTranslations = <String, String>{
+  'Video': 'Video',
   'Website downloads': 'Download lewat Website',
   'Install Google Chrome or Chromium for your desktop platform.': 'Pasang Google Chrome atau Chromium untuk platform desktop kamu.',
   'Install missing dependencies': 'Pasang dependency yang belum tersedia',

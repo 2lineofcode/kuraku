@@ -17,6 +17,7 @@ import '../modules/widgets/widget_style.dart';
 import '../modules/widgets/widget_surfaces.dart';
 import 'app_pref.dart';
 import 'app_scroll_behavior.dart';
+import 'app_setting.dart';
 import 'app_shortcut.dart';
 import 'app_translations.dart';
 
@@ -120,7 +121,12 @@ class _AppPinGateState extends State<AppPinGate> with WindowListener {
   void onWindowEnterFullScreen([int? windowId]) => _refreshFullscreen();
 
   @override
-  void onWindowLeaveFullScreen([int? windowId]) => _refreshFullscreen();
+  void onWindowLeaveFullScreen([int? windowId]) {
+    _refreshFullscreen();
+    if (!_unlocked && !_closing && _player?.isPlayerVisible.value == false) {
+      unawaited(Get.find<AppSettingService>().setupStandaloneHomeWindow());
+    }
+  }
 
   void _refreshFullscreen() {
     if (_unlocked || _closing || _player == null) return;

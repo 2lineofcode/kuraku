@@ -19,6 +19,7 @@ import 'package:kuraku/app/modules/home/page_explore/page_explore_controller.dar
 import 'package:kuraku/app/modules/home/page_home/page_home_controller.dart';
 import 'package:kuraku/app/modules/home/page_search/page_search_controller.dart';
 import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
+import 'package:kuraku/app/modules/widgets/widget_screenshot_source.dart';
 import 'package:kuraku/app/modules/widgets/widget_screenshot_viewer.dart';
 import 'package:kuraku/app/modules/widgets/widget_thumbnail.dart';
 import 'package:kuraku/app/utils/helper_loading.dart';
@@ -177,9 +178,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {Widget body = const Text('Home')}) async {
     await tester.pumpWidget(ToastificationWrapper(
-      child: GetMaterialApp(theme: ThemeData.dark(), home: const Scaffold(body: Text('Home'))),
+      child: GetMaterialApp(theme: ThemeData.dark(), home: Scaffold(body: body)),
     ));
     await tester.pumpAndSettle();
   }
@@ -316,6 +317,55 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.keyI);
     await tester.pumpAndSettle();
     expect(Overlayment.count, 0);
+    await cleanup(tester);
+  });
+
+  testWidgets('screenshot badge replaces the viewer with info for the selected video', (tester) async {
+    Get.find<AppSettingService>().appPath = Directory.systemTemp.path;
+    final first = _video();
+    final selected = _video()..title = 'Selected screenshot video'..screenshot = ['https://example.test/selected.jpg'];
+    final items = [first, selected];
+    await pump(tester, body: ScreenshotSource.grid(items: items,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2),
+      itemBuilder: (_, index) => Text('Origin video $index')));
+    unawaited(HelperOpener.openScreenshot(selected, items: items, localFrames: true));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(find.byType(ScreenshotViewer), findsOneWidget);
+    await tester.tap(find.text('Video 2/2 · ABP-001 · 1/1'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ScreenshotViewer), findsNothing);
+    expect(find.text('Selected screenshot video'), findsOneWidget);
+    expect(find.text('# Metadata'), findsOneWidget);
+    expect(Overlayment.count, 1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(Overlayment.count, 0);
+    expect(tester.takeException(), isNull);
+    await cleanup(tester);
+  });
+
+  testWidgets('closing screenshots keeps keyboard focus in the info panel underneath', (tester) async {
+    final video = _video();
+    final items = [video];
+    await pump(tester, body: ScreenshotSource.grid(items: items,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2),
+      itemBuilder: (_, index) => const Text('Origin video')));
+    unawaited(HomePanelVideoInfo.open(video, items: items));
+    await tester.pumpAndSettle();
+    unawaited(HelperOpener.openScreenshot(video, items: items, localFrames: true));
+    await tester.pumpAndSettle();
+    expect(Overlayment.count, 2);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(find.byType(ScreenshotViewer), findsNothing);
+    expect(Overlayment.count, 1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(Overlayment.count, 0);
+    expect(tester.takeException(), isNull);
     await cleanup(tester);
   });
 

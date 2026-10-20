@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_list_view/flutter_list_view.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -8,8 +9,6 @@ import 'package:kuraku/app/modules/home/local_video_selection_item.dart';
 import 'package:kuraku/app/modules/home/page_search/page_search_tab.dart';
 import 'package:kuraku/app/modules/home/page_search/page_search_view.dart';
 import 'package:kuraku/app/modules/widgets/widget_thumbnail.dart';
-
-import 'icon_finder.dart';
 
 class _CartController extends GetxController implements HomeController {
   final HomeController home;
@@ -48,11 +47,11 @@ void main() {
           child: Scaffold(body: PageSearchTabView(controller: search).modeListView()),
         )));
         await tester.pumpAndSettle();
-        final rows = find.byType(LocalVideoSelectionItem);
+        final rows = find.byType(LocalVideoSelectionItem, skipOffstage: false);
         expect(tester.getSize(rows.first).height, lessThanOrEqualTo(scale == 1 ? 90 : 160));
-        if (scale == 1) expect(tester.getRect(find.text('TEST-5')).bottom, lessThan(600));
-        expect(tester.getSize(find.byType(ExThumbnail).first), const Size(112, 76));
-        expect(find.textContaining('2025'), findsWidgets);
+        if (scale == 1) expect(tester.getRect(find.text('TEST-5', skipOffstage: false)).bottom, lessThan(600));
+        expect(tester.getSize(find.byType(ExThumbnail, skipOffstage: false).first), const Size(112, 76));
+        expect(find.textContaining('2025', skipOffstage: false), findsWidgets);
         expect(tester.takeException(), isNull);
       }
     }
@@ -70,7 +69,7 @@ void main() {
       child: PageSearchTabView(controller: search).buildLayoutPoster(video, 150, 230, showReleaseDate: false),
     ))));
     await tester.pumpAndSettle();
-    final marker = findHugeIcon(HugeIcons.strokeRoundedShoppingBag01);
+    final marker = find.byWidgetPredicate((widget) => widget is HugeIcon && widget.icon == HugeIcons.strokeRoundedShoppingBag01, skipOffstage: false);
     expect(marker, findsNothing);
 
     final stored = Videos(id: ' VIDEO-1 ', title: 'Stored copy');
@@ -99,7 +98,7 @@ void main() {
     home.addToCart(video);
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: PageSearchTabView(controller: search))));
     await tester.pumpAndSettle();
-    expect(find.byType(ListView), findsOneWidget);
+    expect(find.byType(FlutterListView), findsOneWidget);
     expect(marker, findsOneWidget);
     home.cart.clear();
     await tester.pumpAndSettle();

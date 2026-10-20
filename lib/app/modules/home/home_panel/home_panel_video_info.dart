@@ -15,6 +15,7 @@ import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
 import '../../../utils/helper_media.dart';
 import '../../widgets/widget_controls.dart';
+import '../../widgets/widget_screenshot_source.dart';
 import '../../widgets/widget_style.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../../widgets/widget_title_translation.dart';
@@ -28,7 +29,7 @@ import 'home_panel_playlist.dart';
 mixin HomePanelVideoInfo {
   //
   static Future<void> open(Videos video, {List<dynamic>? items, int? itemIndex}) async {
-    final source = List<dynamic>.of(items ?? [video]);
+    final source = ScreenshotSource.snapshot(items ?? [video]);
     final index = itemIndex ?? HelperOpener.screenshotItemIndex(video, source);
     final _controller = Get.find<PageSearchController>();
     final _mediaInfo = <String>[].obs;

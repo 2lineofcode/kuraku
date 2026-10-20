@@ -252,7 +252,7 @@ class PageSqleditorTabView extends StatelessWidget {
             icon: const HugeIcon(icon: HugeIcons.strokeRoundedDownload01, size: AppStyle.iconSize),
             onPressed: controller.downloadRows.isEmpty ? null : controller.openResultsInDownload,
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 16),
           AppIconButton(
             tooltip: controller.resultsExpanded.value ? 'Restore query editor'.tr : 'Expand results'.tr,
             visualDensity: VisualDensity.compact,

@@ -14,6 +14,7 @@ import 'package:overlayment/overlayment.dart';
 import 'package:path/path.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
+import '../../core/app_setting.dart';
 import '../../core/app_translations.dart';
 import '../../data/database/standalone_player_history.dart';
 import '../../data/models/videos_entity.dart';
@@ -203,6 +204,10 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
       await generatePlaylist();
       if (!_isCurrentPlayback(revision) || !identical(currentVideo.value, video)) return false;
 
+      if (!isPlayerVisible.value && Get.isRegistered<AppSettingService>()) {
+        await Get.find<AppSettingService>().setupStandalonePlayerWindow();
+        if (!_isCurrentPlayback(revision)) return false;
+      }
       isPlayerVisible.value = true;
       change(video, status: RxStatus.success());
       requestFocusOnPlayer();
@@ -219,7 +224,9 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
   }
 
   Future<void> stopPlayback() async {
-    _playbackRevision++;
+    final revision = ++_playbackRevision;
+    await exitFullscreen();
+    if (!_isCurrentPlayback(revision) || isFullScreen.value) return;
     final saving = _saveRecent();
     _historyPath = null;
     playlist.clear();
@@ -233,6 +240,9 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
     try { await player.stop(); }
     catch (_) {}
     await saving;
+    if (_isCurrentPlayback(revision) && Get.isRegistered<AppSettingService>()) {
+      await Get.find<AppSettingService>().setupStandaloneHomeWindow();
+    }
   }
 
   void onDropEnter(DropEvent event) => isDropHovering.value = true;

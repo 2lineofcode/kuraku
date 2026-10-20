@@ -247,7 +247,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Chat images load only the clicked gallery selection, with navigation and draft preserved', (tester) async {
+  testWidgets('Chat images load inline and keep gallery navigation and the draft intact', (tester) async {
     addTearDown(Get.reset);
     Get.put<DBService>(ChatTestService()..dbMain = ChatTestDatabase());
     final folder = Directory.systemTemp.createTempSync('kuraku-preview-test-');
@@ -270,12 +270,13 @@ void main() {
     controller.usePrompt('Keep my draft');
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Saved provider'), findsOneWidget);
-    expect(find.byType(ExThumbnail), findsNothing, reason: 'Neither raw URLs nor kuraku-cover markup authorize network requests');
+    expect(tester.widgetList<ExThumbnail>(find.byType(ExThumbnail)).map((widget) => widget.imageUrl),
+      containsAll(['https://example.com/one.jpg', 'https://example.com/three.jpg', 'https://example.com/pixel?data=private']));
     final cover = find.byTooltip('Preview image').first;
     await tester.ensureVisible(cover);
     await tester.tap(cover);
     await tester.pump(const Duration(milliseconds: 400));
-    expect(tester.widget<ExThumbnail>(find.byType(ExThumbnail)).imageUrl, 'https://example.com/one.jpg');
+    expect(tester.widget<ExThumbnail>(find.descendant(of: find.byType(Dialog), matching: find.byType(ExThumbnail))).imageUrl, 'https://example.com/one.jpg');
     String? copied;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
       if (call.method == 'Clipboard.setData') copied = call.arguments['text'] as String;
@@ -291,13 +292,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.descendant(of: dialog, matching: find.text('TEST-003')), findsOneWidget);
     expect(find.text('2 / 3'), findsOneWidget);
-    expect(tester.widget<ExThumbnail>(find.byType(ExThumbnail)).imageUrl, 'https://example.com/three.jpg');
+    expect(tester.widget<ExThumbnail>(find.descendant(of: dialog, matching: find.byType(ExThumbnail))).imageUrl, 'https://example.com/three.jpg');
     await tester.tap(find.descendant(of: dialog, matching: find.text('TEST-003')));
     await tester.pump();
     expect(copied, 'TEST-003');
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pump(const Duration(milliseconds: 400));
-    expect(tester.widget<ExThumbnail>(find.byType(ExThumbnail)).imageUrl, 'https://example.com/pixel?data=private');
+    expect(tester.widget<ExThumbnail>(find.descendant(of: dialog, matching: find.byType(ExThumbnail))).imageUrl, 'https://example.com/pixel?data=private');
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pump();
     expect(find.text('3 / 3'), findsOneWidget);

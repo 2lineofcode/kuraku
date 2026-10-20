@@ -20,6 +20,15 @@ import 'package:toastification/toastification.dart';
 
 import 'sqlite_test_database.dart';
 
+class _Settings extends AppSettingService {
+  int windowResizes = 0;
+  int homeResizes = 0;
+  @override
+  Future<void> setupStandalonePlayerWindow() async { windowResizes++; }
+  @override
+  Future<void> setupStandaloneHomeWindow() async { homeResizes++; }
+}
+
 class _History extends StandalonePlayerHistory {
   _History(this.db) : super('');
   final SqliteTestDatabase db;
@@ -250,6 +259,20 @@ void main() {
 
     await controller.shutdown();
     await controller.shutdown();
+  });
+
+  standaloneTest('standalone expands only when entering playback from the home screen', () async {
+    final settings = Get.put<AppSettingService>(_Settings()) as _Settings;
+    final first = video('first.mp4');
+    final second = video('second.mp4');
+    await controller.openFiles([first.videoPath!]);
+    expect(settings.windowResizes, 1);
+    expect(await controller.startPlayback(second), isTrue);
+    expect(settings.windowResizes, 1);
+    await controller.stopPlayback();
+    expect(settings.homeResizes, 1);
+    await controller.openRecent(StandaloneRecent(path: first.videoPath!, position: Duration.zero));
+    expect(settings.windowResizes, 2);
   });
 
   standaloneTest('standalone playback settings stay in memory without a settings or database service', () async {

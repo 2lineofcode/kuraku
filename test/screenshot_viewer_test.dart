@@ -64,13 +64,35 @@ void main() {
     await itemKey(tester, LogicalKeyboardKey.arrowRight);
     expect(tester.widget<ListView>(find.byType(ListView)).controller!.offset, 0);
     expect(currentImage(tester), contains('B-0'));
-    expect(find.text('1/2 · B'), findsOneWidget);
+    expect(find.text('Video 2/2 · B · 1/2'), findsOneWidget);
     expect(seeks, 0);
     await itemKey(tester, LogicalKeyboardKey.arrowRight);
     expect(loads, [items[1]]);
     await itemKey(tester, LogicalKeyboardKey.arrowLeft);
     expect(currentImage(tester), contains('A-0'));
-    expect(find.text('1/12 · A'), findsOneWidget);
+    expect(find.text('Video 1/2 · A · 1/12'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('badge follows both indexes and opens the current source item only once', (tester) async {
+    final items = [{'video_code': 'A'}, {'video_code': 'B'}];
+    final opened = <dynamic>[];
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: ScreenshotViewer(
+      video: video('A', 2), items: items, itemIndex: 0,
+      loadVideo: (item) async => video(item['video_code'] as String, 3),
+      onOpenInfo: (item) async { opened.add(item); },
+      onClose: () {}, onWarning: (message) => fail(message),
+    ))));
+    await tester.pump();
+    expect(find.text('Video 1/2 · A · 1/2'), findsOneWidget);
+    await itemKey(tester, LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    final badge = find.text('Video 2/2 · B · 2/3');
+    expect(badge, findsOneWidget);
+    await tester.tap(badge);
+    await tester.tap(badge);
+    expect(opened, [same(items[1])]);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -131,22 +153,22 @@ void main() {
     await tester.pump();
     await itemKey(tester, LogicalKeyboardKey.arrowRight);
     expect(warnings, isEmpty);
-    expect(find.text('0/0 · B'), findsOneWidget);
+    expect(find.text('Video 2/3 · B · 0/0'), findsOneWidget);
     expect(find.byType(ExThumbnail), findsOneWidget);
     expect(currentImage(tester), 'https://example.test/B-cover.jpg');
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pump();
-    expect(find.text('0/0 · B'), findsOneWidget);
+    expect(find.text('Video 2/3 · B · 0/0'), findsOneWidget);
     failLoad = true;
     await itemKey(tester, LogicalKeyboardKey.arrowRight);
     expect(warnings.last, 'Failed to load screenshots');
-    expect(find.text('0/0 · B'), findsOneWidget);
+    expect(find.text('Video 2/3 · B · 0/0'), findsOneWidget);
     failLoad = false;
     await itemKey(tester, LogicalKeyboardKey.arrowRight);
     expect(currentImage(tester), contains('C-0'));
     await itemKey(tester, LogicalKeyboardKey.arrowLeft);
-    expect(find.text('0/0 · B'), findsOneWidget);
+    expect(find.text('Video 2/3 · B · 0/0'), findsOneWidget);
     await itemKey(tester, LogicalKeyboardKey.arrowLeft);
     expect(currentImage(tester), contains('A-0'));
     await tester.pumpWidget(const SizedBox.shrink());
@@ -287,7 +309,7 @@ void main() {
       loadVideo: (item) async => item as Videos, onClose: () {}, onWarning: (message) => fail(message),
     ))));
     await tester.pump();
-    expect(find.text('0/0 · EMPTY-123'), findsOneWidget);
+    expect(find.text('Video 1/2 · EMPTY-123 · 0/0'), findsOneWidget);
     expect(find.byType(ExThumbnail), findsOneWidget);
     expect(currentImage(tester), empty.fanArt);
     await itemKey(tester, LogicalKeyboardKey.arrowRight);

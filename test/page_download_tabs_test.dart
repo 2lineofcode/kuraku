@@ -19,6 +19,7 @@ import 'package:kuraku/app/modules/home/page_download/page_download_dialog.dart'
 import 'package:kuraku/app/modules/home/page_download/page_download_search_tab.dart';
 import 'package:kuraku/app/modules/home/page_download/page_download_view.dart';
 import 'package:kuraku/app/modules/widgets/widget_controls.dart';
+import 'package:kuraku/app/modules/widgets/widget_screenshot_source.dart';
 import 'package:kuraku/app/modules/widgets/widget_style.dart';
 import 'package:kuraku/app/utils/helper_opener.dart';
 
@@ -104,13 +105,14 @@ class _SearchView extends PageDownloadSearchView {
   @override
   Widget modeWrapView() {
     final listener = super.modeWrapView() as NotificationListener<ScrollMetricsNotification>;
-    final grid = listener.child as GridView;
+    final grid = listener.child as ScreenshotSource;
     return NotificationListener<ScrollMetricsNotification>(
       onNotification: listener.onNotification,
-      child: GridView.builder(
+      child: ScreenshotSource.grid(
+        items: controller.videos,
         key: grid.key,
         controller: grid.controller,
-        gridDelegate: grid.gridDelegate,
+        gridDelegate: grid.gridDelegate!,
         itemCount: controller.videos.length,
         itemBuilder: (context, index) => Text(controller.videos[index].videoCode ?? ''),
       ),

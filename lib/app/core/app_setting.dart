@@ -145,6 +145,37 @@ class AppSettingService extends GetxService {
     await windowManager.focus();
   }
 
+  Future<void> setupStandalonePlayerWindow() async {
+    try {
+      if (await windowManager.isFullScreen() || await windowManager.isMaximized()) return;
+      final size = await windowManager.getSize();
+      final playerSize = Size(
+        size.width < 1100 ? 1100 : size.width,
+        size.height < 700 ? 700 : size.height,
+      );
+      if (size == playerSize) return;
+      await windowManager.setSize(playerSize);
+      await windowManager.center();
+    } catch (e) {
+      debugPrint('Failed to resize standalone player window: $e');
+    }
+  }
+
+  Future<void> setupStandaloneHomeWindow() async {
+    try {
+      if (await windowManager.isFullScreen()) {
+        await windowManager.setFullScreen(false);
+        // AppPinGate restores bounds after the native fullscreen exit event.
+        return;
+      }
+      if (await windowManager.isMaximized()) await windowManager.unmaximize();
+      await windowManager.setSize(const Size(560, 450));
+      await windowManager.center();
+    } catch (e) {
+      debugPrint('Failed to resize standalone home window: $e');
+    }
+  }
+
   Future<void> setupLibraryWindow() async {
     const minimumSize = Size(746, 700);
     final size = await windowManager.getSize();

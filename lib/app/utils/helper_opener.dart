@@ -41,6 +41,7 @@ import '../modules/widgets/widget_controls.dart';
 import '../modules/widgets/widget_desktop_trailer.dart';
 import '../modules/widgets/widget_download_method.dart';
 import '../modules/widgets/widget_keyboard_shortcuts.dart';
+import '../modules/widgets/widget_screenshot_source.dart';
 import '../modules/widgets/widget_screenshot_viewer.dart';
 import '../modules/widgets/widget_style.dart';
 import '../modules/widgets/widget_surfaces.dart';
@@ -138,7 +139,7 @@ mixin HelperOpener {
       await HomePanelVideoInfo.open(item, items: items);
       return;
     }
-    final source = List<dynamic>.of(items ?? [item]);
+    final source = ScreenshotSource.snapshot(items ?? [item]);
     final itemIndex = screenshotItemIndex(item, source);
     Map<String, dynamic>? dataVideo;
     HelperLoading.show();
@@ -550,8 +551,10 @@ mixin HelperOpener {
   }
 
   static Future<void> openScreenshot(dynamic item, {List<dynamic>? items, int? itemIndex, bool localFrames = false}) async {
-    final source = List<dynamic>.of(items ?? [item]);
+    final source = ScreenshotSource.snapshot(items ?? [item]);
     final index = itemIndex ?? screenshotItemIndex(item, source);
+    dynamic lastItem = index >= 0 && index < source.length ? source[index] : item;
+    var openingInfo = false;
     late Videos video;
     HelperLoading.show();
     try {
@@ -578,11 +581,19 @@ mixin HelperOpener {
         key: viewerKey,
         video: video, items: source, itemIndex: index, localFrames: localFrames,
         loadVideo: (value) => resolveScreenshotVideo(value, localFrames: localFrames),
+        onItemChanged: (value) => lastItem = value,
+        onOpenInfo: (value) async {
+          openingInfo = true;
+          lastItem = value;
+          await Overlayment.dismiss(panel);
+          await openVideoInfo(value, items: source);
+        },
         onClose: () => Overlayment.dismiss(panel),
         onWarning: (message) => HelperToast.warn(message.tr),
       ),
     );
     await Overlayment.show(panel, context: Get.context);
+    await ScreenshotSource.restore(source, lastItem, focus: !openingInfo && Overlayment.count == 0);
   }
 
   static bool _isOpeningTrailer = false;

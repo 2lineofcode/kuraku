@@ -12,6 +12,7 @@ import '../../../core/const.dart';
 import '../../../data/models/library_entity.dart';
 import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper.dart';
+import '../../widgets/widget_screenshot_source.dart';
 import '../../widgets/widgets.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_library.dart';
@@ -274,9 +275,10 @@ class PageHomeView extends GetView<PageHomeController> {
             return Obx(
               () => list.isEmpty
                   ? emptyLayoutBuilder()
-                  : ListView.builder(
+                  : ScreenshotSource.list(
+                      items: list,
+                      itemExtent: prefKey == AppPref.homeSecNewRelease ? 268 : prefKey == AppPref.homeSecImageAlbums ? 228 : 143,
                       key: PageStorageKey('home-videos-$prefKey'),
-                      itemCount: list.length,
                       scrollDirection: Axis.horizontal,
                       itemBuilder: (context, index) {
                         final video = list[index];
