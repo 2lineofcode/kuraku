@@ -61,12 +61,19 @@ void main() {
     final second = Videos(id: 'second', videoPath: (File('${directory.path}/second.mp4')..writeAsStringSync('fixture')).path);
     tab.videos.assignAll([missing, Videos(), first, Videos(videoPath: ' '), second]);
 
-    await tab.performSelectionAction('play', tab.videos.toList());
+    Future<void> play(Future<void> opening) async {
+      await tester.pump();
+      await tester.pump();
+      await opening;
+      await tester.pumpAndSettle();
+    }
+
+    await play(tab.performSelectionAction('play', tab.videos.toList()));
     expect(player.requests.single.video, same(first));
     expect(player.requests.single.playlist, [first, second]);
     expect(tab.videos.length, 5);
 
-    await tab.performSelectionAction('play', [second, missing, first]);
+    await play(tab.performSelectionAction('play', [second, missing, first]));
     expect(player.requests.last.video, same(second));
     expect(player.requests.last.playlist, [second, first]);
 
@@ -78,16 +85,16 @@ void main() {
     await tab.performSelectionAction('play', []);
     expect(player.requests.length, 2);
 
-    await HelperOpener.openVideoFile(second, playlist: tab.videos);
+    await play(HelperOpener.openVideoFile(second, playlist: tab.videos));
     expect(player.requests.last.video, same(second));
     expect(player.requests.last.playlist, [first, second]);
     expect(tab.videos.length, 5);
 
     File(first.videoPath!).deleteSync();
-    await HelperOpener.openVideoFile(second, playlist: tab.videos);
+    await play(HelperOpener.openVideoFile(second, playlist: tab.videos));
     expect(player.requests.last.playlist, [second]);
 
-    await HelperOpener.openVideoFile(second);
+    await play(HelperOpener.openVideoFile(second));
     expect(player.requests.last.playlist, isNull);
 
     final explore = PageExploreTab(2);
@@ -119,5 +126,5 @@ void main() {
     await tester.pumpAndSettle();
     expect(playAll, findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }, timeout: const Timeout(Duration(seconds: 30)));
 }
