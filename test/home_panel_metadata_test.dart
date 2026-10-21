@@ -8,7 +8,6 @@ import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
 import 'package:kuraku/app/core/app_pref.dart';
 import 'package:kuraku/app/core/app_setting.dart';
-import 'package:kuraku/app/core/const.dart';
 import 'package:kuraku/app/data/database/_init_db.dart';
 import 'package:kuraku/app/data/database/_update_db.dart';
 import 'package:kuraku/app/data/database/db_videos.dart';
