@@ -86,15 +86,22 @@ mixin LibraryReconciler {
       return (added: 0, moved: 0, missing: missing.length, changed: false, retry: true);
     }
     final changed = additions.isNotEmpty || moves.isNotEmpty || snapshots.any((library) {
+      if (!previousLibraries.containsKey(library.id)) return true;
       final previous = (previousLibraries[library.id]?.videos ?? <String>[]).toSet();
       final current = (library.videos ?? <String>[]).toSet();
       final previousImages = (previousLibraries[library.id]?.images ?? <String>[]).toSet();
       final currentImages = (library.images ?? <String>[]).toSet();
+      final previousFolders = (previousLibraries[library.id]?.subFolder ?? <String>[]).toSet();
+      final currentFolders = (library.subFolder ?? <String>[]).toSet();
       return previous.length != current.length || !previous.containsAll(current)
-        || previousImages.length != currentImages.length || !previousImages.containsAll(currentImages);
+        || previousImages.length != currentImages.length || !previousImages.containsAll(currentImages)
+        || previousFolders.length != currentFolders.length || !previousFolders.containsAll(currentFolders);
     });
     final changedIdentities = Map<String, FileIdentity>.from(identities)..removeWhere((path, identity) =>
       !movedPaths.contains(path) && identity == cached[byPath[path]?.id] && byPath[path]?.rootPath == paths[path]);
+    if (!changed && changedIdentities.isEmpty) {
+      return (added: 0, moved: 0, missing: missing.length, changed: false, retry: retry);
+    }
     final moved = await DBLibrary.commitScan(snapshots, additions: additions, moves: moves,
       identities: changedIdentities, pathRoots: paths);
     return (added: additions.length, moved: moved, missing: missing.length - moved, changed: changed, retry: retry);

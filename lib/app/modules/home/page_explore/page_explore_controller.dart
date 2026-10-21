@@ -16,6 +16,7 @@ class PageExploreController extends GetxController {
   final activeTabIndex = 0.obs;
   final tabScrollController = ScrollController();
   int _nextTabId = 0;
+  final _dirtyTabs = <int>{};
   late final _pins = AppPref.getExplorePins().toSet().obs;
   final _savingPin = false.obs;
   PageExploreTab get activeTab => tabs[activeTabIndex.value];
@@ -30,6 +31,7 @@ class PageExploreController extends GetxController {
         final tab = createTab(_nextTabId++);
         tab.restorePreferences(entry);
         tabs.add(tab);
+        _dirtyTabs.add(tab.id);
       }
     }
     for (final tab in tabs) {
@@ -40,9 +42,6 @@ class PageExploreController extends GetxController {
     } else {
       final active = saved['activeTab'];
       selectTab(active is int ? active.clamp(0, tabs.length - 1) : 0);
-      for (final tab in tabs) {
-        unawaited(tab.onRefresh());
-      }
     }
   }
 
@@ -73,7 +72,7 @@ class PageExploreController extends GetxController {
     final tab = createTab(_nextTabId++);
     _watchTab(tab);
     tabs.add(tab);
-    unawaited(tab.onRefresh());
+    _dirtyTabs.add(tab.id);
     selectTab(tabs.length - 1);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!isClosed && tabScrollController.hasClients) tabScrollController.jumpTo(tabScrollController.position.maxScrollExtent);
@@ -85,6 +84,7 @@ class PageExploreController extends GetxController {
     activeTabIndex.value = index;
     _saveTabs();
     final tab = activeTab;
+    if (_dirtyTabs.remove(tab.id)) unawaited(tab.onRefresh());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!isClosed && !tab.isClosed && identical(activeTab, tab)) tab.fnSearchLeft.requestFocus();
     });
@@ -107,6 +107,7 @@ class PageExploreController extends GetxController {
   void closeTab(int index) {
     if (index < 0 || index >= tabs.length || tabs[index].isPinned.value) return;
     final tab = tabs.removeAt(index);
+    _dirtyTabs.remove(tab.id);
     tab.close();
     if (tabs.isEmpty) {
       addTab();
@@ -118,9 +119,10 @@ class PageExploreController extends GetxController {
   }
 
   Future<void> onRefresh() async {
-    for (final tab in tabs.toList()) {
-      await tab.onRefresh();
-    }
+    _dirtyTabs.addAll(tabs.map((tab) => tab.id));
+    if (tabs.isEmpty) return;
+    _dirtyTabs.remove(activeTab.id);
+    await activeTab.onRefresh();
   }
 
   @override

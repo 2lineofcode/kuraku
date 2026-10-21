@@ -334,24 +334,35 @@ void main() {
     expect(restored.tabs.last.filter.tecCategory.text, 'Unselected category');
     expect(restored.downloadStdout.value, '');
     expect(restored.currentProcessDownload.value, isNull);
+    expect((restored.tabs.first as _SearchTab).pending, isEmpty);
+    expect(restored.tabs.first.title.value, '/new-release');
+    expect((restored.tabs.last as _SearchTab).pending, isEmpty);
+    (restored.tabs[1] as _SearchTab).pending.single.complete(result('SSIS-002'));
+    await tester.pump();
+    restored.selectTab(0);
     (restored.tabs.first as _SearchTab).pending.single.complete(JavMostModel(success: true, total: 2, result: [
       Result(name: 'SSIS-001', genre: 'Drama', star: 'Alice', release: '2024-01-01'),
       Result(name: 'SSIS-002', genre: 'Drama', star: 'Alice', release: '2024-01-01'),
     ]));
-    (restored.tabs[1] as _SearchTab).pending.single.complete(result('SSIS-002'));
     await tester.pump();
     expect(restored.tabs.first.havingOnly.value, isTrue);
     expect(restored.tabs.first.videos.single.videoCode, 'SSIS-001');
+    restored.selectTab(1);
     restored.tabs[1].tecSearch.text = '/search changed draft';
     final beforeRefresh = jsonDecode(jsonEncode(AppPref.getDownloadTabs()));
     final refresh = restored.onRefresh();
+    expect((restored.tabs.first as _SearchTab).pending.length, 1);
+    (restored.tabs[1] as _SearchTab).pending.last.complete(result('SSIS-002'));
+    await refresh;
+    expect(AppPref.getDownloadTabs(), beforeRefresh);
+    restored.selectTab(0);
     (restored.tabs.first as _SearchTab).pending.last.complete(JavMostModel(success: true, total: 1, result: [
       Result(name: 'SSIS-001', genre: 'Drama', star: 'Alice', release: '2024-01-01'),
     ]));
     await tester.pump();
-    (restored.tabs[1] as _SearchTab).pending.last.complete(result('SSIS-002'));
-    await refresh;
-    expect(AppPref.getDownloadTabs(), beforeRefresh);
+    expect((restored.tabs.first as _SearchTab).pending.length, 2);
+    restored.selectTab(1);
+    expect((restored.tabs[1] as _SearchTab).pending.length, 2);
     expect(restored.tabs.first.title.value, '/new-release');
     expect(restored.tabs.first.videos.single.videoCode, 'SSIS-001');
     expect(restored.tabs.first.havingOnly.value, isTrue);

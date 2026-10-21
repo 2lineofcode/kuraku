@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
-import 'dart:math' show max, min, pow;
+import 'dart:math' show max, min;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ex_kit/ex.dart';
@@ -33,7 +33,22 @@ import '../../modules/home/home_panel/home_panel_playlist.dart';
 import '../../utils/helper.dart';
 import 'widget_style.dart';
 
+@visibleForTesting
+bool isUsableThumbnailPreview(Uint8List? bytes, {required bool fromFfmpeg}) =>
+    bytes != null && bytes.isNotEmpty && (fromFfmpeg || bytes.length > 1000);
+
 class _ExThumbnailC extends GetxController {
+  CacheManager? _networkCache;
+  CacheManager get networkCache => _networkCache ??= CacheManager(Config(
+    'net_thumbnail',
+    stalePeriod: const Duration(days: 365),
+    maxNrOfCacheObjects: 100000000,
+    repo: CacheObjectProvider(
+      databaseName: 'net_thumbnail',
+      path: p.join(Get.find<AppSettingService>().appPath, 'net_thumbnail'),
+    ),
+  ));
+
   // ---- caches & inflight
   final Map<String, Uint8List> _memCache = {};
   final Map<String, Uint8List> _previewMemCache = {};
@@ -48,6 +63,12 @@ class _ExThumbnailC extends GetxController {
   static const _vcTimeout = Duration(seconds: 45); // matiin job video_compress yg ngegantung
   static const _vcPreviewTimeout = Duration(seconds: 8); // short timeout for screenshot previews
   static const _ffTimeout = Duration(seconds: 15); // cancel ffmpeg kalau kelamaan
+
+  @override
+  void onClose() {
+    _networkCache?.dispose();
+    super.onClose();
+  }
 
   Future<String> _thumbDir() async {
     final appPath = Get.find<AppSettingService>().appPath;
@@ -111,6 +132,8 @@ class _ExThumbnailC extends GetxController {
         '-threads', '1', // hindari kontensi di HDD
         '-i', inputPath,
         '-frames:v', '1',
+        '-vf', 'scale=640:360:force_original_aspect_ratio=decrease:force_divisible_by=2',
+        '-filter_threads', '1',
         '-update', '1', // single image output, avoid image2 sequence warning
         outPath,
       ];
@@ -229,8 +252,8 @@ class _ExThumbnailC extends GetxController {
       } else {
         bytes = await _safeVideoCompress(videopath, position, timeout: _vcPreviewTimeout);
       }
-      if (bytes != null && bytes.isNotEmpty && bytes.length > 1000) {
-        _setPreviewCache(cacheKey, bytes);
+      if (isUsableThumbnailPreview(bytes, fromFfmpeg: Platform.isLinux || Platform.isWindows)) {
+        _setPreviewCache(cacheKey, bytes!);
         return bytes;
       }
       return null;
@@ -414,17 +437,7 @@ class _ExThumbnailState extends State<ExThumbnail> {
           ),
           memCacheWidth: (fastImageRenderWidth * MediaQuery.devicePixelRatioOf(context)).round(),
           fadeInDuration: 300.milliseconds,
-          cacheManager: CacheManager(
-            Config(
-              'net_thumbnail',
-              stalePeriod: 365.days,
-              maxNrOfCacheObjects: (pow(2, 63) - 1).toInt(),
-              repo: CacheObjectProvider(
-                databaseName: 'net_thumbnail',
-                path: p.join(Get.find<AppSettingService>().appPath, 'net_thumbnail'),
-              ),
-            ),
-          ),
+          cacheManager: controller.networkCache,
           progressIndicatorBuilder: (c, url, progress) => Stack(children: [
             Container(width: widget.width, height: widget.height, color: AppColor.hover).shimmer(primaryColor: AppColor.hover, secondaryColor: AppColor.container),
             if (progress.progress != null) ' ${(progress.progress! * 100).toDoubleStringAsFixed(digit: 0)}%'.text.xs.align(TextAlign.center).makeCentered(),

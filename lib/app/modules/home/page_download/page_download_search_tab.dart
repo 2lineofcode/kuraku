@@ -105,6 +105,7 @@ class PageDownloadSearchTab {
     }
     isPinned.value = value['pinned'] == true;
     tecSearch.text = value['query'] is String ? PageDownloadCommandEngine.normalizeQuery(value['query']) : '';
+    _lastQuery = tecSearch.text.trim();
     havingOnly.value = value['havingOnly'] == true;
     filter.isFiltered.value = value['filtered'] == true;
     filter.restoreBlacklist(value['blacklist']);
@@ -127,6 +128,7 @@ class PageDownloadSearchTab {
     if (start is num && end is num && start.isFinite && end.isFinite && start <= end) {
       filter.currentRange.value = RangeValues(start.toDouble().clamp(2000, year), end.toDouble().clamp(2000, year));
     }
+    title.value = _resultRows.value != null ? _resultTitle : _lastQuery.isNotEmpty ? _lastQuery : _hasAnyFilter() ? 'Filtered search' : 'New search';
   }
 
   Future<void> restoreSearch() async {
@@ -589,7 +591,7 @@ class PageDownloadSearchTab {
           r18videos = await DBR18.getByFilter(
             matchAllCategories: true,
             page: page,
-            perPage: _perPage + 1,
+            perPage: _perPage,
             videoCode: videoCode,
             actressName: actressName,
             categories: categories,
@@ -601,7 +603,7 @@ class PageDownloadSearchTab {
           r18videos = await DBR18.search(
             query, matchAllCategories: true,
             page: page,
-            perPage: _perPage + 1,
+            perPage: _perPage,
             videoCode: videoCode,
             actressName: actressName,
             categories: categories,
@@ -622,7 +624,7 @@ class PageDownloadSearchTab {
       }
       final pageItems = isOnlineApi ? r18videos : r18videos.take(_perPage).toList();
       final currentLoaded = isLoadMore ? allVideos.length : 0;
-      final hasMore = isOnlineApi ? apiHasNextPage ?? (apiTotal ?? 0) > currentLoaded + pageItems.length : r18videos.length > _perPage;
+      final hasMore = isOnlineApi ? apiHasNextPage ?? (apiTotal ?? 0) > currentLoaded + pageItems.length : page * _perPage < totalResults.value;
 
       final output = _toSearchResults(pageItems);
 

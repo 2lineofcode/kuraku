@@ -1,10 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:get_secure_storage/get_secure_storage.dart';
+import 'package:kuraku/app/core/app_pref.dart';
+import 'package:kuraku/app/core/app_setting.dart';
 import 'package:kuraku/app/data/database/_init_db.dart';
 import 'package:kuraku/app/data/database/db_videos.dart';
 import 'package:kuraku/app/data/models/videos_entity.dart';
 import 'package:kuraku/app/modules/home/page_home/page_home_controller.dart';
 import 'package:sqflite/sqflite.dart';
+
+import 'sqlite_test_database.dart';
 
 class _Service extends DBService {
   @override
@@ -21,6 +26,24 @@ class _Database implements Database {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _Preferences implements GetSecureStorage {
+  final values = <String, dynamic>{};
+  @override
+  T? read<T>(String key) => values[key] as T?;
+  @override
+  Future<void> write(String key, dynamic value) async { values[key] = value; }
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Sections extends PageHomeController {
+  final loaded = <String>[];
+  @override
+  Future<void> loadSection(String section) async { loaded.add(section); }
+  @override
+  Future<void> getImageAlbums() async {}
+}
+
 Videos video(String id, {List<String> cast = const [], List<String> tags = const []}) => Videos(
   id: id,
   actress: cast.map((name) => VideoActress(nameRomaji: name)).toList(),
@@ -28,6 +51,50 @@ Videos video(String id, {List<String> cast = const [], List<String> tags = const
 );
 
 void main() {
+  test('Oldest uses release dates and excludes videos without a release date', () async {
+    final db = await SqliteTestDatabase.open();
+    addTearDown(() async { Get.reset(); await db.close(); });
+    await db.execute('''CREATE TABLE videos (
+      id TEXT, video_code TEXT, release_date TEXT, created_at TEXT, updated_at TEXT, is_deleted INTEGER DEFAULT 0
+    )''');
+    for (final row in [
+      ['oldest', 'ABC-001', '1990-01-01', '2026-10-20', '2026-10-20', 0],
+      ['newer', 'ABC-002', '2020-01-01', '2000-01-01', '2000-01-01', 0],
+      ['missing', 'ABC-003', null, '1980-01-01', '1980-01-01', 0],
+      ['empty', 'ABC-004', '', '1980-01-01', '1980-01-01', 0],
+      ['blank', 'ABC-005', '   ', '1980-01-01', '1980-01-01', 0],
+      ['deleted', 'ABC-006', '1970-01-01', '1980-01-01', '1980-01-01', 1],
+    ]) {
+      await db.execute('INSERT INTO videos VALUES (?, ?, ?, ?, ?, ?)', row);
+    }
+    Get.put<DBService>(_Service()..dbMain = db);
+    final home = PageHomeController();
+    await home.getListOldest();
+    expect(home.listOldest.map((video) => video.id), ['oldest', 'newer']);
+  });
+
+  test('Home refresh skips hidden sections and loads them when expanded', () async {
+    final pref = _Preferences();
+    pref.values[AppPref.homeSecRecommendation] = true;
+    Get.put(AppSettingService()..pref = pref);
+    AppPref.setHomeOrderList([AppPref.homeSecRecommendation, AppPref.homeSecFavorite]);
+    final db = _Database()..rows.add({'total': 10});
+    Get.put<DBService>(_Service()..dbMain = db);
+    addTearDown(Get.reset);
+    final home = _Sections();
+    await home.onRefresh();
+    expect(home.loaded, [AppPref.homeSecRecommendation]);
+    home.loaded.clear();
+    await home.toggleSection(AppPref.homeSecFavorite);
+    expect(home.loaded, [AppPref.homeSecFavorite]);
+    await home.toggleSection(AppPref.homeSecFavorite);
+    expect(home.loaded, [AppPref.homeSecFavorite]);
+    await home.toggleSection(AppPref.homeSecFavorite);
+    expect(home.loaded, [AppPref.homeSecFavorite]);
+    await home.onRefresh();
+    expect(home.loaded.where((section) => section == AppPref.homeSecFavorite), hasLength(2));
+  });
+
   test('favorites and meaningful recent viewing outweigh opens and short previews', () async {
     final db = _Database();
     Get.put<DBService>(_Service()..dbMain = db);

@@ -45,6 +45,8 @@ mixin HomePanelLibrary {
   static Future<void> _libraryScanQueue = Future.value();
   static int _libraryScansPending = 0;
   static int _watchRetries = 0;
+  static final _pendingWatchRoots = <String>{};
+  static bool _watchScanAll = false;
   static bool _watchersEnabled = false;
   static const Duration _watchDebounce = Duration(seconds: 3);
   static bool _repairInProgress = false;
@@ -96,6 +98,8 @@ mixin HomePanelLibrary {
       await sub.cancel();
     }
     _libraryWatchSubs.clear();
+    _pendingWatchRoots.clear();
+    _watchScanAll = false;
     _libraryWatchDebounce?.cancel();
     _libraryWatchDebounce = null;
   }
@@ -119,7 +123,7 @@ mixin HomePanelLibrary {
       try {
         final sub = dir.watch(recursive: true).listen((event) {
           if (_shouldIgnoreWatchEvent(event)) return;
-          _scheduleAutoRescan();
+          _scheduleAutoRescan(root: root);
         }, onError: (e) {
           AppLog.logW('[LibraryWatcher] Watch error for $root: $e');
         });
@@ -131,10 +135,11 @@ mixin HomePanelLibrary {
     }
   }
 
-  static void _scheduleAutoRescan({bool retry = false}) {
+  static void _scheduleAutoRescan({bool retry = false, String? root}) {
     if (!_watchersEnabled) return;
     if (!retry) _watchRetries = 0;
     if (retry && ++_watchRetries > 3) return;
+    if (root == null) { _watchScanAll = true; } else { _pendingWatchRoots.add(root); }
     _libraryWatchDebounce?.cancel();
     _libraryWatchDebounce = Timer(_watchDebounce, _runAutoRescan);
   }
@@ -146,7 +151,10 @@ mixin HomePanelLibrary {
       return;
     }
     try {
-      await doRescanAllVideoFromLibrary(await DBLibrary.getAll(), showSummaryToast: false);
+      final roots = _watchScanAll ? null : Set<String>.of(_pendingWatchRoots);
+      _pendingWatchRoots.clear();
+      _watchScanAll = false;
+      await doRescanAllVideoFromLibrary(await DBLibrary.getAll(), showSummaryToast: false, roots: roots);
     } catch (e) {
       AppLog.logW('[LibraryWatcher] Auto rescan failed: $e');
     }
@@ -803,23 +811,44 @@ mixin HomePanelLibrary {
     bool showSummaryToast = true,
     bool preserveInputState = true,
     bool recoverVideoCodes = false,
+    Set<String>? roots,
   }) {
     return _queueLibraryChange(() async {
         if (!Get.isRegistered<HomeController>() || _controller.isClosed) return;
         if (libraries.isEmpty) return;
         _controller.footerText.value = '◎ Rescanning...'.tr;
+        final scanRoots = roots == null ? null : {
+          for (final library in libraries)
+            if (library.rootFolder != null && roots.any((root) => root == library.rootFolder
+                || p.isWithin(root, library.rootFolder!) || p.isWithin(library.rootFolder!, root))) library.rootFolder!,
+        };
         final snapshots = <Library>[];
-        for (final library in libraries) {
+        final previous = <String, Library>{};
+        Future<void> scan(Library library) async {
           final saved = (library.id ?? '').isEmpty ? null : await DBLibrary.getByID(library.id!);
-          if (saved != null && saved.isEmpty) continue;
+          if (saved != null && saved.isEmpty) return;
           final current = saved?.single ?? library;
+          previous[current.rootFolder ?? ''] = current;
           try {
             final scanned = await HelperFilePicker.scanFolderAndSubFolder(current.rootFolder ?? '');
-            if (scanned == null) continue;
+            if (scanned == null) return;
             snapshots.add(Library.fromJson(current.toJson())
               ..images = scanned.images..videos = scanned.videos..subFolder = scanned.subFolder..totalVideo = scanned.totalVideo);
           } catch (e) {
             AppLog.logW('[RescanAll] Could not access folder: ${library.rootFolder}. Skipping this library.');
+          }
+        }
+        for (final library in libraries) {
+          if (scanRoots == null || scanRoots.contains(library.rootFolder)) await scan(library);
+        }
+        // Cross-root video moves need complete snapshots to retain identity and history.
+        if (scanRoots != null && snapshots.any((library) {
+          final before = (previous[library.rootFolder]?.videos ?? <String>[]).toSet();
+          final after = (library.videos ?? <String>[]).toSet();
+          return before.length != after.length || !before.containsAll(after);
+        })) {
+          for (final library in libraries) {
+            if (!scanRoots.contains(library.rootFolder)) await scan(library);
           }
         }
         if (snapshots.isEmpty) return;

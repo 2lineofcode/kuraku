@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:kuraku/app/data/database/_init_db.dart';
 import 'package:kuraku/app/data/database/db_r18.dart';
+import 'package:kuraku/app/modules/home/page_download/page_download_search_tab.dart';
 import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
 import 'package:kuraku/app/modules/home/page_tools/page_tools_view.dart';
 import 'package:kuraku/app/modules/widgets/widget_controls.dart';
@@ -24,6 +25,14 @@ class _Service extends DBService {
 class _Tools extends PageToolsController {
   @override
   Future<void> onRefresh() async {}
+}
+
+class _DownloadTab extends PageDownloadSearchTab {
+  _DownloadTab(super.id);
+  @override
+  Future<Set<String>> loadExistingVideoCodes() async => {'ABC-00001'};
+  @override
+  Future<void> saveHistory(String query) async {}
 }
 
 class _Database implements Database {
@@ -515,6 +524,38 @@ void main() {
     }
     expect(codes, List.generate(1001, (i) => 'ABC-${(i + 1).toString().padLeft(5, '0')}'));
     expect(await DBR18.getCountAllVideosByCategory('Pagination'), codes.length);
+  });
+
+  testWidgets('Download database search and filter pages keep every boundary video', (tester) async {
+    Get.find<DBService>().dbR18 = _Database(includePagination: true);
+    final tab = _DownloadTab(1);
+    addTearDown(tab.dispose);
+    await tester.pumpWidget(MaterialApp(home: ListView.builder(
+      controller: tab.scrollController, itemCount: 1000, itemExtent: 50,
+      itemBuilder: (_, index) => Text('$index'),
+    )));
+    for (final query in ['Page', '']) {
+      tab.filter.categoriesSelected.assignAll(['Pagination']);
+      await tester.runAsync(() => tab.onSearch(query));
+      expect(tab.totalResults.value, 1001);
+      expect(tab.allVideos.length, 200);
+      for (var page = 2; page <= 6; page++) {
+        tab.scrollController.jumpTo(0);
+        await tester.runAsync(() async {
+          tab.scrollController.jumpTo(tab.scrollController.position.maxScrollExtent);
+          await Future<void>(() async {
+            while (tab.isLoadingMore.value) {
+              await Future<void>.delayed(const Duration(milliseconds: 1));
+            }
+          }).timeout(const Duration(seconds: 10));
+        });
+        expect(tab.currentPage.value, page);
+      }
+      expect(tab.allVideos.map((video) => video.videoCode),
+        List.generate(1001, (i) => 'ABC-${(i + 1).toString().padLeft(5, '0')}'));
+      expect(tab.hasNextPage.value, isFalse);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   test('browse pages deduplicate codes and links before reading translated metadata', () async {

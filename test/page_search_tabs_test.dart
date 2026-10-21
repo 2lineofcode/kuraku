@@ -11,14 +11,19 @@ import 'package:get_secure_storage/get_secure_storage.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:kuraku/app/core/app_pref.dart';
 import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/_update_db.dart';
+import 'package:kuraku/app/data/database/db_videos.dart';
 import 'package:kuraku/app/data/models/videos_entity.dart';
 import 'package:kuraku/app/modules/home/page_search/page_search_controller.dart';
 import 'package:kuraku/app/modules/home/page_search/page_search_tab.dart';
 import 'package:kuraku/app/modules/home/page_search/page_search_view.dart';
+import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
 import 'package:kuraku/app/modules/widgets/widget_controls.dart';
 import 'package:kuraku/app/utils/semantic_search_service.dart';
 
 import 'icon_finder.dart';
+import 'sqlite_test_database.dart';
 
 class _Preferences implements GetSecureStorage {
   final values = <String, dynamic>{};
@@ -52,6 +57,7 @@ class _DelayedTab extends PageSearchTab {
 
 class _ReadyTab extends PageSearchTab {
   _ReadyTab(super.id);
+  int loads = 0;
 
   @override
   Future<List<String>> loadHistory(String query) async => [];
@@ -63,7 +69,7 @@ class _ReadyTab extends PageSearchTab {
   }
 
   @override
-  Future<List<Videos>> loadVideos(String query) async => [];
+  Future<List<Videos>> loadVideos(String query) async { loads++; return []; }
 
   @override
   Future<List<SemanticSearchHit>> loadSemanticResults(String query) async => [];
@@ -91,6 +97,15 @@ class _Controller extends PageSearchController {
   PageSearchTab createTab(int id) => _ReadyTab(id);
 }
 
+class _QualityScan extends PageToolsController {
+  @override
+  Future<String?> extractQuality(String path) async => '1920x1080';
+  @override
+  Future<void> checkIsHasDataNotScanned() async {}
+  @override
+  Future<void> getTopLargeFileSize({String mode = 'all'}) async {}
+}
+
 class _SearchView extends PageSearchTabView {
   const _SearchView({super.key, required super.controller});
 
@@ -108,6 +123,59 @@ void main() {
     Get.put(AppSettingService()..pref = preferences);
   });
   tearDown(Get.reset);
+
+  test('empty tabs share collection models but keep independent ordering and invalidate after writes', () async {
+    final db = await SqliteTestDatabase.open();
+    addTearDown(db.close);
+    await DBService.onCreate(db, DBUpdate.version);
+    Get.put<DBService>(DBService()..dbMain = db);
+    await DBVideos.addBulk([
+      Videos(rootPath: '/videos', videoPath: '/videos/a.mp4', title: 'A'),
+      Videos(rootPath: '/videos', videoPath: '/videos/b.mp4', title: 'B'),
+    ]);
+    final controller = PageSearchController();
+    addTearDown(controller.tabScrollController.dispose);
+    final lists = await Future.wait([controller.loadCollection(), controller.loadCollection()]);
+    expect(lists[0], isNot(same(lists[1])));
+    expect(lists[0].first, same(lists[1].first));
+    final first = lists[1].first;
+    lists[0].removeAt(0);
+    expect(lists[1], hasLength(2));
+    await DBVideos.addToFavorite(first);
+    final refreshed = await controller.loadCollection();
+    expect(refreshed.first, isNot(same(first)));
+    expect(refreshed.first.isFavorite, 1);
+    await DBVideos.updateViewCount(first);
+    final watched = await controller.loadCollection();
+    expect(watched.first.viewCount, 1);
+    expect(watched.first, isNot(same(refreshed.first)));
+    final scan = _QualityScan();
+    addTearDown(scan.onClose);
+    await scan.scanAndUpdateDBVideoRes();
+    final resolved = await controller.loadCollection();
+    expect(resolved.first.quality, '1920x1080');
+    expect(resolved.first, isNot(same(watched.first)));
+  });
+
+  testWidgets('Search restores and refreshes only the selected tab', (tester) async {
+    await AppPref.setSearchTabs({'tabs': [{'query': 'First'}, {'query': 'Second'}], 'activeTab': 1});
+    final controller = Get.put<PageSearchController>(_Controller());
+    await tester.pump();
+    final first = controller.tabs.first as _ReadyTab;
+    final second = controller.tabs.last as _ReadyTab;
+    expect(first.loads, 0);
+    expect(second.loads, 1);
+    await controller.onRefresh();
+    expect(first.loads, 0);
+    expect(second.loads, 2);
+    controller.selectTab(0);
+    await tester.pump();
+    expect(first.loads, 1);
+    controller.selectTab(0);
+    await tester.pump();
+    expect(first.loads, 1);
+    expect(second.tecSearch.text, 'Second');
+  });
 
   testWidgets('search tabs reorder and pin without changing the active tab', (tester) async {
     final controller = Get.put<PageSearchController>(_Controller());

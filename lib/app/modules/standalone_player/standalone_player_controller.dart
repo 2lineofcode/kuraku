@@ -6,6 +6,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:ex_kit/ex.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
@@ -131,7 +132,7 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
     player = Player(
       configuration: PlayerConfiguration(
         vo: 'libmpv',
-        logLevel: MPVLogLevel.debug,
+        logLevel: kDebugMode ? MPVLogLevel.debug : MPVLogLevel.warn,
         title: 'Player',
         ready: () => debugPrint('player is ready'),
       ),
@@ -869,42 +870,39 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
                             ].whereType<String>().where((value) => value.isNotEmpty).join(' · ');
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8),
-                              child: Tooltip(
-                                message: 'Double-click to play'.tr,
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onDoubleTap: () async {
-                                    if (selected) return;
-                                    final path = item.videoPath;
-                                    if (path == null || path.isEmpty || !File(path).existsSync()) {
-                                      await HelperToast.warn('Cant access video file'.tr, addToAppLog: false);
-                                      return;
-                                    }
-                                    await Overlayment.dismissLast();
-                                    await changeVideo(item);
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: selected ? Colors.white.withValues(alpha: .12) : Colors.white.withValues(alpha: .03),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: selected ? Colors.white30 : Colors.transparent),
-                                    ),
-                                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                      _PlaylistThumbnail(key: ValueKey(item.videoPath), path: item.videoPath ?? ''),
-                                      const SizedBox(width: 10),
-                                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                        Row(children: [
-                                          if (selected) ...[const Icon(CupertinoIcons.play_fill, size: 10, color: Colors.white), const SizedBox(width: 6)],
-                                          Expanded(child: Text(item.title ?? basename(item.videoPath ?? ''),
-                                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white))),
-                                        ]),
-                                        const Spacer(),
-                                        Text(metadata, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: Colors.white54)),
-                                      ])),
-                                    ]),
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onDoubleTap: () async {
+                                  if (selected) return;
+                                  final path = item.videoPath;
+                                  if (path == null || path.isEmpty || !File(path).existsSync()) {
+                                    await HelperToast.warn('Cant access video file'.tr, addToAppLog: false);
+                                    return;
+                                  }
+                                  await Overlayment.dismissLast();
+                                  await changeVideo(item);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: selected ? Colors.white.withValues(alpha: .12) : Colors.white.withValues(alpha: .03),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: selected ? Colors.white30 : Colors.transparent),
                                   ),
+                                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    _PlaylistThumbnail(key: ValueKey(item.videoPath), path: item.videoPath ?? ''),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                      Row(children: [
+                                        if (selected) ...[const Icon(CupertinoIcons.play_fill, size: 10, color: Colors.white), const SizedBox(width: 6)],
+                                        Expanded(child: Text(item.title ?? basename(item.videoPath ?? ''),
+                                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white))),
+                                      ]),
+                                      const Spacer(),
+                                      Text(metadata, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: Colors.white54)),
+                                    ])),
+                                  ]),
                                 ),
                               ),
                             );

@@ -68,7 +68,10 @@ class HomeController extends GetxController with StateMixin {
   final cart = <Videos>[].obs;
   Worker? _videoWorker;
   Worker? _gamificationWorker;
+  Worker? _watchWorker;
+  bool _profileCollectionDirty = true;
   int _videoRefreshRevision = 0;
+  final _dirtyVideoPages = <String>{};
   Future<void>? _profileRefresh;
   bool _profileNeedsRefresh = false;
   bool _hasLoadedGamification = false;
@@ -138,8 +141,12 @@ class HomeController extends GetxController with StateMixin {
     deduplicateCart();
     ever<List<Videos>>(cart, (value) => AppPref.setAppCart(value));
     _videoWorker = ever(DBVideos.revision, (_) => unawaited(refreshVideoContent()));
-    _gamificationWorker = everAll([DBVideos.revision, DBPlaylist.revision, DBWatchSession.revision], (_) {
+    _gamificationWorker = everAll([DBVideos.revision, DBPlaylist.revision], (_) {
       unawaited(refreshProfile().catchError((Object e) => AppLog.logW('Refreshing gamification failed: $e')));
+    });
+
+    _watchWorker = ever(DBWatchSession.revision, (_) {
+      unawaited(_refreshProfile(watchOnly: true).catchError((Object e) => AppLog.logW('Refreshing watch statistics failed: $e')));
     });
 
     sideMenuWidth.value = AppPref.getAppHideSideMenu() ? 65 : 180;
@@ -180,6 +187,7 @@ class HomeController extends GetxController with StateMixin {
   void onClose() {
     _videoWorker?.dispose();
     _gamificationWorker?.dispose();
+    _watchWorker?.dispose();
     HomePanelLibrary.stopAutoRescanWatcher();
     fnTopNavSearch.removeListener(_onTopNavSearchFocusChanged);
     tecTopNavSearch.dispose();
@@ -188,6 +196,7 @@ class HomeController extends GetxController with StateMixin {
   }
 
   Future<void> refreshVideoContent() async {
+    _profileCollectionDirty = true;
     final revision = ++_videoRefreshRevision;
     try {
       final snapshot = cart.toList();
@@ -206,27 +215,38 @@ class HomeController extends GetxController with StateMixin {
       }
       cart.assignAll(cart.map((video) => refreshed.containsKey(video) ? refreshed[video] : video).whereType<Videos>().toList());
       deduplicateCart();
+      _dirtyVideoPages.addAll([kMenuHome, kMenuSearch, kMenuExplore, kMenuDownload, kMenuTools, kMenuSetting]);
       await Future.wait([
-        if (Get.isRegistered<PageHomeController>() && !Get.isPrepared<PageHomeController>())
-          Get.find<PageHomeController>().onRefresh(),
-        if (Get.isRegistered<PageSearchController>() && !Get.isPrepared<PageSearchController>())
-          Get.find<PageSearchController>().onRefresh(),
-        if (Get.isRegistered<PageExploreController>() && !Get.isPrepared<PageExploreController>())
-          Get.find<PageExploreController>().onRefresh(),
-        if (Get.isRegistered<PageToolsController>() && !Get.isPrepared<PageToolsController>()) ...[
-          Get.find<PageToolsController>().refreshDeletedItemsMenu(),
-          Get.find<PageToolsController>().getTopLargeFileSize(mode: Get.find<PageToolsController>().topLargeFilterMode.value),
-          Get.find<PageToolsController>().getDuplicateVideos(),
-          Get.find<PageToolsController>().checkIsHasDataNotScanned(),
-        ],
-        if (Get.isRegistered<PageSettingsController>() && !Get.isPrepared<PageSettingsController>())
-          Get.find<PageSettingsController>().refreshLibraryStats(),
+        _refreshVideoPage(currentMenuSelected.value),
         getAllPlaylist(),
         HomePanelPlaylist.refreshVideoContent(),
         updateFooterSummary(),
       ]);
     } catch (e) {
       AppLog.logE('Refreshing video content failed: $e');
+    }
+  }
+
+  Future<void> _refreshVideoPage(String menu) async {
+    if (!_dirtyVideoPages.remove(menu)) return;
+    try {
+      switch (menu) {
+        case kMenuHome:
+          if (Get.isRegistered<PageHomeController>() && !Get.isPrepared<PageHomeController>()) await Get.find<PageHomeController>().onRefresh();
+        case kMenuSearch:
+          if (Get.isRegistered<PageSearchController>() && !Get.isPrepared<PageSearchController>()) await Get.find<PageSearchController>().onRefresh();
+        case kMenuExplore:
+          if (Get.isRegistered<PageExploreController>() && !Get.isPrepared<PageExploreController>()) await Get.find<PageExploreController>().onRefresh();
+        case kMenuDownload:
+          if (Get.isRegistered<PageDownloadController>() && !Get.isPrepared<PageDownloadController>()) await Get.find<PageDownloadController>().onRefresh();
+        case kMenuTools:
+          if (Get.isRegistered<PageToolsController>() && !Get.isPrepared<PageToolsController>()) await Get.find<PageToolsController>().refreshVideoContent();
+        case kMenuSetting:
+          if (Get.isRegistered<PageSettingsController>() && !Get.isPrepared<PageSettingsController>()) await Get.find<PageSettingsController>().refreshLibraryStats();
+      }
+    } catch (_) {
+      _dirtyVideoPages.add(menu);
+      rethrow;
     }
   }
 
@@ -278,6 +298,11 @@ class HomeController extends GetxController with StateMixin {
       if (!await Get.find<PageChatController>().flushDraft()) return;
     }
     currentMenuSelected.value = menu;
+    try {
+      await _refreshVideoPage(menu);
+    } catch (e) {
+      AppLog.logE('Refreshing $menu failed: $e');
+    }
   }
 
   String get idleFooterText => 'Idle | Total Video: @{value}'.trNamed({'value': '${totalVideo.value}'});
@@ -695,7 +720,10 @@ class HomeController extends GetxController with StateMixin {
     await Get.find<PageProfileController>().onRefresh();
   }
 
-  Future<void> refreshProfile() {
+  Future<void> refreshProfile() => _refreshProfile();
+
+  Future<void> _refreshProfile({bool watchOnly = false}) {
+    if (!watchOnly) _profileCollectionDirty = true;
     _profileNeedsRefresh = true;
     return _profileRefresh ??= _loadProfile().whenComplete(() => _profileRefresh = null);
   }
@@ -703,7 +731,15 @@ class HomeController extends GetxController with StateMixin {
   Future<void> _loadProfile() async {
     do {
       _profileNeedsRefresh = false;
-      final summary = await DBGamification.syncAndGetSummary();
+      final collectionStats = _profileCollectionDirty ? null : gamification.value?.stats;
+      _profileCollectionDirty = false;
+      final GamificationSummary summary;
+      try {
+        summary = await DBGamification.syncAndGetSummary(collectionStats: collectionStats);
+      } catch (_) {
+        _profileCollectionDirty = true;
+        rethrow;
+      }
       final updatedProfile = await DBProfile.getProfile() ?? Profile();
       if (isClosed) return;
       final previous = gamification.value;

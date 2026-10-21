@@ -66,6 +66,26 @@ class _Home extends HomeController {
 void main() {
   tearDown(() { Get.reset(); Get.clearTranslations(); });
 
+  test('resource refresh preserves Tools drafts and skips duplicate work outside its tab', () async {
+    Get.put<DBService>(_Service()..dbMain = _Database());
+    final tools = Get.put<PageToolsController>(_Tools()) as _Tools;
+    tools.tecDuplicateSearch.text = 'Keep draft';
+    tools.resultQuery.value = 'Keep search';
+    tools.topLargeFilterMode.value = 'external';
+    await tools.refreshVideoContent();
+    expect(tools.requests, isEmpty);
+    expect(tools.tecDuplicateSearch.text, 'Keep draft');
+    expect(tools.resultQuery.value, 'Keep search');
+    expect(tools.topLargeFilterMode.value, 'external');
+    tools.currentMenuSelected.value = kDuplicate;
+    final refresh = tools.refreshVideoContent();
+    await Future<void>.delayed(Duration.zero);
+    expect(tools.requests, hasLength(1));
+    tools.requests.single.complete([]);
+    await refresh;
+    expect(tools.tecDuplicateSearch.text, 'Keep draft');
+  });
+
   test('Duplicate matching handles quality suffixes, titles, Unicode and disconnected candidates', () async {
     final database = _Database();
     Get.put<DBService>(_Service()..dbMain = database);

@@ -37,6 +37,9 @@ class _Tab extends PageExploreTab {
   bool delaySelection = false;
   bool failMenu = false;
   int loads = 0;
+  int refreshes = 0;
+  @override
+  Future<void> onRefresh() async { refreshes++; await super.onRefresh(); }
 
   @override
   Future<bool> loadIsFresh() async => false;
@@ -88,6 +91,25 @@ void main() {
     Get.put(AppSettingService()..pref = preferences);
   });
   tearDown(Get.reset);
+
+  testWidgets('Explore restores and refreshes only the selected tab', (tester) async {
+    await AppPref.setExploreTabs({'tabs': [{'menu': kSeries}, {'menu': kSeries}], 'activeTab': 1});
+    final controller = Get.put<PageExploreController>(_Controller());
+    await tester.pump();
+    final first = controller.tabs.first as _Tab;
+    final second = controller.tabs.last as _Tab;
+    expect(first.refreshes, 0);
+    expect(second.refreshes, 1);
+    await controller.onRefresh();
+    expect(first.refreshes, 0);
+    expect(second.refreshes, 2);
+    controller.selectTab(0);
+    await tester.pump();
+    expect(first.refreshes, 1);
+    controller.selectTab(0);
+    await tester.pump();
+    expect(first.refreshes, 1);
+  });
 
   testWidgets('Explore sort menu follows the theme and closes after sorting', (tester) async {
     for (final brightness in Brightness.values) {
@@ -330,6 +352,10 @@ void main() {
     expect(restored.activeTab.toPreferences(), after);
     expect(restored.tabs.first.title, 'Series A');
     expect(restored.tabs.first.rightListViewMode.value, kR18);
+    expect(restored.tabs.first.currentPage.value, 0);
+    expect(restored.tabs.first.rightListLocal, isEmpty);
+    restored.selectTab(0);
+    await tester.pump();
     expect(restored.tabs.first.currentPage.value, 1);
     expect(restored.tabs.first.filter.currentRange.value, const RangeValues(2010, 2020));
     expect(restored.tabs.first.actressMode.value, ActressMode.multi);

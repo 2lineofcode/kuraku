@@ -104,6 +104,54 @@ void main() {
   }
 
 
+  test('targeted image rescans leave unrelated roots untouched and unchanged scans do not write', () async {
+    await scan();
+    final libraries = await DBLibrary.getAll();
+    final home = Get.put<HomeController>(_Home()) as _Home;
+    await db.update('library', {'updated_at': 'unchanged'});
+    File('${external.path}/unobserved.png').writeAsStringSync('image');
+    await HomePanelLibrary.doRescanAllVideoFromLibrary(libraries, roots: {internal.path}, showSummaryToast: false);
+    expect((await DBLibrary.getByRootFolder(external.path)).single.images, isEmpty);
+    expect((await DBLibrary.getAll()).every((library) => library.updatedAt == 'unchanged'), isTrue);
+    expect(home.refreshes, 0);
+    File('${internal.path}/cover.jpg').writeAsStringSync('image');
+    await HomePanelLibrary.doRescanAllVideoFromLibrary(libraries, roots: {internal.path}, showSummaryToast: false);
+    expect((await DBLibrary.getByRootFolder(internal.path)).single.images, ['${internal.path}/cover.jpg']);
+    expect((await DBLibrary.getByRootFolder(external.path)).single.images, isEmpty);
+    expect(home.refreshes, 1);
+  });
+
+  test('targeted parent scans retain ownership of registered nested roots', () async {
+    final nested = Directory('${internal.path}/nested')..createSync();
+    final source = video(nested, 'nested.mp4');
+    await seed(source);
+    await scan(roots: [internal, nested, external]);
+    expect((await DBVideos.getAll()).single.rootPath, nested.path);
+    Get.put<HomeController>(_Home());
+    File('${internal.path}/cover.jpg').writeAsStringSync('image');
+    await HomePanelLibrary.doRescanAllVideoFromLibrary(await DBLibrary.getAll(),
+      roots: {internal.path}, showSummaryToast: false);
+    expect((await DBVideos.getAll()).single.rootPath, nested.path);
+    expect((await DBVideos.getAll()).single.id, 'original');
+  });
+
+  test('targeted destination scans expand for cross-root moves and preserve user records', () async {
+    final source = video(internal, 'move.mp4');
+    await seed(source);
+    Get.put<HomeController>(_Home());
+    final destination = source.renameSync('${external.path}/move.mp4');
+    await HomePanelLibrary.doRescanAllVideoFromLibrary(await DBLibrary.getAll(),
+      roots: {external.path}, showSummaryToast: false);
+    final saved = (await DBVideos.getAll()).single;
+    expect(saved.id, 'original');
+    expect(saved.videoPath, destination.path);
+    expect(saved.isFavorite, 1);
+    expect(saved.viewCount, 9);
+    expect(await db.query('watch_session'), hasLength(1));
+    expect(await db.query('playlist_item'), hasLength(1));
+    expect((await DBLibrary.getByRootFolder(internal.path)).single.videos, isEmpty);
+  });
+
   test('image albums persist, rescan changes and preserve lists for offline folders', () async {
     final first = File('${internal.path}/first.jpg')..writeAsStringSync('image');
     await scan();

@@ -139,6 +139,13 @@ class PageToolsController extends GetxController with StateMixin {
     change(200, status: RxStatus.success());
   }
 
+  Future<void> refreshVideoContent() async {
+    await refreshDeletedItemsMenu();
+    await getTopLargeFileSize(mode: topLargeFilterMode.value);
+    await checkIsHasDataNotScanned();
+    if (currentMenuSelected.value == kDuplicate) await getDuplicateVideos();
+  }
+
   @override
   void onClose() {
     _groupSearchTimer?.cancel();
@@ -310,6 +317,7 @@ class PageToolsController extends GetxController with StateMixin {
       qualityScanFile.value = '';
       qualityScanRunning.value = false;
       qualityScanStopping.value = false;
+      if (qualityScanUpdated.value > 0) DBVideos.revision.value++;
     }
   }
 

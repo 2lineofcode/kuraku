@@ -5,6 +5,8 @@ import 'package:get/get.dart';
 
 import '../../../core/app_logging.dart';
 import '../../../core/app_pref.dart';
+import '../../../data/database/db_videos.dart';
+import '../../../data/models/videos_entity.dart';
 import '../../../utils/helper_tabs.dart';
 import 'page_search_tab.dart';
 
@@ -13,6 +15,9 @@ class PageSearchController extends GetxController {
   final activeTabIndex = 0.obs;
   final tabScrollController = ScrollController();
   int _nextTabId = 0;
+  final _dirtyTabs = <int>{};
+  Future<List<Videos>>? _collection;
+  (int, int) _collectionRevision = (-1, -1);
   PageSearchTab get activeTab => tabs[activeTabIndex.value];
 
   @override
@@ -26,7 +31,7 @@ class PageSearchController extends GetxController {
         tab.restorePreferences(entry);
         tab.watchPreferences(_saveTabs);
         tabs.add(tab);
-        unawaited(tab.onSearch());
+        _dirtyTabs.add(tab.id);
       }
     }
     if (tabs.isEmpty) {
@@ -46,13 +51,28 @@ class PageSearchController extends GetxController {
     }));
   }
 
-  PageSearchTab createTab(int id) => PageSearchTab(id);
+  PageSearchTab createTab(int id) => PageSearchTab(id, loadCollection: loadCollection);
+
+  Future<List<Videos>> loadCollection() async {
+    final revision = (DBVideos.revision.value, DBVideos.viewCountRevision);
+    if (_collectionRevision != revision) {
+      _collection = null;
+      _collectionRevision = revision;
+    }
+    final pending = _collection ??= DBVideos.getAll();
+    try {
+      return List<Videos>.of(await pending);
+    } catch (_) {
+      if (identical(_collection, pending)) _collection = null;
+      rethrow;
+    }
+  }
 
   void addTab({bool focusSearch = true}) {
     final tab = createTab(_nextTabId++);
     tab.watchPreferences(_saveTabs);
     tabs.add(tab);
-    unawaited(tab.onRefresh());
+    _dirtyTabs.add(tab.id);
     selectTab(tabs.length - 1);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!isClosed && !tab.isClosed && identical(activeTab, tab) && focusSearch) tab.fnSearch.requestFocus();
@@ -63,6 +83,7 @@ class PageSearchController extends GetxController {
   void selectTab(int index) {
     if (index < 0 || index >= tabs.length) return;
     activeTabIndex.value = index;
+    if (_dirtyTabs.remove(activeTab.id)) unawaited(activeTab.onRefresh());
     _saveTabs();
   }
 
@@ -83,6 +104,7 @@ class PageSearchController extends GetxController {
   void closeTab(int index) {
     if (index < 0 || index >= tabs.length || tabs[index].isPinned.value) return;
     final tab = tabs.removeAt(index);
+    _dirtyTabs.remove(tab.id);
     tab.close();
     if (tabs.isEmpty) {
       addTab();
@@ -94,9 +116,11 @@ class PageSearchController extends GetxController {
   }
 
   Future<void> onRefresh() async {
-    for (final tab in tabs.toList()) {
-      await tab.onRefresh();
-    }
+    _collection = null;
+    _dirtyTabs.addAll(tabs.map((tab) => tab.id));
+    if (tabs.isEmpty) return;
+    _dirtyTabs.remove(activeTab.id);
+    await activeTab.onRefresh();
   }
 
   @override

@@ -60,8 +60,8 @@ mixin HelperFilePicker {
         if (!file.path.split(Platform.pathSeparator).any((part) => part.startsWith('.'))) imageFiles.add(file.path);
         continue;
       }
-      if (await file.length() < 10 * 1024 * 1024) continue;
-      if (isSupportedVideoPath(file.path)) videoFiles.add(file.path);
+      if (!isSupportedVideoPath(file.path)) continue;
+      if (await file.length() >= 10 * 1024 * 1024) videoFiles.add(file.path);
     }
 
     imageFiles.sort();

@@ -19,6 +19,7 @@ mixin DBVideos {
   static Database get _db => Get.find<DBService>().dbMain;
   static const _tableName = 'videos';
   static final revision = 0.obs;
+  static int viewCountRevision = 0;
   static const _metadataColumns = {
     'video_code', 'title', 'title_ja', 'description', 'fan_art', 'poster', 'trailer',
     'actress', 'category', 'release_date', 'release_date_formated',
@@ -429,12 +430,15 @@ mixin DBVideos {
   }
 
   static Future<void> updateViewCount(Videos video) async {
+    var updated = false;
     await _db.transaction((txn) async {
       final changed = await txn.rawUpdate('UPDATE videos SET view_count = view_count + 1 WHERE id = ? AND is_deleted = 0', [video.id]);
       if (changed == 0) return;
       final rows = await txn.query('videos', columns: ['view_count'], where: 'id = ? AND is_deleted = 0', whereArgs: [video.id], limit: 1);
       video.viewCount = rows.single['view_count'] as int;
+      updated = true;
     });
+    if (updated) viewCountRevision++;
   }
 
   static Future<void> _setFavorite(Videos video, int favorite) async {

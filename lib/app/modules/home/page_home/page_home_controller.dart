@@ -8,6 +8,7 @@ import '../../../data/database/db_library.dart';
 import '../../../data/database/db_videos.dart';
 import '../../../data/models/library_entity.dart';
 import '../../../data/models/videos_entity.dart';
+import '../../../utils/helper_toast.dart';
 import '../local_video_selection.dart';
 
 class PageHomeController extends GetxController with LocalVideoSelection {
@@ -23,6 +24,7 @@ class PageHomeController extends GetxController with LocalVideoSelection {
   final listImageAlbums = <Library>[].obs;
   final imageAlbumCovers = <String, String>{};
   int _recommendationRequest = 0;
+  final _dirtySections = <String>{};
 
   int _selectionRevision = 0;
   Worker? _selectionWorker;
@@ -75,21 +77,58 @@ class PageHomeController extends GetxController with LocalVideoSelection {
 
     homeSectionOrder.value = AppPref.getHomeOrderList();
     if (!homeSectionOrder.contains(AppPref.homeSecImageAlbums)) homeSectionOrder.add(AppPref.homeSecImageAlbums);
+    _dirtySections.addAll(homeSectionOrder);
     final count = DBVideos.getCount();
     await Future.wait([
-      getListNewRelease(),
-      getListRecommendation(),
-      getListMostWatch(),
-      getListFavorite(),
-      getListNewAdded(),
-      getListRandom(),
-      getListNeverWatch(),
-      getListOldest(),
-      getImageAlbums(),
+      for (final section in homeSectionOrder)
+        if (AppPref.getBool(section)) _refreshSection(section),
     ]);
+    if (!AppPref.getBool(AppPref.homeSecImageAlbums)) {
+      await getImageAlbums();
+      _dirtySections.remove(AppPref.homeSecImageAlbums);
+    }
     totalVideo.value = await count;
 
     AppLog.logI('page home ==> onInit called: ${sw.elapsedMilliseconds} ms');
+  }
+
+  Future<void> _refreshSection(String section) async {
+    if (!_dirtySections.remove(section)) return;
+    try {
+      await loadSection(section);
+    } catch (_) {
+      _dirtySections.add(section);
+      rethrow;
+    }
+  }
+
+  Future<void> loadSection(String section) async {
+    switch (section) {
+      case AppPref.homeSecNewRelease: await getListNewRelease();
+      case AppPref.homeSecRecommendation: await getListRecommendation();
+      case AppPref.homeSecMostWatch: await getListMostWatch();
+      case AppPref.homeSecFavorite: await getListFavorite();
+      case AppPref.homeSecNewAdd: await getListNewAdded();
+      case AppPref.homeSecRandom: await getListRandom();
+      case AppPref.homeSecNeverWatch: await getListNeverWatch();
+      case AppPref.homeSecOldest: await getListOldest();
+      case AppPref.homeSecImageAlbums: await getImageAlbums();
+    }
+  }
+
+  Future<void> toggleSection(String section) async {
+    final visible = !AppPref.getBool(section);
+    clearVideoSelection();
+    AppPref.setBool(section, visible);
+    update();
+    if (visible) {
+      try {
+        await _refreshSection(section);
+      } catch (e) {
+        AppLog.logW('Loading Home section failed: $e');
+        await HelperToast.error('Could not load videos. Please retry.'.tr);
+      }
+    }
   }
 
   Future<void> getImageAlbums() async {
@@ -188,7 +227,7 @@ class PageHomeController extends GetxController with LocalVideoSelection {
 
   Future<void> getListOldest() async {
     clearVideoSelection();
-    listOldest.value = await DBVideos.getAll(where: "video_code IS NOT NULL AND video_code != ''", orderBy: 'release_date ASC, updated_at ASC', limit: 50);
+    listOldest.value = await DBVideos.getAll(where: "video_code IS NOT NULL AND video_code != '' AND release_date IS NOT NULL AND TRIM(release_date) != ''", orderBy: 'release_date ASC, video_code ASC', limit: 50);
   }
 
 }

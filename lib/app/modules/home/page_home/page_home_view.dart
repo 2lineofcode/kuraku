@@ -226,10 +226,7 @@ class PageHomeView extends GetView<PageHomeController> {
               title.text.size(12).make(),
               if (subtitle != null && subtitle.isNotEmpty) subtitle.text.size(9).color(AppColor.muted).maxLines(1).ellipsis.make().pOnly(left: 8),
             ]).pSymmetric(h: 12, v: 4).onInkTap(() {
-              final isVisible = !AppPref.getBool(prefKey);
-              controller.clearVideoSelection();
-              AppPref.setBool(prefKey, isVisible);
-              controller.update();
+              controller.toggleSection(prefKey);
             }),
           ),
           Spacer(),
@@ -259,10 +256,7 @@ class PageHomeView extends GetView<PageHomeController> {
                   size: AppStyle.iconSize,
                 ),
                 onPressed: () async {
-                  final isVisible = !AppPref.getBool(prefKey);
-                  controller.clearVideoSelection();
-                  AppPref.setBool(prefKey, isVisible);
-                  controller.update();
+                  await controller.toggleSection(prefKey);
                 },
               );
             },
@@ -272,6 +266,7 @@ class PageHomeView extends GetView<PageHomeController> {
         GetBuilder(
           init: controller,
           builder: (controller) {
+            if (!AppPref.getBool(prefKey)) return const SizedBox.shrink();
             return Obx(
               () => list.isEmpty
                   ? emptyLayoutBuilder()
@@ -284,12 +279,12 @@ class PageHomeView extends GetView<PageHomeController> {
                         final video = list[index];
                         return layoutBuilder(video);
                       },
-                    ).wh(width ?? double.infinity, height ?? 210).hide(isVisible: AppPref.getBool(prefKey)),
+                    ).wh(width ?? double.infinity, height ?? 210),
             );
           },
         ),
       ],
-    ).hide(isVisible: list.isNotEmpty, key: key);
+    ).hide(isVisible: list.isNotEmpty || !AppPref.getBool(prefKey), key: key);
   }
 
 

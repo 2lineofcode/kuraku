@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:kuraku/app/core/app_setting.dart';
 import 'package:kuraku/app/data/database/_init_db.dart';
 import 'package:kuraku/app/data/database/_update_db.dart';
 import 'package:kuraku/app/data/database/db_achievement.dart';
@@ -13,6 +14,7 @@ import 'package:kuraku/app/data/models/playlist_entity.dart';
 import 'package:kuraku/app/data/models/videos_entity.dart';
 import 'package:kuraku/app/modules/home/home_controller.dart';
 
+import 'chat_test_database.dart';
 import 'sqlite_test_database.dart';
 
 class _Service extends DBService {
@@ -31,6 +33,13 @@ class _Home extends HomeController {
     tecTopNavSearch.dispose();
     fnTopNavSearch.dispose();
   }
+}
+
+class _ReactiveHome extends HomeController {
+  @override
+  void onReady() {}
+  @override
+  Future<void> updateFooterSummary() async { totalVideo.value = await DBVideos.getCount(); }
 }
 
 void main() {
@@ -166,6 +175,44 @@ void main() {
     expect(home.achievementProgress.where((item) => item.isUnlocked).map((item) => item.key).toSet(),
       {'collection_1', 'favorite_1', 'explored_1'});
     expect(home.latestAchievementTitles.first, 'Press Play');
+  });
+
+  test('Library refresh invalidates cached collection statistics before the next watch checkpoint', () async {
+    Get.put(AppSettingService()..pref = ChatTestPreferences());
+    final home = Get.put<HomeController>(_ReactiveHome());
+    addTearDown(() => home.onDelete());
+    await video('a');
+    await home.refreshProfile();
+    expect(home.gamification.value!.stats['videos'], 1);
+    await video('b', favorite: true, actresses: [{'id': 1, 'name_romaji': 'Jane'}]);
+    await home.refreshVideoContent();
+    expect(home.totalVideo.value, 2);
+    final updated = home.gamification.stream.firstWhere((summary) => summary?.stats['watch_minutes'] == 1)
+      .timeout(const Duration(seconds: 3));
+    await DBWatchSession.saveSessions([
+      WatchSession(id: 'after-scan', videoId: 'a', startedAt: DateTime.now(), duration: const Duration(seconds: 60)),
+    ]);
+    final summary = (await updated)!;
+    expect(summary.stats['videos'], 2);
+    expect(summary.stats['favorites'], 1);
+    expect(summary.stats['actresses'], 1);
+    expect(home.totalVideo.value, 2);
+  });
+
+  test('Watch checkpoints reuse collection statistics without reading collection metadata', () async {
+    await video('a', favorite: true, actresses: [{'id': 1, 'name_romaji': 'Jane'}]);
+    final initial = await DBGamification.syncAndGetSummary();
+    await db.execute('ALTER TABLE videos RENAME COLUMN actress TO unused_actress');
+    await DBWatchSession.saveSessions([
+      WatchSession(id: 'checkpoint', videoId: 'a', startedAt: DateTime.now(), duration: const Duration(seconds: 60)),
+    ]);
+    final updated = await DBGamification.syncAndGetSummary(collectionStats: initial.stats);
+    expect(updated.stats['videos'], 1);
+    expect(updated.stats['actresses'], 1);
+    expect(updated.stats['explored'], 1);
+    expect(updated.stats['watch_minutes'], 1);
+    expect(updated.newAchievementTitles, contains('Press Play'));
+    expect(initial.stats['watch_minutes'], 0);
   });
 
   test('Level progress advances at 500 XP without losing the remainder', () {

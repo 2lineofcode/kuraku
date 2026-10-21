@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:kuraku/app/data/database/db_videos.dart';
 import 'package:kuraku/app/data/models/videos_entity.dart';
 import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
 import 'package:kuraku/app/modules/home/page_tools/page_tools_view.dart';
@@ -37,6 +38,7 @@ class _Tools extends PageToolsController {
 
 void main() {
   test('Scan rejects duplicate starts, cancels stale results and resumes missing items', () async {
+    final revision = DBVideos.revision.value;
     final controller = _Tools()..probe = Completer<String?>();
     final scan = controller.scanAndUpdateDBVideoRes();
     await Future<void>.delayed(Duration.zero);
@@ -46,17 +48,20 @@ void main() {
     controller.probe!.complete('1920x1080');
     await scan;
     expect(controller.saved, isEmpty);
+    expect(DBVideos.revision.value, revision);
     expect(controller.missingQualityCount.value, 2);
     expect(controller.qualityScanRunning.value, isFalse);
     controller.probe = null;
     controller.failFirst = true;
     await controller.scanAndUpdateDBVideoRes();
     expect(controller.saved, ['two']);
+    expect(DBVideos.revision.value, revision + 1);
     expect(controller.qualityScanSkipped.value, 1);
     expect(controller.missingQualityCount.value, 1);
     controller.failFirst = false;
     await controller.scanAndUpdateDBVideoRes();
     expect(controller.saved, ['two', 'one']);
+    expect(DBVideos.revision.value, revision + 2);
     expect(controller.missingQualityCount.value, 0);
     controller.onClose();
   });

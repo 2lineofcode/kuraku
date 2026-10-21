@@ -51,6 +51,7 @@ import '../routes/app_pages.dart';
 import 'helper.dart';
 
 mixin HelperOpener {
+  static bool _openingInAppPlayer = false;
   // open folder
   static Future<void> openFolder(String path) async {
     try {
@@ -86,15 +87,26 @@ mixin HelperOpener {
     final _defaultPlayer = AppPref.getDefaultPlayer();
 
     if (_defaultPlayer == 'In App') {
-      final controller = Get.isRegistered<PlayerController>()
-          ? Get.find<PlayerController>()
-          : Get.put<PlayerController>(PlayerController(), permanent: true);
+      if (_openingInAppPlayer) return;
+      _openingInAppPlayer = true;
+      late final PlayerController controller;
+      late final bool started;
+      try {
+        HelperLoading.show(isDismissible: false, message: 'Loading...'.tr);
+        await WidgetsBinding.instance.endOfFrame;
+        controller = Get.isRegistered<PlayerController>()
+            ? Get.find<PlayerController>()
+            : Get.put<PlayerController>(PlayerController(), permanent: true);
 
-      final playablePlaylist = playlist?.where((item) {
-        final path = (item.videoPath ?? '').trim();
-        return path.isNotEmpty && File(path).existsSync();
-      }).toList();
-      final started = await controller.startPlayback(video, playlist: playablePlaylist);
+        final playablePlaylist = playlist?.where((item) {
+          final path = (item.videoPath ?? '').trim();
+          return path.isNotEmpty && File(path).existsSync();
+        }).toList();
+        started = await controller.startPlayback(video, playlist: playablePlaylist);
+      } finally {
+        HelperLoading.dismiss();
+        _openingInAppPlayer = false;
+      }
       if (!started) return;
 
       controller.exitMiniMode();

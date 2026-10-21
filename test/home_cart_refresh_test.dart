@@ -3,9 +3,14 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:get_secure_storage/get_secure_storage.dart';
+import 'package:kuraku/app/core/app_setting.dart';
 import 'package:kuraku/app/data/database/_init_db.dart';
 import 'package:kuraku/app/data/models/videos_entity.dart';
 import 'package:kuraku/app/modules/home/home_controller.dart';
+import 'package:kuraku/app/modules/home/page_download/page_download_controller.dart';
+import 'package:kuraku/app/modules/home/page_home/page_home_controller.dart';
+import 'package:kuraku/app/modules/home/page_search/page_search_controller.dart';
 import 'package:sqflite/sqflite.dart';
 
 class _Database implements Database {
@@ -34,6 +39,46 @@ class _Home extends HomeController {
   Future<void> updateFooterSummary() async {}
 }
 
+class _PageHome extends PageHomeController {
+  int refreshes = 0;
+  @override
+  // ignore: must_call_super
+  Future<void> onInit() async {}
+  @override
+  Future<void> onRefresh() async { refreshes++; }
+}
+
+class _Search extends PageSearchController {
+  int refreshes = 0;
+  @override
+  // ignore: must_call_super
+  void onInit() {}
+  @override
+  Future<void> onRefresh() async { refreshes++; }
+  @override
+  // ignore: must_call_super
+  void onClose() { tabScrollController.dispose(); }
+}
+
+class _Download extends PageDownloadController {
+  int refreshes = 0;
+  @override
+  // ignore: must_call_super
+  void onInit() {}
+  @override
+  Future<void> onRefresh() async { refreshes++; }
+  @override
+  // ignore: must_call_super
+  void onClose() { tabScrollController.dispose(); }
+}
+
+class _Preferences implements GetSecureStorage {
+  @override
+  T? read<T>(String key) => null;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 Videos _video(String id, {String? title}) => Videos(id: id, title: title ?? id);
 
 void main() {
@@ -51,6 +96,33 @@ void main() {
     home.tecTopNavSearch.dispose();
     home.fnTopNavSearch.dispose();
     Get.reset();
+  });
+
+  test('video changes refresh only the active page and defer hidden pages until selected', () async {
+    Get.put(AppSettingService()..pref = _Preferences());
+    final dashboard = Get.put<PageHomeController>(_PageHome()) as _PageHome;
+    final search = Get.put<PageSearchController>(_Search()) as _Search;
+    final download = Get.put<PageDownloadController>(_Download()) as _Download;
+    await home.refreshVideoContent();
+    await home.refreshVideoContent();
+    expect(dashboard.refreshes, 2);
+    expect(search.refreshes, 0);
+    expect(download.refreshes, 0);
+    await home.onMenuChange(kMenuSearch);
+    expect(search.refreshes, 1);
+    await home.onMenuChange(kMenuSearch);
+    expect(search.refreshes, 1);
+    await home.refreshVideoContent();
+    expect(search.refreshes, 2);
+    expect(dashboard.refreshes, 2);
+    await home.onMenuChange(kMenuHome);
+    expect(dashboard.refreshes, 3);
+    await home.onMenuChange(kMenuDownload);
+    expect(download.refreshes, 1);
+    await home.onMenuChange(kMenuDownload);
+    expect(download.refreshes, 1);
+    await home.refreshVideoContent();
+    expect(download.refreshes, 2);
   });
 
   test('cart paths preserve case on POSIX and ignore case on Windows', () {

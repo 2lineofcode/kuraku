@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -36,6 +40,25 @@ class _Database implements Database {
 }
 
 void main() {
+  testWidgets('small valid FFmpeg previews are accepted while video_compress validation stays intact', (tester) async {
+    final bytes = base64Decode('/9j/4AAQSkZJRgABAgAAAQABAAD//gAPTGF2YzYzLjEuMTAyAP/bAEMACAoKCwoLDQ0NDQ0NEA8QEBAQEBAQEBAQEBISEhUVFRISEhAQEhIUFBUVFxcXFRUVFRcXGRkZHh4cHCMjJCsrM//EAEsAAQEAAAAAAAAAAAAAAAAAAAAIAQEAAAAAAAAAAAAAAAAAAAAAEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgBaADKAwEiAAIRAAMRAP/aAAwDAQACEQMRAD8An8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/9k=');
+    expect(bytes.length, lessThanOrEqualTo(1000));
+    await tester.runAsync(() async {
+      final codec = await ui.instantiateImageCodec(bytes);
+      try {
+        final frame = await codec.getNextFrame();
+        expect([frame.image.width, frame.image.height], [202, 360]);
+        frame.image.dispose();
+      } finally {
+        codec.dispose();
+      }
+    });
+    expect(isUsableThumbnailPreview(bytes, fromFfmpeg: true), isTrue);
+    expect(isUsableThumbnailPreview(bytes, fromFfmpeg: false), isFalse);
+    expect(isUsableThumbnailPreview(Uint8List(0), fromFfmpeg: true), isFalse);
+    expect(isUsableThumbnailPreview(null, fromFfmpeg: true), isFalse);
+  });
+
   testWidgets('network error icon stays centered in the actual thumbnail frame', (tester) async {
     final directory = Directory.systemTemp.createTempSync('kuraku-thumbnail-test-');
     final previousFactory = databaseFactoryOrNull;
@@ -62,6 +85,7 @@ void main() {
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), null);
       await directory.delete(recursive: true);
     });
+    Object? sharedCache;
     for (final prefix in [1.0, 1.9]) {
       await tester.pumpWidget(MaterialApp(home: Center(child: SizedBox(
         width: 200, height: 200,
@@ -71,6 +95,11 @@ void main() {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
         await tester.pump(const Duration(milliseconds: 100));
       }
+      final cache = tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage)).cacheManager!;
+      if (sharedCache != null) expect(cache, same(sharedCache));
+      sharedCache = cache;
+      expect((cache as CacheManager).config.maxNrOfCacheObjects, 100000000);
+      expect(cache.config.stalePeriod, const Duration(days: 365));
       expect(tester.getCenter(findHugeIcon(HugeIcons.strokeRoundedImage01)), tester.getCenter(find.byType(ExThumbnail)));
       expect(tester.getSize(findHugeIcon(HugeIcons.strokeRoundedImage01)), const Size.square(AppStyle.emptyIconSize));
       expect(tester.takeException(), isNull);

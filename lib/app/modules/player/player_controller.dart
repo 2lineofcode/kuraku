@@ -6,6 +6,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:ex_kit/ex.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
@@ -28,7 +29,6 @@ import '../../utils/semantic_search_service.dart';
 import '../../utils/watch_session_tracker.dart';
 import '../home/home_controller.dart';
 import '../home/home_panel/home_panel_video_info.dart';
-import '../home/page_home/page_home_controller.dart';
 import '../widgets/widget_thumbnail.dart';
 
 class PlayerController extends GetxController with StateMixin<Videos>, GetSingleTickerProviderStateMixin {
@@ -123,7 +123,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     player = Player(
       configuration: PlayerConfiguration(
         vo: 'libmpv',
-        logLevel: MPVLogLevel.debug,
+        logLevel: kDebugMode ? MPVLogLevel.debug : MPVLogLevel.warn,
         title: AppIdentity.displayName,
         ready: () => AppLog.logD('player is ready'),
       ),
@@ -907,67 +907,63 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
                             ].whereType<String>().where((value) => value.isNotEmpty).join(' · ');
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8),
-                              child: Tooltip(
-                                message: 'Double-click to play'.tr,
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onDoubleTap: () async {
-                                    if (selected) return;
-                                    final path = item.videoPath;
-                                    if (path == null || path.isEmpty || !File(path).existsSync()) {
-                                      await HelperToast.warn('Cant access video file'.tr);
-                                      return;
-                                    }
-                                    await Overlayment.dismissLast();
-                                    await changeVideo(item);
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: selected ? Colors.white.withValues(alpha: .12) : Colors.white.withValues(alpha: .03),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: selected ? Colors.white30 : Colors.transparent),
-                                    ),
-                                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                      ClipRRect(borderRadius: BorderRadius.circular(6), child: ExThumbnail(
-                                        imageUrl: item.fanArt ?? '', videoPath: item.videoPath,
-                                        width: 88, height: 64, fitUrl: BoxFit.cover, iconSize: 24,
-                                      )),
-                                      const SizedBox(width: 10),
-                                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                        Row(children: [
-                                          if (selected) ...[const Icon(CupertinoIcons.play_fill, size: 10, color: Colors.white), const SizedBox(width: 6)],
-                                          Expanded(child: Text(code.isEmpty ? item.title ?? basename(item.videoPath ?? '') : code,
-                                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white))),
-                                        ]),
-                                        if (code.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(item.title ?? '',
-                                          maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Colors.white70))),
-                                        const Spacer(),
-                                        Text(metadata, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: Colors.white54)),
-                                        Row(children: [
-                                          action(item.isFavorite == 1 ? CupertinoIcons.star_fill : CupertinoIcons.star,
-                                            (item.isFavorite == 1 ? 'Remove from favorites' : 'Favorite').tr, () async {
-                                              final favorite = item.isFavorite == 1;
-                                              if (favorite) { await DBVideos.removeFromFavorite(item); }
-                                              else { await DBVideos.addToFavorite(item); }
-                                              item.isFavorite = favorite ? 0 : 1;
-                                              if (!closed) videos.refresh();
-                                              await Get.find<PageHomeController>().onRefresh();
-                                            }, color: item.isFavorite == 1 ? Colors.orange : Colors.white70),
-                                          action(CupertinoIcons.add, 'Add to Panel Cart'.tr, () async {
-                                            final added = Get.find<HomeController>().addToCart(item);
-                                            if (added) { await HelperToast.success('Added to panel cart'.tr); }
-                                            else { await HelperToast.info('Already in panel cart'.tr); }
-                                          }),
-                                          if (!item.actress.isEmptyOrNull) action(CupertinoIcons.person, item.actress!.first.nameRomaji ?? '',
-                                            () => filter(DBVideos.getByActress(item.actress!.first.nameRomaji ?? ''))),
-                                          if (item.series.isNotEmptyAndNotNull) action(CupertinoIcons.tag, item.series!,
-                                            () => filter(DBVideos.getBySeries(item.series!))),
-                                        ]),
-                                      ])),
-                                    ]),
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onDoubleTap: () async {
+                                  if (selected) return;
+                                  final path = item.videoPath;
+                                  if (path == null || path.isEmpty || !File(path).existsSync()) {
+                                    await HelperToast.warn('Cant access video file'.tr);
+                                    return;
+                                  }
+                                  await Overlayment.dismissLast();
+                                  await changeVideo(item);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: selected ? Colors.white.withValues(alpha: .12) : Colors.white.withValues(alpha: .03),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: selected ? Colors.white30 : Colors.transparent),
                                   ),
+                                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    ClipRRect(borderRadius: BorderRadius.circular(6), child: ExThumbnail(
+                                      imageUrl: item.fanArt ?? '', videoPath: item.videoPath,
+                                      width: 88, height: 64, fitUrl: BoxFit.cover, iconSize: 24,
+                                    )),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                      Row(children: [
+                                        if (selected) ...[const Icon(CupertinoIcons.play_fill, size: 10, color: Colors.white), const SizedBox(width: 6)],
+                                        Expanded(child: Text(code.isEmpty ? item.title ?? basename(item.videoPath ?? '') : code,
+                                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white))),
+                                      ]),
+                                      if (code.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(item.title ?? '',
+                                        maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Colors.white70))),
+                                      const Spacer(),
+                                      Text(metadata, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: Colors.white54)),
+                                      Row(children: [
+                                        action(item.isFavorite == 1 ? CupertinoIcons.star_fill : CupertinoIcons.star,
+                                          (item.isFavorite == 1 ? 'Remove from favorites' : 'Favorite').tr, () async {
+                                            final favorite = item.isFavorite == 1;
+                                            if (favorite) { await DBVideos.removeFromFavorite(item); }
+                                            else { await DBVideos.addToFavorite(item); }
+                                            item.isFavorite = favorite ? 0 : 1;
+                                            if (!closed) videos.refresh();
+                                          }, color: item.isFavorite == 1 ? Colors.orange : Colors.white70),
+                                        action(CupertinoIcons.add, 'Add to Panel Cart'.tr, () async {
+                                          final added = Get.find<HomeController>().addToCart(item);
+                                          if (added) { await HelperToast.success('Added to panel cart'.tr); }
+                                          else { await HelperToast.info('Already in panel cart'.tr); }
+                                        }),
+                                        if (!item.actress.isEmptyOrNull) action(CupertinoIcons.person, item.actress!.first.nameRomaji ?? '',
+                                          () => filter(DBVideos.getByActress(item.actress!.first.nameRomaji ?? ''))),
+                                        if (item.series.isNotEmptyAndNotNull) action(CupertinoIcons.tag, item.series!,
+                                          () => filter(DBVideos.getBySeries(item.series!))),
+                                      ]),
+                                    ])),
+                                  ]),
                                 ),
                               ),
                             );

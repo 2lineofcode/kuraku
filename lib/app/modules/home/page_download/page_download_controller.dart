@@ -28,6 +28,7 @@ class PageDownloadController extends GetxController {
   final activeTabIndex = 0.obs;
   final tabScrollController = ScrollController();
   int _nextTabId = 0;
+  final _dirtyTabs = <int>{};
   PageDownloadSearchTab get activeTab => tabs[activeTabIndex.value];
 
   final downloadStdout = ''.obs;
@@ -55,7 +56,7 @@ class PageDownloadController extends GetxController {
         tab.restorePreferences(entry);
         tab.watchPreferences(_saveTabs);
         tabs.add(tab);
-        unawaited(tab.restoreSearch());
+        _dirtyTabs.add(tab.id);
       }
     }
     if (tabs.isEmpty) {
@@ -99,6 +100,8 @@ class PageDownloadController extends GetxController {
     if (index < 0 || index >= tabs.length) return;
     activeTabIndex.value = index;
     _saveTabs();
+    final tab = activeTab;
+    if (_dirtyTabs.remove(tab.id)) unawaited(tab.onRefresh());
   }
 
   void reorderTab(int oldIndex, int newIndex) {
@@ -118,6 +121,7 @@ class PageDownloadController extends GetxController {
   void closeTab(int index) {
     if (index < 0 || index >= tabs.length || tabs[index].isPinned.value) return;
     final tab = tabs.removeAt(index);
+    _dirtyTabs.remove(tab.id);
     tab.close();
     if (tabs.isEmpty) {
       addTab();
@@ -129,9 +133,10 @@ class PageDownloadController extends GetxController {
   }
 
   Future<void> onRefresh() async {
-    for (final tab in tabs.toList()) {
-      await tab.onRefresh();
-    }
+    _dirtyTabs.addAll(tabs.map((tab) => tab.id));
+    if (tabs.isEmpty) return;
+    _dirtyTabs.remove(activeTab.id);
+    await activeTab.onRefresh();
   }
 
   @override

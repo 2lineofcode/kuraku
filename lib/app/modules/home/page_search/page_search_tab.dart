@@ -17,11 +17,12 @@ import '../../../utils/semantic_search_service.dart';
 import '../local_video_selection.dart';
 
 class PageSearchTab with LocalVideoSelection {
-  PageSearchTab(this.id) {
+  PageSearchTab(this.id, {this.loadCollection}) {
     fnSearch.addListener(_onSearchFocusChanged);
   }
 
   final int id;
+  final Future<List<Videos>> Function()? loadCollection;
   final isPinned = false.obs;
   final title = 'New search'.obs;
   final error = ''.obs;
@@ -88,6 +89,7 @@ class PageSearchTab with LocalVideoSelection {
   void restorePreferences(Map<String, dynamic> value) {
     isPinned.value = value['pinned'] == true;
     tecSearch.text = value['query'] is String ? value['query'] : '';
+    title.value = tecSearch.text.trim().isEmpty ? 'New search' : tecSearch.text.trim();
     isListView.value = value['listView'] == true;
     isSemanticMode.value = value['semantic'] == true;
     if (['Strict', 'Balanced', 'Broad'].contains(value['visualSensitivity'])) visualSensitivity.value = value['visualSensitivity'];
@@ -147,7 +149,7 @@ class PageSearchTab with LocalVideoSelection {
     filter.tecCategory.dispose();
   }
 
-  Future<List<Videos>> loadVideos(String query) => query.isEmpty ? DBVideos.getAll() : DBVideos.search(query);
+  Future<List<Videos>> loadVideos(String query) => query.isEmpty ? (loadCollection?.call() ?? DBVideos.getAll()) : DBVideos.search(query);
   Future<List<SemanticSearchHit>> loadSemanticResults(String query) {
     final request = _request;
     final minimum = visualSensitivity.value == 'Strict' ? .28 : visualSensitivity.value == 'Broad' ? .20 : .24;

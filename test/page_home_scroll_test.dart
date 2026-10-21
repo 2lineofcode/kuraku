@@ -11,8 +11,13 @@ import 'package:kuraku/app/modules/home/page_home/page_home_view.dart';
 import 'package:kuraku/app/modules/widgets/widget_style.dart';
 
 class _Preferences implements GetSecureStorage {
+  bool hideFavorite = false;
   @override
-  T? read<T>(String key) => true as T;
+  T? read<T>(String key) => (key != AppPref.homeSecFavorite || !hideFavorite) as T;
+  @override
+  Future<void> write(String key, dynamic value) async {
+    if (key == AppPref.homeSecFavorite) hideFavorite = value != true;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -36,6 +41,34 @@ class _HomeView extends PageHomeView {
 }
 
 void main() {
+  testWidgets('collapsed Home sections hide placeholders and loaded items but keep their expand control', (tester) async {
+    final preferences = _Preferences()..hideFavorite = true;
+    Get.put(AppSettingService()..pref = preferences);
+    final controller = Get.put<PageHomeController>(_Controller());
+    addTearDown(() { preferences.hideFavorite = false; Get.reset(); });
+    controller.totalVideo.value = 1;
+    controller.homeSectionOrder.assignAll([AppPref.homeSecFavorite]);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: _HomeView())));
+    await tester.pumpAndSettle();
+    expect(controller.listFavorite, isEmpty);
+    expect(find.text('Favorite'), findsOneWidget);
+    expect(find.byType(ListView), findsNothing);
+    await tester.tap(find.text('Favorite'));
+    await tester.pumpAndSettle();
+    expect(AppPref.getBool(AppPref.homeSecFavorite), isTrue);
+    expect(find.byType(ListView), findsOneWidget);
+    controller.listFavorite.add(Videos(title: 'Favorite video'));
+    await tester.pumpAndSettle();
+    expect(find.text('Favorite video'), findsOneWidget);
+    await tester.tap(find.text('Favorite'));
+    await tester.pumpAndSettle();
+    expect(find.text('Favorite'), findsOneWidget);
+    expect(find.text('Favorite video'), findsNothing);
+    expect(find.byType(ListView), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('Home previews four Hugeicons at the shared size in both themes', (tester) async {
     await tester.binding.setSurfaceSize(const Size(800, 1200));
     addTearDown(() => tester.binding.setSurfaceSize(null));

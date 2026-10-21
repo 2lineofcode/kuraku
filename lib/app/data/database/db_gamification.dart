@@ -98,9 +98,9 @@ mixin DBGamification {
     _AchievementDefinition('streak_14', 'Daily Streak III', 'Watch at least one minute on 14 consecutive days.', 'Streak', 'streak', 14, 150, 'days'),
   ];
 
-  static Future<GamificationSummary> syncAndGetSummary() async {
-    final stats = await _getStats();
-    await DBProfile.syncCollectionBadge(stats['videos']!);
+  static Future<GamificationSummary> syncAndGetSummary({Map<String, int>? collectionStats}) async {
+    final stats = await _getStats(collectionStats: collectionStats);
+    if (collectionStats == null) await DBProfile.syncCollectionBadge(stats['videos']!);
     await DBProfile.syncWatchDurationBadge();
     final unlocked = await DBAchievement.getAll();
     final keys = unlocked.map((item) => item.achievementKey).toSet();
@@ -149,30 +149,33 @@ mixin DBGamification {
     return list;
   }
 
-  static Future<Map<String, int>> _getStats() async {
-    final library = (await _db.rawQuery('''
-      SELECT COUNT(*) AS videos, COALESCE(SUM(is_favorite), 0) AS favorites,
-        COUNT(DISTINCT CASE WHEN trim(studio) != '' AND lower(trim(studio)) != 'null' THEN lower(trim(studio)) END) AS studios
-      FROM videos WHERE is_deleted = 0
-    ''')).single;
-    final curation = (await _db.rawQuery('''
-      SELECT COUNT(DISTINCT item.playlist_id) AS playlists, COUNT(DISTINCT item.video_id) AS curated
-      FROM playlist_item item JOIN videos video ON video.id = item.video_id WHERE video.is_deleted = 0
-    ''')).single;
-    final stats = <String, int>{for (final row in [library, curation]) for (final entry in row.entries) entry.key: (entry.value as num).toInt()};
-    for (final field in ['actress', 'category']) {
-      final name = field == 'actress' ? 'name_romaji' : 'category';
-      final rows = await _db.rawQuery('''
-        SELECT COUNT(DISTINCT CASE WHEN CAST(json_extract(item.value, '\$.id') AS INTEGER) > 0
-          THEN 'id:' || CAST(json_extract(item.value, '\$.id') AS INTEGER)
-          ELSE 'name:' || lower(trim(json_extract(item.value, '\$.$name'))) END) AS total
-        FROM videos video, json_each(CASE WHEN json_valid(video.$field) THEN video.$field ELSE '[]' END) item
-        WHERE video.is_deleted = 0 AND item.type = 'object'
-          AND json_type(item.value, '\$.$name') = 'text'
-          AND trim(COALESCE(json_extract(item.value, '\$.$name'), '')) != ''
-          AND lower(trim(json_extract(item.value, '\$.$name'))) != 'null'
-      ''');
-      stats[field == 'actress' ? 'actresses' : 'categories'] = (rows.single['total'] as num).toInt();
+  static Future<Map<String, int>> _getStats({Map<String, int>? collectionStats}) async {
+    final stats = <String, int>{...?collectionStats};
+    if (collectionStats == null) {
+      final library = (await _db.rawQuery('''
+        SELECT COUNT(*) AS videos, COALESCE(SUM(is_favorite), 0) AS favorites,
+          COUNT(DISTINCT CASE WHEN trim(studio) != '' AND lower(trim(studio)) != 'null' THEN lower(trim(studio)) END) AS studios
+        FROM videos WHERE is_deleted = 0
+      ''')).single;
+      final curation = (await _db.rawQuery('''
+        SELECT COUNT(DISTINCT item.playlist_id) AS playlists, COUNT(DISTINCT item.video_id) AS curated
+        FROM playlist_item item JOIN videos video ON video.id = item.video_id WHERE video.is_deleted = 0
+      ''')).single;
+      stats.addAll({for (final row in [library, curation]) for (final entry in row.entries) entry.key: (entry.value as num).toInt()});
+      for (final field in ['actress', 'category']) {
+        final name = field == 'actress' ? 'name_romaji' : 'category';
+        final rows = await _db.rawQuery('''
+          SELECT COUNT(DISTINCT CASE WHEN CAST(json_extract(item.value, '\$.id') AS INTEGER) > 0
+            THEN 'id:' || CAST(json_extract(item.value, '\$.id') AS INTEGER)
+            ELSE 'name:' || lower(trim(json_extract(item.value, '\$.$name'))) END) AS total
+          FROM videos video, json_each(CASE WHEN json_valid(video.$field) THEN video.$field ELSE '[]' END) item
+          WHERE video.is_deleted = 0 AND item.type = 'object'
+            AND json_type(item.value, '\$.$name') = 'text'
+            AND trim(COALESCE(json_extract(item.value, '\$.$name'), '')) != ''
+            AND lower(trim(json_extract(item.value, '\$.$name'))) != 'null'
+        ''');
+        stats[field == 'actress' ? 'actresses' : 'categories'] = (rows.single['total'] as num).toInt();
+      }
     }
     final explored = await _db.rawQuery('''
       SELECT COUNT(*) AS total FROM (
