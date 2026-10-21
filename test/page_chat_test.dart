@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -11,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/core/app_translations.dart';
 import 'package:kuraku/app/data/database/_init_db.dart';
 import 'package:kuraku/app/data/database/db_chat.dart';
 import 'package:kuraku/app/data/models/chat_entity.dart';
@@ -53,10 +55,12 @@ class _ChatApi extends ChatService {
 class _PagedKnowledge extends ChatKnowledge {
   _PagedKnowledge() : super(mainPath: '/fixture/kuraku.db');
   final offsets = <int>[];
+  final queries = <Map<String, dynamic>>[];
   @override
   Future<Map<String, dynamic>> request(Map<String, dynamic> query, CancelToken token) async {
     final offset = query['offset'] as int? ?? 0;
     offsets.add(offset);
+    queries.add(Map.of(query));
     return {
       'columns': ['code', 'title'],
       'rows': List.generate(offset >= 50 ? 4 : 25, (i) => ['TEST-${offset + i + 1}', 'Sample title']),
@@ -360,7 +364,12 @@ void main() {
     await tester.pumpAndSettle();
     await tapAction(13, 20);
     expect(controller.input.text, PageChatController.templates['/similar']!.prompt.replaceAll('[CODE]', 'TEST-001'));
-    await controller.flushDraft();
+    expect(controller.input.text, contains('secondary themes are optional for ranking, not all required'));
+    expect(controller.input.text, contains('Preserve all explicitly required themes as AND filters'));
+    await controller.send();
+    final request = api.requests.single.last['content']!;
+    expect(request, contains('Rank strongest contextual matches first by relevance'));
+    expect(request, isNot(contains('Sort by newest release date')));
     expect(tester.takeException(), isNull);
   });
 
@@ -388,17 +397,25 @@ void main() {
       expect(controller.input.selection.textInside(controller.input.text), startsWith('['));
       expect(controller.messages, isEmpty);
     }
-    await tester.ensureVisible(find.text('Find Japanese titles in R18'));
+    await tester.ensureVisible(find.text('Search R18 by topic'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Find Japanese titles in R18'));
+    await tester.tap(find.text('Search R18 by topic'));
     await tester.pump();
     expect(controller.input.selection.textInside(controller.input.text), '[topic]');
+    expect(controller.input.text, contains('Include videos with or without English titles'));
+    expect(controller.input.text, contains('require missing English metadata only if I explicitly ask'));
+    expect(controller.input.text, contains('Rank by relevance unless I request newest releases'));
+    expect(controller.input.text, isNot(contains('no English title for the entire video code')));
     expect(controller.input.text, contains('Do not cap the total results'));
     await controller.send();
     expect(controller.messages, isEmpty);
     expect(controller.commandNotice.value, 'Fill in the template fields before sending.');
     controller.useTemplate('/filter');
     await tester.pump();
+    expect(controller.input.text, contains('Both themes and every other mandatory filter must match'));
+    expect(controller.input.text, contains('OR alternatives within that theme'));
+    expect(controller.input.text, contains('Exclude compilations and videos already in my library'));
+    expect(controller.input.text, contains('Rank by relevance unless I request newest releases'));
     expect(controller.input.selection.textInside(controller.input.text), '[theme 1]');
     await tester.tap(find.text('Next template field'));
     await tester.pump();
@@ -415,7 +432,12 @@ void main() {
     final chat = controller.activeChat.value;
     await DBChat.send(chat, 'Search rain');
     final answer = await DBChat.addAssistant(chat, 'fixture', provider: 'Saved provider');
-    final query = <String, dynamic>{'operation': 'search_titles', 'source': 'r18', 'terms': ['rain', '雨'], 'limit': 25, 'offset': 0};
+    final query = <String, dynamic>{
+      'operation': 'search_titles', 'source': 'r18', 'terms': ['rain', '雨'], 'limit': 25, 'offset': 0,
+      'required_terms': [['outdoor', '屋外']], 'related_terms': [['walk', '散歩'], ['park', '公園']],
+      'exclude_terms': ['compilation', '総集編'], 'unowned': true, 'missing_english': false,
+      'similar_to': 'REF-001', 'sort': 'relevance',
+    };
     answer..status = 'completed'..titleSearch = {...query, 'has_more': true}
       ..content = ChatKnowledge.render(await knowledge.request(query, CancelToken()));
     await DBChat.saveAssistant(answer);
@@ -428,14 +450,15 @@ void main() {
     expect(find.text('Page 2'), findsOneWidget);
     expect(controller.messages.last.content, contains('Rows 26–50'));
     expect(knowledge.offsets, [0, 25]);
+    expect(knowledge.queries.last, {...query, 'offset': 25});
     await controller.reload();
     await tester.pumpAndSettle();
-    expect(controller.messages.last.titleSearch?['offset'], 25);
+    expect(controller.messages.last.titleSearch, {...query, 'offset': 25, 'has_more': true});
     final before = controller.messages.last.content;
     database.failWrites = true;
     await controller.loadTitleSearchPage(controller.messages.last, 1);
     expect(controller.messages.last.content, before);
-    expect(controller.messages.last.titleSearch?['offset'], 25);
+    expect(controller.messages.last.titleSearch, {...query, 'offset': 25, 'has_more': true});
     database.failWrites = false;
     await controller.loadTitleSearchPage(controller.messages.last, 1);
     await tester.pumpAndSettle();
@@ -446,8 +469,76 @@ void main() {
     expect(knowledge.offsets.length, requests);
     await controller.loadTitleSearchPage(controller.messages.last, -1);
     await tester.pumpAndSettle();
-    expect(controller.messages.last.titleSearch?['offset'], 25);
+    expect(controller.messages.last.titleSearch, {...query, 'offset': 25, 'has_more': true});
+    expect(knowledge.queries.last, {...query, 'offset': 25});
     expect(api.requests, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Follow-ups carry saved search filters without pagination or private paths', (tester) async {
+    addTearDown(Get.reset);
+    Get.put<DBService>(ChatTestService()..dbMain = ChatTestDatabase());
+    Get.put(AppSettingService()..pref = ChatTestPreferences());
+    final api = _ChatApi();
+    final controller = Get.put(PageChatController(api: api));
+    await tester.pumpWidget(GetMaterialApp(home: const Scaffold(body: PageChatView())));
+    await tester.pumpAndSettle();
+    final filters = <String, dynamic>{
+      'terms': ['rain', '雨'], 'source': 'r18', 'required_terms': [['outdoor', '屋外']],
+      'related_terms': [['walk', '散歩'], ['park', '公園']], 'exclude_terms': ['compilation', '総集編'],
+      'unowned': true, 'missing_english': false, 'similar_to': 'REF-001', 'sort': 'relevance',
+    };
+    final chat = controller.activeChat.value;
+    await DBChat.send(chat, 'Find similar videos');
+    final answer = await DBChat.addAssistant(chat, 'fixture', provider: 'Saved provider');
+    answer..status = 'completed'..content = 'Saved results with evidence.'..titleSearch = {
+      ...filters, 'operation': 'search_titles', 'limit': 25, 'offset': 25, 'has_more': true,
+      'main': '/private/kuraku.db', 'r18': '/private/r18.db', 'debug_path': '/private/debug',
+      'reference': {'code': 'REF-001', 'path': '/private/library'},
+    };
+    await DBChat.saveAssistant(answer);
+    await controller.reload();
+    controller.usePrompt('Only show the strongest matches');
+    await controller.send();
+    expect(api.requests.single, hasLength(3));
+    final saved = api.requests.single[1];
+    expect(saved['role'], 'assistant');
+    expect(saved['content'], 'Saved results with evidence.');
+    expect(jsonDecode(saved['search_context']!), filters);
+    expect(controller.messages[1].content, 'Saved results with evidence.');
+    expect(api.requests.single.last, {'role': 'user', 'content': 'Only show the strongest matches'});
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Indonesian search templates and command descriptions keep the same search rules', (tester) async {
+    addTearDown(() { Get.reset(); Get.clearTranslations(); Get.locale = null; Get.fallbackLocale = null; });
+    Get.put<DBService>(ChatTestService()..dbMain = ChatTestDatabase());
+    Get.put(AppSettingService()..pref = ChatTestPreferences());
+    final controller = Get.put(PageChatController(api: _ChatApi()));
+    await tester.pumpWidget(GetMaterialApp(translations: AppTranslations(), locale: const Locale('id'),
+      fallbackLocale: AppTranslations.fallbackLocale, home: const Scaffold(body: PageChatView())));
+    await tester.pumpAndSettle();
+    final topic = find.text('Cari topik di R18');
+    await tester.ensureVisible(topic);
+    await tester.tap(topic);
+    await tester.pump();
+    expect(controller.input.selection.textInside(controller.input.text), '[topik]');
+    expect(controller.input.text, contains('Sertakan video dengan atau tanpa judul English'));
+    expect(controller.input.text, contains('Urutkan berdasarkan relevansi kecuali gue minta rilis terbaru'));
+    controller.useSimilarPrompt('TEST-001');
+    expect(controller.input.text, contains('Tema utama wajib cocok; tema tambahan opsional buat peringkat'));
+    expect(controller.input.text, contains('Pertahankan semua tema yang gue wajibkan sebagai filter AND'));
+    expect(controller.templateFields(controller.input.text), isEmpty);
+    controller.useTemplate('/filter');
+    expect(controller.input.selection.textInside(controller.input.text), '[tema 1]');
+    expect(controller.input.text, contains('Kedua tema dan setiap filter wajib lainnya harus cocok'));
+    controller.usePrompt('/r');
+    await tester.pump();
+    expect(find.text('Template: cari topik R18 dengan bukti'), findsOneWidget);
+    controller.usePrompt('/si');
+    await tester.pump();
+    expect(find.text('Template: cari tema mirip dengan bukti'), findsOneWidget);
+    await controller.flushDraft();
     expect(tester.takeException(), isNull);
   });
 

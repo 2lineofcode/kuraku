@@ -13,13 +13,19 @@ class _Knowledge extends ChatKnowledge {
   final queries = <Map<String, dynamic>>[];
   bool fail = false;
   Map<String, dynamic>? result;
+  final searchResults = <Map<String, dynamic>>[];
+  int rejectedSearches = 0;
   @override
   Future<Map<String, dynamic>> request(Map<String, dynamic> query, CancelToken token) async {
     if (token.isCancelled) throw token.cancelError!;
     queries.add(query);
     if (fail) throw StateError('Local query unavailable');
     if (query['operation'] == 'video_reference') return {'reference': {'code': query['code'], 'title_ja': '雨の散歩', 'comment_en': 'Walking outside in the rain'}};
-    if (query['schema'] == true) return {'schema': {'temp.videos': ['video_code', 'title']}};
+    if (query['schema'] == true) return {'schema': {'temp.videos': ['video_code', 'title']}, 'r18_code_column': 'video_code'};
+    if (query['operation'] == 'search_titles') {
+      if (rejectedSearches > 0) { rejectedSearches--; throw StateError('Invalid concept plan'); }
+      if (searchResults.isNotEmpty) return searchResults.removeAt(0);
+    }
     return result ?? {'columns': ['total'], 'rows': [[42]], 'sources': ['kuraku.db'], 'elapsed_ms': 1, 'truncated': false};
   }
 }
@@ -48,11 +54,11 @@ void main() {
     String? path;
     final knowledge = ChatKnowledge(mainPath: '/main.db', resolveR18Path: () => path,
       loadScript: () async => 'import json,sys; print(json.dumps({"r18": json.load(sys.stdin)["r18"]}))');
-    expect(knowledge.directQuery('ABP-001')!['args'], ['ABP-001']);
+    expect(knowledge.directQuery('ABP-001'), {'operation': 'video_lookup', 'code': 'ABP-001'});
     for (final next in ['/r18_old.db', '/r18_new.db', null]) {
       path = next;
       expect((await knowledge.request({}, CancelToken()))['r18'], next);
-      expect(knowledge.directQuery('ABP-001')!['args'], next == null ? ['ABP-001'] : ['ABP-001', 'ABP-001']);
+      expect(knowledge.directQuery('ABP-001'), {'operation': 'video_lookup', 'code': 'ABP-001'});
     }
   });
   test('Python workers exchange Unicode in UTF-8 mode on every desktop', () async {
@@ -97,13 +103,13 @@ void main() {
     expect(knowledge.directQuery('berapa video saya dengan kualitas 4K'), isNull);
     expect(knowledge.directQuery('Koleksi gue ada berapa video?')!['sql'], contains('COUNT(*)'));
     expect(knowledge.directQuery('Tampilkan favorit gue')!['sql'], contains('is_favorite = 1'));
-    expect(knowledge.directQuery('Bandingin koleksi gue sama katalog R18')!['sql'], contains('owned_in_catalog'));
-    expect(knowledge.directQuery('total video r18')!['sql'], contains('COUNT(DISTINCT'));
+    expect(knowledge.directQuery('Bandingin koleksi gue sama katalog R18'), {'operation': 'compare_catalog'});
+    expect(knowledge.directQuery('total video r18'), {'operation': 'catalog_count'});
     expect(knowledge.directQuery('jelaskan TEST-123 dibandingkan TEST-456'), isNull);
-    expect(knowledge.directQuery('cek kode test-123')!['args'], ['TEST-123', 'TEST-123']);
-    expect(knowledge.directQuery('coba check video eyan-181')!['args'], ['EYAN-181', 'EYAN-181']);
+    expect(knowledge.directQuery('cek kode test-123'), {'operation': 'video_lookup', 'code': 'TEST-123'});
+    expect(knowledge.directQuery('coba check video eyan-181'), {'operation': 'video_lookup', 'code': 'EYAN-181'});
     expect(knowledge.directQuery("TEST-123'; DROP TABLE videos"), isNull);
-    expect(ChatKnowledge(mainPath: '/local/db').directQuery('TEST-123')!['args'], ['TEST-123']);
+    expect(ChatKnowledge(mainPath: '/local/db').directQuery('TEST-123'), {'operation': 'video_lookup', 'code': 'TEST-123'});
     final cover = ChatKnowledge.render({
       'columns': ['title', 'source', 'code'], 'rows': [['Sample', 'R18', 'TEST-001']],
       'covers': {'TEST-001': 'https://example.com/cover.jpg?size=large&n=(1)'},
@@ -227,6 +233,130 @@ void main() {
     await api.reply([{'role': 'user', 'content': 'Find similar themes to TEST-001'}], CancelToken()).join();
     expect(knowledge.queries.where((query) => query['operation'] == 'search_titles'), isEmpty);
     expect(jsonEncode(adapter.requests.last.data['messages']), contains('Read the reference metadata'));
+  });
+
+  test('Ranked results show reference context and exact evidence without duplicate Japanese columns', () {
+    final output = ChatKnowledge.render({
+      'columns': ['code', 'title', 'title_ja', 'matched_in', 'release_date', 'match_evidence'],
+      'rows': [['TEST-002', '雨の散歩', '雨の散歩', 'Japanese title', '2026-10-01', 'Japanese title: 雨 — 雨の散歩 <script>']],
+      'search_terms': ['rain', '雨'], 'similar_to': 'TEST-001',
+      'reference': {'title_en': 'An outdoor walk in the rain'},
+      'related_terms': [['outdoor', '屋外']], 'sort': 'relevance', 'missing_english': true,
+      'sources': ['fixture.db'], 'elapsed_ms': 1,
+    });
+    expect(output, contains('Reference: An outdoor walk in the rain'));
+    expect(output, contains('Related themes: outdoor / 屋外'));
+    expect(output, contains('Sorted by relevance, then release date'));
+    expect(output, contains('Without an English title'));
+    expect(output, contains('| Image | Code | Title | Why it matches | Release date | Actions |'));
+    expect(output, isNot(contains('| Matched in |')));
+    expect(output, contains('Japanese title: 雨 — 雨の散歩 &lt;script>'));
+    expect(output, contains('kuraku-translate:'));
+    expect(output, contains('kuraku-similar:TEST-002'));
+  });
+
+  test('Empty discovery retries translations once while preserving every original constraint', () async {
+    final empty = <String, dynamic>{
+      'columns': ['code', 'title'], 'rows': [], 'search_terms': ['rain'],
+      'sources': ['fixture.db'], 'elapsed_ms': 1,
+    };
+    final knowledge = _Knowledge()..searchResults.addAll([
+      empty,
+      {...empty, 'rows': [['TEST-002', '雨の散歩']], 'search_terms': ['rain', '雨'], 'sort': 'relevance'},
+    ]);
+    final adapter = _Adapter()..answers.clear()..answers.addAll([
+      '{"terms":["rain"],"source":"r18","required_terms":[["outdoor"]],"related_terms":[["walk","散歩"]],"exclude_terms":["compilation"],"unowned":true,"missing_english":true,"sort":"relevance","limit":25}',
+      '{"terms":["雨"],"source":"library","required_terms":[["outdoor","屋外"],["unrelated"]],"sort":"newest","limit":100}',
+    ]);
+    final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
+    addTearDown(api.close);
+    Map<String, dynamic>? saved;
+    api.onTitleSearch = (query) => saved = query;
+    final output = await api.reply([{'role': 'user', 'content': 'Cari tema hujan di luar ruangan, belum punya, tanpa kompilasi, belum ada English'}], CancelToken()).join();
+    final queries = knowledge.queries.where((query) => query['operation'] == 'search_titles').toList();
+    expect(queries, hasLength(2));
+    expect(queries.last, {...queries.first, 'terms': ['rain', '雨'], 'required_terms': [['outdoor', '屋外']]});
+    expect(saved?['required_terms'], [['outdoor', '屋外']]);
+    expect(saved?['unowned'], true);
+    expect(saved?['sort'], 'relevance');
+    expect(output, contains('TEST-002'));
+    expect(output, isNot(contains('No matches.')));
+    expect(jsonEncode(adapter.requests.last.data['messages']), contains('Do not broaden the meaning'));
+  });
+
+  test('Empty-search retries cannot mix anchors from separate concepts', () async {
+    final empty = <String, dynamic>{
+      'columns': ['code', 'title'], 'rows': [], 'search_terms': ['rain'],
+      'sources': ['fixture.db'], 'elapsed_ms': 1,
+    };
+    for (final primary in [['雨'], ['rain', 'outdoor'], ['rain', 'walk']]) {
+      final knowledge = _Knowledge()..searchResults.addAll([empty, empty]);
+      final adapter = _Adapter()..answers.clear()..answers.addAll([
+        jsonEncode({'terms': ['rain'], 'source': 'r18', 'required_terms': [['outdoor'], ['park']], 'related_terms': [['walk']], 'limit': 25}),
+        jsonEncode({'terms': primary, 'source': 'r18', 'required_terms': [['outdoor', 'park', '屋外', '公園']], 'related_terms': [['walk', 'park', '散歩']], 'limit': 25}),
+      ]);
+      final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
+      addTearDown(api.close);
+      await api.reply([{'role': 'user', 'content': 'Find rain outdoors in a park, prefer walks'}], CancelToken()).join();
+      final retry = knowledge.queries.last;
+      expect(retry['terms'], primary.contains('雨') ? ['rain', '雨'] : ['rain']);
+      expect(retry['required_terms'], [['outdoor'], ['park']]);
+      expect(retry['related_terms'], [['walk']]);
+    }
+  });
+
+  test('Two empty concept searches finish with an honest metadata limitation', () async {
+    final knowledge = _Knowledge()..result = {
+      'columns': ['code', 'title'], 'rows': [], 'search_terms': ['rain'],
+      'sources': ['fixture.db'], 'elapsed_ms': 1,
+    };
+    final adapter = _Adapter()..answers.clear()..answers.addAll([
+      '{"terms":["rain"],"source":"r18","limit":25}',
+      '{"terms":["rain","雨"],"source":"r18","limit":25}',
+    ]);
+    final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
+    addTearDown(api.close);
+    final output = await api.reply([{'role': 'user', 'content': 'Find rain videos'}], CancelToken()).join();
+    expect(output, contains('No matches for these concepts and filters in the available metadata'));
+    expect(adapter.requests, hasLength(2));
+  });
+
+  test('A failed search after reading a reference can recover within the tool budget', () async {
+    final knowledge = _Knowledge()
+      ..rejectedSearches = 1
+      ..result = {
+      'columns': ['code', 'title'], 'rows': [['TEST-002', 'Rain walk']],
+      'search_terms': ['rain'], 'sources': ['fixture.db'], 'elapsed_ms': 1,
+    };
+    final adapter = _Adapter()..answers.clear()..answers.addAll([
+      '{"code":"TEST-001"}',
+      '{"terms":["rain"],"source":"r18","similar_to":"TEST-001","limit":25}',
+      '{"terms":["rain","雨"],"source":"r18","similar_to":"TEST-001","related_terms":[["outdoor","屋外"]],"limit":25}',
+    ]);
+    final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: knowledge);
+    addTearDown(api.close);
+    final output = await api.reply([{'role': 'user', 'content': 'Find similar videos to TEST-001'}], CancelToken()).join();
+    expect(output, contains('TEST-002'));
+    expect(adapter.requests, hasLength(3));
+    expect(adapter.requests.last.data['tool_choice'], 'auto');
+    expect(knowledge.queries.last['related_terms'], [['outdoor', '屋外']]);
+  });
+
+  test('Structured follow-up context reaches the model without unsupported message fields', () async {
+    final adapter = _Adapter()..answers.clear()..answers.add('Please choose the next theme.');
+    final api = ChatService(apiKey: 'test', dio: Dio()..httpClientAdapter = adapter, knowledge: _Knowledge());
+    addTearDown(api.close);
+    final context = jsonEncode({'terms': ['rain', '雨'], 'required_terms': [['outdoor']], 'unowned': true, 'sort': 'relevance'});
+    await api.reply([
+      {'role': 'user', 'content': 'Search for outdoor rain'},
+      {'role': 'assistant', 'content': 'Previous matches', 'search_context': context},
+      {'role': 'user', 'content': 'Add another theme'},
+    ], CancelToken()).join();
+    final messages = adapter.requests.single.data['messages'] as List;
+    expect(messages.every((message) => !message.containsKey('search_context')), isTrue);
+    expect(messages.any((message) => message['role'] == 'system' && (message['content'] as String).contains(context)), isTrue);
+    expect(jsonEncode(messages), contains('R18 canonical code column is video_code'));
+    expect(messages.last, {'role': 'user', 'content': 'Add another theme'});
   });
 
   test('Textual tool markup is hidden and retried using the local tool', () async {

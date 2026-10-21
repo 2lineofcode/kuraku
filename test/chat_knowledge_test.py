@@ -134,7 +134,7 @@ def test_title_search():
             db.execute("UPDATE derived_video SET release_date = '2020-01-01' WHERE dvd_id = 'PAGE-0597'")
         ordered = knowledge.run({**base, 'limit': 4})
         assert [row[0] for row in ordered['rows']] == ['PAGE-0598', 'PAGE-0599', 'PAGE-0597', 'PAGE-0000']
-        assert ordered['columns'][-1] == 'release_date'
+        assert ordered['columns'][4:] == ['release_date', 'match_evidence']
         assert knowledge.run({**base, 'limit': 2, 'offset': 2})['rows'][0][0] == 'PAGE-0597'
     print('Cross-language checks passed: Japanese-only, cached translation, evidence, unique codes, paging, literal terms, missing translation table.')
 
@@ -162,7 +162,7 @@ def test_filters_and_similarity():
         wide = {**base, 'terms': ['雨'] * 12, 'required_terms': [['walk'] * 12] * 4, 'exclude_terms': ['absent'] * 12}
         assert knowledge.run(wide)['rows']
         filtered = knowledge.run(base)
-        assert [r[0] for r in filtered['rows']] == ['TEST-001']
+        assert [r[0] for r in filtered['rows']] == ['TEST-001', 'REF-001', 'TEST-005']
         similar = knowledge.run({**base, 'similar_to': 'REF-001'})
         assert [r[0] for r in similar['rows']] == ['TEST-001', 'TEST-005']
         assert similar['rows'][1][3] == 'Description'
@@ -204,7 +204,7 @@ def test_saved_translations_and_duplicate_metadata():
         assert result['rows'][0][1:4] == ['Hujan di taman', ' 傘の散歩 ', 'Saved translation']
         missing = knowledge.run({**base, 'terms': ['雨'], 'required_terms': [], 'exclude_terms': []})
         assert 'DUP-001' not in [row[0] for row in missing['rows']]
-        ordinary = knowledge.run({**base, 'terms': ['rain'], 'required_terms': [], 'exclude_terms': [], 'missing_english': False})
+        ordinary = knowledge.run({**base, 'terms': ['rain', 'rainy'], 'required_terms': [], 'exclude_terms': [], 'missing_english': False})
         assert [row[0] for row in ordinary['rows']].count('DUP-001') == 1
         library = knowledge.run({**base, 'source': 'library', 'terms': ['rain'], 'required_terms': [], 'missing_english': False})
         assert library['rows'][0][0] == 'LOCAL-001'
@@ -228,7 +228,9 @@ def test_deleted_videos():
         assert [row[0] for row in knowledge.run({**base, **titles})['rows']] == ['LIVE-001']
         assert [row[0] for row in knowledge.run({**base, **titles, 'source': 'r18', 'unowned': True})['rows']] == ['GONE-001']
         assert knowledge.run({**base, 'sql': "SELECT dvd_id AS code FROM r18.derived_video WHERE dvd_id='GONE-001'"})['covers'] == {}
-        for sql in ['SELECT COUNT(*) FROM main.videos', 'SELECT title FROM main.videos', 'SELECT is_deleted FROM temp.videos']:
+        for sql in ['SELECT COUNT(*) FROM main.videos', 'SELECT title FROM main.videos', 'SELECT is_deleted FROM temp.videos',
+                    'WITH videos AS (SELECT video_code,title,is_deleted FROM main.videos) SELECT * FROM videos',
+                    'WITH "videos" AS (SELECT video_code,title FROM main.videos) SELECT * FROM "videos"']:
             try:
                 knowledge.run({**base, 'sql': sql})
             except sqlite3.Error:
@@ -244,9 +246,167 @@ def test_deleted_videos():
     print('Soft deletion checks passed: counts, favorites, title search, ownership, covers and bypass denial.')
 
 
+def test_contextual_ranking():
+    with tempfile.TemporaryDirectory() as folder:
+        main, r18 = Path(folder) / 'kuraku.db', Path(folder) / 'r18.db'
+        with closing(sqlite3.connect(main)) as db, db:
+            db.executescript('CREATE TABLE videos (video_code TEXT, title TEXT, title_ja TEXT, description TEXT, category TEXT, series TEXT, actress TEXT);')
+            db.executemany('INSERT INTO videos VALUES (?,?,?,?,?,?,?)', [
+                ('REF-001', 'Library reference', '雨の散歩', 'An outdoor walk in the park', '[{"category":"Outdoor"}]', 'Library series', ''),
+                ('ACTOR-001', 'Quiet room', '', '', '[]', '', '[{"name":"Rain"}]'),
+            ])
+        with closing(sqlite3.connect(r18)) as db, db:
+            db.executescript('CREATE TABLE derived_video (content_id TEXT, dvd_id TEXT, title_en TEXT, title_ja TEXT, comment_en TEXT, release_date TEXT, series_id INTEGER); CREATE INDEX code_index ON derived_video(dvd_id); CREATE TABLE derived_category (id INTEGER, name_en TEXT, name_ja TEXT); CREATE TABLE derived_video_category (content_id TEXT, category_id INTEGER); CREATE INDEX category_index ON derived_video_category(category_id, content_id); CREATE INDEX content_index ON derived_video_category(content_id, category_id); CREATE TABLE derived_series (id INTEGER, name_en TEXT, name_ja TEXT);')
+            for symbol in ['%', '_', '\\', '*', '?', '[', ']', '^', '-']:
+                pattern = knowledge.candidate_pattern(symbol)
+                assert db.execute('SELECT ? GLOB ?, ? GLOB ?', (symbol, pattern, 'ordinary', pattern)).fetchone() == (1, 0)
+            db.executemany('INSERT INTO derived_video VALUES (?,?,?,?,?,?,?)', [
+                ('ref', 'REF-001', 'Evening rain', '', '', '2020-01-01', 1),
+                ('good', 'GOOD-001', 'Rain in the park', '雨の公園', 'An outdoor walk near the station', '2020-01-01', None),
+                ('copy', 'COPY-001', 'Rain in the park', '雨の公園', 'An outdoor walk near the station', '2020-01-01', None),
+                ('broad', 'BROAD-001', 'Rain rain RAIN', '雨', 'Rain again', '2026-01-01', None),
+                ('broad2', 'BROAD-001', 'Rain', '雨', '', '2026-01-01', None),
+                ('new', 'NEW-001', 'Inside a room', '室内', 'Rain outside the window', '2026-09-01', None),
+                ('cat', 'CAT-001', 'Quiet afternoon', '静かな午後', 'An outdoor walk in the park', '2025-01-01', None),
+                ('train', 'TRAIN-001', 'Train on a mountain', '', 'An indoor ride', '2026-01-01', None),
+                ('rainy', 'RAINY-001', 'Rainy train', '', '', '2026-01-01', None),
+                ('trip', 'TRIP-001', 'Rain near a train', '', 'An outdoor walk in the park', '2022-01-01', None),
+                ('training', 'TRAINING-001', 'Rain training camp', '', '', '2023-01-01', None),
+                ('wide', 'WIDE-001', 'ＲＡＩＮ　ｉｎ　ｔｈｅ　ｐａｒｋ', '', 'An outdoor walk', '2021-01-01', None),
+                ('mixed', 'MIXED-001', 'Ｒain', '', '', '2021-01-01', None),
+                ('half', 'HALF-001', '', 'ﾋﾟｸﾆｯｸ', 'An outdoor picnic', '2021-01-01', None),
+                ('kana', 'KANA-001', '', 'ピｸニック', '', '2021-01-01', None),
+                ('accent', 'ACCENT-001', 'CAFÉ', '', '', '2021-01-01', None),
+                ('accent2', 'ACCENT-002', 'ＣＡＦＥ́', '', '', '2021-01-01', None),
+                ('split1', 'SPLIT-001', 'Rain', '', '', '2024-01-01', None),
+                ('split2', 'SPLIT-001', 'Quiet room', '', 'An outdoor walk in the park', '2024-01-01', None),
+                ('wild', 'WILD-001', '100% full_score \\ path *?[]', '', '', '', None),
+            ])
+            db.execute("INSERT INTO derived_category VALUES (1, 'Rain', '雨')")
+            db.executemany('INSERT INTO derived_video_category VALUES (?,1)', [('cat',), ('ref',)])
+            db.execute("INSERT INTO derived_series VALUES (1, 'Evening series', '夜のシリーズ')")
+        base = {'main': str(main), 'r18': str(r18), 'operation': 'search_titles', 'terms': ['rain', '雨'], 'limit': 100}
+        def codes(result):
+            return [row[0] for row in result['rows']]
+        result = knowledge.run(base)
+        found = codes(result)
+        assert found.index('GOOD-001') < found.index('NEW-001')
+        assert 'TRAIN-001' not in found and 'RAINY-001' not in found
+        assert found.count('BROAD-001') == 1 and found.count('SPLIT-001') == 1
+        assert 'COPY-001' in found and 'GOOD-001' in found
+        assert 'WIDE-001' in found
+        assert 'MIXED-001' in found
+        width_codes = codes(knowledge.run({**base, 'terms': ['rain']}))
+        assert 'MIXED-001' in width_codes
+        for terms in [['Ｒain'], ['rain', 'Ｒain'], ['Ｒain', 'rain']]:
+            assert codes(knowledge.run({**base, 'terms': terms})) == width_codes
+        assert codes(knowledge.run({**base, 'terms': ['ピクニック']})) == ['HALF-001', 'KANA-001']
+        assert codes(knowledge.run({**base, 'terms': ['café']})) == ['ACCENT-001', 'ACCENT-002']
+        category = next(row for row in result['rows'] if row[0] == 'CAT-001')
+        assert category[3] == 'Category' and 'Rain' in category[5] and '[Category;' in category[5]
+        description = next(row for row in result['rows'] if row[0] == 'NEW-001')
+        assert description[3] == 'Description' and 'Rain outside the window' in description[5]
+        fullwidth = next(row for row in result['rows'] if row[0] == 'WIDE-001')
+        assert 'ＲＡＩＮ' in fullwidth[5]
+        assert result['sort'] == 'relevance' and result['missing_english'] is False
+        related = [['outdoor', '屋外'], ['park', '公園']]
+        contextual = knowledge.run({**base, 'related_terms': related})
+        assert codes(contextual).index('GOOD-001') < codes(contextual).index('BROAD-001')
+        assert 'BROAD-001' in codes(contextual) and contextual['related_terms'] == related
+        good = next(row for row in contextual['rows'] if row[0] == 'GOOD-001')
+        assert 'Related 1 [Description; outdoor]' in good[5] and 'Related 2 [Japanese title; 公園]' in good[5]
+        synonyms = knowledge.run({**base, 'terms': ['rain', '雨', 'RAIN']})
+        assert codes(synonyms) == found
+        required = {**base, 'required_terms': related}
+        switched = {**base, 'terms': related[1], 'required_terms': [related[0], base['terms']]}
+        assert codes(knowledge.run(required)) == codes(knowledge.run(switched))
+        assert 'CAT-001' in codes(knowledge.run(switched)) and 'SPLIT-001' in codes(knowledge.run(required))
+        excluded = knowledge.run({**base, 'exclude_terms': ['train']})
+        assert 'TRIP-001' not in codes(excluded) and 'TRAINING-001' in codes(excluded)
+        newest = knowledge.run({**base, 'sort': 'newest'})
+        assert codes(newest)[0] == 'NEW-001' and newest['sort'] == 'newest'
+        pages = [knowledge.run({**base, 'related_terms': related, 'limit': 3, 'offset': i}) for i in range(0, len(found), 3)]
+        assert [code for page in pages for code in codes(page)] == codes(contextual)
+        assert all(page['has_more'] for page in pages[:-1]) and not pages[-1]['has_more']
+        for term in ['%', '_', '\\', '*', '?', '[', ']']:
+            assert codes(knowledge.run({**base, 'terms': [term]})) == ['WILD-001']
+        assert codes(knowledge.run({**base, 'source': 'library'})) == ['REF-001']
+        assert codes(knowledge.run({**base, 'source': 'library', 'terms': ['outdoor']})) == ['REF-001']
+        similar = knowledge.run({**base, 'similar_to': 'REF-001', 'related_terms': related})
+        reference = similar['reference']
+        assert 'REF-001' not in codes(similar) and 'NEW-001' in codes(similar)
+        assert reference['title'] == 'Evening rain' and reference['title_ja'] == '雨の散歩'
+        assert reference['comment'] == 'An outdoor walk in the park'
+        assert set(reference['categories']) == {'Rain', '雨', 'Outdoor'}
+        assert set(reference['series']) == {'Evening series', '夜のシリーズ', 'Library series'}
+        for invalid in [{'sort': 'random'}, {'related_terms': 'park'}, {'related_terms': [['']]}, {'related_terms': [['x']] * 5}, {'related_terms': [['rain']]}, {'related_terms': [['park'], ['PARK']]}]:
+            try:
+                knowledge.run({**base, **invalid})
+            except ValueError:
+                pass
+            else:
+                raise AssertionError('Invalid contextual search accepted')
+        try:
+            with patch.object(knowledge.time, 'monotonic', side_effect=[0, 21]):
+                knowledge.run(base)
+        except sqlite3.OperationalError as error:
+            assert 'interrupted' in str(error)
+        else:
+            raise AssertionError('Unbounded metadata search accepted')
+    print('Context checks passed: source-independent concepts, coverage ranking, evidence, boundaries, literal wildcards, metadata fallback, stable paging and duplicate titles.')
+
+
+def test_canonical_codes_and_operations():
+    with tempfile.TemporaryDirectory() as folder:
+        main, r18 = Path(folder) / 'kuraku.db', Path(folder) / 'r18.db'
+        with closing(sqlite3.connect(main)) as db, db:
+            db.executescript("CREATE TABLE videos (video_code TEXT, title TEXT, release_date TEXT, is_deleted INTEGER); INSERT INTO videos VALUES ('CANON-001','Owned rain','2024-01-01',0),('CANON-001','Other file','2024-01-01',0),('LIB-001','Library only','2025-01-01',0),('GONE-001','Deleted','2026-01-01',1);")
+        with closing(sqlite3.connect(r18)) as db, db:
+            db.executescript('CREATE TABLE derived_video (content_id TEXT, video_code TEXT, dvd_id TEXT, title_en TEXT, title_ja TEXT, release_date TEXT, jacket_full_url TEXT); CREATE INDEX canonical_index ON derived_video(video_code);')
+            db.executemany('INSERT INTO derived_video VALUES (?,?,?,?,?,?,?)', [
+                ('one', 'CANON-001', None, 'Rain in the park', '雨の公園', '2020-01-01', 'https://example.com/one.jpg'),
+                ('two', 'CANON-001', 'wrong0001', 'Rain duplicate', '雨', '2021-01-01', 'https://example.com/two.jpg'),
+                ('three', 'NEW-002', None, 'Rain outside', '雨の外', '2026-01-01', 'https://example.com/new.jpg'),
+                ('uncoded', None, 'DVD-ONLY-009', 'Rain uncoded', '', '2026-01-01', ''),
+            ])
+        base = {'main': str(main), 'r18': str(r18)}
+        assert knowledge.run({**base, 'schema': True})['r18_code_column'] == 'video_code'
+        count = knowledge.run({**base, 'operation': 'catalog_count'})
+        assert count['columns'] == ['catalog_records', 'unique_videos'] and count['rows'] == [[4, 2]]
+        assert 'sort' not in count and 'related_terms' not in count
+        compare = knowledge.run({**base, 'operation': 'compare_catalog'})
+        assert compare['columns'] == ['library_files', 'unique_owned_videos', 'unique_catalog_videos', 'owned_in_catalog']
+        assert compare['rows'] == [[3, 2, 2, 1]]
+        query = {**base, 'operation': 'search_titles', 'terms': ['rain']}
+        result = knowledge.run(query)
+        assert [row[0] for row in result['rows']] == ['NEW-002', 'CANON-001']
+        assert result['covers']['NEW-002'] == 'https://example.com/new.jpg'
+        assert result['covers']['CANON-001'] == 'https://example.com/one.jpg'
+        assert [row[0] for row in knowledge.run({**query, 'unowned': True})['rows']] == ['NEW-002']
+        assert [row[0] for row in knowledge.run({**query, 'similar_to': 'CANON-001'})['rows']] == ['NEW-002']
+        reference = knowledge.run({**base, 'operation': 'video_reference', 'code': 'CANON-001'})['reference']
+        assert reference['code'] == 'CANON-001' and reference['title'] == 'Rain in the park'
+        lookup = knowledge.run({**base, 'operation': 'video_lookup', 'code': 'canon-001'})
+        assert lookup['columns'] == ['source', 'code', 'title', 'release_date']
+        assert lookup['rows'] == [['Owned', 'CANON-001', 'Other file', '2024-01-01'], ['R18 catalog', 'CANON-001', 'Rain duplicate', '2021-01-01']]
+        assert knowledge.run({**base, 'operation': 'video_lookup', 'code': 'DVD-ONLY-009'})['rows'] == []
+        assert knowledge.run({**base, 'operation': 'video_lookup', 'code': 'LIB-001', 'r18': None})['rows'] == [['Owned', 'LIB-001', 'Library only', '2025-01-01']]
+        assert knowledge.run({**base, 'sql': 'SELECT 1'})['rows'] == [[1]]
+        assert 'sort' not in knowledge.run({**base, 'sql': 'SELECT 1'})
+        with closing(sqlite3.connect(r18)) as db, db:
+            db.execute('DROP INDEX canonical_index')
+            db.execute('ALTER TABLE derived_video DROP COLUMN video_code')
+        assert knowledge.run({**base, 'schema': True})['r18_code_column'] == 'dvd_id'
+        assert knowledge.run({**base, 'operation': 'catalog_count'})['rows'] == [[4, 2]]
+        assert knowledge.run({**base, 'operation': 'video_lookup', 'code': 'DVD-ONLY-009'})['rows'][0][1] == 'DVD-ONLY-009'
+    print('Canonical code checks passed: missing DVD IDs, ownership, covers, deduplication, counts, comparison, lookup and legacy fallback.')
+
+
 if __name__ == '__main__':
     test_queries()
     test_title_search()
     test_filters_and_similarity()
     test_saved_translations_and_duplicate_metadata()
     test_deleted_videos()
+    test_contextual_ranking()
+    test_canonical_codes_and_operations()

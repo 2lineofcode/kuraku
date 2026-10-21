@@ -315,9 +315,9 @@ class PageChatView extends GetView<PageChatController> {
         const SizedBox(height: 24),
         LayoutBuilder(builder: (context, constraints) => Wrap(spacing: 10, runSpacing: 10, children: [
           for (final suggestion in const [
-            (command: '/r18', icon: HugeIcons.strokeRoundedGlobe02, detail: 'Search across Japanese and English titles'),
-            (command: '/filter', icon: HugeIcons.strokeRoundedFilter, detail: 'Combine themes and exclude videos you own'),
-            (command: '/similar', icon: HugeIcons.strokeRoundedSparkles, detail: 'Explore related themes from a video code'),
+            (command: '/r18', icon: HugeIcons.strokeRoundedGlobe02, detail: 'Search local metadata by topic with match evidence'),
+            (command: '/filter', icon: HugeIcons.strokeRoundedFilter, detail: 'Require every theme and exclude videos you own'),
+            (command: '/similar', icon: HugeIcons.strokeRoundedSparkles, detail: 'Match reference context and show supporting evidence'),
             (command: '/translate', icon: HugeIcons.strokeRoundedTranslate, detail: 'Read a Japanese title in Indonesian'),
           ]) SizedBox(
             width: constraints.maxWidth >= 460 ? (constraints.maxWidth - 10) / 2 : constraints.maxWidth,
@@ -481,6 +481,10 @@ class PageChatView extends GetView<PageChatController> {
 
   Widget _markdown(BuildContext context, String content, {bool databasePaged = false}) {
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final headers = databasePaged
+        ? RegExp(r'^\| (.+) \|$', multiLine: true).firstMatch(content)?.group(1)?.split(' | ') ?? <String>[] : <String>[];
+    final widths = {'Image'.tr: 112.0, 'Code'.tr: 104.0, 'Title'.tr: 240.0, 'Japanese title'.tr: 260.0,
+      'Release date'.tr: 112.0, 'Why it matches'.tr: 280.0, 'Actions'.tr: 136.0};
     final images = RegExp(r'!\[([^\]]*)\]\(([^\s)]*)\)').allMatches(content)
         .map((match) => (url: _imageUrl(match[2]!), code: match[1]!)).where((image) => image.url.isNotEmpty).toList();
     return MarkdownBlock(
@@ -508,6 +512,7 @@ class PageChatView extends GetView<PageChatController> {
           );
         }),
         TableConfig(
+          columnWidths: databasePaged ? {for (var i = 0; i < headers.length; i++) i: FixedColumnWidth(widths[headers[i]] ?? 200)} : null,
           border: TableBorder.all(color: AppColor.border),
           headerRowDecoration: BoxDecoration(color: AppColor.hover),
           wrapper: (child) => child is Table && (databasePaged || child.children.length > 26)
