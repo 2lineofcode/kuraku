@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -57,9 +58,9 @@ class PageChatController extends GetxController {
   static const commands = {
     '/new': 'Start a new chat',
     '/stop': 'Stop the current response',
-    '/r18': 'Template: Japanese-only R18 titles',
+    '/r18': 'Template: search R18 topics with evidence',
     '/filter': 'Template: required themes, exclusions and unowned videos',
-    '/similar': 'Template: find similar themes by video code',
+    '/similar': 'Template: find similar themes with evidence',
     '/translate': 'Template: translate a Japanese title into Indonesian',
     '/clear': 'Delete messages and draft in this chat',
   };
@@ -323,6 +324,10 @@ class PageChatController extends GetxController {
     try {
       final history = chat.messages.where((message) => message != previous && message.status == 'completed' && !(message.role == 'assistant' && ChatService.isProtocolText(message.content))).map((message) => {
         'role': message.role, 'content': message.content,
+        if (message.role == 'assistant' && message.titleSearch != null) 'search_context': jsonEncode({
+          for (final key in const ['terms', 'source', 'required_terms', 'related_terms', 'exclude_terms', 'unowned', 'missing_english', 'similar_to', 'sort'])
+            if (message.titleSearch!.containsKey(key)) key: message.titleSearch![key],
+        }),
       }).toList();
       final local = api.canReplyLocally(history.lastWhere((message) => message['role'] == 'user')['content']!);
       final provider = local ? 'local' : api.provider;
@@ -427,12 +432,12 @@ class PageChatController extends GetxController {
   }
 
   static const templates = {
-    '/r18': (label: 'Find Japanese titles in R18', prompt:
-      'Search the R18 catalog for "[topic]". Only include videos with a non-empty Japanese title and no English title for the entire video code. Use precise Japanese/English equivalents and saved translations. Show original Japanese titles and match evidence. Sort by newest release date, then Code. Do not cap the total results; use 25 results per page.'),
+    '/r18': (label: 'Search R18 by topic', prompt:
+      'Search the R18 catalog for "[topic]" in Japanese/English titles, descriptions, categories and saved translations. Include videos with or without English titles; require missing English metadata only if I explicitly ask. Use the original phrase and precise Japanese/English equivalents of this one topic as alternatives. Show original titles and actual matching snippets as evidence. Rank by relevance unless I request newest releases. Do not cap the total results; use 25 results per page.'),
     '/filter': (label: 'Search with multiple filters', prompt:
-      'Search R18 for "[theme 1]" AND "[theme 2]". Both themes are required; synonyms of one theme are alternatives, not separate requirements. Exclude compilations and videos already in my library. Use precise Japanese/English equivalents and saved translations. Show match evidence, sort by newest release date then Code, and use 25 results per page without capping the total.'),
+      'Search R18 for "[theme 1]" AND "[theme 2]". Both themes and every other mandatory filter must match; synonyms of each theme are OR alternatives within that theme. Exclude compilations and videos already in my library. Search Japanese/English titles, descriptions, categories and saved translations using precise equivalents. Show actual matching snippets as evidence. Rank by relevance unless I request newest releases, and use 25 results per page without capping the total.'),
     '/similar': (label: 'Find similar videos', prompt:
-      'Find videos with themes similar to [CODE]. Read its actual local titles and descriptions first. Use themes supported by that metadata, exclude the reference code, and explain keyword match evidence. Do not match only by cast. If there is not enough metadata, ask which theme to use. Sort by newest release date, then Code, with 25 results per page.'),
+      'Find videos in R18 with themes similar to [CODE]. Read its actual local titles, descriptions and categories first. Derive a coherent context: one specific defining theme and up to four distinct secondary themes. Use precise Japanese/English synonyms as alternatives within each theme. The primary theme must match; secondary themes are optional for ranking, not all required. Preserve all explicitly required themes as AND filters, plus exclusions and ownership filters. Prefer concrete themes over cast or generic categories, and exclude the reference code. Rank strongest contextual matches first by relevance unless I request newest releases. Show actual matching snippets as evidence. If metadata lacks a meaningful theme, ask which theme to use. Use 25 results per page without capping the total.'),
     '/translate': (label: 'Translate a Japanese title', prompt:
       'Translate this Japanese title into natural Indonesian: "[Japanese title]". Preserve names and codes, and do not add information absent from the title. Show the original title and its translation.'),
   };
