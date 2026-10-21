@@ -509,7 +509,7 @@ void main() {
     while (DateTime.now().isBefore(deadline)) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
       saved = await DBVideos.getByVideoPath(destination.path);
-      if (saved != null) break;
+      if (saved != null && home.refreshes > 0 && HomePanelLibrary.canStartFileDrag) break;
     }
     expect(saved?.id, 'original');
     expect(saved?.isFavorite, 1);

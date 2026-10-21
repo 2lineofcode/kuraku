@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:get_secure_storage/get_secure_storage.dart';
+import 'package:kuraku/app/core/app_pref.dart';
 import 'package:kuraku/app/core/app_setting.dart';
+import 'package:kuraku/app/core/const.dart';
 import 'package:kuraku/app/data/database/_init_db.dart';
 import 'package:kuraku/app/data/database/_update_db.dart';
 import 'package:kuraku/app/data/database/db_videos.dart';
@@ -202,8 +204,10 @@ void main() {
     HomePanelAppLog.clear();
   });
 
-  test('database changes reload Home, all Search tabs, Explore, cart and playlist counts', () async {
+  test('database changes reload Home, cart and playlists, and hidden pages when selected', () async {
     await Get.delete<HomeController>();
+    AppPref.setHomeOrderList([AppPref.homeSecNewAdd]);
+    AppPref.setBool(AppPref.homeSecNewAdd, true);
     final db = await SqliteTestDatabase.open();
     try {
       await DBService.onCreate(db, DBUpdate.version);
@@ -217,8 +221,24 @@ void main() {
       final search = Get.put<PageSearchController>(_Search());
       final explore = Get.put<PageExploreController>(_Explore());
       final tools = Get.put<PageToolsController>(_Tools());
+      Future<void> visitPages() async {
+        for (final menu in [kMenuSearch, kMenuExplore, kMenuTools, kMenuHome]) {
+          await refreshingHome.onMenuChange(menu);
+          if (menu == kMenuSearch) {
+            for (var index = 0; index < search.tabs.length; index++) {
+              search.selectTab(index);
+              for (var attempt = 0; attempt < 100 && search.activeTab.isLoading.value; attempt++) {
+                await Future<void>.delayed(const Duration(milliseconds: 10));
+              }
+              expect(search.activeTab.isLoading.value, isFalse);
+            }
+          }
+        }
+      }
       refreshingHome.cart.add(Videos.fromJson(video.toJson()));
       await refreshingHome.refreshVideoContent();
+      expect(search.tabs[1].videos, isEmpty);
+      await visitPages();
       expect(search.tabs[1].videos.single.title, 'Original title');
       expect(explore.activeTab.rightListLocal.single.title, 'Original title');
       expect(refreshingHome.playlist.single.total, 1);
@@ -226,6 +246,7 @@ void main() {
       final updated = refreshingHome.nextRefresh!.future;
       await DBVideos.update(Videos.fromJson(video.toJson())..title = 'Updated title');
       await updated.timeout(const Duration(seconds: 5));
+      await visitPages();
       expect(pageHome.listNewAdded.single.title, 'Updated title');
       expect(search.tabs[0].videos.single.title, 'Updated title');
       expect(search.tabs[1].videos, isEmpty);
@@ -238,6 +259,7 @@ void main() {
       final deleted = refreshingHome.nextRefresh!.future;
       await DBVideos.delete(video);
       await deleted.timeout(const Duration(seconds: 5));
+      await visitPages();
       expect(pageHome.listNewAdded, isEmpty);
       expect(search.tabs.every((tab) => tab.videos.isEmpty), isTrue);
       expect(explore.activeTab.rightListLocal, isEmpty);

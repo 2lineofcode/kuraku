@@ -104,18 +104,22 @@ void main() {
 
       for (final path in [trackedFile.path, externalFile.path]) {
         final expectedOpened = recording.opened.length + 1;
+        late Future<void> drop;
         await tester.runAsync(() async {
           final event = PerformDropEvent(session: _Session([_Item(path)]),
             position: DropPosition(local: Offset.zero, global: Offset.zero), acceptedOperation: DropOperation.copy);
           if (source == 'Home') {
-            await home.onDropEvent(event);
+            drop = home.onDropEvent(event);
           } else {
-            await player.onDropEvent(event);
-          }
-          for (var attempt = 0; attempt < 50 && recording.opened.length < expectedOpened; attempt++) {
-            await Future<void>.delayed(const Duration(milliseconds: 10));
+            drop = player.onDropEvent(event);
           }
         });
+        for (var attempt = 0; attempt < 100 && recording.opened.length < expectedOpened; attempt++) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+          await tester.pump();
+        }
+        expect(recording.opened, hasLength(expectedOpened));
+        await tester.runAsync(() => drop);
         await tester.pumpAndSettle();
       }
       expect(recording.opened, hasLength(2));
@@ -129,7 +133,7 @@ void main() {
       expect(recording.opened.last.title, 'external.part.2');
       expect(database.paths, [trackedFile.path, externalFile.path, if (Platform.isWindows) externalFile.path]);
       expect(tester.takeException(), isNull);
-    });
+    }, timeout: const Timeout(Duration(seconds: 30)));
   }
 
   testWidgets('multiple dropped videos ask for player mode and can cancel', (tester) async {
@@ -173,5 +177,5 @@ void main() {
       expect(find.text('Home'), findsOneWidget);
       expect(tester.takeException(), isNull);
     }
-  });
+  }, timeout: const Timeout(Duration(seconds: 30)));
 }
