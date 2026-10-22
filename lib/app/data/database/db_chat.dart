@@ -111,6 +111,7 @@ mixin DBChat {
     message..content = ''..status = 'pending'..errorMessage = null..elapsedMs = 0..updatedAt = now..provider = provider..model = model;
     message.activity.clear();
     message.titleSearch = null;
+    message.downloadRows = [];
   }
 
   static Future<void> saveAssistant(ChatMessage message) async {
@@ -118,7 +119,7 @@ mixin DBChat {
     final count = await _db.update('chat_message', {
       'content': message.content, 'status': message.status, 'error_message': message.errorMessage, 'updated_at': now,
       'provider': message.provider, 'model': message.model,
-      'activity': jsonEncode({'steps': message.activity, 'elapsed_ms': message.elapsedMs, 'title_search': message.titleSearch}),
+      'activity': jsonEncode({'steps': message.activity, 'elapsed_ms': message.elapsedMs, 'title_search': message.titleSearch, 'download_rows': message.downloadRows}),
     }, where: 'id = ?', whereArgs: [message.id]);
     if (count != 1) throw StateError('Chat message no longer exists');
     message.updatedAt = now;

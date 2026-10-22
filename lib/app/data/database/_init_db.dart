@@ -134,6 +134,12 @@ class DBService extends GetxService {
   }
 
   Future<void> _onConfigure(Database db) async {
+    await db.rawQuery('PRAGMA busy_timeout = 5000');
+    final mode = await db.rawQuery('PRAGMA journal_mode');
+    if (mode.single['journal_mode'] != 'delete') {
+      final changed = await db.rawQuery('PRAGMA journal_mode = DELETE');
+      if (changed.single['journal_mode'] != 'delete') throw StateError('Could not enable single-file database mode');
+    }
     await db.execute('PRAGMA foreign_keys = ON');
   }
 

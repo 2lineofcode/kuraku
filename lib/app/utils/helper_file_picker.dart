@@ -9,6 +9,9 @@ import 'helper_misc.dart';
 mixin HelperFilePicker {
   static const videoExtensions = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v'];
 
+  static bool isTemporaryDownloadPath(String path) => p.split(path).any((part) =>
+    ['.downiepart', '.part', '.tmp', '.crdownload', '.download'].any(part.toLowerCase().endsWith));
+
   static bool isSupportedVideoPath(String path) =>
     videoExtensions.contains(p.extension(path).toLowerCase().replaceFirst('.', ''));
 
@@ -50,6 +53,7 @@ mixin HelperFilePicker {
     final imageFiles = <String>[];
 
     await for (final file in directory.list(recursive: true)) {
+      if (isTemporaryDownloadPath(file.path)) continue;
       if (file is Directory) {
         subfolders.add(file.path);
         continue;

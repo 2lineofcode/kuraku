@@ -22,7 +22,14 @@ import '../../data/models/videos_entity.dart';
 import '../../utils/helper_file_picker.dart';
 import '../../utils/helper_misc.dart';
 import '../../utils/helper_toast.dart';
+import '../../utils/player_audio_normalization.dart';
 import 'standalone_player_seek_preview.dart';
+
+class StandaloneChapter {
+  const StandaloneChapter({required this.title, required this.start});
+  final String title;
+  final Duration start;
+}
 
 class StandalonePlayerController extends GetxController with StateMixin<Videos>, GetSingleTickerProviderStateMixin {
   final focusSignal = 0.obs;
@@ -56,6 +63,8 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
 
   final position = Duration.zero.obs;
   final duration = Duration.zero.obs;
+  final chapters = <StandaloneChapter>[].obs;
+  int _chapterRequest = 0;
   final isPlaying = false.obs;
   final isBuffering = false.obs;
   final volume = 1.0.obs;
@@ -172,6 +181,10 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
     WidgetsBinding.instance.ensureVisualUpdate();
 
     _bindPlayerStreams();
+    final platform = player.platform;
+    if (platform is NativePlayer) {
+      await platform.observeProperty('chapter-list', (_) => refreshChapters());
+    }
     await applyAudioNormalization(enabled: isAudioNormalizationEnabled.value);
   }
 
@@ -230,6 +243,7 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
     if (!_isCurrentPlayback(revision) || isFullScreen.value) return;
     final saving = _saveRecent();
     _historyPath = null;
+    _clearChapters();
     playlist.clear();
     _externalPlaylist = null;
     currentVideo.value = Videos();
@@ -553,6 +567,7 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
 
     try {
       _historyPath = null;
+      _clearChapters();
       isInitialized.value = false;
       position.value = resumeFrom;
       duration.value = Duration.zero;
@@ -664,48 +679,8 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
 
   Future<void> applyAudioNormalization({required bool enabled}) async {
     final platform = player.platform;
-    if (platform is! NativePlayer) {
-      isAudioNormalizationEnabled.value = enabled;
-      return;
-    }
-
-    if (!enabled) {
-      try {
-        await platform.setProperty('af', '');
-      } catch (e) {
-        debugPrint('disable audio normalization failed: $e');
-      }
-      isAudioNormalizationEnabled.value = false;
-      return;
-    }
-
-    const candidates = <String>[
-      'lavfi=[acompressor=threshold=-18dB:ratio=3:attack=10:release=180:makeup=4dB]',
-      'lavfi=[loudnorm=I=-16:TP=-1.5:LRA=11]',
-      'lavfi=[alimiter=limit=0.95]',
-    ];
-
-    var applied = false;
-    for (final filter in candidates) {
-      try {
-        await platform.setProperty('af', filter);
-        applied = true;
-        break;
-      } catch (e) {
-        debugPrint('audio normalization candidate failed ($filter): $e');
-      }
-    }
-
-    if (!applied) {
-      try {
-        await platform.setProperty('af', '');
-      } catch (_) {}
-      isAudioNormalizationEnabled.value = false;
-      debugPrint('Audio normalization unsupported. Disabled automatically.');
-      return;
-    }
-
-    isAudioNormalizationEnabled.value = true;
+    isAudioNormalizationEnabled.value = platform is NativePlayer
+        ? await applyNativeAudioNormalization(platform, enabled: enabled) : enabled;
   }
 
   Future<void> adjustVolume(double delta) async {
@@ -733,6 +708,48 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
       await player.play();
     }
   }
+
+  void _clearChapters() {
+    _chapterRequest++;
+    chapters.clear();
+  }
+
+  Future<void> refreshChapters() async {
+    final request = ++_chapterRequest;
+    final revision = _playbackRevision;
+    final platform = player.platform;
+    if (platform is! NativePlayer) return;
+    final result = <StandaloneChapter>[];
+    try {
+      final count = int.tryParse(await platform.getProperty('chapter-list/count')) ?? 0;
+      for (var index = 0; index < count; index++) {
+        if (request != _chapterRequest || !_isCurrentPlayback(revision)) return;
+        final seconds = double.tryParse(await platform.getProperty('chapter-list/$index/time'));
+        if (seconds == null || !seconds.isFinite || seconds < 0) continue;
+        final title = await platform.getProperty('chapter-list/$index/title');
+        result.add(StandaloneChapter(title: title, start: Duration(microseconds: (seconds * 1000000).round())));
+      }
+    } catch (e) {
+      debugPrint('Failed to read chapters: $e');
+      result.clear();
+    }
+    if (request == _chapterRequest && _isCurrentPlayback(revision)) chapters.assignAll(result);
+  }
+
+  int get currentChapterIndex {
+    for (var index = chapters.length - 1; index >= 0; index--) {
+      if (position.value >= chapters[index].start) return index;
+    }
+    return -1;
+  }
+
+  Future<void> seekChapter(int index) async {
+    if (isClosed || _shutdown != null || index < 0 || index >= chapters.length) return;
+    await seek(chapters[index].start);
+  }
+
+  Future<void> nextChapter() => seekChapter(currentChapterIndex + 1);
+  Future<void> previousChapter() => seekChapter(currentChapterIndex - 1);
 
   Future<void> seek(Duration target) async {
     final total = duration.value;

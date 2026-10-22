@@ -54,16 +54,14 @@ mixin HomePanelLibrary {
   static bool fileDragInProgress = false;
   static bool get canStartFileDrag => !fileDragInProgress && _libraryScansPending == 0;
 
-  static bool _shouldIgnoreWatchEvent(FileSystemEvent event) {
-    final path = event.path;
-    if (path.isEmpty) return true;
+  @visibleForTesting
+  static bool shouldIgnoreWatchEvent(FileSystemEvent event) {
+    final path = event is FileSystemMoveEvent && HelperFilePicker.isTemporaryDownloadPath(event.path)
+        ? event.destination ?? event.path : event.path;
+    if (path.isEmpty || HelperFilePicker.isTemporaryDownloadPath(path)) return true;
 
     final lower = path.toLowerCase();
     if (lower.contains('/.ds_store') || lower.contains('/.tras') || lower.contains('/@eaDir'.toLowerCase())) {
-      return true;
-    }
-
-    if (lower.endsWith('.part') || lower.endsWith('.tmp') || lower.endsWith('.crdownload')) {
       return true;
     }
 
@@ -122,7 +120,7 @@ mixin HomePanelLibrary {
 
       try {
         final sub = dir.watch(recursive: true).listen((event) {
-          if (_shouldIgnoreWatchEvent(event)) return;
+          if (shouldIgnoreWatchEvent(event)) return;
           _scheduleAutoRescan(root: root);
         }, onError: (e) {
           AppLog.logW('[LibraryWatcher] Watch error for $root: $e');
@@ -678,6 +676,7 @@ mixin HomePanelLibrary {
   // ** PROCESS VIDEO
   @visibleForTesting
   static Future<Videos?> processVideo(String videoPath, String? rootFolder, {String? code, bool metadataOnly = false}) async {
+    if (HelperFilePicker.isTemporaryDownloadPath(videoPath)) return null;
     final videoCode = code ?? videoPath.getFileName().getVideoCode();
     if (metadataOnly && videoCode.isEmpty) return null;
 

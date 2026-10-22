@@ -4,10 +4,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:kuraku/app/core/app_pref.dart';
 import 'package:kuraku/app/core/app_setting.dart';
 import 'package:kuraku/app/data/database/_init_db.dart';
 import 'package:kuraku/app/data/models/videos_entity.dart';
 import 'package:kuraku/app/modules/player/player_controller.dart';
+import 'package:kuraku/app/utils/player_audio_normalization.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:toastification/toastification.dart';
@@ -75,6 +77,19 @@ class _Player implements Player {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _NativePlayer extends Fake implements NativePlayer {
+  final commands = <List<String>>[];
+  String filter = '';
+  bool rejectFilter = false;
+  @override
+  Future<void> command(List<String> command, {bool waitForInitialization = true}) async {
+    commands.add(command);
+    if (!rejectFilter || command.last.isEmpty) filter = command.last;
+  }
+  @override
+  Future<String> getProperty(String property, {bool waitForInitialization = true}) async => filter;
+}
+
 class _VideoController implements VideoController {
   @override
   Future<void> get waitUntilFirstFrameRendered async {}
@@ -137,6 +152,26 @@ void main() {
       }
     });
   }
+
+  playbackTest('normalization applies and removes a verified filter and clears rejected saved settings', (tester) async {
+    await pump(tester);
+    await controller.initializePlayer();
+    final native = _NativePlayer();
+    controller.fakePlayer.platform = native;
+    await controller.applyAudioNormalization(enabled: true);
+    expect(native.commands.last, ['af', 'set', audioNormalizationFilter]);
+    expect(controller.isAudioNormalizationEnabled.value, isTrue);
+    expect(AppPref.getPlayerAudioNormalization(), isTrue);
+    await controller.applyAudioNormalization(enabled: false);
+    expect(native.filter, isEmpty);
+    expect(controller.isAudioNormalizationEnabled.value, isFalse);
+    native.rejectFilter = true;
+    AppPref.setPlayerAudioNormalization(true);
+    await controller.applyAudioNormalization(enabled: true, persist: false);
+    expect(native.commands.last, ['af', 'set', '']);
+    expect(controller.isAudioNormalizationEnabled.value, isFalse);
+    expect(AppPref.getPlayerAudioNormalization(), isFalse);
+  });
 
   playbackTest('playback preserves raw filesystem names when opening file URIs', (tester) async {
     await pump(tester);

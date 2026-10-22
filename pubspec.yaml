@@ -1,7 +1,7 @@
 name: kuraku
 description: "A Desktop app for managing a personal video library."
 publish_to: "none"
-version: 1.0.4+20261020.112
+version: 1.0.4+20261021.114
 
 environment:
   sdk: ^3.13.0
@@ -107,6 +107,8 @@ get_cli:
   sub_folder: false
 
 dependency_overrides:
+  media_kit_libs_macos_video:
+    path: packages/media_kit_libs_macos_video
   # ex_kit 0.7.0 still constrains cached_network_image to 3.x.
   cached_network_image: ^4.0.4
   # chewie 1.17.2 still constrains the Cupertino icon font to 1.x.

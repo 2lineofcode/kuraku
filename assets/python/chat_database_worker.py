@@ -474,7 +474,7 @@ def run(request):
             rows = cursor.fetchmany(row_limit + 1)
         truncated = len(rows) > row_limit
         result = []
-        remaining = 250000
+        remaining = row_limit * 9000 if search_terms is not None else 250000
         for row in rows[:row_limit]:
             if remaining <= 0:
                 truncated = True

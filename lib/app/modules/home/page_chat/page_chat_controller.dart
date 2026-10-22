@@ -14,6 +14,9 @@ import '../../../data/database/db_chat.dart';
 import '../../../data/models/chat_entity.dart';
 import '../../../utils/chat_knowledge.dart';
 import '../../../utils/chat_service.dart';
+import '../../../utils/helper_result_rows.dart';
+import '../home_controller.dart';
+import '../page_download/page_download_controller.dart';
 
 class PageChatController extends GetxController {
   PageChatController({ChatService? api}) : api = api ?? ChatService(knowledge: ChatKnowledge(
@@ -360,6 +363,9 @@ class PageChatController extends GetxController {
       api.onTitleSearch = (query) {
         if (!token.isCancelled && !isClosed) response.titleSearch = Map.of(query);
       };
+      api.onLocalResult = (result) {
+        if (!token.isCancelled && !isClosed) response.downloadRows = resultDownloadRows(result);
+      };
       final checkpoint = Stopwatch()..start();
       await for (final chunk in api.reply(history, token)) {
         if (token.isCancelled || isClosed) break;
@@ -384,6 +390,7 @@ class PageChatController extends GetxController {
     } finally {
       api.onActivity = null;
       api.onTitleSearch = null;
+      api.onLocalResult = null;
       elapsed.stop();
       if (answer != null) {
         final response = answer!;
@@ -433,11 +440,11 @@ class PageChatController extends GetxController {
 
   static const templates = {
     '/r18': (label: 'Search R18 by topic', prompt:
-      'Search the R18 catalog for "[topic]" in Japanese/English titles, descriptions, categories and saved translations. Include videos with or without English titles; require missing English metadata only if I explicitly ask. Use the original phrase and precise Japanese/English equivalents of this one topic as alternatives. Show original titles and actual matching snippets as evidence. Rank by relevance unless I request newest releases. Do not cap the total results; use 25 results per page.'),
+      'Search the R18 catalog for "[topic]" in Japanese/English titles, descriptions, categories and saved translations. Include videos with or without English titles; require missing English metadata only if I explicitly ask. Use the original phrase and precise Japanese/English equivalents of this one topic as alternatives. Show original titles and actual matching snippets as evidence. Rank by relevance unless I request newest releases. Do not cap the total results; use 500 results per batch.'),
     '/filter': (label: 'Search with multiple filters', prompt:
-      'Search R18 for "[theme 1]" AND "[theme 2]". Both themes and every other mandatory filter must match; synonyms of each theme are OR alternatives within that theme. Exclude compilations and videos already in my library. Search Japanese/English titles, descriptions, categories and saved translations using precise equivalents. Show actual matching snippets as evidence. Rank by relevance unless I request newest releases, and use 25 results per page without capping the total.'),
+      'Search R18 for "[theme 1]" AND "[theme 2]". Both themes and every other mandatory filter must match; synonyms of each theme are OR alternatives within that theme. Exclude compilations and videos already in my library. Search Japanese/English titles, descriptions, categories and saved translations using precise equivalents. Show actual matching snippets as evidence. Rank by relevance unless I request newest releases, and use 500 results per batch without capping the total.'),
     '/similar': (label: 'Find similar videos', prompt:
-      'Find videos in R18 with themes similar to [CODE]. Read its actual local titles, descriptions and categories first. Derive a coherent context: one specific defining theme and up to four distinct secondary themes. Use precise Japanese/English synonyms as alternatives within each theme. The primary theme must match; secondary themes are optional for ranking, not all required. Preserve all explicitly required themes as AND filters, plus exclusions and ownership filters. Prefer concrete themes over cast or generic categories, and exclude the reference code. Rank strongest contextual matches first by relevance unless I request newest releases. Show actual matching snippets as evidence. If metadata lacks a meaningful theme, ask which theme to use. Use 25 results per page without capping the total.'),
+      'Find videos in R18 with themes similar to [CODE]. Read its actual local titles, descriptions and categories first. Derive a coherent context: one specific defining theme and up to four distinct secondary themes. Use precise Japanese/English synonyms as alternatives within each theme. The primary theme must match; secondary themes are optional for ranking, not all required. Preserve all explicitly required themes as AND filters, plus exclusions and ownership filters. Prefer concrete themes over cast or generic categories, and exclude the reference code. Rank strongest contextual matches first by relevance unless I request newest releases. Show actual matching snippets as evidence. If metadata lacks a meaningful theme, ask which theme to use. Use 500 results per batch without capping the total.'),
     '/translate': (label: 'Translate a Japanese title', prompt:
       'Translate this Japanese title into natural Indonesian: "[Japanese title]". Preserve names and codes, and do not add information absent from the title. Show the original title and its translation.'),
   };
@@ -490,13 +497,29 @@ class PageChatController extends GetxController {
     } finally { _translationTokens.remove(token); }
   }
 
+  Future<void> openResultsInDownload(ChatMessage message) async {
+    if (isClosed || busy.value || respondingChatId.value != null || message.downloadRows.isEmpty) return;
+    final rows = message.downloadRows;
+    try {
+      final home = Get.find<HomeController>();
+      await home.onMenuChange(kMenuDownload);
+      if (isClosed || home.currentMenuSelected.value != kMenuDownload) return;
+      await Get.find<PageDownloadController>().openResultRows('Chat with AI'.tr, rows);
+      if (!isClosed) error.value = '';
+    } catch (failure) {
+      AppLog.logW('Opening chat results in Download failed: $failure');
+      if (!isClosed) error.value = 'Could not open results in Download. Please retry.'.tr;
+    }
+  }
+
   Future<void> loadTitleSearchPage(ChatMessage message, int direction) async {
     if (busy.value || respondingChatId.value != null || api.knowledge == null || message.titleSearch == null) return;
     if (direction != -1 && direction != 1) return;
     final query = Map<String, dynamic>.from(message.titleSearch!);
-    final offset = (query['offset'] as int? ?? 0) + direction * 25;
+    final limit = query['limit'] as int? ?? 25;
+    final offset = (query['offset'] as int? ?? 0) + direction * limit;
     if (offset < 0 || direction > 0 && query['has_more'] != true) return;
-    query..remove('has_more')..['offset'] = offset..['limit'] = 25;
+    query..remove('has_more')..['offset'] = offset..['limit'] = limit;
     final token = CancelToken();
     _pageToken = token;
     loadingPageId.value = message.id;
@@ -505,13 +528,16 @@ class PageChatController extends GetxController {
       if (isClosed || token.isCancelled) return;
       final previousContent = message.content;
       final previousSearch = message.titleSearch;
+      final previousRows = message.downloadRows;
       message.content = ChatKnowledge.render(result);
+      message.downloadRows = resultDownloadRows(result);
       message.titleSearch = {...query, 'has_more': result['has_more'] == true};
       try {
         await DBChat.saveAssistant(message);
       } catch (_) {
         message.content = previousContent;
         message.titleSearch = previousSearch;
+        message.downloadRows = previousRows;
         rethrow;
       }
       if (activeChat.value.id == message.conversationId) activeChat.refresh();

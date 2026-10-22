@@ -429,7 +429,7 @@ class PageChatView extends GetView<PageChatController> {
                   final offset = message.titleSearch!['offset'] as int? ?? 0;
                   final disabled = controller.busy.value || controller.respondingChatId.value != null;
                   return Row(mainAxisSize: MainAxisSize.min, children: [
-                    Text('Page @{offset}'.trNamed({'offset': '${offset ~/ 25 + 1}'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
+                    Text('Page @{offset}'.trNamed({'offset': '${offset ~/ (message.titleSearch!['limit'] as int? ?? 25) + 1}'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
                     AppIconButton(tooltip: 'Previous database page'.tr, visualDensity: VisualDensity.compact,
                       onPressed: disabled || offset == 0 ? null : () => controller.loadTitleSearchPage(message, -1),
                       icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: AppStyle.iconSize)),
@@ -450,13 +450,20 @@ class PageChatView extends GetView<PageChatController> {
                       style: TextStyle(fontSize: 12, color: AppColor.muted))),
                   ]),
                 ),
-                Row(mainAxisSize: MainAxisSize.min, spacing: 4, children: [
+                Wrap(spacing: 4, runSpacing: 4, children: [
                   if (content.isNotEmpty && !generating) AppIconButton(
                     tooltip: 'Copy message'.tr, visualDensity: VisualDensity.compact,
                     constraints: const BoxConstraints.tightFor(width: 30, height: 30), padding: EdgeInsets.zero,
                     icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: AppStyle.iconSize, color: AppColor.muted),
                     onPressed: () => _copy(context, content),
                   ),
+                  if (assistant && message.downloadRows.isNotEmpty && !generating) Obx(() => AppIconButton(
+                    tooltip: 'Open results in Download'.tr, visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints.tightFor(width: 30, height: 30), padding: EdgeInsets.zero,
+                    onPressed: controller.busy.value || controller.respondingChatId.value != null
+                        ? null : () => controller.openResultsInDownload(message),
+                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedDownload01, size: AppStyle.iconSize),
+                  )),
                   if (!assistant) Obx(() => AppIconButton(
                     tooltip: 'Edit message'.tr, visualDensity: VisualDensity.compact,
                     constraints: const BoxConstraints.tightFor(width: 30, height: 30), padding: EdgeInsets.zero,
@@ -897,7 +904,7 @@ class _ChatTableState extends State<_ChatTable> {
             children: [table.children.first, ...table.children.skip(start + 1).take(end - start)],
           ),
       ),
-      if (!widget.databasePaged) Row(mainAxisSize: MainAxisSize.min, children: [
+      if (!widget.databasePaged || pages > 1) Row(mainAxisSize: MainAxisSize.min, children: [
         Text('@{start}–@{end} of @{count} · Page @{current}/@{pages}'.trNamed({'start': '${start + 1}', 'end': '$end', 'count': '$count', 'current': '${current + 1}', 'pages': '$pages'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
         AppIconButton(tooltip: 'Previous results'.tr, visualDensity: VisualDensity.compact,
           onPressed: current == 0 ? null : () => setState(() => page = current - 1),

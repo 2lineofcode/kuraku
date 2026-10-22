@@ -25,6 +25,7 @@ class ChatService {
 
   void Function(String)? onActivity;
   void Function(Map<String, dynamic>)? onTitleSearch;
+  void Function(Map<String, dynamic>)? onLocalResult;
   final ChatWebSearch webSearch;
   final ChatKnowledge? knowledge;
   final Dio _dio;
@@ -57,7 +58,9 @@ class ChatService {
       final direct = local?.directQuery(question);
       if (direct != null) {
         onActivity?.call('Checking your library and local catalog');
-        yield ChatKnowledge.render(await local!.request(direct, cancelToken));
+        final result = await local!.request(direct, cancelToken);
+        onLocalResult?.call(result);
+        yield ChatKnowledge.render(result);
         return;
       }
       Map<String, dynamic>? schema;
@@ -94,7 +97,7 @@ class ChatService {
       {'role': 'system', 'content': schema == null
         ? 'Local knowledge is unavailable. Do not claim to know the library.'
         : 'Use search_local_titles for title/topic discovery. First resolve the user\'s intent and separate distinct concepts from synonyms. Include the original phrase and faithful Japanese/English alternatives, including common spellings, in each concept. Keep specific relationships, settings and scenarios intact; generic words like woman, video, beautiful or an actor name cannot stand in for a theme. terms is ONE defining concept, required_terms contains every other user-mandated concept (AND), exclude_terms contains exclusions, and unowned excludes owned codes. Search all languages; missing_english is true ONLY when the user explicitly asks for missing English titles. For similar-video requests, call get_video_reference first, read all supplied titles/descriptions/categories, choose the defining scenario as terms, and use related_terms for other supported, distinct themes. Reference details are optional relevance signals unless the user makes them mandatory. Never use cast names, format/quality labels or invented reference facts as themes. If the metadata only supplies a cast or vague marketing, ask which aspect to use. Prefer contextual concept coverage over a single broad keyword. Default sort is relevance; newest only when requested. Results include exact evidence and are displayed directly; never invent translations or semantic similarity percentages. Use query_local for other library or R18 facts. main is the owned library; r18 is a catalog, not ownership. '
-          'Schema: ${jsonEncode(schema)}. temp.videos is the active owned library; deleted records are excluded. R18 canonical code column is $catalogCode; use it for every catalog lookup, grouping, ownership comparison and unique count. Query explicit columns, use indexed exact uppercase code matches, aggregates for counts, and ORDER BY release_date DESC, code ASC (null dates last) with the requested LIMIT (default 20, maximum 500) for other lists. '
+          'Schema: ${jsonEncode(schema)}. temp.videos is the active owned library; deleted records are excluded. R18 canonical code column is $catalogCode; use it for every catalog lookup, grouping, ownership comparison and unique count. Query explicit columns, use indexed exact uppercase code matches, aggregates for counts, and ORDER BY release_date DESC, code ASC (null dates last) with the requested LIMIT (default 500, maximum 500) for other lists. '
           'For video lists always select $catalogCode AS code for R18 or video_code AS code for main, plus title. Code is the display identifier; never label it DVD ID. '
           'Title searches use database pagination: search once after satisfying every requested filter; the UI loads subsequent pages without a total result cap. Never split mandatory concepts into separate searches. Preserve exclusions, ownership, source and missing-English filters on every search. If a title search has no matches, you may retry once with more faithful translations/spelling variants of the SAME concepts; never silently remove constraints or broaden the theme. Empty results do not prove the catalog has no such videos. Other query_local video lists are rendered directly from query results, so fetch the requested bounded batch in one query. Use ? placeholders and args for user values. '
           'For unique R18 videos use GROUP BY $catalogCode with a deterministic aggregate title; exclude null or empty codes. '
@@ -192,7 +195,7 @@ class ChatService {
                 }
                 if (titleSearch) onActivity?.call('Searching Japanese titles and local translations');
                 final query = titleSearch
-                  ? {...Map<String, dynamic>.from(arguments), 'operation': 'search_titles', 'limit': 25}
+                  ? {...Map<String, dynamic>.from(arguments), 'operation': 'search_titles', 'limit': 500}
                   : <String, dynamic>{'sql': arguments['sql'], if (arguments.containsKey('args')) 'args': arguments['args']};
                 if (emptySearch != null) {
                   if (!titleSearch) throw const FormatException('Retry the same title search without removing its constraints.');
@@ -237,6 +240,7 @@ class ChatService {
                 final columns = (result['columns'] as List).map((column) => ChatKnowledge.displayColumn(column.toString()).toLowerCase());
                 if (columns.any((column) => ['code', 'video_code', 'dvd_id'].contains(column)) || (result['rows'] as List).length > 20) {
                   onActivity?.call('Displaying @{count} local records'.trNamed({'count': '${(result['rows'] as List).length}'}));
+                  onLocalResult?.call(result);
                   yield ChatKnowledge.render(result);
                   if (links.isNotEmpty) yield _sourceFooter(links);
                   return;

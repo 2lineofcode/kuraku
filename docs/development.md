@@ -71,6 +71,12 @@ make run
 
 On first launch, choose **Download & Install** to import the R18 catalog. Wait for it to finish, then restart the app.
 
+## macOS audio normalization
+
+The local `media_kit_libs_macos_video` override downloads a checksum-pinned framework archive from [kuraku-libmpv](https://github.com/2lineofcode/kuraku-libmpv). It keeps the upstream libmpv/codecs and enables the FFmpeg filters needed for audio normalization. No extra playback tools are required at runtime.
+
+To update it, build and verify a new artifact in that fork, publish a new immutable release, then update the version and SHA-256 in `packages/media_kit_libs_macos_video/macos/Makefile`. Keep the plugin override in the repository; do not patch the global pub cache.
+
 ## Configuration
 
 Use [.env.sample](../.env.sample) as the starting point. Keep `APP_NAME=kuraku` unchanged: it identifies the app's data directory.

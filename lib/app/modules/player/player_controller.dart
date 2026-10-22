@@ -25,6 +25,7 @@ import '../../data/database/db_gamification.dart';
 import '../../data/database/db_videos.dart';
 import '../../data/models/videos_entity.dart';
 import '../../utils/helper.dart';
+import '../../utils/player_audio_normalization.dart';
 import '../../utils/semantic_search_service.dart';
 import '../../utils/watch_session_tracker.dart';
 import '../home/home_controller.dart';
@@ -638,52 +639,10 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
   Future<void> applyAudioNormalization({required bool enabled, bool persist = true}) async {
     final platform = player.platform;
-    if (platform is! NativePlayer) {
-      isAudioNormalizationEnabled.value = enabled;
-      if (persist) AppPref.setPlayerAudioNormalization(enabled);
-      return;
-    }
-
-    if (!enabled) {
-      try {
-        await platform.setProperty('af', '');
-      } catch (e) {
-        AppLog.logD('disable audio normalization failed: $e');
-      }
-      isAudioNormalizationEnabled.value = false;
-      if (persist) AppPref.setPlayerAudioNormalization(false);
-      return;
-    }
-
-    const candidates = <String>[
-      'lavfi=[acompressor=threshold=-18dB:ratio=3:attack=10:release=180:makeup=4dB]',
-      'lavfi=[loudnorm=I=-16:TP=-1.5:LRA=11]',
-      'lavfi=[alimiter=limit=0.95]',
-    ];
-
-    var applied = false;
-    for (final filter in candidates) {
-      try {
-        await platform.setProperty('af', filter);
-        applied = true;
-        break;
-      } catch (e) {
-        AppLog.logD('audio normalization candidate failed ($filter): $e');
-      }
-    }
-
-    if (!applied) {
-      try {
-        await platform.setProperty('af', '');
-      } catch (_) {}
-      isAudioNormalizationEnabled.value = false;
-      AppPref.setPlayerAudioNormalization(false);
-      AppLog.logW('Audio normalization unsupported. Disabled automatically.');
-      return;
-    }
-
-    isAudioNormalizationEnabled.value = true;
-    if (persist) AppPref.setPlayerAudioNormalization(true);
+    final active = platform is NativePlayer
+        ? await applyNativeAudioNormalization(platform, enabled: enabled) : enabled;
+    isAudioNormalizationEnabled.value = active;
+    if (persist || enabled && !active) AppPref.setPlayerAudioNormalization(active);
   }
 
   Future<void> adjustVolume(double delta) async {

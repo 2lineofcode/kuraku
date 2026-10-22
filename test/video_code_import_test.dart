@@ -60,6 +60,13 @@ void main() {
     expect(nonJav?.videoCode ?? '', isEmpty);
   });
 
+  test('import rejects Downie temporary payloads before querying catalog metadata', () async {
+    const path = '/movies/JUR-767.downiepart/FD80D7DE-89A4-4767-A125-CE7F9EEDB245.mp4';
+    expect(await HomePanelLibrary.processVideo(path, '/movies'), isNull);
+    expect(await HomePanelLibrary.processVideo(path, '/movies', code: 'JUR-767', metadataOnly: true), isNull);
+    expect(database.queries, isEmpty);
+  });
+
   test('manual recovery only updates missing codes in the selected library', () async {
     database.rows = [
       {'id': '1', 'video_path': '/Volumes/ImportTest/DVES-050.mp4'},

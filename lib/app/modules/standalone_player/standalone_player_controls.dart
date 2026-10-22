@@ -208,6 +208,12 @@ class _StandalonePlayerControlsState extends State<StandalonePlayerControls> wit
       LogicalKeySet(AppShortcut.modifier, LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowLeft): RotateLeftIntent(),
       LogicalKeySet(AppShortcut.modifier, LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowRight): RotateRightIntent(),
 
+      // Chapters
+      LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.digit1): PrevChapterIntent(),
+      LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.exclamation): PrevChapterIntent(),
+      LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.digit2): NextChapterIntent(),
+      LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.at): NextChapterIntent(),
+
       // Navigation
       LogicalKeySet(LogicalKeyboardKey.keyL): OpenListIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyQ): BackIntent(),
@@ -236,6 +242,8 @@ class _StandalonePlayerControlsState extends State<StandalonePlayerControls> wit
       RotateRightIntent: CallbackAction<RotateRightIntent>( onInvoke: (intent) { _rotateVideo(clockwise: true); return null; }, ),
       OpenListIntent: CallbackAction<OpenListIntent>( onInvoke: (intent) { widget.controller.openList(); return null; }, ),
       BackIntent: CallbackAction<BackIntent>(onInvoke: (intent) { unawaited(_leavePlayer()); return null; }),
+      PrevChapterIntent: CallbackAction<PrevChapterIntent>(onInvoke: (_) { widget.controller.previousChapter(); _showControls(); return null; }),
+      NextChapterIntent: CallbackAction<NextChapterIntent>(onInvoke: (_) { widget.controller.nextChapter(); _showControls(); return null; }),
       NextVideoIntent: CallbackAction<NextVideoIntent>( onInvoke: (intent) { widget.controller.nextVideo(); return null; }, ),
       PrevVideoIntent: CallbackAction<PrevVideoIntent>( onInvoke: (intent) { widget.controller.prevVideo(); return null; }, ),
     };
@@ -442,6 +450,7 @@ class _StandalonePlayerControlsState extends State<StandalonePlayerControls> wit
       ]);
       final volume = _buildVolumeCluster(widget.controller.volume.value);
       final options = Row(mainAxisSize: MainAxisSize.min, children: [
+        if (widget.controller.chapters.isNotEmpty) _buildChapterMenu(),
         _buildSpeedMenu(widget.controller.playbackSpeed.value),
         _buildSettingsButton(),
         _buildFullscreenButton(widget.controller.isFullScreen.value),
@@ -576,6 +585,12 @@ class _StandalonePlayerControlsState extends State<StandalonePlayerControls> wit
                     },
                   ),
                 ),
+                if (dur > Duration.zero) for (final chapter in widget.controller.chapters)
+                  if (chapter.start > Duration.zero && chapter.start < dur) Positioned(
+                    left: 22 + chapter.start.inMicroseconds / dur.inMicroseconds * math.max(seekWidth - 44, 1) - 1,
+                    child: IgnorePointer(child: Container(key: ValueKey('chapter-marker-${chapter.start.inMicroseconds}'),
+                      width: 2, height: 8, color: Colors.white70)),
+                  ),
               ],
             ),
           ),
@@ -701,8 +716,30 @@ class _StandalonePlayerControlsState extends State<StandalonePlayerControls> wit
     ),
   );
 
+  Widget _buildChapterMenu() {
+    final chapters = widget.controller.chapters.toList();
+    final active = widget.controller.currentChapterIndex;
+    return _buildPlayerMenu(
+      tooltip: 'Chapters'.tr,
+      width: 280,
+      child: const Icon(CupertinoIcons.book, color: Colors.white, size: 18),
+      items: [
+        ('${'Previous chapter'.tr} (Shift + 1)', false),
+        ('${'Next chapter'.tr} (Shift + 2)', false),
+        for (var i = 0; i < chapters.length; i++)
+          ('${_formatDuration(chapters[i].start)}  ${chapters[i].title.trim().isEmpty ? 'Chapter @{number}'.trNamed({'number': '${i + 1}'}) : chapters[i].title}', i == active),
+      ],
+      onSelected: (index) async {
+        if (index == 0) { await widget.controller.previousChapter(); }
+        else if (index == 1) { await widget.controller.nextChapter(); }
+        else { await widget.controller.seekChapter(index - 2); }
+      },
+    );
+  }
+
   Widget _buildPlayerMenu({
     required String tooltip,
+    double width = 180,
     required Widget child,
     required List<(String, bool)> items,
     required Future<void> Function(int) onSelected,
@@ -727,7 +764,9 @@ class _StandalonePlayerControlsState extends State<StandalonePlayerControls> wit
     menuChildren: [Builder(builder: (context) => _glassPanel(
       CallbackShortcuts(
         bindings: {const SingleActivator(LogicalKeyboardKey.escape): () => MenuController.maybeOf(context)?.close()},
-        child: SizedBox(width: 180, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: width, maxHeight: math.max(100, MediaQuery.sizeOf(context).height - 100)),
+          child: SingleChildScrollView(primary: false, child: SizedBox(width: width, child: Column(mainAxisSize: MainAxisSize.min, children: [
         for (var index = 0; index < items.length; index++) CupertinoButton(
           autofocus: index == 0,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -742,7 +781,7 @@ class _StandalonePlayerControlsState extends State<StandalonePlayerControls> wit
             Expanded(child: Text(items[index].$1, style: const TextStyle(color: Colors.white, fontSize: 12))),
           ]),
         ),
-      ]))), padding: const EdgeInsets.all(4),
+      ]))))), padding: const EdgeInsets.all(4),
     ))],
   );
 
@@ -1472,3 +1511,6 @@ class OpenListIntent extends Intent { const OpenListIntent(); }
 class BackIntent extends Intent { const BackIntent(); }
 class NextVideoIntent extends Intent { const NextVideoIntent(); }
 class PrevVideoIntent extends Intent { const PrevVideoIntent(); }
+
+class PrevChapterIntent extends Intent { const PrevChapterIntent(); }
+class NextChapterIntent extends Intent { const NextChapterIntent(); }

@@ -10,6 +10,7 @@ import 'package:kuraku/app/data/database/_init_db.dart';
 import 'package:kuraku/app/data/database/standalone_player_history.dart';
 import 'package:kuraku/app/data/models/videos_entity.dart';
 import 'package:kuraku/app/modules/standalone_player/standalone_player_controller.dart';
+import 'package:kuraku/app/utils/player_audio_normalization.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 // DropItem.dataReader exposes this type from super_drag_and_drop's dependency.
@@ -108,6 +109,32 @@ class _Player implements Player {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _NativePlayer extends Fake implements NativePlayer {
+  final commands = <List<String>>[];
+  String filter = '';
+  bool rejectFilter = false;
+  @override
+  Future<void> command(List<String> command, {bool waitForInitialization = true}) async {
+    commands.add(command);
+    if (!rejectFilter || command.last.isEmpty) filter = command.last;
+  }
+  @override
+  Future<String> getProperty(String property, {bool waitForInitialization = true}) async => filter;
+}
+
+class _ChapterPlayer extends _NativePlayer {
+  final properties = <String, String>{};
+  Completer<String>? pendingTitle;
+  bool failRead = false;
+  @override
+  Future<String> getProperty(String property, {bool waitForInitialization = true}) async {
+    if (!property.startsWith('chapter-list/')) return super.getProperty(property);
+    if (failRead) throw StateError('Chapter read failed');
+    if (property.endsWith('/title') && pendingTitle != null) return pendingTitle!.future;
+    return properties[property] ?? '';
+  }
+}
+
 class _VideoController implements VideoController {
   @override
   Future<void> get waitUntilFirstFrameRendered async {}
@@ -161,6 +188,43 @@ void main() {
       }
     });
   }
+
+  standaloneTest('chapters read valid timestamps and clear for files without chapters or read failures', () async {
+    final native = _ChapterPlayer();
+    controller.fakePlayer.platform = native;
+    await controller.startPlayback(video('chapters.mkv'));
+    native.properties.addAll({
+      'chapter-list/count': '4',
+      'chapter-list/0/time': '0', 'chapter-list/0/title': 'Opening',
+      'chapter-list/1/time': '2.125', 'chapter-list/1/title': '',
+      'chapter-list/2/time': 'NaN', 'chapter-list/3/time': '-1',
+    });
+    await controller.refreshChapters();
+    expect(controller.chapters.map((c) => c.title), ['Opening', '']);
+    expect(controller.chapters.last.start, const Duration(milliseconds: 2125));
+    controller.position.value = const Duration(seconds: 3);
+    expect(controller.currentChapterIndex, 1);
+    native.properties.clear();
+    await controller.refreshChapters();
+    expect(controller.chapters, isEmpty);
+    native.failRead = true;
+    await controller.refreshChapters();
+    expect(controller.chapters, isEmpty);
+  });
+
+  standaloneTest('late chapter reads cannot restore chapters after stopping playback', () async {
+    final native = _ChapterPlayer();
+    controller.fakePlayer.platform = native;
+    await controller.startPlayback(video('chapters.mkv'));
+    native.properties.addAll({'chapter-list/count': '1', 'chapter-list/0/time': '0'});
+    native.pendingTitle = Completer<String>();
+    final reading = controller.refreshChapters();
+    await Future<void>.delayed(Duration.zero);
+    await controller.stopPlayback();
+    native.pendingTitle!.complete('Old chapter');
+    await reading;
+    expect(controller.chapters, isEmpty);
+  });
 
   test('standalone recents resume, save on switch and shutdown, and clear without library access', () async {
     final db = await SqliteTestDatabase.open();
@@ -273,6 +337,24 @@ void main() {
     expect(settings.homeResizes, 1);
     await controller.openRecent(StandaloneRecent(path: first.videoPath!, position: Duration.zero));
     expect(settings.windowResizes, 2);
+  });
+
+  standaloneTest('standalone normalization applies, disables and rejects filters without library services', () async {
+    await controller.initializePlayer();
+    final native = _NativePlayer();
+    controller.fakePlayer.platform = native;
+    await controller.applyAudioNormalization(enabled: true);
+    expect(native.commands.last, ['af', 'set', audioNormalizationFilter]);
+    expect(controller.isAudioNormalizationEnabled.value, isTrue);
+    await controller.applyAudioNormalization(enabled: false);
+    expect(native.filter, isEmpty);
+    expect(controller.isAudioNormalizationEnabled.value, isFalse);
+    native.rejectFilter = true;
+    await controller.applyAudioNormalization(enabled: true);
+    expect(native.commands.last, ['af', 'set', '']);
+    expect(controller.isAudioNormalizationEnabled.value, isFalse);
+    expect(Get.isRegistered<AppSettingService>(), isFalse);
+    expect(Get.isRegistered<DBService>(), isFalse);
   });
 
   standaloneTest('standalone playback settings stay in memory without a settings or database service', () async {

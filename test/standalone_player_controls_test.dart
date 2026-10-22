@@ -95,6 +95,87 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('chapter menu seeks, navigates and marks the timeline without changing playlist', (tester) async {
+    addTearDown(tester.view.reset);
+    controller.infoAnimationController = AnimationController(vsync: tester);
+    addTearDown(controller.infoAnimationController.dispose);
+    controller.chapters.assignAll([
+      const StandaloneChapter(title: 'Opening', start: Duration.zero),
+      const StandaloneChapter(title: 'Second part', start: Duration(seconds: 60)),
+      const StandaloneChapter(title: '', start: Duration(seconds: 120)),
+    ]);
+    await pump(tester);
+    expect(find.byKey(const ValueKey('chapter-marker-60000000')), findsOneWidget);
+    expect(find.byKey(const ValueKey('chapter-marker-120000000')), findsOneWidget);
+    await tester.tap(find.byTooltip('Chapters'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('01:00  Second part'));
+    await tester.pumpAndSettle();
+    expect(controller.position.value, const Duration(seconds: 60));
+    await tester.tap(find.byTooltip('Chapters'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Next chapter (Shift + 2)'));
+    await tester.pumpAndSettle();
+    expect(controller.position.value, const Duration(seconds: 120));
+    await controller.nextChapter();
+    expect(controller.position.value, const Duration(seconds: 120));
+    await controller.previousChapter();
+    expect(controller.position.value, const Duration(seconds: 60));
+    expect(controller.currentIndexPlaying.value, 0);
+    controller.chapters.clear();
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Chapters'), findsNothing);
+  });
+
+  testWidgets('Shift 1 and Shift 2 navigate chapters with digit and symbol key events', (tester) async {
+    addTearDown(tester.view.reset);
+    controller.infoAnimationController = AnimationController(vsync: tester);
+    addTearDown(controller.infoAnimationController.dispose);
+    controller.chapters.assignAll([
+      const StandaloneChapter(title: 'First', start: Duration.zero),
+      const StandaloneChapter(title: 'Second', start: Duration(seconds: 60)),
+    ]);
+    await pump(tester);
+    for (final keys in [
+      (LogicalKeyboardKey.digit1, LogicalKeyboardKey.digit2),
+      (LogicalKeyboardKey.exclamation, LogicalKeyboardKey.at),
+    ]) {
+      controller.position.value = const Duration(seconds: 60);
+      await tester.sendKeyEvent(keys.$1, physicalKey: PhysicalKeyboardKey.digit1);
+      expect(controller.position.value, const Duration(seconds: 60));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(keys.$1, physicalKey: PhysicalKeyboardKey.digit1);
+      expect(controller.position.value, Duration.zero);
+      await tester.sendKeyEvent(keys.$2, physicalKey: PhysicalKeyboardKey.digit2);
+      expect(controller.position.value, const Duration(seconds: 60));
+      await tester.sendKeyEvent(keys.$2, physicalKey: PhysicalKeyboardKey.digit2);
+      expect(controller.position.value, const Duration(seconds: 60));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    }
+    controller.chapters.clear();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    expect(controller.currentIndexPlaying.value, 0);
+    expect(tester.takeException(), isNull);
+    await tester.pumpAndSettle();
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('long chapter lists fit a narrow player and can scroll', (tester) async {
+    addTearDown(tester.view.reset);
+    controller.infoAnimationController = AnimationController(vsync: tester);
+    addTearDown(controller.infoAnimationController.dispose);
+    controller.chapters.assignAll(List.generate(40, (i) => StandaloneChapter(title: 'Part $i', start: Duration(seconds: i * 5))));
+    await pump(tester, width: 380);
+    await tester.tap(find.byTooltip('Chapters'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.drag(find.text('00:00  Part 0'), const Offset(0, -1200));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('standalone exposes playback controls and closes to its landing without library actions', (tester) async {
     addTearDown(tester.view.reset);
     controller = _Controller();

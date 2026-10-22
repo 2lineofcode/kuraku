@@ -49,7 +49,7 @@ SPEC CHECKSUMS:
   HotKey: 400beb7caa29054ea8d864c96f5ba7e5b4852277
   hotkey_manager_macos: a4317849af96d2430fa89944d3c58977ca089fbe
   irondash_engine_context: 893c7d96d20ce361d7e996f39d360c4c2f9869ba
-  media_kit_libs_macos_video: 85a23e549b5f480e72cae3e5634b5514bc692f65
+  media_kit_libs_macos_video: 1ee35bb2d303b2bd6a7b2adf15f25f1450565b11
   media_kit_video: fa6564e3799a0a28bff39442334817088b7ca758
   super_native_extensions: c2795d6d9aedf4a79fae25cb6160b71b50549189
   video_compress: 752b161da855df2492dd1a8fa899743cc8fe9534

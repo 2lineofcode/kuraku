@@ -38,6 +38,17 @@ class _Database implements Database {
 }
 
 void main() {
+  test('watcher ignores temporary payloads but detects files and folders finalized by Downie', () {
+    const pending = '/movies/JUR-767.downiepart';
+    expect(HomePanelLibrary.shouldIgnoreWatchEvent(FileSystemCreateEvent(pending, true)), isTrue);
+    expect(HomePanelLibrary.shouldIgnoreWatchEvent(FileSystemCreateEvent('$pending/payload.mp4', false)), isTrue);
+    expect(HomePanelLibrary.shouldIgnoreWatchEvent(FileSystemMoveEvent(pending, true, '/movies/JUR-767')), isFalse);
+    expect(HomePanelLibrary.shouldIgnoreWatchEvent(FileSystemMoveEvent('$pending/payload.mp4', false, '/movies/JUR-767.mp4')), isFalse);
+    expect(HomePanelLibrary.shouldIgnoreWatchEvent(FileSystemMoveEvent('/movies/JUR-767.mp4', false, '$pending/payload.mp4')), isFalse);
+    expect(HomePanelLibrary.shouldIgnoreWatchEvent(FileSystemMoveEvent('$pending/payload.mp4', false, '$pending/other.mp4')), isTrue);
+    expect(HomePanelLibrary.shouldIgnoreWatchEvent(FileSystemMoveEvent('$pending/notes.txt', false, '/movies/notes.txt')), isTrue);
+  });
+
   late _Database database;
 
   setUp(() {

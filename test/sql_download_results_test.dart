@@ -80,6 +80,10 @@ void main() {
       expect(sql.downloadRows.single['duration'], isNull);
       expect(sql.downloadRows.single['source_url'], 'https://example.com/selected-video');
     }
+    sql.result.value = {'columns': ['code', 'title'], 'rows': [['ABC-123', 'Chat result']],
+      'covers': {'ABC-123': 'https://example.com/cover.jpg'}};
+    expect(sql.downloadRows.single['video_code'], 'ABC-123');
+    expect(sql.downloadRows.single['fan_art'], 'https://example.com/cover.jpg');
     sql.running.value = true;
     expect(sql.downloadRows, isEmpty);
     sql.running.value = false;

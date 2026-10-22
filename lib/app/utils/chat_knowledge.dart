@@ -20,7 +20,7 @@ class ChatKnowledge {
     'type': 'function',
     'function': {
       'name': 'query_local',
-      'description': 'Read library and R18 metadata using a single read-only SQLite SELECT. Use ? placeholders and args for user values. For video lists select video_code AS code for the library and for R18 when available (otherwise dvd_id AS code), plus title. Use the supplied r18_code_column consistently for catalog lookups, grouping, ownership and unique counts. Fall back from blank as well as NULL English titles to Japanese titles. Deduplicate R18 results by canonical code; COUNT(*) counts records, not unique videos. Results with a code column are displayed directly to the user; do not rewrite them. Use the requested LIMIT up to 500, default 20, with ORDER BY release_date DESC, code ASC (null dates last). Use search_local_titles for topic discovery and similarity. Never use web_search for SQL.',
+      'description': 'Read library and R18 metadata using a single read-only SQLite SELECT. Use ? placeholders and args for user values. For video lists select video_code AS code for the library and for R18 when available (otherwise dvd_id AS code), plus title. Use the supplied r18_code_column consistently for catalog lookups, grouping, ownership and unique counts. Fall back from blank as well as NULL English titles to Japanese titles. Deduplicate R18 results by canonical code; COUNT(*) counts records, not unique videos. Results with a code column are displayed directly to the user; do not rewrite them. Use the requested LIMIT up to 500, default 500, with ORDER BY release_date DESC, code ASC (null dates last). Use search_local_titles for topic discovery and similarity. Never use web_search for SQL.',
       'parameters': {
         'type': 'object', 'properties': {
           'sql': {'type': 'string'},
@@ -35,7 +35,7 @@ class ChatKnowledge {
     'type': 'function',
     'function': {
       'name': 'search_local_titles',
-      'description': 'Search local Japanese/English titles, descriptions, categories and cached translations. Build a faithful concept plan from the user request: terms contains the original phrase and precise Japanese/English synonyms of ONE defining concept. Do not mix different concepts into this OR group or replace a specific scenario with generic words. Put every other explicitly required concept in required_terms (AND between groups, OR synonyms within a group). Use exclude_terms for exclusions and unowned for not-in-library requests. For similarity, read get_video_reference first and set similar_to: choose its defining scenario for terms, and put other supported themes in related_terms to boost contextual matches without requiring every reference detail. Never use cast names, video codes, generic promotional words or format/quality categories as themes. Metadata supplies relevance ranking and exact match evidence; results are displayed directly, so do not invent recommendations or rewrite titles. Default sort is relevance; use newest only if the user asks. Keep missing_english false unless explicitly requested. The UI fetches 25 records per page without a total result cap. Use query_local for counts or numeric filters.',
+      'description': 'Search local Japanese/English titles, descriptions, categories and cached translations. Build a faithful concept plan from the user request: terms contains the original phrase and precise Japanese/English synonyms of ONE defining concept. Do not mix different concepts into this OR group or replace a specific scenario with generic words. Put every other explicitly required concept in required_terms (AND between groups, OR synonyms within a group). Use exclude_terms for exclusions and unowned for not-in-library requests. For similarity, read get_video_reference first and set similar_to: choose its defining scenario for terms, and put other supported themes in related_terms to boost contextual matches without requiring every reference detail. Never use cast names, video codes, generic promotional words or format/quality categories as themes. Metadata supplies relevance ranking and exact match evidence; results are displayed directly, so do not invent recommendations or rewrite titles. Default sort is relevance; use newest only if the user asks. Keep missing_english false unless explicitly requested. The UI fetches 500 records per batch without a total result cap. Use query_local for counts or numeric filters.',
       'parameters': {
         'type': 'object',
         'properties': {
@@ -75,7 +75,7 @@ class ChatKnowledge {
       return {'operation': 'catalog_count'};
     }
     if (const ['tampilkan favorit saya', 'video favorit saya', 'show my favorites', 'tampilkan favorit gue', 'tampilkan favorit aku'].contains(query)) {
-      return {'sql': 'SELECT video_code AS code, title, quality FROM temp.videos WHERE is_favorite = 1 ORDER BY release_date DESC, video_code ASC LIMIT 20'};
+      return {'sql': 'SELECT video_code AS code, title, quality FROM temp.videos WHERE is_favorite = 1 ORDER BY release_date DESC, video_code ASC LIMIT 500'};
     }
     if (activeR18Path != null && const ['compare my collection with the r18 catalog', 'bandingin koleksi gue sama katalog r18'].contains(query)) {
       return {'operation': 'compare_catalog'};

@@ -262,10 +262,11 @@ mixin HelperMisc {
 mixin _KurakuExtension {
   static const _videoCodePattern = r'([A-Za-z]{2,})-([A-Za-z]*[0-9]{2,5})(?![0-9])';
   static final _videoCodeExpression = RegExp(_videoCodePattern);
+  static final _uuidExpression = RegExp(r'[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}');
   static final _validVideoCodeExpression = RegExp('^$_videoCodePattern' r'(?:-[A-Za-z0-9]+)?$');
 
   static String __getVideoCode(String fileName) {
-    final match = _videoCodeExpression.firstMatch(fileName);
+    final match = _videoCodeExpression.firstMatch(fileName.replaceAll(_uuidExpression, ' '));
     return match?.group(0)?.toUpperCase() ?? '';
   }
 

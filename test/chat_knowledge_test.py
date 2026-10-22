@@ -123,7 +123,10 @@ def test_title_search():
             db.execute('DROP TABLE machine_translation')
         assert [row[0] for row in knowledge.run(base)['rows']] == ['TEST-001']
         with closing(sqlite3.connect(r18)) as db, db:
-            db.executemany('INSERT INTO derived_video VALUES (?, NULL, ?)', [(f'PAGE-{i:04}', '雨の散歩') for i in range(600)])
+            db.executemany('INSERT INTO derived_video VALUES (?, NULL, ?)', [(f'PAGE-{i:04}', '雨の散歩' + ' long title' * 90) for i in range(600)])
+        batch = knowledge.run({**base, 'limit': 500})
+        assert len(batch['rows']) == 500 and batch['has_more']
+        assert all(row[0] and row[1] and row[-1] for row in batch['rows'])
         beyond_old_cap = knowledge.run({**base, 'limit': 25, 'offset': 500})
         assert len(beyond_old_cap['rows']) == 25 and beyond_old_cap['rows'][0][0] == 'PAGE-0500'
         assert beyond_old_cap['has_more'] and beyond_old_cap['page_offset'] == 500

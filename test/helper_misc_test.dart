@@ -72,6 +72,17 @@ void main() {
     }
   });
 
+  test('UUID filenames do not produce partial video codes', () {
+    const uuid = 'FD80D7DE-89A4-4767-A125-CE7F9EEDB245';
+    for (final value in [uuid, '$uuid.mp4', '${uuid.toLowerCase()}.mkv', '[$uuid].mp4']) {
+      expect(value.getVideoCode(), isEmpty, reason: value);
+    }
+    expect('JUR-767 [$uuid].mp4'.getVideoCode(), 'JUR-767');
+    expect('$uuid JUR-767.mp4'.getVideoCode(), 'JUR-767');
+    expect('prefix_${uuid}_JUR-767.mp4'.getVideoCode(), 'JUR-767');
+    expect(HelperMisc.resolveVideoCode(videoPath: '/movies/$uuid.mp4', title: uuid), isEmpty);
+  });
+
   test('rejects missing codes and invalid digit counts without partial matches', () {
     for (final input in ['', 'holiday.mp4', 'MMR-AZ', 'ABP-1', 'ABP-123456', 'MMR-AZ123456']) {
       expect(input.getVideoCode(), isEmpty, reason: input);

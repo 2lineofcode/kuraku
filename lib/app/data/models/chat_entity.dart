@@ -52,6 +52,7 @@ class ChatMessage {
       if (detail is Map) {
         if (detail['steps'] is List) activity.addAll((detail['steps'] as List).whereType<String>().take(20));
         if (detail['title_search'] is Map) titleSearch = Map<String, dynamic>.from(detail['title_search'] as Map);
+        if (detail['download_rows'] is List) downloadRows = (detail['download_rows'] as List).whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList();
         elapsedMs = detail['elapsed_ms'] is int ? detail['elapsed_ms'] as int : 0;
       }
     } on FormatException { /* Ignore invalid optional activity metadata. */ }
@@ -65,4 +66,5 @@ class ChatMessage {
   final activity = <String>[];
   int elapsedMs = 0;
   Map<String, dynamic>? titleSearch;
+  List<Map<String, dynamic>> downloadRows = [];
 }

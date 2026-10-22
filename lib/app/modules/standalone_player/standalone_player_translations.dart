@@ -5,6 +5,10 @@ class StandalonePlayerTranslations extends AppTranslations {
   Map<String, Map<String, String>> get keys => {
     'en': {
       ...super.keys['en']!,
+      'Chapters': 'Chapters',
+      'Chapter @{number}': 'Chapter @{number}',
+      'Previous chapter': 'Previous chapter',
+      'Next chapter': 'Next chapter',
       'Open files': 'Open files',
       'Drop videos here': 'Drop videos here',
       'Multiple videos become a playlist': 'Multiple videos become a playlist',
@@ -17,6 +21,10 @@ class StandalonePlayerTranslations extends AppTranslations {
     },
     'id': {
       ...super.keys['id']!,
+      'Chapters': 'Chapter',
+      'Chapter @{number}': 'Chapter @{number}',
+      'Previous chapter': 'Chapter sebelumnya',
+      'Next chapter': 'Chapter berikutnya',
       'Open files': 'Buka file',
       'Drop videos here': 'Tarik video ke sini',
       'Multiple videos become a playlist': 'Beberapa video bakal jadi playlist',

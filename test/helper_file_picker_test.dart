@@ -13,6 +13,38 @@ void main() {
     }
   });
 
+  test('temporary download paths are recognized in parent folders as well as filenames', () {
+    for (final suffix in ['downiepart', 'part', 'tmp', 'crdownload', 'download']) {
+      expect(HelperFilePicker.isTemporaryDownloadPath('/movies/Video.$suffix'), isTrue);
+      expect(HelperFilePicker.isTemporaryDownloadPath('/movies/Video.${suffix.toUpperCase()}/nested/video.mp4'), isTrue);
+    }
+    for (final path in ['/movies/JUR-767.mp4', '/movies/downloads/video.mp4', '/movies/downiepart/video.mp4', '/movies/video.downiepart.mp4']) {
+      expect(HelperFilePicker.isTemporaryDownloadPath(path), isFalse, reason: path);
+    }
+  });
+
+  test('scan ignores Downie payloads and images until their download folder is finalized', () async {
+    final root = await Directory.systemTemp.createTemp('kuraku_pending_download_');
+    addTearDown(() => root.delete(recursive: true));
+    final pending = await Directory('${root.path}/JUR-767.downiepart').create();
+    final video = File('${pending.path}/FD80D7DE-89A4-4767-A125-CE7F9EEDB245.mp4');
+    final handle = await video.open(mode: FileMode.write);
+    await handle.truncate(11 * 1024 * 1024);
+    await handle.close();
+    await File('${pending.path}/cover.jpg').writeAsString('image');
+    final before = (await HelperFilePicker.scanFolderAndSubFolder(root.path))!;
+    expect(before.videos, isEmpty);
+    expect(before.images, isEmpty);
+    expect(before.subFolder, isEmpty);
+    final finished = await pending.rename('${root.path}/JUR-767');
+    final finalPath = '${finished.path}/JUR-767.mp4';
+    await File('${finished.path}/${video.uri.pathSegments.last}').rename(finalPath);
+    final after = (await HelperFilePicker.scanFolderAndSubFolder(root.path))!;
+    expect(after.videos, [finalPath]);
+    expect(after.images, ['${finished.path}/cover.jpg']);
+    expect(after.totalVideo, 1);
+  });
+
   test('existingImages preserves order across batches, skips missing files and deduplicates', () async {
     final root = await Directory.systemTemp.createTemp('kuraku_existing_images_');
     addTearDown(() => root.delete(recursive: true));
