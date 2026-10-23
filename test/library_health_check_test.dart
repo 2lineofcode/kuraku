@@ -3,9 +3,12 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/db_videos.dart';
 import 'package:kuraku/app/data/database/library_health_check.dart';
 import 'package:kuraku/app/data/models/library_entity.dart';
 import 'package:sqflite/sqflite.dart';
+
+import 'sqlite_test_database.dart';
 
 Map<String, Object?> _video(String path) => {
   'video_path': path, 'video_code': 'ABC-001', 'title': 'Title', 'poster': 'poster.jpg',
@@ -113,5 +116,44 @@ void main() {
     Get.put<DBService>(_Service()..dbMain = database);
     expect(await LibraryHealthCheck.run(), isEmpty);
     expect(database.calls, ['library', 'videos']);
+  });
+
+  test('delete missing files rechecks availability, rolls back failures and preserves other records', () async {
+    final db = await SqliteTestDatabase.open();
+    addTearDown(db.close);
+    await db.execute('CREATE TABLE videos (id TEXT PRIMARY KEY, root_path TEXT, video_path TEXT, is_deleted INTEGER, updated_at TEXT)');
+    Get.put<DBService>(_Service()..dbMain = db);
+    final returned = await File('${folder.path}/returned.mp4').writeAsBytes([1]);
+    final unreadable = await File('${folder.path}/empty.mp4').create();
+    final offline = Platform.isWindows ? r'Z:\KurakuHealthOffline\video.mp4'
+      : Platform.isMacOS ? '/Volumes/KurakuHealthOffline/video.mp4' : '/mnt/KurakuHealthOffline/video.mp4';
+    final paths = {
+      'a': '${folder.path}/a.mp4', 'b': '${folder.path}/b.mp4', 'returned': returned.path,
+      'unreadable': unreadable.path, 'offline': offline, 'untouched': '${folder.path}/untouched.mp4',
+      'deleted': '${folder.path}/deleted.mp4',
+    };
+    for (final entry in paths.entries) {
+      await db.insert('videos', {'id': entry.key, 'root_path': folder.path, 'video_path': entry.value,
+        'is_deleted': entry.key == 'deleted' ? 1 : 0, 'updated_at': 'original'});
+    }
+    final requested = paths.entries.where((entry) => entry.key != 'untouched').map((entry) => entry.value).toList();
+    final revision = DBVideos.revision.value;
+    await db.execute("CREATE TRIGGER fail_delete BEFORE UPDATE ON videos WHEN OLD.id = 'b' BEGIN SELECT RAISE(ABORT,'Write failed'); END");
+    await expectLater(LibraryHealthCheck.deleteMissingFiles(requested), throwsA(isA<SqliteTestException>()));
+    expect((await db.query('videos', where: 'is_deleted = 1')).single['id'], 'deleted');
+    expect((await db.query('videos', where: 'id = ?', whereArgs: ['a'])).single['updated_at'], 'original');
+    expect(DBVideos.revision.value, revision);
+    await db.execute('DROP TRIGGER fail_delete');
+    expect(await LibraryHealthCheck.deleteMissingFiles([...requested, paths['a']!, '', folder.path]), {paths['a'], paths['b']});
+    expect(DBVideos.revision.value, revision + 1);
+    expect((await db.query('videos', where: 'is_deleted = 1')).map((row) => row['id']), unorderedEquals(['a', 'b', 'deleted']));
+    for (final id in ['returned', 'unreadable', 'offline', 'untouched', 'deleted']) {
+      expect((await db.query('videos', where: 'id = ?', whereArgs: [id])).single['updated_at'], 'original');
+    }
+    expect(await returned.readAsBytes(), [1]);
+    expect(await LibraryHealthCheck.deleteMissingFiles(requested), isEmpty);
+    expect(await LibraryHealthCheck.deleteMissingFiles([]), isEmpty);
+    expect(await LibraryHealthCheck.deleteMissingFiles(['${folder.path}/not-in-library.mp4']), isEmpty);
+    expect(DBVideos.revision.value, revision + 1);
   });
 }

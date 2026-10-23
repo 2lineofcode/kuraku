@@ -59,12 +59,12 @@ class _Database implements Database {
 
   @override
   Future<int> delete(String table, {String? where, List<Object?>? whereArgs}) async {
-    expect(where, 'id = ? AND is_deleted = 1');
+    expect(where, anyOf('id = ? AND is_deleted = 1', 'is_deleted = 1'));
     writes++;
     await restoring?.future;
     if (failDelete) throw StateError('Delete failed');
     final count = rows.length;
-    rows.removeWhere((row) => row['id'] == whereArgs!.single && row['is_deleted'] == 1);
+    rows.removeWhere((row) => row['is_deleted'] == 1 && (whereArgs == null || row['id'] == whereArgs.single));
     return count - rows.length;
   }
 
@@ -119,6 +119,46 @@ void main() {
   });
 
   for (final locale in ['en', 'id']) {
+    testWidgets('delete all confirms the full count despite search and preserves active records in $locale', (tester) async {
+      final db = _Database();
+      await open(tester, db, locale: locale);
+      final label = locale == 'en' ? 'Delete all' : 'Hapus semua';
+      final cancel = 'Cancel'.tr;
+      await tester.enterText(find.byType(CupertinoTextField), 'ABC-001');
+      await tester.pumpAndSettle();
+      Future<void> showConfirmation() async {
+        await tester.tap(find.widgetWithText(AppButton, label));
+        await tester.pumpAndSettle();
+        expect(find.textContaining(locale == 'en' ? 'all 2 deleted records' : 'Semua 2 record'), findsOneWidget);
+        expect(find.textContaining(locale == 'en' ? 'hidden by search' : 'tersembunyi oleh pencarian'), findsOneWidget);
+      }
+      await showConfirmation();
+      await tester.tap(find.widgetWithText(CupertinoDialogAction, cancel));
+      await tester.pumpAndSettle();
+      expect(db.writes, 0);
+      db.failDelete = true;
+      await showConfirmation();
+      await tester.tap(find.widgetWithText(CupertinoDialogAction, label));
+      await tester.pumpAndSettle();
+      expect(db.rows, hasLength(3));
+      expect(find.text(locale == 'en' ? 'Could not delete all deleted items. Try again.'
+        : 'Gagal menghapus semua item yang dihapus. Coba lagi.'), findsOneWidget);
+      db.failDelete = false;
+      db.restoring = Completer<void>();
+      await showConfirmation();
+      await tester.tap(find.widgetWithText(CupertinoDialogAction, label));
+      await tester.pumpAndSettle();
+      expect(tester.widget<AppButton>(find.widgetWithText(AppButton, 'Refresh'.tr)).onPressed, isNull);
+      expect(tester.widget<AppButton>(find.widgetWithText(AppButton, 'Restore record'.tr)).onPressed, isNull);
+      expect(tester.widget<AppButton>(find.widgetWithText(AppButton, 'Deleting…'.tr)).onPressed, isNull);
+      db.restoring!.complete();
+      await tester.pumpAndSettle();
+      expect(db.rows.single['id'], 'c');
+      expect(find.text('No deleted items.'.tr), findsOneWidget);
+      expect(tester.widget<AppButton>(find.widgetWithText(AppButton, label)).onPressed, isNull);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('deleted items can be searched and restored in $locale', (tester) async {
       final db = _Database();
       await open(tester, db, locale: locale);

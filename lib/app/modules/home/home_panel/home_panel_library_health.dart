@@ -35,6 +35,8 @@ class _LibraryHealthDialogState extends State<LibraryHealthDialog> {
   String _query = '', _copiedPath = '';
   String? _openError;
   bool _opening = false;
+  bool _deleting = false;
+  final _removedPaths = <String>{};
 
   @override
   void dispose() {
@@ -66,7 +68,7 @@ class _LibraryHealthDialogState extends State<LibraryHealthDialog> {
   };
 
   Future<void> _openVideoInfo(String path) async {
-    if (_opening) return;
+    if (_opening || _deleting) return;
     setState(() { _opening = true; _openError = null; });
     Videos? video;
     try {
@@ -86,7 +88,33 @@ class _LibraryHealthDialogState extends State<LibraryHealthDialog> {
     await widget.openVideoInfo(video);
   }
 
-  Widget _results(List<LibraryHealthIssue> issues) {
+  Future<void> _deleteMissingFiles(List<LibraryHealthIssue> issues) async {
+    if (_deleting || _opening) return;
+    final paths = issues.where((issue) => issue.status == LibraryHealthStatus.missingFile
+      && issue.path.isNotEmpty && !issue.details.contains('Library folder')).map((issue) => issue.path).toSet().toList();
+    if (paths.isEmpty) return;
+    setState(() { _deleting = true; _openError = null; });
+    try {
+      final confirmed = await showCupertinoDialog<bool>(context: context, builder: (context) => AppConfirmDialog(
+        title: Text('Delete all missing files?'.tr),
+        content: Text('Move all @count missing file records to Deleted Items, including items hidden by search? Files are checked again before removal. Offline drives, library folders and files on disk are kept.'.trParams({'count': '${paths.length}'})),
+        actions: [
+          AppDialogAction(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
+          AppDialogAction(isDestructiveAction: true, onPressed: () => Navigator.pop(context, true), child: Text('Delete all'.tr)),
+        ],
+      ));
+      if (confirmed != true || !mounted) return;
+      final removed = await LibraryHealthCheck.deleteMissingFiles(paths);
+      if (mounted) setState(() => _removedPaths.addAll(removed));
+    } catch (_) {
+      if (mounted) setState(() => _openError = 'Could not delete missing file records. Try again.'.tr);
+    } finally {
+      if (mounted) setState(() => _deleting = false);
+    }
+  }
+
+  Widget _results(List<LibraryHealthIssue> report) {
+    final issues = report.where((issue) => !_removedPaths.contains(issue.path)).toList();
     final visible = issues.where((issue) => (_selected == null || issue.status == _selected)
       && '${issue.path} ${issue.details.map((field) => _field(field).tr).join(' ')}'.toLowerCase().contains(_query)).toList();
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -129,6 +157,13 @@ class _LibraryHealthDialogState extends State<LibraryHealthDialog> {
         Expanded(child: Text(_selected == null ? 'All issues'.tr : _label(_selected!).tr,
           maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600))),
         Text('${visible.length}', style: TextStyle(fontSize: 11, color: AppColor.muted)),
+        if (_selected == LibraryHealthStatus.missingFile) ...[
+          const SizedBox(width: 8),
+          AppButton(label: (_deleting ? 'Deleting…' : 'Delete all').tr, labelSize: 11,
+            labelColor: Theme.of(context).colorScheme.error,
+            onPressed: _deleting || _opening || !issues.any((issue) => issue.status == LibraryHealthStatus.missingFile
+              && issue.path.isNotEmpty && !issue.details.contains('Library folder')) ? null : () => _deleteMissingFiles(issues)),
+        ],
         if (_selected != null) ...[
           const SizedBox(width: 8),
           AppButton(label: 'Show all'.tr, labelSize: 11, onPressed: () => setState(() => _selected = null)),
@@ -159,7 +194,7 @@ class _LibraryHealthDialogState extends State<LibraryHealthDialog> {
                 && !issue.details.contains('Library folder');
               final row = Material(color: Colors.transparent, child: InkWell(
                 borderRadius: BorderRadius.circular(AppStyle.radius),
-                onTap: isVideo && !_opening
+                onTap: isVideo && !_opening && !_deleting
                   ? () => _openVideoInfo(issue.path) : null,
                 child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 if (isVideo)
@@ -228,7 +263,7 @@ class _LibraryHealthDialogState extends State<LibraryHealthDialog> {
             Text('Library Health Check'.tr, maxLines: 1, overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
-            Text('Review issues without changing your files or data.'.tr, maxLines: 2, overflow: TextOverflow.ellipsis,
+            Text('Review library issues and remove missing file records.'.tr, maxLines: 2, overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 11, color: AppColor.muted)),
           ])),
           if (_openError != null) Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -249,8 +284,9 @@ class _LibraryHealthDialogState extends State<LibraryHealthDialog> {
             Tooltip(message: 'Readability checks opening the file, not full playback.'.tr,
               child: HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: AppStyle.iconSize, color: AppColor.muted)),
             const SizedBox(width: 8),
-            Expanded(child: Text('Read-only check'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted))),
-            AppButton(label: 'Close'.tr, variant: AppButtonVariant.tonal, onPressed: () => Navigator.of(context).pop()),
+            Expanded(child: Text('Files on disk are kept.'.tr, style: TextStyle(fontSize: 11, color: AppColor.muted))),
+            AppButton(label: 'Close'.tr, variant: AppButtonVariant.tonal,
+              onPressed: _deleting ? null : () => Navigator.of(context).pop()),
           ])),
         ])),
     ));

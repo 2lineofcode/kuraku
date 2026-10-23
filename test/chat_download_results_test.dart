@@ -58,11 +58,16 @@ class _Home extends HomeController {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  final preferences = ChatTestPreferences();
+  setUp(() {
+    preferences.values.clear();
+    Get.put(AppSettingService()..pref = preferences);
+  });
+  tearDown(Get.reset);
+
   test('Database batches advance by 500 and keep their snapshot on save failure', () async {
-    addTearDown(Get.reset);
     final database = ChatTestDatabase();
     Get.put<DBService>(ChatTestService()..dbMain = database);
-    Get.put(AppSettingService()..pref = ChatTestPreferences());
     final controller = Get.put(PageChatController(api: ChatService(knowledge: _Knowledge())));
     await controller.reload();
     controller.input.text = 'show my favorites';
@@ -88,11 +93,9 @@ void main() {
   });
 
   test('Opening results keeps the chat when saving its draft fails and can retry', () async {
-    addTearDown(Get.reset);
     Get.testMode = true;
     final database = ChatTestDatabase();
     Get.put<DBService>(ChatTestService()..dbMain = database);
-    Get.put(AppSettingService()..pref = ChatTestPreferences());
     final home = Get.put<HomeController>(_Home())..currentMenuSelected.value = kMenuChat;
     final download = Get.put<PageDownloadController>(_Download());
     final controller = Get.put(PageChatController(api: ChatService(knowledge: _Knowledge())));
@@ -115,10 +118,8 @@ void main() {
   });
 
   testWidgets('Chat keeps 500 results after reload and opens the exact snapshot in Download', (tester) async {
-    addTearDown(Get.reset);
     Get.testMode = true;
     Get.put<DBService>(ChatTestService()..dbMain = ChatTestDatabase());
-    Get.put(AppSettingService()..pref = ChatTestPreferences());
     final home = Get.put<HomeController>(_Home())..currentMenuSelected.value = kMenuChat;
     final download = Get.put<PageDownloadController>(_Download());
     final original = download.activeTab;

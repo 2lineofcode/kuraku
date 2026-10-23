@@ -150,6 +150,35 @@ void main() {
     expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
   });
 
+  test('delete all deleted records is atomic, cascades related data and preserves active records and history', () async {
+    final db = await _database();
+    Get.put<DBService>(_Service()..dbMain = db);
+    await db.execute("INSERT INTO videos(id,root_path,video_path,is_deleted) VALUES ('v1','/','/deleted-a.mp4',1),('v2','/','/active.mp4',0),('v3','/','/deleted-b.mp4',1)");
+    await db.execute("INSERT INTO playlist(id,name) VALUES ('p1','Keep')");
+    await db.execute("INSERT INTO playlist_item VALUES ('p1','v1','created'),('p1','v2','created'),('p1','v3','created')");
+    for (final id in ['v1', 'v2', 'v3']) {
+      await db.execute("INSERT INTO video_embeddings VALUES (?,'source',?,'clip','created','updated')", [id, Float32List.fromList([1]).buffer.asUint8List()]);
+    }
+    await db.execute("INSERT INTO watch_session VALUES ('w1','v1','TEST-001',42,'2020-01-01')");
+    final revision = DBVideos.revision.value;
+    await db.execute("CREATE TRIGGER fail_delete BEFORE DELETE ON videos WHEN OLD.id = 'v3' BEGIN SELECT RAISE(ABORT,'Write failed'); END");
+    await expectLater(DBVideos.deleteAllDeleted(), throwsA(isA<SqliteTestException>()));
+    expect(await db.query('videos'), hasLength(3));
+    expect(await db.query('playlist_item'), hasLength(3));
+    expect(await db.query('video_embeddings'), hasLength(3));
+    expect(DBVideos.revision.value, revision);
+    await db.execute('DROP TRIGGER fail_delete');
+    expect(await DBVideos.deleteAllDeleted(), 2);
+    expect(DBVideos.revision.value, revision + 1);
+    expect((await db.query('videos')).single['id'], 'v2');
+    expect((await db.query('playlist_item')).single['video_id'], 'v2');
+    expect((await db.query('video_embeddings')).single['video_id'], 'v2');
+    expect(await db.query('watch_session'), hasLength(1));
+    expect(await DBVideos.deleteAllDeleted(), 0);
+    expect(DBVideos.revision.value, revision + 1);
+    expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
+  });
+
   test('v15 preserves core data and relationships, cleans only rebuildable caches', () async {
     final db = await _database(version: 14);
     await db.execute("INSERT INTO library(id,root_folder,total_video,videos) VALUES ('l1','/videos',1,'[\"/videos/a.mp4\"]')");

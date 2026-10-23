@@ -217,6 +217,12 @@ mixin DBVideos {
     return changed;
   }
 
+  static Future<int> deleteAllDeleted() async {
+    final changed = await _db.delete(_tableName, where: 'is_deleted = 1');
+    if (changed > 0) revision.value++;
+    return changed;
+  }
+
   static Future<void> deleteByVideoPaths(List<String> videoPaths, {DatabaseExecutor? executor}) async {
     if (videoPaths.isEmpty) return;
     final unique = videoPaths.where((p) => p.trim().isNotEmpty).toSet().toList();

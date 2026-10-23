@@ -41,8 +41,61 @@ class _Database implements Database {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _CleanupDatabase extends _Database {
+  int attempts = 0;
+
+  @override
+  Future<List<Map<String, Object?>>> query(String table, {bool? distinct, List<String>? columns, String? where,
+      List<Object?>? whereArgs, String? groupBy, String? having, String? orderBy, int? limit, int? offset}) async {
+    if (columns != null) {
+      attempts++;
+      throw StateError('Read failed');
+    }
+    return super.query(table, where: where, whereArgs: whereArgs);
+  }
+}
+
 void main() {
   tearDown(Get.reset);
+
+  testWidgets('missing files delete all confirms hidden records, allows cancel and retries failures', (tester) async {
+    final db = _CleanupDatabase();
+    Get.put<DBService>(_Service()..dbMain = db);
+    await tester.pumpWidget(GetMaterialApp(translations: AppTranslations(), locale: const Locale('en'),
+      theme: AppStyle.theme(Brightness.dark), home: Scaffold(body: LibraryHealthDialog(check: Future.value([
+        for (final name in ['a', 'b'])
+          (status: LibraryHealthStatus.missingFile, path: '/missing/$name.mp4', details: <String>[]),
+        (status: LibraryHealthStatus.missingFile, path: '/missing/folder', details: ['Library folder']),
+        (status: LibraryHealthStatus.offlineDrive, path: '/Volumes/Offline', details: <String>[]),
+      ])))));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AppButton, 'Delete all'), findsNothing);
+    await tester.tap(find.widgetWithText(AppButton, 'Missing files'));
+    await tester.enterText(find.byType(CupertinoTextField), 'a.mp4');
+    await tester.pumpAndSettle();
+    Future<void> confirm() async {
+      await tester.tap(find.widgetWithText(AppButton, 'Delete all'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('all 2 missing file records'), findsOneWidget);
+      expect(find.textContaining('hidden by search'), findsOneWidget);
+    }
+    await confirm();
+    await tester.tap(find.widgetWithText(CupertinoDialogAction, 'Cancel'));
+    await tester.pumpAndSettle();
+    expect(db.attempts, 0);
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      await confirm();
+      await tester.tap(find.widgetWithText(CupertinoDialogAction, 'Delete all'));
+      await tester.pumpAndSettle();
+      expect(find.text('Could not delete missing file records. Try again.'), findsOneWidget);
+      expect(db.attempts, attempt);
+      expect(find.byTooltip('/missing/a.mp4'), findsOneWidget);
+    }
+    await tester.tap(find.widgetWithText(AppButton, 'Offline drives'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AppButton, 'Delete all'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final locale in ['en', 'id']) {
     testWidgets('health report shows loading, category counts and paths in $locale', (tester) async {
@@ -224,6 +277,9 @@ void main() {
       final row = find.ancestor(of: find.text(label).first, matching: find.byType(InkWell));
       expect(tester.widget<InkWell>(row).onTap, isNull);
     }
+    await tester.tap(find.widgetWithText(AppButton, 'Missing files'.tr));
+    await tester.pumpAndSettle();
+    expect(tester.widget<AppButton>(find.widgetWithText(AppButton, 'Delete all'.tr)).onPressed, isNull);
     expect(tester.takeException(), isNull);
   });
 

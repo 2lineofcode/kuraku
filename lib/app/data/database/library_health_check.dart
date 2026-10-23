@@ -1,17 +1,43 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:ex_kit/ex.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/library_entity.dart';
 import '_init_db.dart';
 import 'db_library.dart';
+import 'db_videos.dart';
 
 enum LibraryHealthStatus { offlineDrive, missingFile, incompleteMetadata, unreadableFile }
 typedef LibraryHealthIssue = ({LibraryHealthStatus status, String path, List<String> details});
 
 class LibraryHealthCheck {
+  static Future<Set<String>> deleteMissingFiles(List<String> paths) async {
+    final db = Get.find<DBService>().dbMain;
+    final rows = <Map<String, Object?>>[];
+    for (final path in paths.toSet()) {
+      if (path.isEmpty) continue;
+      rows.addAll(await db.query('videos', columns: ['id', 'root_path', 'video_path'],
+        where: 'video_path = ? AND is_deleted = 0', whereArgs: [path]));
+    }
+    if (rows.isEmpty) return {};
+    final issues = await inspect([], rows);
+    final missing = issues.where((issue) => issue.status == LibraryHealthStatus.missingFile)
+      .map((issue) => issue.path).toSet();
+    final removed = <String>{};
+    await db.transaction((txn) async {
+      for (final row in rows.where((row) => missing.contains(row['video_path']))) {
+        final changed = await txn.update('videos', {'is_deleted': 1, 'updated_at': DateTime.now().toStringEx()},
+          where: 'id = ? AND video_path = ? AND is_deleted = 0', whereArgs: [row['id'], row['video_path']]);
+        if (changed > 0) removed.add(row['video_path'] as String);
+      }
+    });
+    if (removed.isNotEmpty) DBVideos.revision.value++;
+    return removed;
+  }
+
   static Future<List<LibraryHealthIssue>> run() async {
     final libraries = await DBLibrary.getAll();
     final rows = await Get.find<DBService>().dbMain.query('videos',

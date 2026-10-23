@@ -72,27 +72,31 @@ class _PageDeletedItemsViewState extends State<PageDeletedItemsView> {
     }
   }
 
-  Future<void> _deletePermanently(Videos video) async {
-    setState(() { _deleting = video.id; _error = ''; });
+  Future<void> _deletePermanently([Videos? video]) async {
+    final all = video == null;
+    setState(() { _deleting = all ? '' : video.id; _error = ''; });
     try {
       final confirmed = await showCupertinoDialog<bool>(
         context: context,
         builder: (context) => AppConfirmDialog(
-          title: Text('Delete permanently?'.tr),
-          content: Text('${video.videoCode ?? video.title ?? video.videoPath ?? ''}\n\n${'This removes the record, playlist entries and visual index permanently. The file on disk and watch history are kept. Files still on disk can be imported again by a rescan.'.tr}'),
+          title: Text((all ? 'Delete all deleted items?' : 'Delete permanently?').tr),
+          content: Text(all
+            ? 'This permanently removes all @count deleted records, including items hidden by search, with their playlist entries and visual index. Files on disk and watch history are kept. Files still on disk can be imported again by a rescan.'.trParams({'count': '${_videos.length}'})
+            : '${video.videoCode ?? video.title ?? video.videoPath ?? ''}\n\n${'This removes the record, playlist entries and visual index permanently. The file on disk and watch history are kept. Files still on disk can be imported again by a rescan.'.tr}'),
           actions: [
             AppDialogAction(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
             AppDialogAction(isDestructiveAction: true,
-              onPressed: () => Navigator.pop(context, true), child: Text('Delete permanently'.tr)),
+              onPressed: () => Navigator.pop(context, true), child: Text((all ? 'Delete all' : 'Delete permanently').tr)),
           ],
         ),
       );
       if (confirmed != true || !mounted) return;
-      final changed = await DBVideos.deletePermanently(video);
+      final changed = all ? await DBVideos.deleteAllDeleted() : await DBVideos.deletePermanently(video);
       if (mounted && changed == 0) await _load();
     } catch (e) {
       AppLog.logE('Permanently deleting item failed: $e');
-      if (mounted) setState(() => _error = 'Could not delete the record permanently. Try again.'.tr);
+      if (mounted) setState(() => _error = (all
+        ? 'Could not delete all deleted items. Try again.' : 'Could not delete the record permanently. Try again.').tr);
     } finally {
       if (mounted) setState(() => _deleting = null);
     }
@@ -110,6 +114,12 @@ class _PageDeletedItemsViewState extends State<PageDeletedItemsView> {
         Row(children: [
           Expanded(child: Text('Deleted Items'.tr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
           Text('${videos.length} / ${_videos.length}', style: TextStyle(fontSize: 11, color: AppColor.muted)),
+          const SizedBox(width: 8),
+          AppButton(
+            onPressed: _loading || _busy || _videos.isEmpty ? null : () => _deletePermanently(),
+            label: _deleting == '' ? 'Deleting…'.tr : 'Delete all'.tr,
+            labelColor: Theme.of(context).colorScheme.error,
+          ),
           const SizedBox(width: 8),
           AppButton(onPressed: _loading || _busy ? null : _load, label: 'Refresh'.tr),
         ]),
