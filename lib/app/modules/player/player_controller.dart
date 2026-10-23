@@ -31,6 +31,7 @@ import '../../utils/watch_session_tracker.dart';
 import '../home/home_controller.dart';
 import '../home/home_panel/home_panel_video_info.dart';
 import '../widgets/widget_thumbnail.dart';
+import '../widgets/widget_video_properties.dart';
 
 class PlayerController extends GetxController with StateMixin<Videos>, GetSingleTickerProviderStateMixin {
   final count = 0.obs;
@@ -733,6 +734,16 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     await Overlayment.dismissLast();
   }
 
+
+  Future<void> openProperties() async {
+    final path = currentVideo.value.videoPath ?? '';
+    if (path.isEmpty || Overlayment.count > 0) return;
+    try {
+      await VideoPropertiesDialog.open(path);
+    } finally {
+      requestFocusOnPlayer();
+    }
+  }
 
   Future<void> openInfo() async {
     if (Overlayment.count > 0) {

@@ -32,6 +32,7 @@ import '../../modules/home/home_panel/home_panel_metadata.dart';
 import '../../modules/home/home_panel/home_panel_playlist.dart';
 import '../../utils/helper.dart';
 import 'widget_style.dart';
+import 'widget_video_properties.dart';
 
 @visibleForTesting
 bool isUsableThumbnailPreview(Uint8List? bytes, {required bool fromFfmpeg}) =>
@@ -563,6 +564,7 @@ class _ExVideoContextMenuState extends State<ExVideoContextMenu> {
             action('Edit Metadata'.tr, 'edit_metadata'),
             action('Refresh Metadata'.tr, 'refresh_metadata'),
             action('Open File Path'.tr, 'open_file_path'),
+            action('Properties'.tr, 'properties'),
           ]
         : [
             action('Download'.tr, 'download'),
@@ -616,6 +618,9 @@ class _ExVideoContextMenuState extends State<ExVideoContextMenu> {
           break;
         }
         await _refreshMetadata(dbVideo);
+        break;
+      case 'properties':
+        await VideoPropertiesDialog.open(path);
         break;
       case 'open_file_path':
         await HelperOpener.openFilePath(path);

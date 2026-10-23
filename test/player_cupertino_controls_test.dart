@@ -13,6 +13,7 @@ import 'package:kuraku/app/core/app_setting.dart';
 import 'package:kuraku/app/data/models/videos_entity.dart';
 import 'package:kuraku/app/modules/player/player_controller.dart';
 import 'package:kuraku/app/modules/player/player_controls.dart';
+import 'package:kuraku/app/modules/widgets/widget_video_properties.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -33,6 +34,10 @@ class _Controller extends PlayerController {
   String? subtitle;
   int subtitlePicks = 0;
   int stops = 0;
+  int infoOpens = 0;
+
+  @override
+  Future<void> openInfo() async { infoOpens++; }
   Future<void> Function()? fullscreenAction;
 
   @override
@@ -237,6 +242,34 @@ void main() {
     expect(find.byTooltip('Pause (Space)').hitTestable(), findsOneWidget);
     expect(controller.isPlaying.value, isTrue);
     await mouse.removePointer();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Cmd I opens current file properties and restores player shortcuts after closing', (tester) async {
+    controller.infoAnimationController = AnimationController(vsync: tester);
+    addTearDown(controller.infoAnimationController.dispose);
+    controller.currentVideo.value = Videos(title: 'Current file', videoPath: '/tmp/kuraku-properties-shortcut-missing.mp4');
+    await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: PlayerControls(controller: controller, videoState: VideoState()))));
+    await tester.pumpAndSettle();
+    final modifier = defaultTargetPlatform == TargetPlatform.macOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft;
+    await tester.sendKeyDownEvent(modifier);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyI);
+    await tester.sendKeyUpEvent(modifier);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byType(VideoPropertiesDialog), findsOneWidget);
+    expect(tester.widget<VideoPropertiesDialog>(find.byType(VideoPropertiesDialog)).path, controller.currentVideo.value.videoPath);
+    expect(controller.infoOpens, 0);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.byType(VideoPropertiesDialog), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyI);
+    await tester.pumpAndSettle();
+    expect(controller.infoOpens, 1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(controller.isPlaying.value, isTrue);
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

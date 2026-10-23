@@ -85,6 +85,7 @@ class _KeyboardShortcutsPanelState extends State<KeyboardShortcutsPanel> {
           ('⇧ + <', 'Previous video'),
           ('L', 'Open player playlist'),
           ('I', 'Open video info'),
+          ('⌘ + I', 'Properties'),
           ('⌥ + ↑', 'Open screenshots'),
           ('C', 'Add video to cart'),
           ('Q', 'Close player'),

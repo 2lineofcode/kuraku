@@ -1,5 +1,4 @@
 import 'package:ex_kit/ex.dart';
-import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -19,6 +18,7 @@ import '../../widgets/widget_screenshot_source.dart';
 import '../../widgets/widget_style.dart';
 import '../../widgets/widget_thumbnail.dart';
 import '../../widgets/widget_title_translation.dart';
+import '../../widgets/widget_video_properties.dart';
 import '../home_controller.dart';
 import '../page_explore/page_explore_controller.dart';
 import '../page_home/page_home_controller.dart';
@@ -32,11 +32,13 @@ mixin HomePanelVideoInfo {
     final source = ScreenshotSource.snapshot(items ?? [video]);
     final index = itemIndex ?? HelperOpener.screenshotItemIndex(video, source);
     final _controller = Get.find<PageSearchController>();
-    final _mediaInfo = <String>[].obs;
     final _translatedTitle = HelperDecensor.decensor(video.title ?? '').obs;
     final _focusNode = FocusNode();
     final currentVideo = video.obs;
-    final mediaInfo = _getMediaInfo(video.videoPath ?? '');
+    final mediaInfo = HelperMedia.readFile(video.videoPath ?? '').catchError((Object error) {
+      AppLog.logW('Reading video properties failed: $error');
+      return null;
+    });
     final wasStored = (video.id ?? '').isEmpty || (video.videoPath ?? '').isEmpty
         ? Future.value(false)
         : DBVideos.getAll(where: 'id = ?', whereArgs: [video.id], limit: 1).then((rows) => rows.isNotEmpty,
@@ -120,6 +122,18 @@ mixin HomePanelVideoInfo {
                     fitMemory: BoxFit.fitHeight,
                     fitUrl: BoxFit.contain,
                   ).color(AppColor.selected).onInkTap(() => HelperOpener.openScreenshot(video, items: source, itemIndex: index, localFrames: true)),
+
+                  FutureBuilder(
+                    future: mediaInfo,
+                    builder: (context, snapshot) {
+                      final codec = HelperMedia.codecLabel(HelperMedia.videoStream(snapshot.data)?.getCodec());
+                      if (codec == '—') return const SizedBox.shrink();
+                      return Container(
+                        decoration: ExDecorator.box(borderRadius: 90, borderColor: Colors.transparent, fillColor: AppColor.black170),
+                        child: codec.text.bold.amber500.size(11).minFontSize(11).make().p4().pSymmetric(h: 4),
+                      );
+                    },
+                  ).positioned(left: 4, bottom: 4),
 
                   // quality
                   if (video.quality.isNotEmptyAndNotNull) ...[
@@ -237,6 +251,12 @@ mixin HomePanelVideoInfo {
                           HStack([
                             '# Metadata'.tr.text.size(14).bold.make().expand(),
 
+                            if ((video.videoPath ?? '').isNotEmpty) AppIconButton(
+                              icon: HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: AppStyle.iconSize),
+                              tooltip: 'Properties'.tr,
+                              onPressed: () => VideoPropertiesDialog.open(video.videoPath!, information: mediaInfo),
+                            ),
+
                             AppIconButton(
                               icon: HugeIcon(icon: HugeIcons.strokeRoundedPlayListFavourite02 , size: AppStyle.iconSize),
                               tooltip: 'Add To Playlist'.tr,
@@ -349,19 +369,12 @@ mixin HomePanelVideoInfo {
                           FutureBuilder(
                             future: mediaInfo,
                             builder: (context, snapshot) {
-                              if (snapshot.hasData && snapshot.data != null && snapshot.data!.length > 2) {
-                                _mediaInfo.value = snapshot.data!;
-                              }
-
-                              return _mediaInfo.value.isNotEmpty
-                                  ? VStack([
-                                      // duration (non jav)
-                                      if (video.duration == 0) ...[
-                                        'Duration:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
-                                        '${_mediaInfo[3]}'.text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
-                                      ],
-                                    ])
-                                  : 0.heightBox;
+                              final duration = num.tryParse(snapshot.data?.getDuration() ?? '');
+                              if (video.duration != 0 || duration == null || !duration.isFinite) return 0.heightBox;
+                              return VStack([
+                                'Duration:'.tr.text.size(11).minFontSize(11).bold.make().pOnly(bottom: 4),
+                                HelperMisc.durationFormatFFmpeg(duration).text.color(AppColor.muted).size(11).minFontSize(11).make().pOnly(bottom: 16),
+                              ]);
                             },
                           ),
 
@@ -463,20 +476,4 @@ mixin HomePanelVideoInfo {
     await Overlayment.dismiss(panel);
   }
 
-  static Future<List<String>> _getMediaInfo(String path) async {
-    final output = <String>[];
-    await FFprobeKit.getMediaInformation(path).then((value) async {
-      final medinfo = await HelperMedia.readInformation(value);
-      final stream = HelperMedia.videoStream(medinfo);
-      if (stream == null) return;
-      output.add('${stream.getWidth()}x${stream.getHeight()}'); // -- [0] width x height
-      output.add('${stream.getHeight()}p'); // -- [1] resolution
-      output.add('${int.parse(medinfo!.getSize()!).toFileSizeFormat()}'); // -- [2] file size
-      output.add('${HelperMisc.durationFormatFFmpeg(num.parse(medinfo.getFormatProperties()!['duration'].toString()))}'); // -- [3] duration
-    }).catchError((e) {
-      AppLog.logW('PageSearchOverlay._getMediaInfo [$path] -> $e');
-    });
-
-    return output;
-  }
 }

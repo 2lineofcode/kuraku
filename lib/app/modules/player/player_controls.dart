@@ -215,6 +215,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       LogicalKeySet(LogicalKeyboardKey.keyQ): BackIntent(),
       LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowUp): OpenScreenshotIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyI): OpenInfoIntent(),
+      LogicalKeySet(AppShortcut.modifier, LogicalKeyboardKey.keyI): OpenPropertiesIntent(),
       LogicalKeySet(LogicalKeyboardKey.keyC): AddToCartIntent(),
       LogicalKeySet(AppShortcut.modifier, LogicalKeyboardKey.alt, LogicalKeyboardKey.keyC): TogglePlaybackControlsIntent(),
       LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.greater): NextVideoIntent(),
@@ -244,6 +245,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
       BackIntent: CallbackAction<BackIntent>(onInvoke: (intent) { unawaited(_leavePlayer()); return null; }),
       OpenScreenshotIntent: CallbackAction<OpenScreenshotIntent>( onInvoke: (intent) { widget.controller.openSS(); return null; } ),
       OpenInfoIntent: CallbackAction<OpenInfoIntent>( onInvoke: (intent) { widget.controller.openInfo(); return null; }, ),
+      OpenPropertiesIntent: CallbackAction<OpenPropertiesIntent>(onInvoke: (_) { unawaited(widget.controller.openProperties()); return null; }),
       AddToCartIntent: CallbackAction<AddToCartIntent>( onInvoke: (intent) { widget.controller.addToCart(); return null; }, ),
       NextVideoIntent: CallbackAction<NextVideoIntent>( onInvoke: (intent) { widget.controller.nextVideo(); return null; }, ),
       PrevVideoIntent: CallbackAction<PrevVideoIntent>( onInvoke: (intent) { widget.controller.prevVideo(); return null; }, ),
@@ -1469,6 +1471,7 @@ class OpenListIntent extends Intent { const OpenListIntent(); }
 class BackIntent extends Intent { const BackIntent(); }
 class OpenScreenshotIntent extends Intent { const OpenScreenshotIntent(); }
 class OpenInfoIntent extends Intent { const OpenInfoIntent(); }
+class OpenPropertiesIntent extends Intent { const OpenPropertiesIntent(); }
 class AddToCartIntent extends Intent { const AddToCartIntent(); }
 class NextVideoIntent extends Intent { const NextVideoIntent(); }
 class PrevVideoIntent extends Intent { const PrevVideoIntent(); }

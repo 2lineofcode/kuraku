@@ -18,6 +18,8 @@ import 'package:kuraku/app/modules/widgets/widget_thumbnail.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:super_context_menu/super_context_menu.dart' as scm;
 
+import 'sqlite_test_database.dart';
+
 class _Service extends DBService {
   @override
   Future<void> onReady() async {}
@@ -57,6 +59,57 @@ class _CleanupDatabase extends _Database {
 
 void main() {
   tearDown(Get.reset);
+
+  testWidgets('successful cleanup removes all issues for deleted paths and keeps files that returned', (tester) async {
+    final folder = Directory.systemTemp.createTempSync('kuraku_health_dialog_');
+    addTearDown(() => folder.deleteSync(recursive: true));
+    final missing = '${folder.path}/missing.mp4';
+    final returned = File('${folder.path}/returned.mp4')..writeAsBytesSync([1]);
+    final db = (await tester.runAsync(() async {
+      final db = await SqliteTestDatabase.open();
+      await db.execute('CREATE TABLE videos (id TEXT PRIMARY KEY, root_path TEXT, video_path TEXT, is_deleted INTEGER, updated_at TEXT)');
+      for (final path in [missing, returned.path]) {
+        await db.insert('videos', {'id': path, 'root_path': folder.path, 'video_path': path, 'is_deleted': 0});
+      }
+      return db;
+    }))!;
+    addTearDown(() => tester.runAsync(db.close));
+    Get.put<DBService>(_Service()..dbMain = db);
+    Widget report(List<LibraryHealthIssue> issues) => GetMaterialApp(translations: AppTranslations(), locale: const Locale('en'),
+      theme: AppStyle.theme(Brightness.dark), home: Scaffold(body: LibraryHealthDialog(check: Future.value(issues))));
+    await tester.pumpWidget(report([]));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(CupertinoTextField), 'no-match');
+    await tester.pumpWidget(report([
+        for (final path in [missing, returned.path])
+          (status: LibraryHealthStatus.missingFile, path: path, details: <String>[]),
+        (status: LibraryHealthStatus.incompleteMetadata, path: missing, details: ['title']),
+      ]));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(AppButton, 'Missing files'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(AppButton, 'Delete all'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CupertinoDialogAction, 'Delete all'));
+    await tester.pump();
+    for (var attempt = 0; attempt < 30 && find.text('Deleting…').evaluate().isNotEmpty; attempt++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.pumpAndSettle();
+    expect(find.text('Deleting…'), findsNothing);
+    await tester.enterText(find.byType(CupertinoTextField), 'missing.mp4');
+    await tester.pumpAndSettle();
+    expect(find.byTooltip(missing), findsNothing);
+    expect(find.text('No matching issues.'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('0'), findsNWidgets(4));
+    await tester.tap(find.widgetWithText(AppButton, 'Incomplete metadata'));
+    await tester.pumpAndSettle();
+    expect(find.text('No matching issues.'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('missing files delete all confirms hidden records, allows cancel and retries failures', (tester) async {
     final db = _CleanupDatabase();
