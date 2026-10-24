@@ -45,6 +45,13 @@ class _KeyboardShortcutsPanelState extends State<KeyboardShortcutsPanel> {
           ('⌘ + P', 'Open playlist panel'),
           ('⌘ + .', 'Open relapse panel'),
         ],
+        'Tools': [
+          ('↑ / ↓', 'Move between Tools videos'),
+          ('Enter', 'Open focused video info'),
+          ('Space', 'Play focused video'),
+          ('⇧ + Click', 'Select a range of videos'),
+          ('⇧ + ↑ / ↓', 'Select a range of videos'),
+        ],
         'Actions': [
           ('⌘ + D', 'Open new download dialog'),
           ('⌘ + T', 'Add new todo'),

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +15,7 @@ import 'package:kuraku/app/data/database/_init_db.dart';
 import 'package:kuraku/app/data/database/db_videos.dart';
 import 'package:kuraku/app/data/models/videos_entity.dart';
 import 'package:kuraku/app/modules/home/home_controller.dart';
+import 'package:kuraku/app/modules/home/local_video_selection_item.dart';
 import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
 import 'package:kuraku/app/modules/home/page_tools/page_tools_view.dart';
 import 'package:kuraku/app/modules/widgets/widget_thumbnail.dart';
@@ -127,7 +129,7 @@ void main() {
     final refresh = controller.onRefresh();
     await Future<void>.delayed(Duration.zero);
     expect(controller.duplicateMode.value, 'probable');
-    expect(controller.duplicateGroups, isEmpty);
+    expect(controller.duplicateGroups, [group]);
     controller.requests.last.complete([group]);
     await refresh;
     expect(controller.duplicateVideoCount, 2);
@@ -149,7 +151,40 @@ void main() {
     controller.onClose();
   });
 
+  test('Returning to Duplicate preserves its filter and keeps loaded groups during refresh', () async {
+    final controller = _Tools();
+    final videos = [Videos(videoPath: '/one.mp4'), Videos(videoPath: '/two.mp4')];
+    final loading = controller.getDuplicateVideos();
+    controller.requests.single.complete([videos]);
+    await loading;
+    controller.currentMenuSelected.value = kDuplicate;
+    controller.duplicateQuery.value = 'one';
+    controller.tecDuplicateSearch.text = 'one';
+    controller.toggleSelection(videos.first);
+    final revision = controller.selectionRevision;
+    await controller.onMenuChange(kDeletedItems);
+    final returning = controller.onMenuChange(kDuplicate);
+    expect(controller.duplicateGroups.single, videos);
+    controller.toggleSelection(videos.first);
+    final pendingRevision = controller.selectionRevision;
+    controller.requests.last.complete([videos]);
+    await returning;
+    expect(controller.selectionRevision, greaterThan(pendingRevision));
+    expect(controller.duplicateQuery.value, 'one');
+    expect(controller.tecDuplicateSearch.text, 'one');
+    expect(controller.requests, hasLength(2));
+    expect(controller.selectedVideos, isEmpty);
+    expect(controller.selectionRevision, greaterThan(revision));
+    controller.onClose();
+  });
+
   testWidgets('Duplicate groups fit compact widths and search keeps comparison files together', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('dev.irondash.engine_context'), (_) => Completer<Object?>().future);
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('dev.irondash.engine_context'), null);
+    });
     Get.testMode = true;
     final home = Get.put<HomeController>(_Home());
     final controller = Get.put<PageToolsController>(_Tools());
@@ -186,17 +221,16 @@ void main() {
             }),
           ));
           await tester.pumpAndSettle();
-          expect(find.text('ABC-001_1080p.mp4'), findsOneWidget);
-          expect(find.text('ABC-001_720p.mp4'), findsOneWidget);
-          final menus = tester.widgetList<ExVideoContextMenu>(find.byType(ExVideoContextMenu)).toList();
+          expect(find.text('ABC-001_1080p.mp4', skipOffstage: false), findsOneWidget);
+          expect(find.text('ABC-001_720p.mp4', skipOffstage: false), findsOneWidget);
+          final menus = tester.widgetList<ExVideoContextMenu>(find.byType(ExVideoContextMenu, skipOffstage: false)).toList();
           expect(menus.map((menu) => menu.videoPath), controller.duplicateGroups.single.map((video) => video.videoPath));
           for (final filename in ['ABC-001_1080p.mp4', 'ABC-001_720p.mp4']) {
-            final row = find.ancestor(of: find.text(filename), matching: find.byType(InkWell));
-            expect(tester.widget<InkWell>(row).onTap, isNotNull);
-            expect(tester.widget<InkWell>(row).onDoubleTap, isNotNull);
+            final row = find.ancestor(of: find.text(filename, skipOffstage: false), matching: find.byType(LocalVideoSelectionItem, skipOffstage: false));
+            expect(tester.widget<LocalVideoSelectionItem>(row).onRangeTap, isNotNull);
           }
           expect(find.text(language == 'id' ? 'Video Sama' : 'Same Video'), findsOneWidget);
-          final folders = tester.widgetList<IconButton>(find.byType(IconButton)).where((button) => button.tooltip == 'Open File Path'.tr).toList();
+          final folders = tester.widgetList<IconButton>(find.byType(IconButton, skipOffstage: false)).where((button) => button.tooltip == 'Open File Path'.tr).toList();
           expect(folders.first.onPressed, isNotNull);
           expect(folders.last.onPressed, isNull);
           expect(tester.takeException(), isNull);
@@ -212,7 +246,7 @@ void main() {
     final database = _Database()..rows = [controller.duplicateGroups.single.first.toJson()];
     Get.put<DBService>(_Service()..dbMain = database);
     final notifier = ValueNotifier<scm.MenuResult?>(null);
-    final menuWidget = tester.widget<scm.ContextMenuWidget>(find.byType(scm.ContextMenuWidget).first);
+    final menuWidget = tester.widget<scm.ContextMenuWidget>(find.descendant(of: find.byType(ExVideoContextMenu, skipOffstage: false).first, matching: find.byType(scm.ContextMenuWidget, skipOffstage: false)).first);
     final menu = await menuWidget.menuProvider(scm.MenuRequest(
       onShowMenu: notifier, onHideMenu: notifier, onPreviewAction: notifier, location: Offset.zero));
     notifier.dispose();
@@ -221,15 +255,17 @@ void main() {
         '---', 'Edit Metadata'.tr, 'Refresh Metadata'.tr, 'Open File Path'.tr, 'Properties'.tr]);
     controller.duplicateQuery.value = '1080';
     await tester.pumpAndSettle();
-    expect(find.text('ABC-001_720p.mp4'), findsOneWidget);
-    await tester.tap(find.byTooltip('Add to Panel Cart'.tr).first);
+    expect(find.text('ABC-001_720p.mp4', skipOffstage: false), findsOneWidget);
+    await tester.tap(find.byTooltip('Add to Panel Cart'.tr, skipOffstage: false).first);
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
     expect(home.cart, hasLength(1));
-    expect(find.byTooltip('Already in panel cart'.tr), findsOneWidget);
+    expect(find.byTooltip('Already in panel cart'.tr, skipOffstage: false), findsOneWidget);
     controller.duplicateQuery.value = 'missing';
     await tester.pumpAndSettle();
     expect(find.text('No matching groups'.tr), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    debugDefaultTargetPlatformOverride = null;
   });
 }

@@ -21,9 +21,11 @@ import '../../widgets/widget_thumbnail.dart';
 import '../../widgets/widget_title_translation.dart';
 import '../home_controller.dart';
 import '../home_panel/home_panel_video_info.dart';
+import '../local_video_selection_item.dart';
 import '../page_explore/page_explore_controller.dart';
 import 'page_deleted_items_view.dart';
 import 'page_tools_controller.dart';
+import 'tools_duplicate_comparison.dart';
 
 class PageToolsView extends GetView<PageToolsController> {
   const PageToolsView({super.key});
@@ -151,6 +153,7 @@ class PageToolsView extends GetView<PageToolsController> {
           ),
         ]),
       ]),
+      LocalVideoSelectionClear(controller: controller),
       const SizedBox(height: 12),
       Expanded(child: Container(
         clipBehavior: Clip.antiAlias,
@@ -164,7 +167,7 @@ class PageToolsView extends GetView<PageToolsController> {
               Text('Listed size: @{size}'.trNamed({'size': totalSize.toFileSizeFormat()}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
             ]),
           ),
-          Expanded(child: loading
+          Expanded(child: loading && items.isEmpty
             ? const Center(child: CupertinoActivityIndicator())
             : error.isNotEmpty
               ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -178,31 +181,52 @@ class PageToolsView extends GetView<PageToolsController> {
                     const SizedBox(height: 12),
                     Text('No files with a recorded size in this location.'.tr, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColor.muted)),
                   ]).p12())
-                : ScreenshotSource.separated(
+                : Focus(focusNode: controller.largeFilesFocus, onKeyEvent: controller.onVideoListKey,
+                  child: ScreenshotSource.separated(
+                    key: const PageStorageKey('tools-large-files'),
+                    controller: controller.largeFilesScroll,
                     items: controller.topLargeFileSizeList,
                     separatorBuilder: (_, _) => Divider(height: 1, thickness: .5, color: AppColor.border),
                     itemBuilder: (_, index) => _largeFileRow(items[index], index),
-                  ),
+                  )),
           ),
         ]),
       )),
     ]).pOnly(left: 8);
   });
 
+  Widget _toolVideoItem(Videos video, {required bool duplicate, required Widget child}) {
+    if ((video.videoPath ?? '').isEmpty) return child;
+    return Listener(
+      key: controller.rowKey(video),
+      onPointerDown: (_) => controller.activateVideo(video, duplicate: duplicate),
+      child: LocalVideoSelectionItem(
+        controller: controller, video: video,
+        onRangeTap: () => controller.selectRange(video),
+        onSingleTap: () => HomePanelVideoInfo.open(video,
+          items: duplicate ? controller.filteredDuplicateGroups.expand((group) => group).toList() : controller.topLargeFileSizeList),
+        onDoubleTap: () => HelperOpener.openVideoFile(video),
+        child: Obx(() => DecoratedBox(
+          decoration: BoxDecoration(border: Border.all(
+            color: controller.activeVideoPath.value == video.videoPath ? AppColor.selected : Colors.transparent, width: 2)),
+          child: child,
+        )),
+      ),
+    );
+  }
+
   Widget _largeFileRow(Videos item, int index) {
     final path = item.videoPath ?? '';
     final code = (item.videoCode ?? '').trim();
     final filename = path.isEmpty ? 'NON-JAV' : p.basename(path);
     final quality = (item.quality ?? '').trim();
-    return ExVideoContextMenu(videoPath: path, videoCode: item.videoCode,
+    return _toolVideoItem(item, duplicate: false, child: ExVideoContextMenu(videoPath: path, videoCode: item.videoCode,
       screenshotItems: controller.topLargeFileSizeList,
-      contextMenuIsAllowed: (_) => path.isNotEmpty,
+      contextMenuIsAllowed: (_) => path.isNotEmpty && controller.selectedVideos.isEmpty,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           hoverColor: AppColor.hover,
-          onTap: () => HomePanelVideoInfo.open(item, items: controller.topLargeFileSizeList),
-          onDoubleTap: () => HelperOpener.openVideoFile(item),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(children: [
@@ -234,7 +258,7 @@ class PageToolsView extends GetView<PageToolsController> {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget uiDuplicateVideo() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -254,6 +278,7 @@ class PageToolsView extends GetView<PageToolsController> {
       )),
       Obx(() => Text('@{groups} groups · @{videos} videos'.trNamed({'groups': '${controller.duplicateGroups.length}', 'videos': '${controller.duplicateVideoCount}'}), style: TextStyle(fontSize: 11, color: AppColor.muted))),
     ]),
+    LocalVideoSelectionClear(controller: controller),
     const SizedBox(height: 8),
     Obx(() => Text(controller.duplicateMode.value == 'exact'
       ? 'Same code, or matching names and file sizes. File contents are not verified.'.tr
@@ -271,7 +296,7 @@ class PageToolsView extends GetView<PageToolsController> {
     ),
     const SizedBox(height: 12),
     Expanded(child: Obx(() {
-      if (controller.duplicateLoading.value) return const Center(child: CupertinoActivityIndicator());
+      if (controller.duplicateLoading.value && controller.duplicateGroups.isEmpty) return const Center(child: CupertinoActivityIndicator());
       if (controller.duplicateError.value.isNotEmpty) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
         Text(controller.duplicateError.value, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
         AppButton(onPressed: controller.getDuplicateVideos, child: Text('Retry'.tr)),
@@ -282,11 +307,14 @@ class PageToolsView extends GetView<PageToolsController> {
         const SizedBox(height: 12),
         Text(controller.duplicateGroups.isEmpty ? 'No duplicate candidates found'.tr : 'No matching groups'.tr, style: TextStyle(fontSize: 12, color: AppColor.muted)),
       ]));
-      return ListView.separated(
+      return Focus(focusNode: controller.duplicatesFocus, onKeyEvent: controller.onVideoListKey,
+        child: FlutterListView.separated(
+        key: const PageStorageKey('tools-duplicates'),
+        controller: controller.duplicatesScroll,
         itemCount: groups.length,
         separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (_, index) => _duplicateGroup(groups[index]),
-      );
+      ));
     })),
   ]).pOnly(left: 8);
 
@@ -301,6 +329,8 @@ class PageToolsView extends GetView<PageToolsController> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           Expanded(child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+          const SizedBox(width: 8),
+          AppButton(label: 'Compare'.tr, onPressed: () => ToolsDuplicateComparison.open(videos)),
           const SizedBox(width: 8),
           Text('@{count} files'.trNamed({'count': '${videos.length}'}), style: TextStyle(fontSize: 11, color: AppColor.muted)),
         ]),
@@ -318,12 +348,11 @@ class PageToolsView extends GetView<PageToolsController> {
     final path = video.videoPath ?? '';
     final available = controller.duplicateFileAvailable[path] == true;
     final poster = (video.poster ?? '').isNotEmpty ? video.poster! : video.fanArt ?? '';
-    return ExVideoContextMenu(videoPath: path, videoCode: video.videoCode,
+    return _toolVideoItem(video, duplicate: true, child: ExVideoContextMenu(videoPath: path, videoCode: video.videoCode,
       screenshotItems: videos,
+      contextMenuIsAllowed: (_) => controller.selectedVideos.isEmpty,
       child: Material(color: Colors.transparent, child: InkWell(
         borderRadius: BorderRadius.circular(4),
-        onTap: () => HelperOpener.openVideoInfo(video, items: videos),
-        onDoubleTap: () => HelperOpener.openVideoFile(video),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           IgnorePointer(child: ClipRRect(borderRadius: BorderRadius.circular(4), child: SizedBox(width: 56, height: 72,
             child: poster.isEmpty ? HugeIcon(icon: HugeIcons.strokeRoundedFilm01, size: AppStyle.largeIconSize, color: AppColor.muted) : ExThumbnail(imageUrl: poster, width: 56, height: 72, prefix: 1.9),
@@ -367,7 +396,7 @@ class PageToolsView extends GetView<PageToolsController> {
           ]),
         ]),
       )),
-    );
+    ));
   }
 
   Widget uiTODO() => Obx(() {

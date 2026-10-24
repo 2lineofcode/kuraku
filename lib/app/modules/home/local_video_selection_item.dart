@@ -11,13 +11,14 @@ import 'local_video_selection.dart';
 import 'page_search/page_search_file_drag.dart';
 
 class LocalVideoSelectionItem extends StatelessWidget {
-  const LocalVideoSelectionItem({super.key, required this.controller, required this.video, required this.onSingleTap, required this.onDoubleTap, required this.child});
+  const LocalVideoSelectionItem({super.key, required this.controller, required this.video, required this.onSingleTap, required this.onDoubleTap, required this.child, this.onRangeTap});
 
   final LocalVideoSelection controller;
   final Videos video;
   final VoidCallback onSingleTap;
   final VoidCallback onDoubleTap;
   final Widget child;
+  final VoidCallback? onRangeTap;
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +48,7 @@ class LocalVideoSelectionItem extends StatelessWidget {
         ]);
       },
       child: DoubleTap(
+        onShiftTap: onRangeTap,
         onCommandTap: () => controller.toggleSelection(video),
         onSingleTap: () {
           controller.selectedVideos.clear();

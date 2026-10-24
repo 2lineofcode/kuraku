@@ -16,6 +16,7 @@ import 'package:kuraku/app/core/app_setting.dart';
 import 'package:kuraku/app/core/app_translations.dart';
 import 'package:kuraku/app/data/database/_init_db.dart';
 import 'package:kuraku/app/data/models/videos_entity.dart';
+import 'package:kuraku/app/modules/home/local_video_selection_item.dart';
 import 'package:kuraku/app/modules/home/page_tools/page_tools_controller.dart';
 import 'package:kuraku/app/modules/home/page_tools/page_tools_view.dart';
 import 'package:kuraku/app/modules/widgets/widget_controls.dart';
@@ -149,9 +150,9 @@ void main() {
           expect(rowMenu.videoPath, controller.topLargeFileSizeList.first.videoPath);
           expect(rowMenu.videoCode, 'ABC-001');
           expect(rowMenu.screenshotItems, same(controller.topLargeFileSizeList));
-          final row = (rowMenu.child as Material).child! as InkWell;
-          expect(row.onTap, isNotNull);
-          expect(row.onDoubleTap, isNotNull);
+          final row = tester.widget<LocalVideoSelectionItem>(find.byType(LocalVideoSelectionItem, skipOffstage: false));
+          expect(row.video, same(controller.topLargeFileSizeList.first));
+          expect(row.onRangeTap, isNotNull);
           expect(find.text('null', skipOffstage: false), findsNothing);
           final folders = tester.widgetList<IconButton>(find.byType(IconButton, skipOffstage: false)).where((button) => button.tooltip == 'Open File Path'.tr).toList();
           expect(folders.first.onPressed, isNotNull);
@@ -167,7 +168,7 @@ void main() {
       }
     }
     final notifier = ValueNotifier<scm.MenuResult?>(null);
-    final menuWidget = tester.widget<scm.ContextMenuWidget>(find.byType(scm.ContextMenuWidget, skipOffstage: false).first);
+    final menuWidget = tester.widget<scm.ContextMenuWidget>(find.descendant(of: find.byType(ExVideoContextMenu, skipOffstage: false).first, matching: find.byType(scm.ContextMenuWidget, skipOffstage: false)).first);
     final menu = await menuWidget.menuProvider(scm.MenuRequest(
       onShowMenu: notifier, onHideMenu: notifier, onPreviewAction: notifier, location: Offset.zero));
     notifier.dispose();

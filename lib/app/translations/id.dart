@@ -1622,4 +1622,10 @@ const indonesianTranslations = <String, String>{
   'Choose an actress from the suggestions.': 'Pilih aktris dari saran yang tersedia.',
   'No metadata found for @{code}': 'Metadata untuk @{code} nggak ditemukan',
   'Video changed or was removed. Reopen it and try again.': 'Data video sudah berubah atau dihapus. Buka lagi videonya lalu coba ulang.',
+  'Compare': 'Bandingkan',
+  'Compare duplicates': 'Bandingkan duplikat',
+  'Move between Tools videos': 'Pindah antar video Tools',
+  'Open focused video info': 'Buka info video yang difokuskan',
+  'Play focused video': 'Putar video yang difokuskan',
+  'Select a range of videos': 'Pilih rentang video',
 };

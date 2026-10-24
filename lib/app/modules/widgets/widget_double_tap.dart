@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/app_shortcut.dart';
 
@@ -9,6 +10,7 @@ class DoubleTap extends StatefulWidget {
   final VoidCallback? onSingleTap;
   final VoidCallback? onDoubleTap;
   final VoidCallback? onCommandTap;
+  final VoidCallback? onShiftTap;
   final int? ms;
 
   const DoubleTap({
@@ -18,6 +20,7 @@ class DoubleTap extends StatefulWidget {
     this.onDoubleTap,
     this.onCommandTap,
     this.ms,
+    this.onShiftTap,
   });
 
   @override
@@ -27,8 +30,15 @@ class DoubleTap extends StatefulWidget {
 class _DoubleTapState extends State<DoubleTap> {
   Timer? _timer;
   bool _commandTap = false;
+  bool _shiftTap = false;
 
   void _handleTap() {
+    if (_shiftTap && widget.onShiftTap != null) {
+      _shiftTap = false;
+      _timer?.cancel();
+      widget.onShiftTap!();
+      return;
+    }
     if (_commandTap) {
       _commandTap = false;
       _timer?.cancel();
@@ -61,9 +71,12 @@ class _DoubleTapState extends State<DoubleTap> {
       onTap: _handleTap,
       child: widget.child,
     );
-    if (widget.onCommandTap == null) return child;
+    if (widget.onCommandTap == null && widget.onShiftTap == null) return child;
     return Listener(
-      onPointerDown: (_) => _commandTap = AppShortcut.isPressed,
+      onPointerDown: (_) {
+        _commandTap = AppShortcut.isPressed;
+        _shiftTap = HardwareKeyboard.instance.isShiftPressed;
+      },
       child: child,
     );
   }

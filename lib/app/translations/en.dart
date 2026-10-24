@@ -1622,4 +1622,10 @@ const englishTranslations = <String, String>{
   'Choose an actress from the suggestions.': 'Choose an actress from the suggestions.',
   'No metadata found for @{code}': 'No metadata found for @{code}',
   'Video changed or was removed. Reopen it and try again.': 'Video changed or was removed. Reopen it and try again.',
+  'Compare': 'Compare',
+  'Compare duplicates': 'Compare duplicates',
+  'Move between Tools videos': 'Move between Tools videos',
+  'Open focused video info': 'Open focused video info',
+  'Play focused video': 'Play focused video',
+  'Select a range of videos': 'Select a range of videos',
 };

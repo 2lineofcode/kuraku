@@ -5,6 +5,8 @@ import 'package:ex_kit/ex.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/media_information_session.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show IconButton;
+import 'package:flutter/services.dart';
 import 'package:flutter_list_view/flutter_list_view.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
@@ -21,9 +23,113 @@ import '../../../utils/helper.dart';
 import '../../../utils/helper_media.dart';
 import '../../widgets/widget_controls.dart';
 import '../../widgets/widget_surfaces.dart';
+import '../home_panel/home_panel_video_info.dart';
+import '../local_video_selection.dart';
 import '../page_explore/page_explore_controller.dart';
 
-class PageToolsController extends GetxController with StateMixin {
+class PageToolsController extends GetxController with StateMixin, LocalVideoSelection {
+  final largeFilesScroll = FlutterListViewController();
+  final duplicatesScroll = FlutterListViewController();
+  final largeFilesFocus = FocusNode();
+  final duplicatesFocus = FocusNode();
+  final activeVideoPath = ''.obs;
+  final _rowKeys = <String, GlobalKey>{};
+  String? _selectionAnchor;
+  int _videoSelectionRevision = 0;
+  Worker? _duplicateSearchWorker;
+
+  @override
+  int get selectionRevision => _videoSelectionRevision;
+  @override
+  Iterable<Videos> get selectionSource => (currentMenuSelected.value == kDuplicate
+      ? filteredDuplicateGroups.expand((group) => group) : topLargeFileSizeList)
+      .where((video) => (video.videoPath ?? '').isNotEmpty);
+  @override
+  Future<void> refreshSelectionFiles() => refreshVideoContent();
+
+  GlobalKey rowKey(Videos video) => _rowKeys.putIfAbsent(video.videoPath ?? '', () => GlobalKey());
+
+  void clearToolsSelection() {
+    _videoSelectionRevision++;
+    selectedVideos.clear();
+    _selectionAnchor = null;
+    activeVideoPath.value = '';
+  }
+
+  @override
+  void toggleSelection(Videos video) {
+    super.toggleSelection(video);
+    _selectionAnchor = video.videoPath;
+  }
+
+  void selectRange(Videos video) {
+    final items = selectionSource.toList();
+    final end = items.indexWhere((item) => sameVideo(item, video));
+    if (end < 0) return;
+    var start = items.indexWhere((item) => item.videoPath == _selectionAnchor);
+    if (start < 0) start = end;
+    _selectionAnchor = items[start].videoPath;
+    selectedVideos.assignAll(items.sublist(start < end ? start : end, (start > end ? start : end) + 1));
+  }
+
+  void activateVideo(Videos video, {required bool duplicate}) {
+    activeVideoPath.value = video.videoPath ?? '';
+    if (!HardwareKeyboard.instance.isShiftPressed && !HardwareKeyboard.instance.isMetaPressed && !HardwareKeyboard.instance.isControlPressed) {
+      _selectionAnchor = video.videoPath;
+    }
+    (duplicate ? duplicatesFocus : largeFilesFocus).requestFocus();
+  }
+
+  Future<void> moveActiveVideo(int delta, {bool extend = false}) async {
+    final items = selectionSource.toList();
+    if (items.isEmpty) return;
+    final previous = items.indexWhere((video) => video.videoPath == activeVideoPath.value);
+    final index = previous < 0 ? (delta > 0 ? 0 : items.length - 1) : (previous + delta).clamp(0, items.length - 1);
+    if (extend && _selectionAnchor == null && previous >= 0) _selectionAnchor = items[previous].videoPath;
+    final video = items[index];
+    activeVideoPath.value = video.videoPath!;
+    if (extend) { selectRange(video); } else { _selectionAnchor = video.videoPath; }
+    final revision = selectionRevision;
+    final duplicate = currentMenuSelected.value == kDuplicate;
+    final scroll = duplicate ? duplicatesScroll : largeFilesScroll;
+    if (!scroll.hasClients) return;
+    if (rowKey(video).currentContext == null) {
+      final itemIndex = duplicate ? filteredDuplicateGroups.indexWhere((group) => group.any((item) => sameVideo(item, video)))
+          : topLargeFileSizeList.indexWhere((item) => sameVideo(item, video));
+      scroll.sliverController.ensureVisible(itemIndex * 2);
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    if (isClosed || revision != selectionRevision || activeVideoPath.value != video.videoPath) return;
+    final context = rowKey(video).currentContext;
+    if (context != null && context.mounted) await Scrollable.ensureVisible(context,
+      alignmentPolicy: delta > 0 ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd : ScrollPositionAlignmentPolicy.keepVisibleAtStart);
+  }
+
+  KeyEventResult onVideoListKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
+    if (HardwareKeyboard.instance.isAltPressed || HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed) return KeyEventResult.ignored;
+    final context = FocusManager.instance.primaryFocus?.context;
+    if (context?.findAncestorWidgetOfExactType<IconButton>() != null) return KeyEventResult.ignored;
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown || event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      unawaited(moveActiveVideo(event.logicalKey == LogicalKeyboardKey.arrowDown ? 1 : -1,
+        extend: HardwareKeyboard.instance.isShiftPressed));
+      return KeyEventResult.handled;
+    }
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final matches = selectionSource.where((video) => video.videoPath == activeVideoPath.value);
+    final video = matches.isEmpty ? null : matches.first;
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      clearToolsSelection();
+    } else if (video != null && event.logicalKey == LogicalKeyboardKey.enter) {
+      unawaited(HomePanelVideoInfo.open(video, items: selectionSource.toList()));
+    } else if (video != null && event.logicalKey == LogicalKeyboardKey.space) {
+      unawaited(HelperOpener.openVideoFile(video));
+    } else {
+      return KeyEventResult.ignored;
+    }
+    return KeyEventResult.handled;
+  }
+
   // ** part: top menu
   final menus = [kTopLargeFile, kDuplicate, kAdvanceSearch, kTodo].obs;
   final currentMenuSelected = kTopLargeFile.obs;
@@ -122,6 +228,10 @@ class PageToolsController extends GetxController with StateMixin {
   @override
   Future<void> onInit() async {
     super.onInit();
+    _duplicateSearchWorker = ever(duplicateQuery, (_) {
+      clearToolsSelection();
+      if (duplicatesScroll.hasClients) duplicatesScroll.jumpTo(0);
+    });
     await onRefresh();
   }
 
@@ -129,9 +239,8 @@ class PageToolsController extends GetxController with StateMixin {
     final sw = Stopwatch()..start();
 
     await refreshDeletedItemsMenu();
-    await getTopLargeFileSize();
+    await getTopLargeFileSize(mode: topLargeFilterMode.value);
     await checkIsHasDataNotScanned();
-    await onReset();
     if (currentMenuSelected.value == kAdvanceSearch) await filterBySeries();
     if (currentMenuSelected.value == kDuplicate) await getDuplicateVideos();
 
@@ -149,6 +258,11 @@ class PageToolsController extends GetxController with StateMixin {
   @override
   void onClose() {
     _groupSearchTimer?.cancel();
+    _duplicateSearchWorker?.dispose();
+    largeFilesScroll.dispose();
+    duplicatesScroll.dispose();
+    largeFilesFocus.dispose();
+    duplicatesFocus.dispose();
     _topLargeRequest++;
     _duplicateRequest++;
     tecDuplicateSearch.dispose();
@@ -168,6 +282,7 @@ class PageToolsController extends GetxController with StateMixin {
       _duplicateRequest++;
       duplicateLoading.value = false;
     }
+    if (currentMenuSelected.value != menu) clearToolsSelection();
     currentMenuSelected.value = menu;
     switch (menu) {
       case kTopLargeFile: await getTopLargeFileSize(mode: topLargeFilterMode.value); await checkIsHasDataNotScanned(); break;
@@ -180,6 +295,7 @@ class PageToolsController extends GetxController with StateMixin {
   }
 
   Future<void> onReset() async {
+    clearToolsSelection();
     _groupSearchTimer?.cancel();
     _leftRequest++;
     _selectionRequest++;
@@ -216,10 +332,14 @@ class PageToolsController extends GetxController with StateMixin {
   // ────────────────────────────────────────────────────────────────
   Future<void> getTopLargeFileSize({String mode = 'all'}) async {
     final request = ++_topLargeRequest;
+    clearToolsSelection();
+    if (topLargeFilterMode.value != mode) {
+      topLargeFileSizeList.clear();
+      if (largeFilesScroll.hasClients) largeFilesScroll.jumpTo(0);
+    }
     topLargeFilterMode.value = mode;
     topLargeLoading.value = true;
     topLargeError.value = '';
-    topLargeFileSizeList.clear();
 
     final external = Platform.isLinux
         ? "(video_path LIKE '/media/%' OR video_path LIKE '/mnt/%' OR video_path LIKE '/run/media/%')"
@@ -234,7 +354,10 @@ class PageToolsController extends GetxController with StateMixin {
 
     try {
       final items = await DBVideos.getAll(where: whereQ, orderBy: 'filesize DESC', limit: 200);
-      if (request == _topLargeRequest) topLargeFileSizeList.value = items;
+      if (!isClosed && request == _topLargeRequest) {
+        clearToolsSelection();
+        topLargeFileSizeList.value = items;
+      }
     } catch (e) {
       AppLog.logE('[LargeFiles] Load failed: $e');
       if (request == _topLargeRequest) topLargeError.value = 'Could not load videos. Please retry.';
@@ -356,6 +479,8 @@ class PageToolsController extends GetxController with StateMixin {
   // ────────────────────────────────────────────────────────────────
   Future<void> setDuplicateMode(String mode) async {
     if (!duplicateModes.contains(mode) || duplicateMode.value == mode) return;
+    duplicateGroups.clear();
+    if (duplicatesScroll.hasClients) duplicatesScroll.jumpTo(0);
     duplicateMode.value = mode;
     await getDuplicateVideos();
   }
@@ -376,15 +501,15 @@ class PageToolsController extends GetxController with StateMixin {
 
   Future<void> getDuplicateVideos() async {
     final request = ++_duplicateRequest;
+    clearToolsSelection();
     duplicateLoading.value = true;
     duplicateError.value = '';
-    duplicateGroups.clear();
-    duplicateFileAvailable.clear();
     try {
       final groups = await loadDuplicateGroups(duplicateMode.value);
       if (isClosed || request != _duplicateRequest) return;
       final available = await checkDuplicateFiles(groups);
       if (isClosed || request != _duplicateRequest) return;
+      clearToolsSelection();
       duplicateFileAvailable.assignAll(available);
       duplicateGroups.assignAll(groups);
     } catch (e) {
