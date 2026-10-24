@@ -170,7 +170,7 @@ void main() {
     notifier.dispose();
     expect(menu!.children.map((item) => item is scm.MenuSeparator ? '---' : item.title),
       ['Play'.tr, 'Add to Panel Cart'.tr, '---', 'Add To Favorite'.tr, 'Add to Playlist'.tr,
-        '---', 'Edit Metadata'.tr, 'Refresh Metadata'.tr, 'Open File Path'.tr]);
+        '---', 'Edit Metadata'.tr, 'Refresh Metadata'.tr, 'Open File Path'.tr, 'Properties'.tr]);
     controller.topLargeFileSizeList.clear();
     await tester.pumpAndSettle();
     expect(find.text('No files with a recorded size in this location.'.tr), findsOneWidget);

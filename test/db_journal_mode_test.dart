@@ -72,29 +72,30 @@ os._exit(0)
     expect(await service.dbMain.query('journal_test'), hasLength(2));
   });
 
-  test('Startup waits for a temporary external lock on an existing DELETE database', () async {
-    final directory = await Directory.systemTemp.createTemp('kuraku-journal-lock-');
-    final previousFactory = databaseFactoryOrNull;
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-    DBService? service;
-    Process? holder;
-    Timer? release;
-    addTearDown(() async {
-      release?.cancel();
-      holder?.kill();
-      if (holder != null) await holder.exitCode;
-      await service?.close();
-      Get.reset();
-      databaseFactoryOrNull = previousFactory;
-      await directory.delete(recursive: true);
-    });
-    Get.put(AppSettingService()..appPath = directory.path);
-    service = await DBService().init();
-    final path = service.dbMain.path;
-    await service.close();
-    service = null;
-    holder = await Process.start('python3', ['-B', '-u', '-c', r'''
+  for (final releaseLock in [true, false]) {
+    test('Startup ${releaseLock ? 'waits for a temporary' : 'times out for a persistent'} external lock on an existing DELETE database', () async {
+      final directory = await Directory.systemTemp.createTemp('kuraku-journal-lock-');
+      final previousFactory = databaseFactoryOrNull;
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      DBService? service;
+      Process? holder;
+      Timer? release;
+      addTearDown(() async {
+        release?.cancel();
+        holder?.kill();
+        if (holder != null) await holder.exitCode;
+        await service?.close();
+        Get.reset();
+        databaseFactoryOrNull = previousFactory;
+        await directory.delete(recursive: true);
+      });
+      Get.put(AppSettingService()..appPath = directory.path);
+      service = await DBService().init();
+      final path = service.dbMain.path;
+      await service.close();
+      service = null;
+      holder = await Process.start('python3', ['-B', '-u', '-c', r'''
 import sqlite3, sys
 db = sqlite3.connect(sys.argv[1])
 assert db.execute('PRAGMA journal_mode').fetchone()[0] == 'delete'
@@ -104,13 +105,23 @@ sys.stdin.readline()
 db.rollback()
 db.close()
 ''', path]);
-    expect(await holder.stdout.transform(utf8.decoder).transform(const LineSplitter()).first, 'locked');
-    release = Timer(const Duration(milliseconds: 300), () => holder!.stdin.writeln('release'));
-    service = await DBService().init();
-    expect(await holder.exitCode, 0);
-    expect((await service.dbMain.rawQuery('PRAGMA journal_mode')).single['journal_mode'], 'delete');
-    expect((await service.dbMain.rawQuery('PRAGMA busy_timeout')).single.values.single, 5000);
-    expect((await service.dbMain.rawQuery('PRAGMA quick_check')).single.values.single, 'ok');
-  });
+      expect(await holder.stdout.transform(utf8.decoder).transform(const LineSplitter()).first, 'locked');
+      if (releaseLock) {
+        release = Timer(const Duration(milliseconds: 300), () => holder!.stdin.writeln('release'));
+      } else {
+        final waiting = Stopwatch()..start();
+        await expectLater(DBService().init(), throwsA(isA<DatabaseException>()
+          .having((error) => error.getResultCode(), 'result code', 5)));
+        expect(waiting.elapsedMilliseconds, greaterThanOrEqualTo(5000));
+        holder.stdin.writeln('release');
+        expect(await holder.exitCode, 0);
+      }
+      service = await DBService().init();
+      expect(await holder.exitCode, 0);
+      expect((await service.dbMain.rawQuery('PRAGMA journal_mode')).single['journal_mode'], 'delete');
+      expect((await service.dbMain.rawQuery('PRAGMA busy_timeout')).single.values.single, 5000);
+      expect((await service.dbMain.rawQuery('PRAGMA quick_check')).single.values.single, 'ok');
+    });
+  }
 
 }

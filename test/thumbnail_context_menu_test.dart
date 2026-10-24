@@ -148,7 +148,7 @@ void main() {
     }
 
     await show('/missing/video.mp4');
-    expect(await titles(), ['Play', 'Add to Panel Cart', '---', 'Add To Favorite', 'Add to Playlist', '---', 'Edit Metadata', 'Refresh Metadata', 'Open File Path']);
+    expect(await titles(), ['Play', 'Add to Panel Cart', '---', 'Add To Favorite', 'Add to Playlist', '---', 'Edit Metadata', 'Refresh Metadata', 'Open File Path', 'Properties']);
     database.favorite = 1;
     expect((await titles())[3], 'Remove From Favorite');
     await tester.tap(find.byType(ExThumbnail));
