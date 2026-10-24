@@ -356,6 +356,10 @@ void main() {
     await tester.enterText(find.byType(AppTextField), '9999');
     await submit(tester, 'Unlock');
     expect(find.text('Incorrect PIN.'), findsOneWidget);
+    final pinInput = tester.widget<EditableText>(find.descendant(of: find.byType(AppPinForm), matching: find.byType(EditableText)));
+    expect(pinInput.focusNode.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    expect(pinInput.controller.text, '999');
     expect(builds, 0);
     await tester.enterText(find.byType(AppTextField), '1234');
     await submit(tester, 'Unlock');

@@ -179,6 +179,7 @@ class AppPinForm extends StatefulWidget {
 
 class _AppPinFormState extends State<AppPinForm> {
   final _current = TextEditingController();
+  final _currentFocus = FocusNode();
   final _pin = TextEditingController();
   final _confirmation = TextEditingController();
   bool _busy = false;
@@ -190,6 +191,7 @@ class _AppPinFormState extends State<AppPinForm> {
   @override
   void dispose() {
     _current.dispose();
+    _currentFocus.dispose();
     _pin.dispose();
     _confirmation.dispose();
     super.dispose();
@@ -221,6 +223,11 @@ class _AppPinFormState extends State<AppPinForm> {
       if (mounted) setState(() => _error = 'Could not verify or save PIN. Please retry.'.tr);
     } finally {
       if (mounted) setState(() => _busy = false);
+      if (mounted && widget.unlock && _error != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _currentFocus.requestFocus();
+        });
+      }
     }
   }
 
@@ -228,6 +235,7 @@ class _AppPinFormState extends State<AppPinForm> {
     padding: const EdgeInsets.only(top: 12),
     child: AppTextField(
       controller: controller,
+      focusNode: controller == _current ? _currentFocus : null,
       autofocus: autofocus,
       enabled: !_busy,
       obscureText: true,
