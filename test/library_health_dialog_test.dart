@@ -255,7 +255,7 @@ void main() {
           onShowMenu: notifier, onHideMenu: notifier, onPreviewAction: notifier, location: Offset.zero));
         notifier.dispose();
         expect(menu!.children.map((item) => item is scm.MenuSeparator ? '---' : item.title),
-          ['Play', 'Add to Panel Cart', '---', 'Add To Favorite', 'Add to Playlist', '---', 'Edit Metadata', 'Refresh Metadata', 'Open File Path']);
+          ['Play', 'Add to Panel Cart', '---', 'Add To Favorite', 'Add to Playlist', '---', 'Edit Metadata', 'Refresh Metadata', 'Open File Path', 'Properties']);
         await tester.tapAt(tester.getCenter(find.byType(ExThumbnail)));
         await tester.pumpAndSettle();
         expect(database.selectedPath, ['/offline/ABC-001.mp4']);

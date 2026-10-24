@@ -217,7 +217,7 @@ void main() {
     notifier.dispose();
     expect(menu!.children.map((item) => item is scm.MenuSeparator ? '---' : item.title),
       ['Play'.tr, 'Add to Panel Cart'.tr, '---', 'Add To Favorite'.tr, 'Add to Playlist'.tr,
-        '---', 'Edit Metadata'.tr, 'Refresh Metadata'.tr, 'Open File Path'.tr]);
+        '---', 'Edit Metadata'.tr, 'Refresh Metadata'.tr, 'Open File Path'.tr, 'Properties'.tr]);
     controller.duplicateQuery.value = '1080';
     await tester.pumpAndSettle();
     expect(find.text('ABC-001_720p.mp4'), findsOneWidget);
