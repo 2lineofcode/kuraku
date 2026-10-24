@@ -202,6 +202,7 @@ class PageToolsView extends GetView<PageToolsController> {
         child: InkWell(
           hoverColor: AppColor.hover,
           onTap: () => HomePanelVideoInfo.open(item, items: controller.topLargeFileSizeList),
+          onDoubleTap: () => HelperOpener.openVideoFile(item),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(children: [
@@ -322,6 +323,7 @@ class PageToolsView extends GetView<PageToolsController> {
       child: Material(color: Colors.transparent, child: InkWell(
         borderRadius: BorderRadius.circular(4),
         onTap: () => HelperOpener.openVideoInfo(video, items: videos),
+        onDoubleTap: () => HelperOpener.openVideoFile(video),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           IgnorePointer(child: ClipRRect(borderRadius: BorderRadius.circular(4), child: SizedBox(width: 56, height: 72,
             child: poster.isEmpty ? HugeIcon(icon: HugeIcons.strokeRoundedFilm01, size: AppStyle.largeIconSize, color: AppColor.muted) : ExThumbnail(imageUrl: poster, width: 56, height: 72, prefix: 1.9),

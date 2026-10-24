@@ -193,6 +193,7 @@ void main() {
           for (final filename in ['ABC-001_1080p.mp4', 'ABC-001_720p.mp4']) {
             final row = find.ancestor(of: find.text(filename), matching: find.byType(InkWell));
             expect(tester.widget<InkWell>(row).onTap, isNotNull);
+            expect(tester.widget<InkWell>(row).onDoubleTap, isNotNull);
           }
           expect(find.text(language == 'id' ? 'Video Sama' : 'Same Video'), findsOneWidget);
           final folders = tester.widgetList<IconButton>(find.byType(IconButton)).where((button) => button.tooltip == 'Open File Path'.tr).toList();
@@ -222,6 +223,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('ABC-001_720p.mp4'), findsOneWidget);
     await tester.tap(find.byTooltip('Add to Panel Cart'.tr).first);
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
     expect(home.cart, hasLength(1));
     expect(find.byTooltip('Already in panel cart'.tr), findsOneWidget);

@@ -149,6 +149,9 @@ void main() {
           expect(rowMenu.videoPath, controller.topLargeFileSizeList.first.videoPath);
           expect(rowMenu.videoCode, 'ABC-001');
           expect(rowMenu.screenshotItems, same(controller.topLargeFileSizeList));
+          final row = (rowMenu.child as Material).child! as InkWell;
+          expect(row.onTap, isNotNull);
+          expect(row.onDoubleTap, isNotNull);
           expect(find.text('null', skipOffstage: false), findsNothing);
           final folders = tester.widgetList<IconButton>(find.byType(IconButton, skipOffstage: false)).where((button) => button.tooltip == 'Open File Path'.tr).toList();
           expect(folders.first.onPressed, isNotNull);
