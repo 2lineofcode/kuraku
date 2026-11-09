@@ -271,7 +271,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                   if (details.pointerCount >= 2) {
                     unawaited(widget.controller.setVideoZoom(_pinchStartZoom * details.scale));
                   }
-                  if (widget.controller.videoZoom.value > 1 && details.focalPointDelta != Offset.zero) {
+                  if ((widget.controller.isVr360Enabled.value || widget.controller.videoZoom.value > 1) && details.focalPointDelta != Offset.zero) {
                     unawaited(widget.controller.panVideo(details.focalPointDelta, context.size ?? Size.zero));
                   }
                 },
@@ -1013,6 +1013,23 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
             Divider(color: Colors.white30).pOnly(bottom: 8),
 
+            Row(children: [
+              Obx(() => CupertinoSwitch(
+                value: widget.controller.isVr360Enabled.value,
+                onChanged: widget.controller.isVr360Changing.value ? null : (enabled) async {
+                  await widget.controller.setVr360Enabled(enabled);
+                  if (!mounted) return;
+                  if (widget.controller.isVr360Enabled.value != enabled) _showInfo('VR 360 unavailable'.tr);
+                  _showControls();
+                },
+              )),
+              const SizedBox(width: 8),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('VR 360'.tr, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                Text('360° mono · Drag to look around'.tr, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+              ])),
+            ]),
+            const SizedBox(height: 8),
             HStack([
               Obx(
                 () => CupertinoSwitch(

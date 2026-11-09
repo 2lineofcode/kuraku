@@ -85,12 +85,21 @@ class _NativePlayer implements NativePlayer {
   bool failRotation = false;
   bool failZoom = false;
   bool failPan = false;
+  bool rejectVr = false;
 
   @override
   Future<void> command(List<String> command, {bool waitForInitialization = true}) async {
     if (failRotation) throw StateError('Rotation failed');
     commands.add(command);
+    if (command[0] == 'vf') {
+      if (command[1] == 'add' && !rejectVr) properties['vf'] = command[2];
+      if (command[1] == 'remove') properties['vf'] = '';
+    }
+    if (command[0] == 'set') properties[command[1]] = command[2];
   }
+
+  @override
+  Future<String> getProperty(String property, {bool waitForInitialization = true}) async => properties[property] ?? '';
 
   @override
   Future<void> setProperty(String property, String value, {bool waitForInitialization = true}) async {
@@ -122,6 +131,88 @@ class _Player implements Player {
 }
 
 void main() {
+  test('VR 360 verifies its filter, bounds direction and restores decoding when disabled', () async {
+    Get.put(AppSettingService()..pref = _Preferences());
+    addTearDown(Get.reset);
+    final native = _NativePlayer()..properties['hwdec'] = 'auto-safe';
+    final controller = PlayerController()..player = _Player(native);
+    await controller.setVideoZoom(2);
+    await controller.setVr360Enabled(true);
+    expect(controller.isVr360Enabled.value, isTrue);
+    expect(controller.videoZoom.value, 1);
+    expect(native.properties['hwdec'], 'auto-copy');
+    expect(native.properties['vf'], contains('v360=input=e:output=flat'));
+    native.commands.clear();
+    await controller.panVideo(const Offset(10000, 10000), const Size(800, 600));
+    final yaw = double.parse(RegExp(r'yaw=([^:]+)').firstMatch(native.commands.single.last)!.group(1)!);
+    expect(yaw, inInclusiveRange(-180, 180));
+    expect(native.commands.single.last, contains('pitch=89.0'));
+    expect(controller.videoPan.value, Offset.zero);
+    await controller.setVideoZoom(2);
+    expect(controller.videoZoom.value, 1);
+    native.commands.clear();
+    await controller.panVideo(const Offset(double.nan, 0), const Size(800, 600));
+    await controller.panVideo(const Offset(20, 20), Size.zero);
+    expect(native.commands, isEmpty);
+    await controller.setVr360Enabled(false);
+    expect(controller.isVr360Enabled.value, isFalse);
+    expect(native.properties['vf'], isEmpty);
+    expect(native.properties['hwdec'], 'auto-safe');
+    await controller.setVideoZoom(2);
+    await controller.panVideo(const Offset(20, 20), const Size(800, 600));
+    expect(controller.videoPan.value.dx, greaterThan(0));
+  });
+
+  test('VR 360 rolls back unsupported filters and serializes rapid toggles', () async {
+    Get.put(AppSettingService()..pref = _Preferences());
+    addTearDown(Get.reset);
+    final native = _NativePlayer()..properties['hwdec'] = 'no';
+    final controller = PlayerController()..player = _Player(native);
+    native.rejectVr = true;
+    await controller.setVr360Enabled(true);
+    expect(controller.isVr360Enabled.value, isFalse);
+    expect(controller.isVr360Changing.value, isFalse);
+    expect(native.properties['hwdec'], 'no');
+    native.rejectVr = false;
+    await Future.wait([controller.setVr360Enabled(true), controller.setVr360Enabled(false)]);
+    expect(controller.isVr360Enabled.value, isFalse);
+    expect(native.properties['vf'], isEmpty);
+    expect(native.properties['hwdec'], 'no');
+  });
+
+  testWidgets('VR 360 switch changes mouse drag from flat pan to look controls', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    Get.put(AppSettingService()..pref = _Preferences());
+    addTearDown(Get.reset);
+    final native = _NativePlayer()..properties['hwdec'] = 'auto-safe';
+    final controller = PlayerController()..player = _Player(native);
+    controller.currentVideo.value = Videos(videoCode: '', title: 'Test', videoPath: '');
+    controller.infoAnimationController = AnimationController(vsync: tester);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: PlayerControls(controller: controller, videoState: VideoState()))));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.comma);
+    await tester.pumpAndSettle();
+    final vrSwitch = find.descendant(of: find.ancestor(of: find.text('VR 360'), matching: find.byType(Row)).first, matching: find.byType(CupertinoSwitch));
+    await tester.ensureVisible(vrSwitch);
+    await tester.tap(vrSwitch);
+    await tester.pumpAndSettle();
+    expect(controller.isVr360Enabled.value, isTrue);
+    await tester.tap(find.byTooltip('Close').last);
+    await tester.pumpAndSettle();
+    native.commands.clear();
+    await tester.dragFrom(const Offset(700, 600), const Offset(100, 40));
+    await tester.pumpAndSettle();
+    expect(native.commands.where((command) => command[0] == 'vf' && command[1] == 'add'), isNotEmpty);
+    expect(controller.videoPan.value, Offset.zero);
+    await controller.setVr360Enabled(false);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    controller.infoAnimationController.dispose();
+    expect(tester.takeException(), isNull);
+  });
+
   test('subtitle picker handles cancellation, selection and a changed video', () async {
     Get.put(AppSettingService()..pref = _Preferences());
     addTearDown(Get.reset);

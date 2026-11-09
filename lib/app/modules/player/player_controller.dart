@@ -51,6 +51,11 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   final videoFit = BoxFit.contain.obs;
   final videoZoom = 1.0.obs;
   final videoPan = Offset.zero.obs;
+  final isVr360Enabled = false.obs;
+  final isVr360Changing = false.obs;
+  Offset _vrDirection = Offset.zero;
+  Future<void> _vrUpdate = Future<void>.value();
+  String? _vrPreviousHwdec;
   Offset _appliedVideoPan = Offset.zero;
   Size _panViewport = Size.zero;
   Future<void> _zoomUpdate = Future<void>.value();
@@ -218,6 +223,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   }
 
   Future<void> stopPlayback() async {
+    await setVr360Enabled(false);
     _watchVideoReady = false;
     _watchTracker.setPlaying(false);
     await _persistWatchDuration();
@@ -528,6 +534,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     }
 
     try {
+      await setVr360Enabled(false);
       _watchVideoReady = false;
       _watchTracker.setVideo(video);
       isInitialized.value = false;
@@ -565,6 +572,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   }
 
   Future<void> setVideoZoom(double scale) {
+    if (isVr360Enabled.value) return Future<void>.value();
     if (!scale.isFinite || scale <= 0) return Future<void>.value();
     final platform = player.platform;
     if (platform is! NativePlayer) return Future<void>.value();
@@ -589,6 +597,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   }
 
   Future<void> panVideo(Offset delta, Size viewport) {
+    if (isVr360Enabled.value) return lookAroundVr360(delta, viewport);
     if (videoZoom.value <= 1 || viewport.isEmpty || !viewport.width.isFinite || !viewport.height.isFinite || !delta.dx.isFinite || !delta.dy.isFinite) return Future<void>.value();
     _panViewport = viewport;
     final width = (player.state.width ?? 0) > 0 ? player.state.width!.toDouble() : viewport.width;
@@ -627,6 +636,70 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       }
     });
     return _zoomUpdate;
+  }
+
+  Future<void> setVr360Enabled(bool enabled) async {
+    if (isVr360Changing.value) {
+      await _vrUpdate;
+      return setVr360Enabled(enabled);
+    }
+    if (enabled == isVr360Enabled.value) return;
+    final platform = player.platform;
+    if (platform is! NativePlayer) return;
+    isVr360Changing.value = true;
+    _vrUpdate = _vrUpdate.then((_) async {
+      try {
+        if (enabled) {
+          await setVideoZoom(1);
+          _vrPreviousHwdec = await platform.getProperty('hwdec');
+          await platform.command(['set', 'hwdec', 'auto-copy']);
+          // shortcut: render a 720p viewport, raise it after profiling high-resolution VR playback.
+          await platform.command(['vf', 'add', _vr360Filter(Offset.zero)]);
+          if (!(await platform.getProperty('vf')).contains('kuraku-vr360')) {
+            throw StateError('The VR 360 filter was not applied');
+          }
+        } else {
+          await platform.command(['vf', 'remove', '@kuraku-vr360']);
+          if ((await platform.getProperty('vf')).contains('kuraku-vr360')) {
+            throw StateError('The VR 360 filter was not removed');
+          }
+          await platform.command(['set', 'hwdec', _vrPreviousHwdec ?? 'auto-safe']);
+        }
+        _vrDirection = Offset.zero;
+        isVr360Enabled.value = enabled;
+      } catch (e) {
+        AppLog.logW('VR 360 toggle failed: $e');
+        if (enabled) {
+          try {
+            await platform.command(['vf', 'remove', '@kuraku-vr360']);
+            if (_vrPreviousHwdec != null) await platform.command(['set', 'hwdec', _vrPreviousHwdec!]);
+          } catch (rollback) { AppLog.logW('VR 360 rollback failed: $rollback'); }
+        }
+      } finally {
+        isVr360Changing.value = false;
+      }
+    });
+    await _vrUpdate;
+  }
+
+  String _vr360Filter(Offset direction) => '@kuraku-vr360:lavfi=[v360=input=e:output=flat:w=1280:h=720:h_fov=90:v_fov=58.7155:yaw=${direction.dx}:pitch=${direction.dy}]';
+
+  Future<void> lookAroundVr360(Offset delta, Size viewport) {
+    if (!isVr360Enabled.value || isVr360Changing.value || viewport.isEmpty || !viewport.width.isFinite || !viewport.height.isFinite || !delta.dx.isFinite || !delta.dy.isFinite) return Future<void>.value();
+    final target = Offset(
+      ((_vrDirection.dx - delta.dx / viewport.width * 180 + 180) % 360) - 180,
+      (_vrDirection.dy + delta.dy / viewport.height * 90).clamp(-89.0, 89.0),
+    );
+    _vrDirection = target;
+    _vrUpdate = _vrUpdate.then((_) async {
+      if (!isVr360Enabled.value || isVr360Changing.value || target != _vrDirection) return;
+      final platform = player.platform as NativePlayer;
+      try {
+        // shortcut: replace the projection for older libmpv, use live commands once the minimum version supports them.
+        await platform.command(['vf', 'add', _vr360Filter(target)]);
+      } catch (e) { AppLog.logW('VR 360 look failed: $e'); }
+    });
+    return _vrUpdate;
   }
 
   Future<void> setVolumeNormalized(double value) async {
