@@ -19,7 +19,7 @@ class AppBackup {
 
   static const tables = ['library', 'videos', 'playlist', 'playlist_item', 'watch_session', 'profile',
     'achievement_unlock', 'relapse_event', 'historical', 'todo', 'download_log', 'video_file_identity',
-    'chat_conversation', 'chat_message', 'chat_translation', 'search_site'];
+    'chat_conversation', 'chat_message', 'chat_translation', 'search_site', 'r18_migration'];
   static const _boolKeys = ['_kAppHideSideMenu', '_kAppDarkMode', '_kAppIsDarkMode', '_kPlayerAudioNormalization',
     '_kHomeSecNewRelease', '_kHomeSecRecommendation', '_kHomeSecFavorite', '_kHomeSecNewAdd',
     '_kHomeSecMostWatch', '_kHomeSecNeverWatch', '_kHomeSecRandom', '_kHomeSecOldest', '_kHomeSecImageAlbums', 'chat_sidebar_visible'];
@@ -55,7 +55,7 @@ class AppBackup {
     if (utf8.encode(content).length > 128 * 1024 * 1024) throw const FormatException('Backup exceeds the 128 MB limit.');
     final data = jsonDecode(content);
     if (data is! Map<String, dynamic> || data['format'] != 'kuraku-backup' || data['version'] != 2
-        || ![18, DBUpdate.version].contains(data['database_version']) || data['created_at'] is! String
+        || ![18, 19, DBUpdate.version].contains(data['database_version']) || data['created_at'] is! String
         || DateTime.tryParse(data['created_at']) == null) {
       throw const FormatException('Invalid backup or incompatible app/database version.');
     }
@@ -65,6 +65,8 @@ class AppBackup {
       rows['search_site'] = SearchSite.defaults.map((site) => site.toJson()).toList();
       data['database_version'] = DBUpdate.version;
     }
+    // Backups created before migration history was included have no rows to restore.
+    if (rows is Map && !rows.containsKey('r18_migration')) rows['r18_migration'] = [];
     if (rows is! Map || rows.keys.any((table) => !tables.contains(table))
         || !tables.every((table) => rows[table] is List) || rows.values.any((value) => value is! List)
         || settings is! Map<String, dynamic> || settings.keys.any((key) => !settingKeys.contains(key))

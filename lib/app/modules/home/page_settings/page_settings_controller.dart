@@ -450,7 +450,6 @@ class PageSettingsController extends GetxController {
         mimeType: 'application/json',
         dialogTitle: 'Export Backup'.tr,
         fileName: 'kuraku-${DateTime.now().toIso8601String().split('T').first}.kuraku-backup.json',
-        type: FileType.custom, allowedExtensions: ['json'],
       );
       if (path == null) return;
       await HelperToast.success('Backup saved. Keep this file private; it contains your history and paths.'.tr);
