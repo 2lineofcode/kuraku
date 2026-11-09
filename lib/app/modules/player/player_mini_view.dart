@@ -119,6 +119,9 @@ class _MiniPlayerCard extends StatelessWidget {
 
   Widget _buildSurface(BuildContext context) {
     return GestureDetector(
+      onPanUpdate: (details) {
+        if (controller.isVr360Enabled.value) controller.lookAroundVr360(details.delta, const Size(340, 191.25));
+      },
       onTap: () async {
         controller.exitMiniMode();
         if (Get.currentRoute != Routes.PLAYER) {
