@@ -103,6 +103,7 @@ Future<void> _seed(Database db) async {
   await db.execute("UPDATE profile SET name='Saved profile',total_watch_duration=52");
   await db.execute("INSERT INTO relapse_event(id,occurred_on) VALUES ('r1','2026-01-01')");
   await db.execute("INSERT INTO historical(type,query,updated_at) VALUES ('search','Keep',1)");
+  await db.execute("INSERT INTO r18_migration(id,version_after,total_video_after) VALUES ('migration1',20261109,42)");
   await db.execute("INSERT INTO achievement_unlock(id,achievement_key,title,unlocked_at) VALUES ('a1','first','First','2026-01-01')");
 }
 
@@ -150,6 +151,21 @@ void main() {
     await migrated.validate(database: db);
     old['database_version'] = DBUpdate.version;
     expect(() => AppBackup.decode(jsonEncode(old)), throwsFormatException);
+  });
+
+  test('v19 and early v20 backups without migration history remain restorable', () async {
+    await _seed(db);
+    final backup = await AppBackup.capture(db, pref);
+    expect(backup.count('r18_migration'), 1);
+    for (final version in [19, DBUpdate.version]) {
+      final data = jsonDecode(backup.encode()) as Map<String, dynamic>;
+      data['database_version'] = version;
+      data['tables'].remove('r18_migration');
+      final legacy = AppBackup.decode(jsonEncode(data));
+      expect(legacy.count('r18_migration'), 0);
+      await legacy.validate(database: db);
+      expect(await db.query('r18_migration'), hasLength(1));
+    }
   });
 
   test('round trip preserves metadata, relationships, history and settings without video files or PIN', () async {
