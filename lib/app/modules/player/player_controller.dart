@@ -4,9 +4,9 @@ import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:ex_kit/ex.dart';
+import 'package:ffmpeg_kit_flutter_new/media_information.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
@@ -25,7 +25,9 @@ import '../../data/database/db_gamification.dart';
 import '../../data/database/db_videos.dart';
 import '../../data/models/videos_entity.dart';
 import '../../utils/helper.dart';
+import '../../utils/helper_media.dart';
 import '../../utils/player_audio_normalization.dart';
+import '../../utils/player_vr_format.dart';
 import '../../utils/semantic_search_service.dart';
 import '../../utils/watch_session_tracker.dart';
 import '../home/home_controller.dart';
@@ -33,8 +35,7 @@ import '../home/home_panel/home_panel_video_info.dart';
 import '../widgets/widget_thumbnail.dart';
 import '../widgets/widget_video_properties.dart';
 
-enum VrProjection { vr180, vr360 }
-enum VrLayout { mono, sideBySide, topBottom }
+export '../../utils/player_vr_format.dart' show VrProjection, VrLayout;
 
 class PlayerController extends GetxController with StateMixin<Videos>, GetSingleTickerProviderStateMixin {
   final count = 0.obs;
@@ -64,6 +65,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   bool _vrViewPending = false;
   bool _vrNeedsCleanup = false;
   bool _closing = false;
+  int _vrDetection = 0;
   Future<void> _vrUpdate = Future<void>.value();
   String? _vrPreviousHwdec;
   Offset _appliedVideoPan = Offset.zero;
@@ -140,7 +142,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     player = Player(
       configuration: PlayerConfiguration(
         vo: 'libmpv',
-        logLevel: kDebugMode ? MPVLogLevel.debug : MPVLogLevel.warn,
+        logLevel: MPVLogLevel.warn,
         title: AppIdentity.displayName,
         ready: () => AppLog.logD('player is ready'),
       ),
@@ -213,6 +215,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     try {
       await (_playerInitialization ??= initializePlayer());
       if (!await _openVideo(video)) return false;
+      final vrDetection = _vrDetection;
       _externalPlaylist = playlist;
       currentVideo.value = video;
 
@@ -226,6 +229,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       isMiniMode.value = false;
       change(video, status: RxStatus.success());
       requestFocusOnPlayer();
+      unawaited(_detectVr(video, vrDetection));
       return true;
     } finally {
       _openingVideo = false;
@@ -556,6 +560,8 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       position.value = Duration.zero;
       duration.value = Duration.zero;
       await setVideoZoom(1);
+      vrProjection.value = VrProjection.vr360;
+      vrLayout.value = VrLayout.mono;
 
       await player.open(
         Media(Uri.file(path).toString()),
@@ -652,7 +658,27 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     return _zoomUpdate;
   }
 
+  Future<MediaInformation?> readVrMetadata(String path) => HelperMedia.readFile(path).timeout(const Duration(seconds: 2));
+
+  Future<void> _detectVr(Videos video, int request) async {
+    if (player.platform is! NativePlayer || _closing || request != _vrDetection) return;
+    MediaInformation? information;
+    try {
+      information = await readVrMetadata(video.videoPath!);
+    } catch (e) { AppLog.logD('VR metadata unavailable: $e'); }
+    if (_closing || request != _vrDetection || !isPlayerVisible.value || !identical(currentVideo.value, video)) return;
+    final properties = information?.getAllProperties();
+    final format = properties?['format'];
+    final detected = detectVrFormat(video.videoPath!,
+      stream: HelperMedia.videoStream(information)?.getAllProperties(),
+      formatTags: format is Map && format['tags'] is Map ? format['tags'] as Map : null);
+    vrProjection.value = detected?.projection ?? VrProjection.vr360;
+    vrLayout.value = detected?.layout ?? VrLayout.mono;
+    if (detected?.projection != null) await setVr360Enabled(true);
+  }
+
   Future<void> setVr360Enabled(bool enabled) async {
+    _vrDetection++;
     if (_closing) return;
     if (isVr360Changing.value) {
       await _vrUpdate;
@@ -726,6 +752,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   }
 
   Future<void> setVrFormat({VrProjection? projection, VrLayout? layout}) {
+    _vrDetection++;
     if (isVr360Changing.value || _closing) return Future<void>.value();
     if (projection != null) vrProjection.value = projection;
     if (layout != null) vrLayout.value = layout;
@@ -756,7 +783,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   }
 
   Future<void> _updateVrView() {
-    if (!isVr360Enabled.value || _vrViewPending || _closing) return _vrUpdate;
+    if (!isVr360Enabled.value || _vrViewPending || _closing || _vrView == _vrAppliedView) return _vrUpdate;
     _vrViewPending = true;
     _vrUpdate = _vrUpdate.then((_) async {
       try {
@@ -765,6 +792,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
           await Future<void>.delayed(const Duration(milliseconds: 34));
           if (isVr360Changing.value || _closing) break;
           final view = _vrView;
+          if (view == _vrAppliedView) break;
           final platform = player.platform as NativePlayer;
           // shortcut: replace the projection for older libmpv, use live commands once the minimum version supports them.
           await platform.command(['vf', 'add', _vr360Filter()]);
@@ -1116,6 +1144,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     _openingVideo = true;
     try {
       if (!await _openVideo(newVideo)) return;
+      final vrDetection = _vrDetection;
       currentVideo.value = newVideo;
       await generatePlaylist();
       try {
@@ -1124,6 +1153,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
       if (!identical(currentVideo.value, newVideo)) return;
       change(newVideo, status: RxStatus.success());
       requestFocusOnPlayer();
+      unawaited(_detectVr(newVideo, vrDetection));
     } finally {
       _openingVideo = false;
     }

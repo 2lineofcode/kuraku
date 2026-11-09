@@ -938,14 +938,14 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     final changing = controller.isVr360Changing.value;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(children: [
-        Text('VR', style: const TextStyle(color: Colors.white, fontSize: 12)).expand(),
-        if (enabled) _buildControlIcon(icon: CupertinoIcons.scope, size: 16, tooltip: 'Recenter'.tr, onTap: controller.resetVrView),
         CupertinoSwitch(value: enabled, onChanged: changing ? null : (value) async {
           await controller.setVr360Enabled(value);
           if (!mounted) return;
           if (controller.isVr360Enabled.value != value) _showInfo('VR unavailable'.tr);
           _showControls();
         }),
+        'VR'.text.white.size(12).make().pOnly(left: 8).expand(),
+        if (enabled) _buildControlIcon(icon: CupertinoIcons.scope, size: 16, tooltip: 'Recenter'.tr, onTap: controller.resetVrView),
       ]),
       if (enabled) IgnorePointer(ignoring: changing, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         const SizedBox(height: 4),
@@ -996,8 +996,7 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
               ],
             ),
-            _buildVrControls(),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Wrap(spacing: 6, runSpacing: 6, children: [
               for (final name in _videoPresetNames) _buildPresetChip(name),
             ]),
@@ -1091,6 +1090,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               ),
               'Audio Normalization'.tr.text.white.size(12).make().pOnly(left: 8).expand(),
             ]),
+            const SizedBox(height: 8),
+            _buildVrControls(),
             const SizedBox(height: 8),
             Row(
               children: [

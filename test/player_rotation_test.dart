@@ -233,6 +233,26 @@ void main() {
     await controller.setVr360Enabled(false);
   });
 
+  test('unchanged VR views and coalesced return drags do not rebuild the filter', () async {
+    Get.put(AppSettingService()..pref = _Preferences());
+    addTearDown(Get.reset);
+    final native = _NativePlayer()..properties['hwdec'] = 'no';
+    final controller = PlayerController()..player = _Player(native);
+    await controller.setVr360Enabled(true);
+    native.commands.clear();
+    await controller.resetVrView();
+    await controller.setVrFieldOfView(90);
+    await controller.setVrFormat(projection: VrProjection.vr360, layout: VrLayout.mono);
+    await Future.wait([
+      controller.lookAroundVr360(const Offset(100, 0), const Size(800, 600)),
+      controller.lookAroundVr360(const Offset(-100, 0), const Size(800, 600)),
+    ]);
+    expect(native.commands, isEmpty);
+    await controller.lookAroundVr360(const Offset(100, 0), const Size(800, 600));
+    expect(native.commands, hasLength(1));
+    await controller.setVr360Enabled(false);
+  });
+
   test('failed VR removal retains active state and failed decoding restore can be retried', () async {
     Get.put(AppSettingService()..pref = _Preferences());
     addTearDown(Get.reset);
@@ -316,7 +336,7 @@ void main() {
     expect(player.subtitles, isEmpty);
     picker.result = Future.value(_SubtitleFile(file.path));
     await controller.pickSubtitle();
-    expect(Uri.parse(player.subtitles.single.id).toFilePath(), file.path);
+    expect(Uri.parse(player.subtitles.single.id), file.uri);
     final pending = Completer<PlatformFile?>();
     picker.result = pending.future;
     final selection = controller.pickSubtitle();
@@ -340,7 +360,7 @@ void main() {
     controller.isPlayerVisible.value = true;
     await controller.loadSubtitle(file.path);
     expect(player.subtitles.single.uri, isTrue);
-    expect(Uri.parse(player.subtitles.single.id).toFilePath(), file.path);
+    expect(Uri.parse(player.subtitles.single.id), file.uri);
     expect(player.subtitles.single.title, 'English subtitle #1.SRT');
     expect(controller.currentVideo.value.videoPath, '/movies/video.mp4');
     await controller.selectSubtitle(SubtitleTrack.no());

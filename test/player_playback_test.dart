@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:ffmpeg_kit_flutter_new/media_information.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -113,6 +114,9 @@ class _VideoController implements VideoController {
 class _Controller extends PlayerController {
   final fakePlayer = _Player();
   Completer<void>? overlay;
+  Future<MediaInformation?> Function(String)? vrProbe;
+  @override
+  Future<MediaInformation?> readVrMetadata(String path) async => vrProbe == null ? null : await vrProbe!(path);
   @override
   Future<void> initializePlayer() async {
     player = fakePlayer;
@@ -186,6 +190,114 @@ void main() {
     expect(AppPref.getPlayerAudioNormalization(), isFalse);
   });
 
+  playbackTest('VR filename detection activates once, allows overrides and resets on the next video', (tester) async {
+    await pump(tester);
+    final native = _NativePlayer();
+    controller.fakePlayer.platform = native;
+    final first = video('ABC-123-VR.mp4');
+    final second = video('ordinary.mp4');
+    expect(await controller.startPlayback(first, playlist: [first, second]), isTrue);
+    await tester.pump();
+    expect(controller.isVr360Enabled.value, isTrue);
+    expect(controller.vrProjection.value, VrProjection.vr180);
+    expect(controller.vrLayout.value, VrLayout.sideBySide);
+    await controller.setVr360Enabled(false);
+    await tester.pump();
+    expect(controller.isVr360Enabled.value, isFalse);
+    await controller.nextVideo();
+    await tester.pump();
+    expect(controller.vrProjection.value, VrProjection.vr360);
+    expect(controller.vrLayout.value, VrLayout.mono);
+    expect(controller.isVr360Enabled.value, isFalse);
+    await controller.prevVideo();
+    await tester.pump();
+    expect(controller.isVr360Enabled.value, isTrue);
+  });
+
+  playbackTest('delayed VR metadata cannot overwrite manual choices or a newer video', (tester) async {
+    await pump(tester);
+    controller.fakePlayer.platform = _NativePlayer();
+    final pending = Completer<MediaInformation?>();
+    controller.vrProbe = (_) => pending.future;
+    final first = video('ABC-123-VR.mp4');
+    expect(await controller.startPlayback(first), isTrue);
+    await controller.setVrFormat(projection: VrProjection.vr360, layout: VrLayout.topBottom);
+    pending.complete(null);
+    await tester.pump();
+    expect(controller.isVr360Enabled.value, isFalse);
+    expect(controller.vrProjection.value, VrProjection.vr360);
+    expect(controller.vrLayout.value, VrLayout.topBottom);
+
+    final nextProbe = Completer<MediaInformation?>();
+    controller.vrProbe = (_) => nextProbe.future;
+    expect(await controller.startPlayback(first), isTrue);
+    controller.vrProbe = (_) async => null;
+    expect(await controller.startPlayback(video('ordinary.mp4')), isTrue);
+    nextProbe.complete(null);
+    await tester.pump();
+    expect(controller.isVr360Enabled.value, isFalse);
+    expect(controller.vrProjection.value, VrProjection.vr360);
+    expect(controller.vrLayout.value, VrLayout.mono);
+
+    final stoppedProbe = Completer<MediaInformation?>();
+    controller.vrProbe = (_) => stoppedProbe.future;
+    expect(await controller.startPlayback(first), isTrue);
+    await controller.stopPlayback();
+    stoppedProbe.complete(null);
+    await tester.pump();
+    expect(controller.isVr360Enabled.value, isFalse);
+  });
+
+  playbackTest('manual VR choices during slow playlist loading survive initial opens and video changes', (tester) async {
+    await pump(tester);
+    controller.fakePlayer.platform = _NativePlayer();
+    final first = video('ordinary.mp4');
+    final next = video('ABC-123-VR.mp4');
+    for (final changeExisting in [false, true]) {
+      expect(await controller.startPlayback(first), isTrue);
+      await tester.pump();
+      final playlistQuery = Completer<void>();
+      database.playlistQuery = playlistQuery;
+      final opening = changeExisting ? controller.changeVideo(next) : controller.startPlayback(next);
+      await tester.pump();
+      try {
+        expect(controller.currentVideo.value, same(next));
+        await controller.setVrFormat(projection: VrProjection.vr360, layout: VrLayout.topBottom);
+      } finally {
+        playlistQuery.complete();
+      }
+      await opening;
+      await tester.pump();
+      expect(controller.isVr360Enabled.value, isFalse);
+      expect(controller.vrProjection.value, VrProjection.vr360);
+      expect(controller.vrLayout.value, VrLayout.topBottom);
+      database.playlistQuery = null;
+    }
+  });
+
+  playbackTest('VR metadata wins over the filename and probe failures use filename fallback', (tester) async {
+    await pump(tester);
+    controller.fakePlayer.platform = _NativePlayer();
+    controller.vrProbe = (_) async => MediaInformation({'streams': [{
+      'codec_type': 'video', 'width': 2048, 'height': 1024,
+      'side_data_list': [
+        {'side_data_type': 'Spherical Mapping', 'projection': 'equirectangular'},
+        {'side_data_type': 'Stereo 3D', 'type': 'top and bottom'},
+      ],
+    }]});
+    expect(await controller.startPlayback(video('ABC-123-VR.mp4')), isTrue);
+    await tester.pump();
+    expect(controller.isVr360Enabled.value, isTrue);
+    expect(controller.vrProjection.value, VrProjection.vr360);
+    expect(controller.vrLayout.value, VrLayout.topBottom);
+    controller.vrProbe = (_) async => throw const FormatException('Missing metadata');
+    expect(await controller.startPlayback(video('DEF-456-VR.mp4')), isTrue);
+    await tester.pump();
+    expect(controller.isVr360Enabled.value, isTrue);
+    expect(controller.vrProjection.value, VrProjection.vr180);
+    expect(controller.vrLayout.value, VrLayout.sideBySide);
+  });
+
   playbackTest('a failed VR cleanup never opens or counts the next video', (tester) async {
     await pump(tester);
     final native = _NativePlayer();
@@ -235,7 +347,7 @@ void main() {
     for (final name in ['Video #1.mp4', 'Video %20.mp4', if (!Platform.isWindows) 'Video ?1.mp4']) {
       final item = video(name);
       expect(await controller.startPlayback(item, playlist: [item]), isTrue);
-      expect(controller.fakePlayer.opened.last.uri, item.videoPath);
+      expect(File(controller.fakePlayer.opened.last.uri).uri, File(item.videoPath!).uri);
       expect(controller.currentVideo.value, same(item));
       expect(database.views[item.id], 1);
       expect(controller.isPlayerVisible.value, isTrue);

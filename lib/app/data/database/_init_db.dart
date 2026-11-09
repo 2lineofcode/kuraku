@@ -7,6 +7,7 @@ import 'package:glob/glob.dart';
 import 'package:glob/list_local_fs.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:uuid/v4.dart';
 
 import '../../core/app_logging.dart';
 import '../../core/app_setting.dart';
@@ -116,14 +117,23 @@ class DBService extends GetxService {
   }
 
   Future<void> activateR18Database(String path, int version) async {
+    final previous = dbR18;
     final next = await openDatabase(path, version: version, onConfigure: _onConfigure);
     try {
       await prepareR18VideoCodes(next);
+      final before = previous == null ? null : (await previous.rawQuery('SELECT count(*) AS total FROM derived_video')).single['total'] as int;
+      final after = (await next.rawQuery('SELECT count(*) AS total FROM derived_video')).single['total'] as int;
+      await dbMain.insert('r18_migration', {
+        'id': const UuidV4().generate(),
+        'version_before': await previous?.getVersion(),
+        'version_after': await next.getVersion(),
+        'total_video_before': before,
+        'total_video_after': after,
+      });
     } catch (_) {
       if (next != dbR18) await next.close();
       rethrow;
     }
-    final previous = dbR18;
     dbR18 = next;
     try {
       await previous?.close();

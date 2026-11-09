@@ -6,8 +6,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:kuraku/app/core/app_setting.dart';
 import 'package:kuraku/app/data/database/_init_db.dart';
+import 'package:kuraku/app/data/database/_update_db.dart';
 import 'package:kuraku/app/utils/r18_updater.dart';
 import 'package:path/path.dart' as p;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import 'sqlite_test_database.dart';
 
 class _DatabaseService extends DBService {
   int? activatedVersion;
@@ -24,6 +28,56 @@ class _RealHttpOverrides extends HttpOverrides {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('R18 activation records before and after counts and preserves the active catalog when history fails', () async {
+    final folder = await Directory.systemTemp.createTemp('r18 history ');
+    final main = await SqliteTestDatabase.open();
+    sqfliteFfiInit();
+    final originalFactory = databaseFactoryOrNull;
+    databaseFactory = databaseFactoryFfi;
+    final service = DBService()..dbMain = main;
+    addTearDown(() async {
+      await service.dbR18?.close();
+      await main.close();
+      databaseFactoryOrNull = originalFactory;
+      await folder.delete(recursive: true);
+    });
+    await DBService.onCreate(main, DBUpdate.version);
+    Future<String> catalog(int version, int count) async {
+      final path = p.join(folder.path, 'r18_$version.db');
+      final db = await openDatabase(path, version: version);
+      await db.execute('CREATE TABLE derived_video (video_code TEXT)');
+      await db.execute('CREATE TABLE kuraku_catalog_groups_v2 (id INTEGER)');
+      for (var i = 0; i < count; i++) {
+        await db.insert('derived_video', {'video_code': 'ABC-$i'});
+      }
+      await db.close();
+      return path;
+    }
+    final first = await catalog(20261020, 3);
+    await service.activateR18Database(first, 20261020);
+    var rows = await main.query('r18_migration');
+    expect(rows, hasLength(1));
+    expect(rows.single, containsPair('version_before', null));
+    expect(rows.single, containsPair('total_video_before', null));
+    expect(rows.single, containsPair('version_after', 20261020));
+    expect(rows.single, containsPair('total_video_after', 3));
+    final second = await catalog(20261027, 2);
+    await main.execute("CREATE TRIGGER fail_history BEFORE INSERT ON r18_migration BEGIN SELECT RAISE(ABORT, 'History failed'); END");
+    await expectLater(service.activateR18Database(second, 20261027), throwsA(isA<DatabaseException>()));
+    expect(await service.dbR18!.getVersion(), 20261020);
+    expect(await File(first).exists(), isTrue);
+    expect(await main.query('r18_migration'), hasLength(1));
+    await main.execute('DROP TRIGGER fail_history');
+    await service.activateR18Database(second, 20261027);
+    rows = await main.query('r18_migration', where: 'version_after = ?', whereArgs: [20261027]);
+    expect(rows.single, containsPair('version_before', 20261020));
+    expect(rows.single, containsPair('total_video_before', 3));
+    expect(rows.single, containsPair('total_video_after', 2));
+    expect(await main.query('r18_migration'), hasLength(2));
+    expect(await service.dbR18!.getVersion(), 20261027);
+    expect(await File(first).exists(), isFalse);
+  });
+
   test('Local selection chooses the newest newer dump and ignores stale, empty and malformed files', () async {
     final folder = await Directory.systemTemp.createTemp('r18 local selection ');
     addTearDown(() => folder.delete(recursive: true));

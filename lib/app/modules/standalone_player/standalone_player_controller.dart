@@ -6,7 +6,6 @@ import 'dart:ui' show ImageFilter;
 import 'package:ex_kit/ex.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
@@ -141,7 +140,7 @@ class StandalonePlayerController extends GetxController with StateMixin<Videos>,
     player = Player(
       configuration: PlayerConfiguration(
         vo: 'libmpv',
-        logLevel: kDebugMode ? MPVLogLevel.debug : MPVLogLevel.warn,
+        logLevel: MPVLogLevel.warn,
         title: 'Player',
         ready: () => debugPrint('player is ready'),
       ),

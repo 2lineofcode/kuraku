@@ -311,7 +311,7 @@ void main() {
     expect(controller.playlist, hasLength(2));
     expect(controller.currentVideo.value.title, 'first #1');
     expect(controller.currentVideo.value.videoCode, isNull);
-    expect(controller.fakePlayer.opened.single.uri, first.videoPath);
+    expect(File(controller.fakePlayer.opened.single.uri).uri, File(first.videoPath!).uri);
     expect(controller.isPlayerVisible.value, isTrue);
     await controller.nextVideo();
     expect(controller.currentVideo.value.videoPath, second.videoPath);
