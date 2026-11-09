@@ -86,16 +86,22 @@ class _NativePlayer implements NativePlayer {
   bool failZoom = false;
   bool failPan = false;
   bool rejectVr = false;
+  bool failVrRemoval = false;
+  bool failHwdecRestore = false;
 
   @override
   Future<void> command(List<String> command, {bool waitForInitialization = true}) async {
     if (failRotation) throw StateError('Rotation failed');
     commands.add(command);
     if (command[0] == 'vf') {
+      if (command[1] == 'remove' && failVrRemoval) throw StateError('VR filter removal failed');
       if (command[1] == 'add' && !rejectVr) properties['vf'] = command[2];
       if (command[1] == 'remove') properties['vf'] = '';
     }
-    if (command[0] == 'set') properties[command[1]] = command[2];
+    if (command[0] == 'set') {
+      if (command[1] == 'hwdec' && command[2] != 'auto-copy' && failHwdecRestore) throw StateError('Restore failed');
+      properties[command[1]] = command[2];
+    }
   }
 
   @override
@@ -180,6 +186,72 @@ void main() {
     expect(native.properties['hwdec'], 'no');
   });
 
+  test('VR 360 restores decoding even when unsupported filter cleanup fails', () async {
+    Get.put(AppSettingService()..pref = _Preferences());
+    addTearDown(Get.reset);
+    final native = _NativePlayer()..properties['hwdec'] = 'no';
+    native.rejectVr = true;
+    native.failVrRemoval = true;
+    final controller = PlayerController()..player = _Player(native);
+    await controller.setVr360Enabled(true);
+    expect(controller.isVr360Enabled.value, isFalse);
+    expect(controller.isVr360Changing.value, isFalse);
+    expect(native.properties['hwdec'], 'no');
+  });
+
+  test('VR formats, FOV and recenter use a single-eye viewport and coalesce updates', () async {
+    Get.put(AppSettingService()..pref = _Preferences());
+    addTearDown(Get.reset);
+    final native = _NativePlayer()..properties['hwdec'] = 'no';
+    final controller = PlayerController()..player = _Player(native);
+    await controller.setVr360Enabled(true);
+    for (final projection in VrProjection.values) {
+      for (final layout in VrLayout.values) {
+        await controller.setVrFormat(projection: projection, layout: layout);
+        final filter = native.properties['vf']!;
+        expect(filter, contains('input=${projection == VrProjection.vr180 ? 'he' : 'e'}:'));
+        expect(filter, contains('in_stereo=${['2d', 'sbs', 'tb'][layout.index]}:out_stereo=2d'));
+      }
+    }
+    await controller.setVrFieldOfView(1);
+    expect(controller.vrFieldOfView.value, 40);
+    await controller.setVrFieldOfView(999);
+    expect(controller.vrFieldOfView.value, 120);
+    await controller.setVrFieldOfView(double.nan);
+    expect(controller.vrFieldOfView.value, 120);
+    native.commands.clear();
+    await Future.wait(List.generate(100, (_) => controller.lookAroundVr360(const Offset(2, 1), const Size(800, 600))));
+    expect(native.commands, hasLength(1));
+    await controller.resetVrView();
+    expect(native.properties['vf'], contains('h_fov=90.0'));
+    expect(native.properties['vf'], contains('yaw=0.0:pitch=0.0'));
+    native.failRotation = true;
+    await controller.setVrFormat(projection: VrProjection.vr180, layout: VrLayout.mono);
+    expect(controller.vrProjection.value, VrProjection.vr360);
+    expect(controller.vrLayout.value, VrLayout.topBottom);
+    native.failRotation = false;
+    await controller.setVr360Enabled(false);
+  });
+
+  test('failed VR removal retains active state and failed decoding restore can be retried', () async {
+    Get.put(AppSettingService()..pref = _Preferences());
+    addTearDown(Get.reset);
+    final native = _NativePlayer()..properties['hwdec'] = 'no';
+    final controller = PlayerController()..player = _Player(native);
+    await controller.setVr360Enabled(true);
+    native.failVrRemoval = true;
+    await controller.setVr360Enabled(false);
+    expect(controller.isVr360Enabled.value, isTrue);
+    native.failVrRemoval = false;
+    native.failHwdecRestore = true;
+    await controller.setVr360Enabled(false);
+    expect(controller.isVr360Enabled.value, isFalse);
+    expect(native.properties['vf'], isEmpty);
+    native.failHwdecRestore = false;
+    await controller.setVr360Enabled(false);
+    expect(native.properties['hwdec'], 'no');
+  });
+
   testWidgets('VR 360 switch changes mouse drag from flat pan to look controls', (tester) async {
     tester.view.physicalSize = const Size(1400, 1400);
     tester.view.devicePixelRatio = 1;
@@ -194,11 +266,22 @@ void main() {
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.comma);
     await tester.pumpAndSettle();
-    final vrSwitch = find.descendant(of: find.ancestor(of: find.text('VR 360'), matching: find.byType(Row)).first, matching: find.byType(CupertinoSwitch));
+    final vrSwitch = find.descendant(of: find.ancestor(of: find.text('VR'), matching: find.byType(Row)).first, matching: find.byType(CupertinoSwitch));
     await tester.ensureVisible(vrSwitch);
     await tester.tap(vrSwitch);
     await tester.pumpAndSettle();
     expect(controller.isVr360Enabled.value, isTrue);
+    await tester.tap(find.text('180°'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('SBS'));
+    await tester.pumpAndSettle();
+    expect(controller.vrProjection.value, VrProjection.vr180);
+    expect(controller.vrLayout.value, VrLayout.sideBySide);
+    for (final width in [480.0, 1400.0]) {
+      tester.view.physicalSize = Size(width, 1400);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
     await tester.tap(find.byTooltip('Close').last);
     await tester.pumpAndSettle();
     native.commands.clear();
