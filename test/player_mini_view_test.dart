@@ -38,6 +38,9 @@ class _Controller extends PlayerController {
   Duration? lastSeek;
 
   @override
+  Future<void> resetVrView() async => calls.add('recenter');
+
+  @override
   // ignore: must_call_super
   void onInit() {}
 
@@ -117,6 +120,16 @@ void main() {
     await settle(tester);
     expect(find.text('ABP-001'), findsNothing);
     expect(find.byType(IconButton), findsNothing);
+  });
+
+  testWidgets('recenter is available only during VR playback', (tester) async {
+    await pump(tester);
+    expect(find.byTooltip('Recenter'), findsNothing);
+    controller.isVr360Enabled.value = true;
+    await settle(tester);
+    await tester.tap(find.byTooltip('Recenter'));
+    expect(controller.calls, contains('recenter'));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('prefers the video code and falls back to the title', (tester) async {

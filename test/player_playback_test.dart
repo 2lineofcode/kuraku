@@ -54,6 +54,7 @@ class _Player implements Player {
   bool failOpen = false;
   Completer<void>? opening;
   int stops = 0;
+  bool disposed = false;
   @override
   PlatformPlayer? platform;
   @override
@@ -72,7 +73,7 @@ class _Player implements Player {
   @override
   Future<void> setVolume(double volume) async {}
   @override
-  Future<void> dispose() async {}
+  Future<void> dispose() async { disposed = true; }
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -81,13 +82,25 @@ class _NativePlayer extends Fake implements NativePlayer {
   final commands = <List<String>>[];
   String filter = '';
   bool rejectFilter = false;
+  bool failVrRemoval = false;
+  Completer<void>? addingVr;
+  String vrFilter = '';
+  String hwdec = 'no';
   @override
   Future<void> command(List<String> command, {bool waitForInitialization = true}) async {
     commands.add(command);
-    if (!rejectFilter || command.last.isEmpty) filter = command.last;
+    if (command.first == 'af' && (!rejectFilter || command.last.isEmpty)) filter = command.last;
+    if (command.first == 'vf') {
+      if (command[1] == 'remove' && failVrRemoval) throw StateError('VR removal failed');
+      if (command[1] == 'add') await addingVr?.future;
+      vrFilter = command[1] == 'remove' ? '' : command.last;
+    }
+    if (command.first == 'set' && command[1] == 'hwdec') hwdec = command.last;
   }
   @override
-  Future<String> getProperty(String property, {bool waitForInitialization = true}) async => filter;
+  Future<String> getProperty(String property, {bool waitForInitialization = true}) async => property == 'vf' ? vrFilter : property == 'hwdec' ? hwdec : filter;
+  @override
+  Future<void> setProperty(String property, String value, {bool waitForInitialization = true}) async {}
 }
 
 class _VideoController implements VideoController {
@@ -171,6 +184,50 @@ void main() {
     expect(native.commands.last, ['af', 'set', '']);
     expect(controller.isAudioNormalizationEnabled.value, isFalse);
     expect(AppPref.getPlayerAudioNormalization(), isFalse);
+  });
+
+  playbackTest('a failed VR cleanup never opens or counts the next video', (tester) async {
+    await pump(tester);
+    final native = _NativePlayer();
+    controller.fakePlayer.platform = native;
+    final first = video('first.mp4');
+    final second = video('second.mp4');
+    expect(await controller.startPlayback(first, playlist: [first, second]), isTrue);
+    await controller.setVr360Enabled(true);
+    native.failVrRemoval = true;
+    expect(await controller.startPlayback(second), isFalse);
+    expect(controller.currentVideo.value, same(first));
+    expect(controller.fakePlayer.opened, hasLength(1));
+    expect(database.views[second.id], isNull);
+    native.failVrRemoval = false;
+    expect(await controller.startPlayback(second), isTrue);
+    expect(controller.isVr360Enabled.value, isFalse);
+    expect(native.vrFilter, isEmpty);
+    expect(native.hwdec, 'no');
+  });
+
+  testWidgets('closing waits for pending VR commands and ignores subsequent VR input', (tester) async {
+    controller = _Controller()..onStart();
+    await pump(tester);
+    final native = _NativePlayer();
+    controller.fakePlayer.platform = native;
+    expect(await controller.startPlayback(video('first.mp4')), isTrue);
+    native.addingVr = Completer<void>();
+    final enabling = controller.setVr360Enabled(true);
+    await tester.pump();
+    final closing = controller.onClose();
+    await tester.pump();
+    expect(controller.fakePlayer.disposed, isFalse);
+    native.addingVr!.complete();
+    await enabling;
+    await closing;
+    expect(controller.fakePlayer.disposed, isTrue);
+    final commandCount = native.commands.length;
+    await controller.lookAroundVr360(const Offset(20, 10), const Size(800, 600));
+    await controller.resetVrView();
+    await controller.setVr360Enabled(false);
+    expect(native.commands, hasLength(commandCount));
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   playbackTest('playback preserves raw filesystem names when opening file URIs', (tester) async {

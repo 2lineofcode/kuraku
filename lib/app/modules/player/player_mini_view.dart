@@ -182,6 +182,12 @@ class _MiniPlayerCard extends StatelessWidget {
               ),
             ),
           ),
+          Obx(() => controller.isVr360Enabled.value ? AppIconButton(
+            iconSize: AppStyle.iconSize,
+            tooltip: 'Recenter'.tr,
+            icon: const Icon(CupertinoIcons.scope, color: Colors.white),
+            onPressed: () => controller.resetVrView(),
+          ) : const SizedBox.shrink()),
           AppIconButton(
             iconSize: AppStyle.iconSize,
             tooltip: 'Previous'.tr,

@@ -33,6 +33,9 @@ import '../home/home_panel/home_panel_video_info.dart';
 import '../widgets/widget_thumbnail.dart';
 import '../widgets/widget_video_properties.dart';
 
+enum VrProjection { vr180, vr360 }
+enum VrLayout { mono, sideBySide, topBottom }
+
 class PlayerController extends GetxController with StateMixin<Videos>, GetSingleTickerProviderStateMixin {
   final count = 0.obs;
   final focusSignal = 0.obs;
@@ -53,7 +56,14 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   final videoPan = Offset.zero.obs;
   final isVr360Enabled = false.obs;
   final isVr360Changing = false.obs;
+  final vrProjection = VrProjection.vr360.obs;
+  final vrLayout = VrLayout.mono.obs;
+  final vrFieldOfView = 90.0.obs;
   Offset _vrDirection = Offset.zero;
+  var _vrAppliedView = (direction: Offset.zero, fov: 90.0, projection: VrProjection.vr360, layout: VrLayout.mono);
+  bool _vrViewPending = false;
+  bool _vrNeedsCleanup = false;
+  bool _closing = false;
   Future<void> _vrUpdate = Future<void>.value();
   String? _vrPreviousHwdec;
   Offset _appliedVideoPan = Offset.zero;
@@ -535,6 +545,10 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
     try {
       await setVr360Enabled(false);
+      if (isVr360Enabled.value || _vrNeedsCleanup || _vrPreviousHwdec != null) {
+        await HelperToast.error('Could not leave VR mode. Try again.'.tr);
+        return false;
+      }
       _watchVideoReady = false;
       _watchTracker.setVideo(video);
       isInitialized.value = false;
@@ -639,11 +653,16 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
   }
 
   Future<void> setVr360Enabled(bool enabled) async {
+    if (_closing) return;
     if (isVr360Changing.value) {
       await _vrUpdate;
       return setVr360Enabled(enabled);
     }
-    if (enabled == isVr360Enabled.value) return;
+    if (enabled && !isVr360Enabled.value && (_vrNeedsCleanup || _vrPreviousHwdec != null)) {
+      await setVr360Enabled(false);
+      if (_vrNeedsCleanup || _vrPreviousHwdec != null) return;
+    }
+    if (enabled == isVr360Enabled.value && (enabled || !_vrNeedsCleanup && _vrPreviousHwdec == null)) return;
     final platform = player.platform;
     if (platform is! NativePlayer) return;
     isVr360Changing.value = true;
@@ -654,26 +673,39 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
           _vrPreviousHwdec = await platform.getProperty('hwdec');
           await platform.command(['set', 'hwdec', 'auto-copy']);
           // shortcut: render a 720p viewport, raise it after profiling high-resolution VR playback.
-          await platform.command(['vf', 'add', _vr360Filter(Offset.zero)]);
+          _vrDirection = Offset.zero;
+          vrFieldOfView.value = 90;
+          _vrNeedsCleanup = true;
+          await platform.command(['vf', 'add', _vr360Filter()]);
           if (!(await platform.getProperty('vf')).contains('kuraku-vr360')) {
             throw StateError('The VR 360 filter was not applied');
           }
         } else {
-          await platform.command(['vf', 'remove', '@kuraku-vr360']);
-          if ((await platform.getProperty('vf')).contains('kuraku-vr360')) {
-            throw StateError('The VR 360 filter was not removed');
+          if (_vrNeedsCleanup) {
+            await platform.command(['vf', 'remove', '@kuraku-vr360']);
+            if ((await platform.getProperty('vf')).contains('kuraku-vr360')) {
+              throw StateError('The VR 360 filter was not removed');
+            }
+            _vrNeedsCleanup = false;
           }
-          await platform.command(['set', 'hwdec', _vrPreviousHwdec ?? 'auto-safe']);
+          isVr360Enabled.value = false;
+          if (_vrPreviousHwdec != null) await platform.command(['set', 'hwdec', _vrPreviousHwdec!]);
+          _vrPreviousHwdec = null;
         }
         _vrDirection = Offset.zero;
         isVr360Enabled.value = enabled;
+        _vrAppliedView = _vrView;
       } catch (e) {
         AppLog.logW('VR 360 toggle failed: $e');
         if (enabled) {
           try {
             await platform.command(['vf', 'remove', '@kuraku-vr360']);
-            if (_vrPreviousHwdec != null) await platform.command(['set', 'hwdec', _vrPreviousHwdec!]);
+            _vrNeedsCleanup = (await platform.getProperty('vf')).contains('kuraku-vr360');
           } catch (rollback) { AppLog.logW('VR 360 rollback failed: $rollback'); }
+          try {
+            if (_vrPreviousHwdec != null) await platform.command(['set', 'hwdec', _vrPreviousHwdec!]);
+            _vrPreviousHwdec = null;
+          } catch (rollback) { AppLog.logW('VR 360 decoding rollback failed: $rollback'); }
         }
       } finally {
         isVr360Changing.value = false;
@@ -682,22 +714,72 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
     await _vrUpdate;
   }
 
-  String _vr360Filter(Offset direction) => '@kuraku-vr360:lavfi=[v360=input=e:output=flat:w=1280:h=720:h_fov=90:v_fov=58.7155:yaw=${direction.dx}:pitch=${direction.dy}]';
+  ({Offset direction, double fov, VrProjection projection, VrLayout layout}) get _vrView =>
+      (direction: _vrDirection, fov: vrFieldOfView.value, projection: vrProjection.value, layout: vrLayout.value);
+
+  String _vr360Filter() {
+    final fov = vrFieldOfView.value;
+    final vertical = 2 * math.atan(math.tan(fov * math.pi / 360) * 9 / 16) * 180 / math.pi;
+    final input = vrProjection.value == VrProjection.vr180 ? 'he' : 'e';
+    final stereo = switch (vrLayout.value) { VrLayout.mono => '2d', VrLayout.sideBySide => 'sbs', VrLayout.topBottom => 'tb' };
+    return '@kuraku-vr360:lavfi=[v360=input=$input:output=flat:in_stereo=$stereo:out_stereo=2d:w=1280:h=720:h_fov=$fov:v_fov=$vertical:yaw=${_vrDirection.dx}:pitch=${_vrDirection.dy}]';
+  }
+
+  Future<void> setVrFormat({VrProjection? projection, VrLayout? layout}) {
+    if (isVr360Changing.value || _closing) return Future<void>.value();
+    if (projection != null) vrProjection.value = projection;
+    if (layout != null) vrLayout.value = layout;
+    _vrDirection = Offset.zero;
+    return _updateVrView();
+  }
+
+  Future<void> setVrFieldOfView(double value) {
+    if (!value.isFinite || !isVr360Enabled.value || isVr360Changing.value || _closing) return Future<void>.value();
+    vrFieldOfView.value = value.clamp(40.0, 120.0);
+    return _updateVrView();
+  }
+
+  Future<void> resetVrView() {
+    if (!isVr360Enabled.value || isVr360Changing.value || _closing) return Future<void>.value();
+    _vrDirection = Offset.zero;
+    vrFieldOfView.value = 90;
+    return _updateVrView();
+  }
 
   Future<void> lookAroundVr360(Offset delta, Size viewport) {
-    if (!isVr360Enabled.value || isVr360Changing.value || viewport.isEmpty || !viewport.width.isFinite || !viewport.height.isFinite || !delta.dx.isFinite || !delta.dy.isFinite) return Future<void>.value();
-    final target = Offset(
-      ((_vrDirection.dx - delta.dx / viewport.width * 180 + 180) % 360) - 180,
-      (_vrDirection.dy + delta.dy / viewport.height * 90).clamp(-89.0, 89.0),
+    if (!isVr360Enabled.value || isVr360Changing.value || _closing || viewport.isEmpty || !viewport.width.isFinite || !viewport.height.isFinite || !delta.dx.isFinite || !delta.dy.isFinite) return Future<void>.value();
+    _vrDirection = Offset(
+      ((_vrDirection.dx - delta.dx / viewport.width * vrFieldOfView.value * 2 + 180) % 360) - 180,
+      (_vrDirection.dy + delta.dy / viewport.height * vrFieldOfView.value).clamp(-89.0, 89.0),
     );
-    _vrDirection = target;
+    return _updateVrView();
+  }
+
+  Future<void> _updateVrView() {
+    if (!isVr360Enabled.value || _vrViewPending || _closing) return _vrUpdate;
+    _vrViewPending = true;
     _vrUpdate = _vrUpdate.then((_) async {
-      if (!isVr360Enabled.value || isVr360Changing.value || target != _vrDirection) return;
-      final platform = player.platform as NativePlayer;
       try {
-        // shortcut: replace the projection for older libmpv, use live commands once the minimum version supports them.
-        await platform.command(['vf', 'add', _vr360Filter(target)]);
-      } catch (e) { AppLog.logW('VR 360 look failed: $e'); }
+        while (isVr360Enabled.value && !isVr360Changing.value && !_closing) {
+          // Rebuilding v360 is costly; coalesce pointer events to at most 30 updates per second.
+          await Future<void>.delayed(const Duration(milliseconds: 34));
+          if (isVr360Changing.value || _closing) break;
+          final view = _vrView;
+          final platform = player.platform as NativePlayer;
+          // shortcut: replace the projection for older libmpv, use live commands once the minimum version supports them.
+          await platform.command(['vf', 'add', _vr360Filter()]);
+          _vrAppliedView = view;
+          if (view == _vrView) break;
+        }
+      } catch (e) {
+        _vrDirection = _vrAppliedView.direction;
+        vrFieldOfView.value = _vrAppliedView.fov;
+        vrProjection.value = _vrAppliedView.projection;
+        vrLayout.value = _vrAppliedView.layout;
+        AppLog.logW('VR view update failed: $e');
+      } finally {
+        _vrViewPending = false;
+      }
     });
     return _vrUpdate;
   }
@@ -1115,6 +1197,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
 
   @override
   Future<void> onClose() async {
+    _closing = true;
     _watchVideoReady = false;
     try {
       try { await _watchTracker.close(); } catch (e) { AppLog.logW('Failed to close watch session: $e'); }
@@ -1125,6 +1208,7 @@ class PlayerController extends GetxController with StateMixin<Videos>, GetSingle
           await _playerInitialization;
           for (final subscription in _subscriptions) { await subscription.cancel(); }
           await _zoomUpdate;
+          await _vrUpdate;
           await player.dispose();
         }
       } finally {

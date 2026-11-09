@@ -266,10 +266,14 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTap: _onUserInteraction,
-                onScaleStart: (_) => _pinchStartZoom = widget.controller.videoZoom.value,
+                onScaleStart: (_) => _pinchStartZoom = widget.controller.isVr360Enabled.value ? 90 / widget.controller.vrFieldOfView.value : widget.controller.videoZoom.value,
                 onScaleUpdate: (details) {
                   if (details.pointerCount >= 2) {
-                    unawaited(widget.controller.setVideoZoom(_pinchStartZoom * details.scale));
+                    if (widget.controller.isVr360Enabled.value) {
+                      unawaited(widget.controller.setVrFieldOfView(90 / (_pinchStartZoom * details.scale)));
+                    } else {
+                      unawaited(widget.controller.setVideoZoom(_pinchStartZoom * details.scale));
+                    }
                   }
                   if ((widget.controller.isVr360Enabled.value || widget.controller.videoZoom.value > 1) && details.focalPointDelta != Offset.zero) {
                     unawaited(widget.controller.panVideo(details.focalPointDelta, context.size ?? Size.zero));
@@ -281,7 +285,15 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
                     Positioned(
                       top: MediaQuery.sizeOf(context).width < 512 ? 144 : 96,
                       left: 12,
-                      child: Obx(() => widget.controller.videoZoom.value > 1
+                      child: Obx(() => widget.controller.isVr360Enabled.value
+                          ? Tooltip(message: 'Drag to look around · Pinch to zoom'.tr, child: CupertinoButton(
+                              color: Colors.black54,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              minimumSize: const Size(32, 32),
+                              onPressed: widget.controller.isVr360Changing.value ? null : widget.controller.resetVrView,
+                              child: Text('VR · Recenter'.tr),
+                            ))
+                          : widget.controller.videoZoom.value > 1
                           ? CupertinoButton(
                               color: Colors.black54,
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -920,6 +932,52 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
     onTap: _toggleVideoAdjustments,
   );
 
+  Widget _buildVrControls() => Obx(() {
+    final controller = widget.controller;
+    final enabled = controller.isVr360Enabled.value;
+    final changing = controller.isVr360Changing.value;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(children: [
+        Text('VR', style: const TextStyle(color: Colors.white, fontSize: 12)).expand(),
+        if (enabled) _buildControlIcon(icon: CupertinoIcons.scope, size: 16, tooltip: 'Recenter'.tr, onTap: controller.resetVrView),
+        CupertinoSwitch(value: enabled, onChanged: changing ? null : (value) async {
+          await controller.setVr360Enabled(value);
+          if (!mounted) return;
+          if (controller.isVr360Enabled.value != value) _showInfo('VR unavailable'.tr);
+          _showControls();
+        }),
+      ]),
+      if (enabled) IgnorePointer(ignoring: changing, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const SizedBox(height: 4),
+        CupertinoSlidingSegmentedControl<VrProjection>(
+          groupValue: controller.vrProjection.value, thumbColor: Colors.white24, backgroundColor: Colors.white10,
+          children: const {
+            VrProjection.vr180: Text('180°', style: TextStyle(color: Colors.white, fontSize: 12)),
+            VrProjection.vr360: Text('360°', style: TextStyle(color: Colors.white, fontSize: 12)),
+          },
+          onValueChanged: (value) { if (value != null) controller.setVrFormat(projection: value); },
+        ),
+        const SizedBox(height: 8),
+        CupertinoSlidingSegmentedControl<VrLayout>(
+          groupValue: controller.vrLayout.value, thumbColor: Colors.white24, backgroundColor: Colors.white10,
+          children: {
+            VrLayout.mono: const Text('Mono', style: TextStyle(color: Colors.white, fontSize: 12)),
+            VrLayout.sideBySide: Tooltip(message: 'Side by side'.tr, child: const Text('SBS', style: TextStyle(color: Colors.white, fontSize: 12))),
+            VrLayout.topBottom: Tooltip(message: 'Top / bottom'.tr, child: const Text('TB', style: TextStyle(color: Colors.white, fontSize: 12))),
+          },
+          onValueChanged: (value) { if (value != null) controller.setVrFormat(layout: value); },
+        ),
+        const SizedBox(height: 8),
+        Row(children: [
+          Tooltip(message: 'Zoom out'.tr, child: const Icon(CupertinoIcons.zoom_out, color: Colors.white70, size: 16)),
+          Expanded(child: Semantics(label: 'VR zoom'.tr, child: _buildCompactSlider(min: 40, max: 120, value: 160 - controller.vrFieldOfView.value,
+            onChanged: (value) => controller.setVrFieldOfView(160 - value)))),
+          Tooltip(message: 'Zoom in'.tr, child: const Icon(CupertinoIcons.zoom_in, color: Colors.white70, size: 16)),
+        ]),
+      ])),
+    ]);
+  });
+
   Widget _buildVideoAdjustmentsPopup() {
     return SingleChildScrollView(
       child: Padding(
@@ -938,7 +996,8 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
               ],
             ),
-            const SizedBox(height: 4),
+            _buildVrControls(),
+            const SizedBox(height: 8),
             Wrap(spacing: 6, runSpacing: 6, children: [
               for (final name in _videoPresetNames) _buildPresetChip(name),
             ]),
@@ -1013,23 +1072,6 @@ class _PlayerControlsState extends State<PlayerControls> with SingleTickerProvid
 
             Divider(color: Colors.white30).pOnly(bottom: 8),
 
-            Row(children: [
-              Obx(() => CupertinoSwitch(
-                value: widget.controller.isVr360Enabled.value,
-                onChanged: widget.controller.isVr360Changing.value ? null : (enabled) async {
-                  await widget.controller.setVr360Enabled(enabled);
-                  if (!mounted) return;
-                  if (widget.controller.isVr360Enabled.value != enabled) _showInfo('VR 360 unavailable'.tr);
-                  _showControls();
-                },
-              )),
-              const SizedBox(width: 8),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('VR 360'.tr, style: const TextStyle(color: Colors.white, fontSize: 12)),
-                Text('360° mono · Drag to look around'.tr, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-              ])),
-            ]),
-            const SizedBox(height: 8),
             HStack([
               Obx(
                 () => CupertinoSwitch(
