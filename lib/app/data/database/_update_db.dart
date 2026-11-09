@@ -25,7 +25,25 @@ mixin DBUpdate {
     17: (name: 'Preserve file identity across library moves', run: _v17FileIdentity),
     18: (name: 'Add library image albums', run: _v18ImageAlbums),
     19: (name: 'Add configurable search sites', run: _v19SearchSites),
+    20: (name: 'Add R18 migration history', run: _v20R18Migration),
   };
+
+  static Future<void> _v20R18Migration(Database db) async {
+    await db.execute('''CREATE TABLE r18_migration (
+      id TEXT NOT NULL PRIMARY KEY CHECK(length(trim(id)) > 0),
+      version_before INTEGER,
+      version_after INTEGER NOT NULL CHECK(version_after > 0),
+      total_video_before INTEGER CHECK(total_video_before >= 0),
+      total_video_after INTEGER NOT NULL CHECK(total_video_after >= 0),
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CHECK (
+        (version_before IS NULL AND total_video_before IS NULL)
+        OR
+        (version_before IS NOT NULL AND version_before > 0
+          AND total_video_before IS NOT NULL)
+      )
+    )''');
+  }
 
   static Future<void> _v19SearchSites(Database db) async {
     await db.execute('''CREATE TABLE search_site (

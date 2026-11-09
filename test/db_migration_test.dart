@@ -6,6 +6,8 @@ import 'package:kuraku/app/data/database/_init_db.dart';
 import 'package:kuraku/app/data/database/_update_db.dart';
 import 'package:sqflite/sqflite.dart';
 
+import 'sqlite_test_database.dart';
+
 class _Database implements Database {
   final statements = <String>[];
   bool hasPlaylistId = false;
@@ -40,14 +42,14 @@ void main() {
 
   test('Migration runner respects target versions, rejects downgrade and stops on failure', () async {
     final db = _Database();
-    expect(DBUpdate.version, 19);
+    expect(DBUpdate.version, 20);
     await DBUpdate.onUpgrade(db, 1, 3);
     expect(db.statements.where((sql) => sql.contains('CREATE TABLE IF NOT EXISTS watch_session')).length, 2);
     expect(db.statements.any((sql) => sql.contains('DROP TABLE') || sql.contains('playlist_id') || sql.contains('historical') || sql.contains('chat_')), isFalse);
     db.statements.clear();
     await DBUpdate.onUpgrade(db, 8, 8);
     expect(db.statements, isEmpty);
-    for (final range in [(0, 8), (8, 7), (19, 20)]) {
+    for (final range in [(0, 8), (8, 7), (20, 21)]) {
       await expectLater(DBUpdate.onUpgrade(db, range.$1, range.$2), throwsStateError);
     }
     await expectLater(DBUpdate.onDowngrade(db, 9, 8), throwsStateError);
@@ -56,6 +58,41 @@ void main() {
     await expectLater(DBUpdate.onUpgrade(db, 5, 8), throwsStateError);
     expect(db.statements.any((sql) => sql.contains('ADD COLUMN playlist_id')), isTrue);
     expect(db.statements.any((sql) => sql.contains('chat_conversation')), isFalse);
+  });
+
+  test('R18 migration history accepts first installs and updates, rejects invalid snapshots', () async {
+    final db = await SqliteTestDatabase.open();
+    addTearDown(db.close);
+    await DBService.onCreate(db, 19);
+    final sites = await db.query('search_site');
+    await DBUpdate.onUpgrade(db, 19, 20);
+    expect(await db.query('search_site'), sites);
+    expect(await db.query('r18_migration'), isEmpty);
+    const insert = 'INSERT INTO r18_migration (id, version_before, version_after, total_video_before, total_video_after) VALUES (?, ?, ?, ?, ?)';
+    await db.execute(insert, ['first', null, 20261020, null, 1914173]);
+    await db.execute(insert, ['update', 20261020, 20261027, 1914173, 1914000]);
+    final rows = await db.query('r18_migration', orderBy: 'id');
+    expect(rows, hasLength(2));
+    expect(rows.first['version_before'], isNull);
+    expect(rows.first['total_video_before'], isNull);
+    expect(rows.first['created_at'], isNotEmpty);
+    expect(rows.last['total_video_after'], 1914000);
+    for (final values in <List<Object?>>[
+      ['first', null, 20261020, null, 1],
+      [' ', null, 20261020, null, 1],
+      [null, null, 20261020, null, 1],
+      ['bad', null, null, null, 1],
+      ['bad', null, 0, null, 1],
+      ['bad', null, 20261020, null, null],
+      ['bad', null, 20261020, null, -1],
+      ['bad', 0, 20261020, 1, 1],
+      ['bad', 20261020, 20261027, -1, 1],
+      ['bad', 20261020, 20261027, null, 1],
+      ['bad', null, 20261027, 1, 1],
+    ]) {
+      await expectLater(db.execute(insert, values), throwsA(isA<DatabaseException>()));
+    }
+    expect(await db.query('r18_migration'), hasLength(2));
   });
 
   test('Unsupported collection types stop migration before any changes', () async {
